@@ -1,0 +1,11 @@
+{   "name": "csv syntax",
+    "scopeName": "text.csv",
+    "fileTypes": ["csv"],
+    "patterns": [
+        { "match": "ABCD",
+          "name": "keyword"
+        }
+
+    ],
+    "uuid": "ca03e352-04ef-4340-9a6b-9b99aae1c418"
+}

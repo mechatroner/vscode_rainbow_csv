@@ -25,7 +25,7 @@
         "commands": [{
             "command": "extension.sayHello",
             "title": "Hello World"
-        },
+        }],
         "languages": [{
             "id": "csv",
             "extensions": [".csv"]
@@ -37,12 +37,12 @@
         "grammars": [{
             "language": "csv",
             "scopeName": "text.csv",
-            "path": "./syntaxes/csv.tmLanguage"
+            "path": "./syntaxes/csv.tmLanguage.json"
         },
         {
             "language": "tsv",
             "scopeName": "text.tsv",
-            "path": "./syntaxes/tsv.tmLanguage"
+            "path": "./syntaxes/tsv.tmLanguage.json"
         }]
     },
     "scripts": {
