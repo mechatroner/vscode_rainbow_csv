@@ -1,14 +1,21 @@
 {
     "name": "rainbow_csv",
     "displayName": "rainbow_csv",
-    "description": "test ext",
+    "description": "rainbow_csv: highlight csv/tsv files and execute SQL queries",
     "version": "0.0.1",
     "publisher": "name",
     "engines": {
         "vscode": "^1.19.0"
     },
+    "keywords": [
+        "csv",
+        "tsv",
+        "highlight",
+        "sql"
+    ],
     "categories": [
-        "Other"
+        "Other",
+        "Languages"
     ],
     "activationEvents": [
         "onCommand:extension.sayHello"
@@ -18,6 +25,24 @@
         "commands": [{
             "command": "extension.sayHello",
             "title": "Hello World"
+        },
+        "languages": [{
+            "id": "csv",
+            "extensions": [".csv"]
+        },
+        {
+            "id": "tsv",
+            "extensions": [".tsv"]
+        }],
+        "grammars": [{
+            "language": "csv",
+            "scopeName": "text.csv",
+            "path": "./syntaxes/csv.tmLanguage"
+        },
+        {
+            "language": "tsv",
+            "scopeName": "text.tsv",
+            "path": "./syntaxes/tsv.tmLanguage"
         }]
     },
     "scripts": {
