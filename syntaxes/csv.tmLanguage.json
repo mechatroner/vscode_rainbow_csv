@@ -2,8 +2,11 @@
     "scopeName": "text.csv",
     "fileTypes": ["csv"],
     "patterns": [
-        { "match": "ABCD",
-          "name": "keyword"
+        { "match": "([^,]*,)[^,]*,",
+          "name": "keyword",
+          "captures": {
+              "1": {"name": "comment"}
+          }
         }
 
     ],
