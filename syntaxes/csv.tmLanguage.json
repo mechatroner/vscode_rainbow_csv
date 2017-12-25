@@ -2,11 +2,10 @@
     "scopeName": "text.csv",
     "fileTypes": ["csv"],
     "patterns": [
-        { "match": "([^,]*,)?([^,]*,)?[^,]*,?",
+        { "match": "((?:\"(?:[^\"]*\"\")*[^\"]*\",)|(?:[^,]*,))?(?:(?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))",
           "name": "keyword",
           "captures": {
-              "1": {"name": "comment"},
-              "2": {"name": "string"}
+              "1": {"name": "comment"}
           }
         }
 
