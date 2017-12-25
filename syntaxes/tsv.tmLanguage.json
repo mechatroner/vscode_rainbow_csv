@@ -2,8 +2,19 @@
     "scopeName": "text.tsv",
     "fileTypes": ["tsv"],
     "patterns": [
-        { "match": "ABCD",
-          "name": "keyword"
+        { "match": "(?:[^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)",
+          "name": "rainbow.first",
+          "captures": {
+              "1": {"name": "keyword"},
+              "2": {"name": "comment"},
+              "3": {"name": "string"},
+              "4": {"name": "constant.numeric"},
+              "5": {"name": "variable.parameter"},
+              "6": {"name": "entity.name.function"},
+              "7": {"name": "entity.name.type"},
+              "8": {"name": "markup.bold"},
+              "9": {"name": "invalid"}
+          }
         }
 
     ],
