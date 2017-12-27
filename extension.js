@@ -1,30 +1,40 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
 function activate(context) {
 
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // This line of code will only be executed once when your extension is activated
-    console.log('Congratulations, your extension "rainbow_csv" is now active!');
+    oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
+    oc_log.show();
+    oc_log.appendLine('Activating "rainbow_csv"');
 
-    // The command has been defined in the package.json file
-    // Now provide the implementation of the command with  registerCommand
-    // The commandId parameter must match the command field in package.json
-    let disposable = vscode.commands.registerCommand('extension.sayHello', function () {
-        // The code you place here will be executed every time your command is executed
+    console.log('Activating "rainbow_csv"');
 
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Hello World and rainbow_csv!');
+    csv_provider = vscode.languages.registerHoverProvider('csv', {
+        provideHover(document, position, token) {
+            return new vscode.Hover('I am a hover!');
+        }
     });
 
+    tsv_provider = vscode.languages.registerHoverProvider('tsv', {
+        provideHover(document, position, token) {
+            return new vscode.Hover('I am a hover!');
+        }
+    });
+
+    context.subscriptions.push(csv_provider);
+    context.subscriptions.push(tsv_provider);
+
+    let disposable = vscode.commands.registerCommand('extension.sayHello', function () {
+        oc_log.appendLine('hello world!');
+        vscode.window.showInformationMessage('Hello World and rainbow_csv!');
+    });
     context.subscriptions.push(disposable);
+
 }
+
 exports.activate = activate;
 
-// this method is called when your extension is deactivated
 function deactivate() {
+    // this method is called when extension is deactivated
 }
+
 exports.deactivate = deactivate;

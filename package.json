@@ -18,7 +18,7 @@
         "Languages"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello"
+        "onCommand:extension.sayHello", "*", "onLanguage:csv", "onLanguage:tsv"
     ],
     "main": "./extension",
     "contributes": {
@@ -44,6 +44,9 @@
             "scopeName": "text.tsv",
             "path": "./syntaxes/tsv.tmLanguage.json"
         }]
+    },
+    "capabilities": {
+        "hoverProvider": "true"
     },
     "scripts": {
         "postinstall": "node ./node_modules/vscode/bin/install",
