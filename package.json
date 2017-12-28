@@ -18,14 +18,10 @@
         "Languages"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello", "*", "onLanguage:csv", "onLanguage:tsv"
+        "onLanguage:csv", "onLanguage:tsv"
     ],
     "main": "./extension",
     "contributes": {
-        "commands": [{
-            "command": "extension.sayHello",
-            "title": "Hello World"
-        }],
         "languages": [{
             "id": "csv",
             "extensions": [".csv"]
