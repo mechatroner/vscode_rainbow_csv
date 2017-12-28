@@ -6,11 +6,11 @@
           "name": "rainbow.first",
           "captures": {
               "1": {"name": "keyword"},
-              "2": {"name": "comment"},
-              "3": {"name": "string"},
-              "4": {"name": "constant.numeric"},
+              "2": {"name": "entity.name.function"},
+              "3": {"name": "comment"},
+              "4": {"name": "string"},
               "5": {"name": "variable.parameter"},
-              "6": {"name": "entity.name.function"},
+              "6": {"name": "constant.numeric"},
               "7": {"name": "entity.name.type"},
               "8": {"name": "markup.bold"},
               "9": {"name": "invalid"}

@@ -1,25 +1,31 @@
 const vscode = require('vscode');
 
 
-function split_quoted_str(src, dlm, query_position_idx) {
+function split_simple_str(src, dlm, query_position_idx) {
     var query_result = null;
+    var fields = src.split(dlm);
+    var total_len = 0;
+    for (var i = 0; i < fields.length; i++) {
+        total_len += fields[i].length + 1;
+        if (query_result === null && query_position_idx < total_len) {
+            query_result = i;
+        }
+    }
+    if (query_result === null) {
+        query_result = fields.length - 1;
+    }
+    return [fields, false, query_result];
+}
+
+
+function split_quoted_str(src, dlm, query_position_idx) {
     if (src.indexOf('"') == -1) {
-        var fields = src.split(dlm);
-        var total_len = 0;
-        for (var i = 0; i < fields.length; i++) {
-            total_len += fields[i].length + 1;
-            if (query_result === null && query_position_idx < total_len) {
-                query_result = i;
-            }
-        }
-        if (query_result === null) {
-            query_result = fields.length - 1;
-        }
-        return [fields, false, query_result];
+        return split_simple_str(src, dlm, query_position_idx);
     }
     var result = [];
     var warning = false;
     var cidx = 0;
+    var query_result = null;
     while (cidx < src.length) {
         if (src.charAt(cidx) === '"') {
             var uidx = cidx + 1;
@@ -82,15 +88,21 @@ function activate(context) {
         provideHover(document, position, token) {
             var lnum = position.line;
             var cnum = position.character;
-            var line = document.lineAt(lnum);
-            var fields = split_quoted_str(line, ',');
-            return new vscode.Hover('I am a hover!');
+            var line = document.lineAt(lnum).text;
+            var fields = split_quoted_str(line, ',', cnum);
+            var col_num = fields[2];
+            return new vscode.Hover('col#: ' + (col_num + 1));
         }
     });
 
     tsv_provider = vscode.languages.registerHoverProvider('tsv', {
         provideHover(document, position, token) {
-            return new vscode.Hover('I am a hover!');
+            var lnum = position.line;
+            var cnum = position.character;
+            var line = document.lineAt(lnum).text;
+            var fields = split_simple_str(line, '\t', cnum);
+            var col_num = fields[2];
+            return new vscode.Hover('col#: ' + (col_num + 1));
         }
     });
 
