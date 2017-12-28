@@ -1,9 +1,22 @@
 const vscode = require('vscode');
 
 
-function split_quoted_str(src, dlm) {
-    if (src.indexOf('"') == -1)
-        return [src.split(dlm), false];
+function split_quoted_str(src, dlm, query_position_idx) {
+    var query_result = null;
+    if (src.indexOf('"') == -1) {
+        var fields = src.split(dlm);
+        var total_len = 0;
+        for (var i = 0; i < fields.length; i++) {
+            total_len += fields[i].length + 1;
+            if (query_result === null && query_position_idx < total_len) {
+                query_result = i;
+            }
+        }
+        if (query_result === null) {
+            query_result = fields.length - 1;
+        }
+        return [fields, false, query_result];
+    }
     var result = [];
     var warning = false;
     var cidx = 0;
@@ -13,9 +26,14 @@ function split_quoted_str(src, dlm) {
             while (true) {
                 uidx = src.indexOf('"', uidx);
                 if (uidx == -1) {
+                    if (query_result === null)
+                        query_result = result.length;
                     result.push(src.substring(cidx + 1).replace(/""/g, '"'));
-                    return [result, true];
+                    return [result, true, query_result];
                 } else if (uidx + 1 >= src.length || src.charAt(uidx + 1) == dlm) {
+                    if (query_result === null && query_position_idx <= uidx + 1) {
+                        query_result = result.length;
+                    }
                     result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
                     cidx = uidx + 2;
                     break;
@@ -33,17 +51,23 @@ function split_quoted_str(src, dlm) {
             if (uidx == -1)
                 uidx = src.length;
             var field = src.substring(cidx, uidx);
+            if (query_result === null && query_position_idx <= uidx) {
+                query_result = result.length;
+            }
             if (field.indexOf('"') != -1)
                 warning = true;
             result.push(field);
             cidx = uidx + 1;
         }
     }
-    if (src.charAt(src.length - 1) == dlm)
+    if (src.charAt(src.length - 1) == dlm) {
+        if (query_result === null) {
+            query_result = result.length;
+        }
         result.push('');
-    return [result, warning];
+    }
+    return [result, warning, query_result];
 }
-
 
 
 function activate(context) {
