@@ -76,6 +76,84 @@ function split_quoted_str(src, dlm, query_position_idx) {
 }
 
 
+function guess_if_header(potential_header, sampled_records) {
+    // TODO unit-tests
+
+    // single line - not header
+    if (sampled_records.length < 1)
+        return false;
+
+    // different number of columns - not header
+    var num_fields = potential_header.length;
+    for (var i = 0; i < sampled_records.length; i++) {
+        if (sampled_records[i].length != num_fields)
+            return false;
+    }
+
+    // all sampled lines has a number in a column and potential header doesn't - header
+    for (var c = 0; c < num_fields; c++) {
+        var number_re = /^[0-9]+(?:[.,][0-9]+)?$/;
+        if (potential_header[c].match(number_re))
+            continue;
+        var all_numbers = true;
+        for (var i = 0; i < sampled_records.length; i++) {
+            if (!sampled_records[i][c].match(number_re)) {
+                all_numbers = false;
+                break;
+            }
+        }
+        if (all_numbers)
+            return true;
+    }
+
+    // at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
+    var required_extremes_count = num_fields <= 3 ? 1 : Math.ceil(num_fields * 0.333);
+    var found_extremes = 0;
+    for (var c = 0; c < num_fields; c++) {
+        minl = sampled_records[0][c].length;
+        maxl = sampled_records[0][c].length;
+        for (var i = 1; i < sampled_records.length; i++) {
+            minl = Math.min(minl, sampled_records[i][c].length);
+            maxl = Math.max(maxl, sampled_records[i][c].length);
+        }
+        if (potential_header[c].length > maxl * 2) {
+            found_extremes += 1;
+        }
+        if (potential_header[c].length * 2 < minl) {
+            found_extremes += 1;
+        }
+    }
+    if (found_extremes >= required_extremes_count)
+        return true;
+
+    return false;
+}
+
+
+function guess_document_header(document, delim) {
+    var sampled_records = [];
+    var num_lines = document.lineCount;
+    var head_count = 10;
+    if (num_lines <= head_count * 2) {
+        for (var i = 1; i < num_lines; i++) {
+            sampled_records.push(split_simple_str(document.lineAt(i).text, delim, 0)[0]);
+        }
+    } else {
+        for (var i = 1; i < head_count; i++) {
+            sampled_records.push(split_simple_str(document.lineAt(i).text, delim, 0)[0]);
+        }
+        for (var i = num_lines - head_count; i < num_lines; i++) {
+            sampled_records.push(split_simple_str(document.lineAt(i).text, delim, 0)[0]);
+        }
+    }
+    if (sampled_records.length < 10)
+        return null;
+    var potential_header = split_simple_str(document.lineAt(0).text, delim, 0)[0];
+    var has_header = guess_if_header(potential_header, sampled_records);
+    return has_header ? potential_header : null;
+}
+
+
 function activate(context) {
 
     //oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
