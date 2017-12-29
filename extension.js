@@ -91,7 +91,7 @@ function activate(context) {
             var line = document.lineAt(lnum).text;
             var fields = split_quoted_str(line, ',', cnum);
             var col_num = fields[2];
-            return new vscode.Hover('col#: ' + (col_num + 1));
+            return new vscode.Hover('col# ' + (col_num + 1));
         }
     });
 
@@ -102,7 +102,7 @@ function activate(context) {
             var line = document.lineAt(lnum).text;
             var fields = split_simple_str(line, '\t', cnum);
             var col_num = fields[2];
-            return new vscode.Hover('col#: ' + (col_num + 1));
+            return new vscode.Hover('col# ' + (col_num + 1));
         }
     });
 
