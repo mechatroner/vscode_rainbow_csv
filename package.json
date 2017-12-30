@@ -2,16 +2,15 @@
     "name": "rainbow_csv",
     "displayName": "rainbow_csv",
     "description": "rainbow_csv: highlight csv/tsv files and execute SQL queries",
-    "version": "0.0.1",
-    "publisher": "name",
+    "version": "0.1",
+    "publisher": "Dmitry Ignatovich",
     "engines": {
         "vscode": "^1.19.0"
     },
     "keywords": [
         "csv",
         "tsv",
-        "highlight",
-        "sql"
+        "highlight"
     ],
     "categories": [
         "Other",
