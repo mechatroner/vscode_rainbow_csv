@@ -1,6 +1,6 @@
 const vscode = require('vscode');
 
-rainbow_utils = require('rainbow_utils')
+var rainbow_utils = require('./rainbow_utils');
 
 
 function guess_document_header(document, split_func) {
@@ -18,6 +18,12 @@ function guess_document_header(document, split_func) {
         for (var i = num_lines - head_count; i < num_lines; i++) {
             sampled_records.push(split_func(document.lineAt(i).text));
         }
+    }
+    while (sampled_records.length) {
+        var last = sampled_records[sampled_records.length - 1];
+        if (last.length != 1 || last[0] != "")
+            break;
+        sampled_records.pop();
     }
     if (sampled_records.length < 10)
         return null;
@@ -49,6 +55,7 @@ function make_hover_text(document, position, split_func, delim) {
 
 function activate(context) {
 
+    //oc_log = null;
     //oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
     //oc_log.show();
     //oc_log.appendLine('Activating "rainbow_csv"');
