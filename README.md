@@ -5,6 +5,8 @@
 * Highlight columns in *.csv and *.tsv in different rainbow colors.
 * Provide info about column on mouse hover.
 
+![screenshot](https://i.imgur.com/PRFKVIN.png)
+
 #### Usage
 
 * If your csv or tsv file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "csv" or "tsv" depending on the file content, see this [screenshot](https://stackoverflow.com/a/44111899/2898283)
