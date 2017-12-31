@@ -1,9 +1,10 @@
 {
     "name": "rainbow_csv",
     "displayName": "Rainbow CSV",
-    "description": "rainbow_csv: highlight csv and tsv files in different colors",
+    "description": "Rainbow CSV: highlight csv and tsv files in different colors",
     "version": "0.1",
-    "publisher": "Dmitry Ignatovich",
+    "publisher": "mechatroner",
+    "icon": "./rainbow_csv_logo.png",
     "engines": {
         "vscode": "^1.19.0"
     },
