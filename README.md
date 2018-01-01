@@ -9,7 +9,7 @@
 
 #### Usage
 
-* If your csv or tsv file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "csv" or "tsv" depending on the file content, see this [screenshot](https://stackoverflow.com/a/44111899/2898283)
+* If your csv or tsv file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "csv" or "tsv" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
 #### References
 
