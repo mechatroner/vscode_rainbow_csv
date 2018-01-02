@@ -74,8 +74,6 @@ function split_quoted_str(src, dlm, query_position_idx) {
 
 
 function guess_if_header(potential_header, sampled_records) {
-    // TODO unit-tests
-
     // single line - not header
     if (sampled_records.length < 1)
         return false;
