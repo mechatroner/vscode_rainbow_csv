@@ -87,7 +87,7 @@ function guess_if_header(potential_header, sampled_records) {
 
     // all sampled lines has a number in a column and potential header doesn't - header
     for (var c = 0; c < num_fields; c++) {
-        var number_re = /^[0-9]+(?:[.,][0-9]+)?$/;
+        var number_re = /^-?[0-9]+(?:[.,][0-9]+)?$/;
         if (potential_header[c].match(number_re))
             continue;
         var all_numbers = true;
