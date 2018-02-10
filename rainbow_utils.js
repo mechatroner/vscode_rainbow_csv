@@ -85,14 +85,15 @@ function guess_if_header(potential_header, sampled_records) {
             return false;
     }
 
-    // all sampled lines has a number in a column and potential header doesn't - header
+    // all sampled lines do not have any letters in a column and potential header does - header
+    var optimistic_name_re = /^[a-zA-Z]{3,}/;
+    var pessimistic_name_re = /[a-zA-Z]/;
     for (var c = 0; c < num_fields; c++) {
-        var number_re = /^-?[0-9]+(?:[.,][0-9]+)?$/;
-        if (potential_header[c].match(number_re))
+        if (potential_header[c].match(optimistic_name_re) === null)
             continue;
         var all_numbers = true;
-        for (var i = 0; i < sampled_records.length; i++) {
-            if (!sampled_records[i][c].match(number_re)) {
+        for (var r = 0; r < sampled_records.length; r++) {
+            if (sampled_records[r][c].match(pessimistic_name_re) !== null) {
                 all_numbers = false;
                 break;
             }
@@ -100,27 +101,6 @@ function guess_if_header(potential_header, sampled_records) {
         if (all_numbers)
             return true;
     }
-
-    // at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
-    var required_extremes_count = num_fields <= 3 ? 1 : Math.ceil(num_fields * 0.333);
-    var found_extremes = 0;
-    for (var c = 0; c < num_fields; c++) {
-        minl = sampled_records[0][c].length;
-        maxl = sampled_records[0][c].length;
-        for (var i = 1; i < sampled_records.length; i++) {
-            minl = Math.min(minl, sampled_records[i][c].length);
-            maxl = Math.max(maxl, sampled_records[i][c].length);
-        }
-        if (potential_header[c].length > maxl * 2) {
-            found_extremes += 1;
-        }
-        if (potential_header[c].length * 2 < minl) {
-            found_extremes += 1;
-        }
-    }
-    if (found_extremes >= required_extremes_count)
-        return true;
-
     return false;
 }
 

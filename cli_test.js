@@ -30,7 +30,7 @@ function test3() {
     var header = ['type', 'story'];
     var sampled_entries = [['fairytale', 'Once upon a time there was a beautiful girl who lived...'], ['romance', 'She looked outside her window and saw an approaching ship']];
     var is_header = rainbow_utils.guess_if_header(header, sampled_entries);
-    assert(is_header, "test 3 has failed");
+    assert(!is_header, "test 3 has failed");
 }
 
 function test4() {
@@ -45,6 +45,13 @@ function test5() {
     var sampled_entries = [['Dima', '29'], ['Alice', '1.5'], ['29', 'Liuba']];
     var is_header = rainbow_utils.guess_if_header(header, sampled_entries);
     assert(!is_header, "test 5 has failed");
+}
+
+function test6() {
+    var header = ['type', 'story'];
+    var sampled_entries = [['fairytale', 'Once upon a time there was a beautiful girl who lived... 128'], ['romance', 'She looked outside her window and saw an approaching ship 200']];
+    var is_header = rainbow_utils.guess_if_header(header, sampled_entries);
+    assert(!is_header, "test 6 has failed");
 }
 
 function test_all() {
