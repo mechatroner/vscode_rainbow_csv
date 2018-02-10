@@ -76,8 +76,16 @@ function activate(context) {
         }
     });
 
+    scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
+        provideHover(document, position, token) {
+            hover_text = make_hover_text(document, position, rainbow_utils.split_quoted_str, ';');
+            return new vscode.Hover(hover_text);
+        }
+    });
+
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
+    context.subscriptions.push(scsv_provider);
 }
 
 exports.activate = activate;
