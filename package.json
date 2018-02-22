@@ -18,34 +18,34 @@
         "Languages"
     ],
     "activationEvents": [
-        "onLanguage:csv", "onLanguage:tsv", "onLanguage:csv (semicolon)"
+        "onLanguage:CSV", "onLanguage:TSV", "onLanguage:CSV (semicolon)"
     ],
     "main": "./extension",
     "contributes": {
         "languages": [{
-            "id": "csv",
+            "id": "CSV",
             "extensions": [".csv"]
         },
         {
-            "id": "tsv",
+            "id": "TSV",
             "extensions": [".tsv"]
         },
         {
-            "id": "csv (semicolon)",
+            "id": "CSV (semicolon)",
             "extensions": [".scsv"]
         }],
         "grammars": [{
-            "language": "csv",
+            "language": "CSV",
             "scopeName": "text.csv",
             "path": "./syntaxes/csv.tmLanguage.json"
         },
         {
-            "language": "tsv",
+            "language": "TSV",
             "scopeName": "text.tsv",
             "path": "./syntaxes/tsv.tmLanguage.json"
         },
         {
-            "language": "csv (semicolon)",
+            "language": "CSV (semicolon)",
             "scopeName": "text.scsv",
             "path": "./syntaxes/scsv.tmLanguage.json"
         }]

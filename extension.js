@@ -62,21 +62,21 @@ function activate(context) {
 
     console.log('Activating "rainbow_csv"');
 
-    csv_provider = vscode.languages.registerHoverProvider('csv', {
+    csv_provider = vscode.languages.registerHoverProvider('CSV', {
         provideHover(document, position, token) {
             hover_text = make_hover_text(document, position, rainbow_utils.split_quoted_str, ',');
             return new vscode.Hover(hover_text);
         }
     });
 
-    tsv_provider = vscode.languages.registerHoverProvider('tsv', {
+    tsv_provider = vscode.languages.registerHoverProvider('TSV', {
         provideHover(document, position, token) {
             hover_text = make_hover_text(document, position, rainbow_utils.split_simple_str, '\t');
             return new vscode.Hover(hover_text);
         }
     });
 
-    scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
+    scsv_provider = vscode.languages.registerHoverProvider('CSV (semicolon)', {
         provideHover(document, position, token) {
             hover_text = make_hover_text(document, position, rainbow_utils.split_quoted_str, ';');
             return new vscode.Hover(hover_text);
