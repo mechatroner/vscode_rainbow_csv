@@ -3,6 +3,8 @@ const vscode = require('vscode');
 var rainbow_utils = require('./rainbow_utils');
 
 // FIXME we should also run lint on language change non_csv -> csv
+// FIXME do not autolint huge files
+// FIXME fix unit tests if broken (take from Atom?)
 
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
 
@@ -75,6 +77,26 @@ function make_hover(document, position, language_id, cancellation_token) {
 }
 
 
+function find_error(active_doc, delim, policy) {
+    var num_lines = active_doc.lineCount;
+    var num_fields = null;
+    for (var lnum = 0; lnum < num_lines; lnum++) {
+        var line_text = active_doc.lineAt(lnum).text;
+        if (lnum + 1 == num_lines && !line_text)
+            break;
+        var split_result = rainbow_utils.smart_split(line_text, delim, policy, false);
+        if (split_result[1]) {
+            return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+        }
+        if (lnum === 0)
+            num_fields = split_result[0].length;
+        if (num_fields != split_result[0].length) {
+            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, but line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+        }
+    }
+    return null;
+}
+
 function csv_lint() {
     //vscode.window.showInformationMessage('CSV Lint!');
     var active_window = vscode.window;
@@ -89,13 +111,23 @@ function csv_lint() {
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    //TODO do not autolint huge files
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
-    var num_lines = active_doc.lineCount;
-    for (var lnum = 0; lnum < num_lines; lnum++) {
-        var split_result = rainbow_utils.smart_split(active_doc.lineAt(lnum).text, delim, policy, false);
+    var error_msg = find_error(active_doc, delim, policy);
+    var sb_item = active_window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    sb_item.text = 'CSVLint';
+    var tooltip = '';
+    if (error_msg) {
+        tooltip = error_msg + '\n';
+        sb_item.color = 'red';
+    } else {
+        tooltip = 'OK\n';
+        sb_item.color = 'green';
     }
+    tooltip += 'Click to recheck';
+    sb_item.tooltip = tooltip;
+    sb_item.command = 'extension.CSVLint';
+    sb_item.show();
 }
 
 
