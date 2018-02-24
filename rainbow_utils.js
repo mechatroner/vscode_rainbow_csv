@@ -1,52 +1,30 @@
-function split_simple_str(src, dlm, query_position_idx) {
-    var query_result = null;
-    var fields = src.split(dlm);
-    var total_len = 0;
-    for (var i = 0; i < fields.length; i++) {
-        total_len += fields[i].length + 1;
-        if (query_result === null && query_position_idx < total_len) {
-            query_result = i;
-        }
-    }
-    if (query_result === null) {
-        query_result = fields.length - 1;
-    }
-    return [fields, false, query_result];
-}
-
-
-function split_quoted_str(src, dlm, query_position_idx) {
-    if (src.indexOf('"') == -1) {
-        return split_simple_str(src, dlm, query_position_idx);
-    }
+function split_quoted_str(src, dlm, preserve_quotes=false) {
+    if (src.indexOf('"') == -1)
+        return [src.split(dlm), false];
     var result = [];
-    var warning = false;
     var cidx = 0;
-    var query_result = null;
     while (cidx < src.length) {
         if (src.charAt(cidx) === '"') {
             var uidx = cidx + 1;
             while (true) {
                 uidx = src.indexOf('"', uidx);
                 if (uidx == -1) {
-                    if (query_result === null)
-                        query_result = result.length;
-                    result.push(src.substring(cidx + 1).replace(/""/g, '"'));
-                    return [result, true, query_result];
-                } else if (uidx + 1 >= src.length || src.charAt(uidx + 1) == dlm) {
-                    if (query_result === null && query_position_idx <= uidx + 1) {
-                        query_result = result.length;
+                    result.push(src.substring(cidx));
+                    return [result, true];
+                } else if (uidx + 1 == src.length || src.charAt(uidx + 1) == dlm) {
+                    if (preserve_quotes) {
+                        result.push(src.substring(cidx, uidx + 1));
+                    } else {
+                        result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
                     }
-                    result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
                     cidx = uidx + 2;
                     break;
                 } else if (src.charAt(uidx + 1) == '"') {
                     uidx += 2; 
                     continue;
                 } else {
-                    warning = true;
-                    uidx += 1;
-                    continue;
+                    result.push(src.substring(cidx));
+                    return [result, true];
                 }
             }
         } else {
@@ -54,22 +32,24 @@ function split_quoted_str(src, dlm, query_position_idx) {
             if (uidx == -1)
                 uidx = src.length;
             var field = src.substring(cidx, uidx);
-            if (query_result === null && query_position_idx <= uidx) {
-                query_result = result.length;
+            if (field.indexOf('"') != -1) {
+                result.push(src.substring(cidx));
+                return [result, true];
             }
-            if (field.indexOf('"') != -1)
-                warning = true;
             result.push(field);
             cidx = uidx + 1;
         }
     }
-    if (src.charAt(src.length - 1) == dlm) {
-        if (query_result === null) {
-            query_result = result.length;
-        }
+    if (src.charAt(src.length - 1) == dlm)
         result.push('');
-    }
-    return [result, warning, query_result];
+    return [result, false];
+}
+
+
+function smart_split(src, dlm, policy, preserve_quotes) {
+    if (policy === 'simple')
+        return [src.split(dlm), false];
+    return split_quoted_str(src, dlm, preserve_quotes);
 }
 
 
@@ -105,6 +85,20 @@ function guess_if_header(potential_header, sampled_records) {
 }
 
 
-module.exports.split_simple_str = split_simple_str;
-module.exports.split_quoted_str = split_quoted_str;
+function get_field_by_line_position(fields, query_pos) {
+    if (!fields.length)
+        return null;
+    var col_num = 0;
+    var cpos = fields[col_num].length + 1;
+    while (query_pos > cpos && col_num + 1 < fields.length) {
+        col_num += 1;
+        cpos = cpos + fields[col_num].length + 1;
+    }
+    return col_num;
+}
+
+
+
+module.exports.smart_split = smart_split;
+module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.guess_if_header = guess_if_header;

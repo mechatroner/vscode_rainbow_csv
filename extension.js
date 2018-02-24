@@ -2,23 +2,26 @@ const vscode = require('vscode');
 
 var rainbow_utils = require('./rainbow_utils');
 
-// FIXME replace split functions with proper js versions from atom
+// FIXME we should also run lint on language change non_csv -> csv
 
+var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
 
-function guess_document_header(document, split_func) {
+var oc_log = null; // for debug
+
+function guess_document_header(document, delim, policy) {
     var sampled_records = [];
     var num_lines = document.lineCount;
     var head_count = 10;
     if (num_lines <= head_count * 2) {
         for (var i = 1; i < num_lines; i++) {
-            sampled_records.push(split_func(document.lineAt(i).text));
+            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
         }
     } else {
         for (var i = 1; i < head_count; i++) {
-            sampled_records.push(split_func(document.lineAt(i).text));
+            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
         }
         for (var i = num_lines - head_count; i < num_lines; i++) {
-            sampled_records.push(split_func(document.lineAt(i).text));
+            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
         }
     }
     while (sampled_records.length) {
@@ -29,29 +32,46 @@ function guess_document_header(document, split_func) {
     }
     if (sampled_records.length < 10)
         return null;
-    var potential_header = split_func(document.lineAt(0).text);
+    var potential_header = rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
     var has_header = rainbow_utils.guess_if_header(potential_header, sampled_records);
     return has_header ? potential_header : null;
 }
 
 
-function make_hover_text(document, position, split_func, delim) {
+function make_hover_text(document, position, language_id) {
+    var delim = dialect_map[language_id][0];
+    var policy = dialect_map[language_id][1];
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
-    var report = split_func(line, delim, cnum);
-    var col_num = report[2];
+
+    var report = rainbow_utils.smart_split(line, delim, policy, false);
+
     var entries = report[0];
+    var warning = report[1];
+    var col_num = rainbow_utils.get_field_by_line_position(entries, cnum + 1);
+
+    if (col_num == null)
+        return null;
     var result = 'col# ' + (col_num + 1);
-    split_func_simple = function(text) {
-        return split_func(text, delim, 0)[0];
-    }
-    var header = guess_document_header(document, split_func_simple);
+    if (warning)
+        return result + '; This line has quoting error!';
+    var header = guess_document_header(document, delim, policy);
     if (header !== null && header.length == entries.length) {
         var column_name = header[col_num];
         result += ', "' + column_name + '"';
     }
     return result;
+}
+
+
+function make_hover(document, position, language_id, cancellation_token) {
+    var hover_text = make_hover_text(document, position, language_id);
+    if (hover_text && !cancellation_token.isCancellationRequested) {
+        return new vscode.Hover(hover_text);
+    } else {
+        return null;
+    }
 }
 
 
@@ -67,27 +87,20 @@ function csv_lint() {
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
-    var dialect_map = {
-        'CSV': [rainbow_utils.split_quoted_str, ','],
-        'TSV': [rainbow_utils.split_simple_str, '\t'],
-        'CSV (semicolon)': [rainbow_utils.split_quoted_str, ',']
-    };
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     //TODO do not autolint huge files
-    var split_func = dialect_map[language_id][0];
-    var delim = dialect_map[language_id][1];
+    var delim = dialect_map[language_id][0];
+    var policy = dialect_map[language_id][1];
     var num_lines = active_doc.lineCount;
     for (var lnum = 0; lnum < num_lines; lnum++) {
-        var line_text = active_doc.lineAt(lnum).text;
-        var split_result = split_func(document.lineAt(lnum).text, delim);
+        var split_result = rainbow_utils.smart_split(active_doc.lineAt(lnum).text, delim, policy, false);
     }
 }
 
 
 function activate(context) {
 
-    //oc_log = null;
     //oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
     //oc_log.show();
     //oc_log.appendLine('Activating "rainbow_csv"');
@@ -96,22 +109,19 @@ function activate(context) {
 
     var csv_provider = vscode.languages.registerHoverProvider('CSV', {
         provideHover(document, position, token) {
-            hover_text = make_hover_text(document, position, rainbow_utils.split_quoted_str, ',');
-            return new vscode.Hover(hover_text);
+            return make_hover(document, position, 'CSV', token);
         }
     });
 
     var tsv_provider = vscode.languages.registerHoverProvider('TSV', {
         provideHover(document, position, token) {
-            hover_text = make_hover_text(document, position, rainbow_utils.split_simple_str, '\t');
-            return new vscode.Hover(hover_text);
+            return make_hover(document, position, 'TSV', token);
         }
     });
 
     var scsv_provider = vscode.languages.registerHoverProvider('CSV (semicolon)', {
         provideHover(document, position, token) {
-            hover_text = make_hover_text(document, position, rainbow_utils.split_quoted_str, ';');
-            return new vscode.Hover(hover_text);
+            return make_hover(document, position, 'CSV (semicolon)', token);
         }
     });
 

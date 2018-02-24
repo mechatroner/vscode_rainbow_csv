@@ -1,4 +1,4 @@
-# rainbow_csv
+# Rainbow CSV
 
 #### Main features
 
