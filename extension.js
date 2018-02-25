@@ -3,12 +3,15 @@ const vscode = require('vscode');
 var rainbow_utils = require('./rainbow_utils');
 
 // FIXME we should also run lint on language change non_csv -> csv
-// FIXME do not autolint huge files
 // FIXME fix unit tests if broken (take from Atom?)
+// FIXME move file max autolint size to config
 
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
 
 var oc_log = null; // for debug
+
+var lint_results = new Map();
+var sb_item = null;
 
 function guess_document_header(document, delim, policy) {
     var sampled_records = [];
@@ -77,7 +80,7 @@ function make_hover(document, position, language_id, cancellation_token) {
 }
 
 
-function find_error(active_doc, delim, policy) {
+function produce_lint_report(active_doc, delim, policy, max_check_size) {
     var num_lines = active_doc.lineCount;
     var num_fields = null;
     for (var lnum = 0; lnum < num_lines; lnum++) {
@@ -91,43 +94,89 @@ function find_error(active_doc, delim, policy) {
         if (lnum === 0)
             num_fields = split_result[0].length;
         if (num_fields != split_result[0].length) {
-            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, but line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+        }
+        if (max_check_size && lnum > max_check_size) {
+            return 'File is too big: autocheck was cancelled';
         }
     }
-    return null;
+    return 'OK';
 }
 
-function csv_lint() {
-    //vscode.window.showInformationMessage('CSV Lint!');
+
+function get_active_doc() {
     var active_window = vscode.window;
     if (!active_window)
-        return;
+        return null;
     var active_editor = active_window.activeTextEditor;
     if (!active_editor)
-        return;
+        return null;
     var active_doc = active_editor.document;
     if (!active_doc)
+        return null;
+    return active_doc;
+}
+
+
+function csv_lint_cmd() {
+    csv_lint(false);
+}
+
+function csv_lint(autolint) {
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    var file_path = active_doc.fileName;
+    if (!file_path)
+        return;
+    if (autolint && lint_results.has(file_path))
         return;
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
-    var error_msg = find_error(active_doc, delim, policy);
-    var sb_item = active_window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    var max_check_size = autolint ? 100000 : null;
+    var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
+    lint_results.set(file_path, lint_report);
+    show_linter_state();
+}
+
+
+
+function show_linter_state() {
+    if (sb_item)
+        sb_item.hide();
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    var language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    var file_path = active_doc.fileName;
+    if (!lint_results.has(file_path))
+        return;
+    var lint_report = lint_results.get(file_path);
+    if (!sb_item)
+        sb_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     sb_item.text = 'CSVLint';
-    var tooltip = '';
-    if (error_msg) {
-        tooltip = error_msg + '\n';
-        sb_item.color = 'red';
+    if (lint_report === 'OK') {
+        sb_item.color = '#62f442';
+    } else if (lint_report.indexOf('File is too big') != -1) {
+        sb_item.color = '#ffff28';
     } else {
-        tooltip = 'OK\n';
-        sb_item.color = 'green';
+        sb_item.color = '#f44242';
     }
-    tooltip += 'Click to recheck';
-    sb_item.tooltip = tooltip;
+    // FIXME add info how much time ago was the last check
+    sb_item.tooltip = lint_report + '\nClick to recheck';
     sb_item.command = 'extension.CSVLint';
     sb_item.show();
+}
+
+
+function handle_editor_change(editor) {
+    csv_lint(true);
+    show_linter_state();
 }
 
 
@@ -136,8 +185,6 @@ function activate(context) {
     //oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
     //oc_log.show();
     //oc_log.appendLine('Activating "rainbow_csv"');
-
-    console.log('Activating "rainbow_csv"');
 
     var csv_provider = vscode.languages.registerHoverProvider('CSV', {
         provideHover(document, position, token) {
@@ -157,13 +204,17 @@ function activate(context) {
         }
     });
 
-    var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint);
+    var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
+
+    var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
     context.subscriptions.push(lint_cmd);
+    context.subscriptions.push(switch_event);
 }
+
 
 exports.activate = activate;
 
