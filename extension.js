@@ -2,9 +2,7 @@ const vscode = require('vscode');
 
 var rainbow_utils = require('./rainbow_utils');
 
-// FIXME we should also run lint on language change non_csv -> csv
 // FIXME fix unit tests if broken (take from Atom?)
-// FIXME move file max autolint size to config
 
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
 
@@ -71,6 +69,11 @@ function make_hover_text(document, position, language_id) {
 
 
 function make_hover(document, position, language_id, cancellation_token) {
+    setTimeout(function() { 
+        if (csv_lint(true, document)) {
+            show_linter_state();
+        }
+    });
     var hover_text = make_hover_text(document, position, language_id);
     if (hover_text && !cancellation_token.isCancellationRequested) {
         return new vscode.Hover(hover_text);
@@ -119,27 +122,30 @@ function get_active_doc() {
 
 
 function csv_lint_cmd() {
-    csv_lint(false);
+    csv_lint(false, null);
+    show_linter_state();
 }
 
-function csv_lint(autolint) {
-    var active_doc = get_active_doc();
+function csv_lint(autolint, active_doc) {
     if (!active_doc)
-        return;
+        active_doc = get_active_doc();
+    if (!active_doc)
+        return false;
     var file_path = active_doc.fileName;
     if (!file_path)
-        return;
-    if (autolint && lint_results.has(file_path))
-        return;
+        return false;
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
-        return;
+        return false;
+    if (autolint && lint_results.has(file_path))
+        return false;
+    lint_results.set(file_path, 'Processing...');
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
-    var max_check_size = autolint ? 100000 : null;
+    var max_check_size = autolint ? 50000 : null;
     var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
     lint_results.set(file_path, lint_report);
-    show_linter_state();
+    return true;
 }
 
 
@@ -162,12 +168,11 @@ function show_linter_state() {
     sb_item.text = 'CSVLint';
     if (lint_report === 'OK') {
         sb_item.color = '#62f442';
-    } else if (lint_report.indexOf('File is too big') != -1) {
+    } else if (lint_report.indexOf('File is too big') != -1 || lint_report == 'Processing...') {
         sb_item.color = '#ffff28';
     } else {
         sb_item.color = '#f44242';
     }
-    // FIXME add info how much time ago was the last check
     sb_item.tooltip = lint_report + '\nClick to recheck';
     sb_item.command = 'extension.CSVLint';
     sb_item.show();
@@ -175,7 +180,13 @@ function show_linter_state() {
 
 
 function handle_editor_change(editor) {
-    csv_lint(true);
+    csv_lint(true, null);
+    show_linter_state();
+}
+
+
+function handle_doc_open(document) {
+    csv_lint(true, document);
     show_linter_state();
 }
 
@@ -207,12 +218,14 @@ function activate(context) {
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
+    var open_event = vscode.window.onDidOpenTextDocument(handle_doc_open)
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(switch_event);
+    context.subscriptions.push(open_event);
 }
 
 
