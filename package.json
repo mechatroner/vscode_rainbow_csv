@@ -22,6 +22,17 @@
     ],
     "main": "./extension",
     "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Rainbow CSV",
+            "properties": {
+                "rainbow_csv.enable_auto_csv_lint": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables automatic linting/checking of opened csv files"
+                }
+            }
+        },
         "languages": [{
             "id": "CSV",
             "extensions": [".csv"]

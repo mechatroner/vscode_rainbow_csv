@@ -2,8 +2,6 @@ const vscode = require('vscode');
 
 var rainbow_utils = require('./rainbow_utils');
 
-// FIXME fix unit tests if broken (take from Atom?)
-
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
 
 var oc_log = null; // for debug
@@ -127,6 +125,11 @@ function csv_lint_cmd() {
 }
 
 function csv_lint(autolint, active_doc) {
+    if (autolint) {
+        const config = vscode.workspace.getConfiguration('rainbow_csv');
+        if (config && config.get('enable_auto_csv_lint') === false)
+            return false;
+    }
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
