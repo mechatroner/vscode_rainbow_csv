@@ -121,7 +121,8 @@ function get_active_doc() {
 
 function csv_lint_cmd() {
     csv_lint(false, null);
-    show_linter_state();
+    // we need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
+    setTimeout(show_linter_state, 500);
 }
 
 function csv_lint(autolint, active_doc) {
@@ -143,6 +144,7 @@ function csv_lint(autolint, active_doc) {
     if (autolint && lint_results.has(file_path))
         return false;
     lint_results.set(file_path, 'Processing...');
+    show_linter_state(); // visual feedback
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
     var max_check_size = autolint ? 50000 : null;
