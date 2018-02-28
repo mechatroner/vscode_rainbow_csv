@@ -4,7 +4,7 @@
 
 * Highlight columns in *.csv and *.tsv in different rainbow colors.
 * Provide info about column on mouse hover.
-* Automatic consistency check of opened csv files (CSVLint)
+* Automatic consistency check for csv files (CSVLint).
 
 ![screenshot](https://i.imgur.com/PRFKVIN.png)
 
@@ -12,9 +12,9 @@
 
 * If your csv or tsv file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
-* To disable automatic CSV Linting set `rainbow_csv.enable_auto_csv_lint` to `false` in "Rainbow CSV" section of VS Code settings.
+* To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.
 
-* To recheck a csv file click on `CSVLint` button at the bottom or run `CSV Lint` command
+* To recheck a csv file click on `CSVLint` button or run `CSV Lint` command.
 
 #### CSVLint consistency check
 
