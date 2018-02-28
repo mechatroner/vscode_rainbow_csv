@@ -4,7 +4,7 @@
 
 * Highlight columns in *.csv and *.tsv in different rainbow colors.
 * Provide info about column on mouse hover.
-* Automatic consistency check of opened csv files (CSV linting)
+* Automatic consistency check of opened csv files (CSVLint)
 
 ![screenshot](https://i.imgur.com/PRFKVIN.png)
 
