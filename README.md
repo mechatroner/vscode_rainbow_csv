@@ -30,7 +30,7 @@ The linter will check the following:
 
 ### Colors customization 
 You can customize Rainbow CSV highlighting colors to increase contrast.
-To do so you need to modify your settings, e.g. if you add this json fragment, colors will look like on the picture bellow.
+To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md), colors will look like on the picture bellow.
 
 ![customized colors](https://i.imgur.com/45EJJv4.png)
 

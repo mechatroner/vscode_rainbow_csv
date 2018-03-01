@@ -1,3 +1,6 @@
+Add this fragment to VS Code settings to customize Rainbow CSV colors.
+
+```
 "editor.tokenColorCustomizations": {
     "textMateRules": [
         {
@@ -68,3 +71,4 @@
         }
     ]
 }
+```
