@@ -1,3 +1,5 @@
+### Colors customization 
+
 Add this fragment to VS Code settings to customize Rainbow CSV colors.
 
 ```
