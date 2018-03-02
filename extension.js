@@ -2,7 +2,7 @@ const vscode = require('vscode');
 
 var rainbow_utils = require('./rainbow_utils');
 
-var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted']};
+var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
 var oc_log = null; // for debug
 
@@ -202,21 +202,21 @@ function activate(context) {
     //oc_log.show();
     //oc_log.appendLine('Activating "rainbow_csv"');
 
-    var csv_provider = vscode.languages.registerHoverProvider('CSV', {
+    var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'CSV', token);
+            return make_hover(document, position, 'csv', token);
         }
     });
 
-    var tsv_provider = vscode.languages.registerHoverProvider('TSV', {
+    var tsv_provider = vscode.languages.registerHoverProvider('tsv', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'TSV', token);
+            return make_hover(document, position, 'tsv', token);
         }
     });
 
-    var scsv_provider = vscode.languages.registerHoverProvider('CSV (semicolon)', {
+    var scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'CSV (semicolon)', token);
+            return make_hover(document, position, 'csv (semicolon)', token);
         }
     });
 
