@@ -223,14 +223,18 @@ function activate(context) {
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
-    var open_event = vscode.window.onDidOpenTextDocument(handle_doc_open)
+
+    if (typeof vscode.window.onDidOpenTextDocument === 'function') {
+        // in dev version of vscode there was an error: "onDidOpenTextDocument is not a function"
+        var open_event = vscode.window.onDidOpenTextDocument(handle_doc_open)
+        context.subscriptions.push(open_event);
+    }
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(switch_event);
-    context.subscriptions.push(open_event);
 }
 
 
