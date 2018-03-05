@@ -2,18 +2,29 @@
     "scopeName": "text.csv",
     "fileTypes": ["csv"],
     "patterns": [
-        { "match": "(?:(?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?((?:\"(?:[^\"]*\"\")*[^\"]*\",?)|(?:[^,]*,?))?",
-          "name": "rainbow1",
+        { "match": "(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?(?:((?:\"(?:[^\"]*\"\")*[^\"]*\"(?:,|$))|(?:[^\",]*(?:,|$)))|(.+))?",
+          "name": "rainbowline",
           "captures": {
-              "1": {"name": "keyword.rainbow2"},
-              "2": {"name": "entity.name.function.rainbow3"},
-              "3": {"name": "comment.rainbow4"},
-              "4": {"name": "string.rainbow5"},
-              "5": {"name": "variable.parameter.rainbow6"},
-              "6": {"name": "constant.numeric.rainbow7"},
-              "7": {"name": "entity.name.type.rainbow8"},
-              "8": {"name": "markup.bold.rainbow9"},
-              "9": {"name": "invalid.rainbow10"}
+              "1": {"name": "rainbow1"},
+              "2": {"name": "invalid.rainbowerror"},
+              "3": {"name": "keyword.rainbow2"},
+              "4": {"name": "invalid.rainbowerror"},
+              "5": {"name": "entity.name.function.rainbow3"},
+              "6": {"name": "invalid.rainbowerror"},
+              "7": {"name": "comment.rainbow4"},
+              "8": {"name": "invalid.rainbowerror"},
+              "9": {"name": "string.rainbow5"},
+              "10": {"name": "invalid.rainbowerror"},
+              "11": {"name": "variable.parameter.rainbow6"},
+              "12": {"name": "invalid.rainbowerror"},
+              "13": {"name": "constant.numeric.rainbow7"},
+              "14": {"name": "invalid.rainbowerror"},
+              "15": {"name": "entity.name.type.rainbow8"},
+              "16": {"name": "invalid.rainbowerror"},
+              "17": {"name": "markup.bold.rainbow9"},
+              "18": {"name": "invalid.rainbowerror"},
+              "19": {"name": "invalid.rainbow10"},
+              "20": {"name": "invalid.rainbowerror"}
           }
         }
 
