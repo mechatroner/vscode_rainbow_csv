@@ -14,7 +14,7 @@
 
 * To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.
 
-* To recheck a csv file click on `CSVLint` button or run `CSV Lint` command.
+* To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
 
 #### CSVLint consistency check
 
