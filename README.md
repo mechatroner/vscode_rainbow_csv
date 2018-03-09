@@ -2,7 +2,7 @@
 
 ### Main features
 
-* Highlight columns in *.csv and *.tsv in different rainbow colors.
+* Highlight columns in *.csv and *.tsv (tab-separated values) in different rainbow colors.
 * Provide info about column on mouse hover.
 * Automatic consistency check for csv files (CSVLint).
 
@@ -10,7 +10,7 @@
 
 ### Usage
 
-* If your csv or tsv file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
+* If your csv, semicolon-separated or tab-separated file doesn't have "*.csv"("*.tsv") extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
 * To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.
 
