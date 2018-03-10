@@ -24,13 +24,13 @@ The linter will check the following:
 
 ### Commands
 
-* `CSV Lint`
+* `CSV Lint`  
   Run CSV check even if autocheck is disabled in VS Code configuration.
 
 
 ### Colors customization 
-You can customize Rainbow CSV highlighting colors to increase contrast.
-To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md), colors will look like on the picture bellow.
+You can customize Rainbow CSV highlighting colors to increase contrast.  
+To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md), colors will look like on the picture below:
 
 ![customized colors](https://i.imgur.com/45EJJv4.png)
 
