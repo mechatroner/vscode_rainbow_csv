@@ -41,7 +41,7 @@
         {
             "id": "tsv",
             "aliases": ["TSV", "tsv"],
-            "extensions": [".tsv"]
+            "extensions": [".tsv", ".tab"]
         },
         {
             "id": "csv (semicolon)",

@@ -1,6 +1,6 @@
 {   "name": "tsv syntax",
     "scopeName": "text.tsv",
-    "fileTypes": ["tsv"],
+    "fileTypes": ["tsv", "tab"],
     "patterns": [
         { "match": "(?:[^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)",
           "name": "rainbow1",
