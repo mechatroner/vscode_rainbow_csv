@@ -4,7 +4,7 @@ var rainbow_utils = require('./rainbow_utils');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
-var oc_log = null; // for debug
+var oc_log = null; // For debug
 
 var lint_results = new Map();
 var sb_item = null;
@@ -121,9 +121,10 @@ function get_active_doc() {
 
 function csv_lint_cmd() {
     csv_lint(false, null);
-    // we need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
+    // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
     setTimeout(show_linter_state, 500);
 }
+
 
 function csv_lint(autolint, active_doc) {
     if (autolint) {
@@ -144,7 +145,7 @@ function csv_lint(autolint, active_doc) {
     if (autolint && lint_results.has(file_path))
         return false;
     lint_results.set(file_path, 'Processing...');
-    show_linter_state(); // visual feedback
+    show_linter_state(); // Visual feedback
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
     var max_check_size = autolint ? 50000 : null;
@@ -154,11 +155,10 @@ function csv_lint(autolint, active_doc) {
 }
 
 
-
 function show_linter_state() {
     if (sb_item)
         sb_item.hide();
-    var active_doc = get_active_doc();
+    active_doc = get_active_doc();
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -186,12 +186,6 @@ function show_linter_state() {
 
 function handle_editor_change(editor) {
     csv_lint(true, null);
-    show_linter_state();
-}
-
-
-function handle_doc_open(document) {
-    csv_lint(true, document);
     show_linter_state();
 }
 
@@ -224,12 +218,6 @@ function activate(context) {
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
-    if (typeof vscode.window.onDidOpenTextDocument === 'function') {
-        // in dev version of vscode there was an error: "onDidOpenTextDocument is not a function"
-        var open_event = vscode.window.onDidOpenTextDocument(handle_doc_open)
-        context.subscriptions.push(open_event);
-    }
-
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
@@ -241,7 +229,7 @@ function activate(context) {
 exports.activate = activate;
 
 function deactivate() {
-    // this method is called when extension is deactivated
+    // This method is called when extension is deactivated
 }
 
 exports.deactivate = deactivate;
