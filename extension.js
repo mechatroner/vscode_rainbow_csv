@@ -9,6 +9,8 @@ var oc_log = null; // For debug
 var lint_results = new Map();
 var sb_item = null;
 
+var rbql_provider = null;
+
 function guess_document_header(document, delim, policy) {
     var sampled_records = [];
     var num_lines = document.lineCount;
@@ -126,6 +128,20 @@ function csv_lint_cmd() {
 }
 
 
+function edit_rbql() {
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    var file_path = active_doc.fileName;
+    if (!file_path)
+        return;
+    rbql_uri = vscode.Uri.parse('rbql://authority/fixme'); //FIXME
+    oc_log.appendLine('editing content for ' + JSON.stringify(rbql_uri));
+    rbql_provider.update(rbql_uri);
+    //vscode.workspace.openTextDocument(rbql_uri);
+}
+
+
 function csv_lint(autolint, active_doc) {
     if (autolint) {
         const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -190,11 +206,34 @@ function handle_editor_change(editor) {
 }
 
 
+
+class RBQLProvider {
+    constructor(context) {
+        this.onDidChangeEvent = new vscode.EventEmitter();
+    }
+
+    provideTextDocumentContent(uri, token) {
+        oc_log.appendLine('Providing content for ' + uri);
+        //return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
+        return 'Hello RBQL!';
+    }
+
+    get onDidChange() {
+        return this.onDidChangeEvent.event;
+    }
+
+    update(uri) {
+        this.onDidChangeEvent.fire(uri);
+    }
+}
+
 function activate(context) {
 
-    //oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
-    //oc_log.show();
-    //oc_log.appendLine('Activating "rainbow_csv"');
+    oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
+    oc_log.show();
+    oc_log.appendLine('Activating "rainbow_csv"');
+
+    var rbql_provider = new RBQLProvider(context);
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
@@ -215,14 +254,19 @@ function activate(context) {
     });
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
+    var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
+
+    var preview_subscription = vscode.workspace.registerTextDocumentContentProvider('rbql', rbql_provider);
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
     context.subscriptions.push(lint_cmd);
+    context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(switch_event);
+    context.subscriptions.push(preview_subscription);
 }
 
 
