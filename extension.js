@@ -158,7 +158,7 @@ function csv_lint(autolint, active_doc) {
 function show_linter_state() {
     if (sb_item)
         sb_item.hide();
-    active_doc = get_active_doc();
+    var active_doc = get_active_doc();
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
