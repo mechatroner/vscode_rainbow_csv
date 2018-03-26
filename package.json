@@ -1,7 +1,7 @@
 {
     "name": "rainbow-csv",
     "displayName": "Rainbow CSV",
-    "description": "Rainbow CSV: highlight csv and tsv files in different colors",
+    "description": "Highlight CSV and TSV files in different colors",
     "version": "0.2.1",
     "publisher": "mechatroner",
     "icon": "rainbow_csv_logo.png",
