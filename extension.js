@@ -156,7 +156,7 @@ function edit_rbql() {
     oc_log.appendLine('editing content for ' + JSON.stringify(rbql_uri));
     //let success = await vscode.commands.executeCommand('vscode.previewHtml', rbql_uri);
     //
-    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri).then(handle_preview_success, handle_preview_error);
+    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Mode').then(handle_preview_success, handle_preview_error);
     //rbql_provider.update(rbql_uri);
     oc_log.appendLine('after preview html');
     //vscode.workspace.openTextDocument(rbql_uri);
