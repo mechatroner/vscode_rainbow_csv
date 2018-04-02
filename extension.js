@@ -128,16 +128,37 @@ function csv_lint_cmd() {
 }
 
 
+function handle_preview_success(success) {
+    oc_log.appendLine('preview success!');
+}
+
+
+function handle_preview_error(reason) {
+    oc_log.appendLine('preview failure!');
+    oc_log.appendLine(reason);
+    vscode.window.showErrorMessage('Unable to create query window.\nReason: ' + reason);
+}
+
+
 function edit_rbql() {
     var active_doc = get_active_doc();
     if (!active_doc)
         return;
-    var file_path = active_doc.fileName;
-    if (!file_path)
+    var orig_uri = active_doc.uri;
+    if (!orig_uri)
         return;
-    rbql_uri = vscode.Uri.parse('rbql://authority/fixme'); //FIXME
+    var rbql_uri = orig_uri.with({
+        scheme: 'rbql'
+    });
+    //rbql_uri = vscode.Uri.parse('rbql://authority/fixme'); //FIXME
+	rbql_uri = vscode.Uri.parse('rbql://authority/rbql-preview');
+    oc_log.appendLine('orig uri: ' + JSON.stringify(orig_uri));
     oc_log.appendLine('editing content for ' + JSON.stringify(rbql_uri));
-    rbql_provider.update(rbql_uri);
+    //let success = await vscode.commands.executeCommand('vscode.previewHtml', rbql_uri);
+    //
+    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri).then(handle_preview_success, handle_preview_error);
+    //rbql_provider.update(rbql_uri);
+    oc_log.appendLine('after preview html');
     //vscode.workspace.openTextDocument(rbql_uri);
 }
 
@@ -205,17 +226,30 @@ function handle_editor_change(editor) {
     show_linter_state();
 }
 
+function create_preview(doc) {
+    oc_log.appendLine('creating preview for ' + doc.uri);
+}
 
 
 class RBQLProvider {
     constructor(context) {
+        oc_log.appendLine('in RBQLProvider constructor');
         this.onDidChangeEvent = new vscode.EventEmitter();
     }
 
     provideTextDocumentContent(uri, token) {
-        oc_log.appendLine('Providing content for ' + uri);
-        //return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
-        return 'Hello RBQL!';
+        let file_uri = uri.with({
+            scheme: "file"
+        });
+
+        oc_log.appendLine('Opening uri ' + JSON.stringify(file_uri));
+        // FIXME open text document here
+        //return workspace.openTextDocument(file).then(doc => {
+        //return vscode.workspace.openTextDocument(file_uri).then(create_preview);
+
+        //oc_log.appendLine('Providing content for ' + uri);
+        return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
+        //return 'Hello RBQL!';
     }
 
     get onDidChange() {
@@ -223,6 +257,7 @@ class RBQLProvider {
     }
 
     update(uri) {
+        oc_log.appendLine('Updating uri: ' + JSON.stringify(uri));
         this.onDidChangeEvent.fire(uri);
     }
 }
@@ -233,7 +268,7 @@ function activate(context) {
     oc_log.show();
     oc_log.appendLine('Activating "rainbow_csv"');
 
-    var rbql_provider = new RBQLProvider(context);
+    rbql_provider = new RBQLProvider(context);
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
