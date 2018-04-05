@@ -7,6 +7,7 @@ var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semico
 var oc_log = null; // For debug
 
 var lint_results = new Map();
+var rbql_origin = null;
 var sb_item = null;
 
 var rbql_provider = null;
@@ -145,20 +146,14 @@ function edit_rbql() {
     if (!active_doc)
         return;
     var orig_uri = active_doc.uri;
-    if (!orig_uri)
+    if (!orig_uri || orig_uri.scheme != 'file')
         return;
-    var rbql_uri = orig_uri.with({
-        scheme: 'rbql'
-    });
-    //rbql_uri = vscode.Uri.parse('rbql://authority/fixme'); //FIXME
-    //rbql_uri = vscode.Uri.parse('rbql://authority/rbql-preview');
-    //oc_log.appendLine('orig uri: ' + JSON.stringify(orig_uri));
-    //oc_log.appendLine('editing content for ' + JSON.stringify(rbql_uri));
-    //let success = await vscode.commands.executeCommand('vscode.previewHtml', rbql_uri);
+    var language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    rbql_origin = active_doc;
+    rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Mode').then(handle_preview_success, handle_preview_error);
-    //rbql_provider.update(rbql_uri);
-    //oc_log.appendLine('after preview html');
-    //vscode.workspace.openTextDocument(rbql_uri);
 }
 
 
@@ -195,6 +190,7 @@ function show_linter_state() {
     if (sb_item)
         sb_item.hide();
     active_doc = get_active_doc();
+    // TODO show error instead of silent exit
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -232,7 +228,9 @@ class RBQLProvider {
     }
 
     provideTextDocumentContent(uri, token) {
-        return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
+        var language_id = rbql_origin.languageId;
+        //return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
+        return `<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL (${language_id})!</div></body></html>`;
     }
 
     get onDidChange() {
