@@ -53,6 +53,21 @@ function smart_split(src, dlm, policy, preserve_quotes) {
 }
 
 
+function adjust_window_borders(window_center, window_size, total_end) {
+    // FIXME write unit tests for this function
+    var half_window = Math.ceil(window_size / 2);
+    var window_begin = window_center - half_window;
+    var window_end = window_center + half_window;
+    if (window_begin < 0)
+        window_end -= window_begin;
+    if (window_end > total_end)
+        window_begin -= (window_end - total_end);
+    window_begin = Math.max(window_begin, 0);
+    window_end = Math.min(window_end, total_end);
+    return [window_begin, window_end];
+}
+
+
 function guess_if_header(potential_header, sampled_records) {
     // single line - not header
     if (sampled_records.length < 1)
