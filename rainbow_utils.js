@@ -55,13 +55,19 @@ function smart_split(src, dlm, policy, preserve_quotes) {
 
 function adjust_window_borders(window_center, window_size, total_end) {
     // FIXME write unit tests for this function
-    var half_window = Math.ceil(window_size / 2);
-    var window_begin = window_center - half_window;
-    var window_end = window_center + half_window;
-    if (window_begin < 0)
-        window_end -= window_begin;
-    if (window_end > total_end)
-        window_begin -= (window_end - total_end);
+    var window_begin = null;
+    var window_end = null;
+    if (window_size > window_center) {
+        window_begin = 0;
+        window_end = window_size;
+    } else if (window_center + window_size >= total_end) {
+        window_begin = total_end - window_size;
+        window_end = total_end;
+    } else {
+        var half_window = Math.ceil(window_size / 2);
+        window_begin = window_center - half_window;
+        window_end = window_center + half_window;
+    }
     window_begin = Math.max(window_begin, 0);
     window_end = Math.min(window_end, total_end);
     return [window_begin, window_end];
@@ -113,7 +119,25 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
+var entity_map = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+  '/': '&#x2F;',
+  '`': '&#x60;',
+  '=': '&#x3D;'
+};
+
+
+function escape_html(src) {
+    return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
+}
+
 
 module.exports.smart_split = smart_split;
 module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.guess_if_header = guess_if_header;
+module.exports.adjust_window_borders = adjust_window_borders;
+module.exports.escape_html = escape_html;

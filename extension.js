@@ -12,6 +12,29 @@ var sb_item = null;
 
 var rbql_provider = null;
 
+
+function sample_preview_records(document, window_center, window_size, delim, policy) {
+    var adjusted_window = rainbow_utils.adjust_window_borders(window_center, window_size, document.lineCount);
+    var line_begin = adjusted_window[0];
+    var line_end = adjusted_window[1];
+    preview_records = [];
+    var max_cols = 0;
+    for (var nr = line_begin; nr < line_end; nr++) {
+        var line_text = document.lineAt(nr).text;
+        var cur_record = rainbow_utils.smart_split(line_text, delim, policy, false)[0];
+        max_cols = Math.max(max_cols, cur_record.length);
+        cur_record.splice(0, 0, nr + 1);
+        preview_records.push(cur_record);
+    }
+    var header_record = ['NR'];
+    for (var i = 0; i < max_cols; i++) {
+        header_record.push('a' + (i + 1));
+    }
+    preview_records.splice(0, 0, header_record);
+    return preview_records;
+}
+
+
 function guess_document_header(document, delim, policy) {
     var sampled_records = [];
     var num_lines = document.lineCount;
@@ -142,17 +165,25 @@ function handle_preview_error(reason) {
 
 
 function edit_rbql() {
-    var active_doc = get_active_doc();
+    // TODO show error instead of silent exit
+    var active_window = vscode.window;
+    if (!active_window)
+        return null;
+    var active_editor = active_window.activeTextEditor;
+    if (!active_editor)
+        return null;
+    var active_doc = active_editor.document;
     if (!active_doc)
-        return;
+        return null;
     var orig_uri = active_doc.uri;
     if (!orig_uri || orig_uri.scheme != 'file')
         return;
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    rbql_origin = active_doc;
-    rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
+    var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
+    rbql_origin = {"document": active_doc, "line": cursor_line};
+    var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Mode').then(handle_preview_success, handle_preview_error);
 }
 
@@ -190,7 +221,6 @@ function show_linter_state() {
     if (sb_item)
         sb_item.hide();
     active_doc = get_active_doc();
-    // TODO show error instead of silent exit
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -222,15 +252,41 @@ function handle_editor_change(editor) {
 }
 
 
+function make_html_table(records) {
+    result = [];
+    result.push('<table border="0">');
+    for (var nr = 0; nr < records.length; nr++) {
+        result.push('<tr>');
+        for (var nf = 0; nf < records[nr].length; nf++) {
+            result.push('<td>');
+            result.push(rainbow_utils.escape_html(records[nr][nf]));
+            result.push('</td>');
+        }
+        result.push('</tr>');
+    }
+    result.push('</table>');
+    return result.join('');
+}
+
+
 class RBQLProvider {
     constructor(context) {
         this.onDidChangeEvent = new vscode.EventEmitter();
     }
 
     provideTextDocumentContent(uri, token) {
-        var language_id = rbql_origin.languageId;
-        //return '<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL!</div></body></html>';
-        return `<!DOCTYPE html><html><head></head><body><div id="rbql">Hello RBQL (${language_id})!</div></body></html>`;
+        var origin_doc = rbql_origin.document;
+        var origin_line = rbql_origin.line;
+        var language_id = origin_doc.languageId;
+        if (!dialect_map.hasOwnProperty(language_id))
+            return;
+        var delim = dialect_map[language_id][0];
+        var policy = dialect_map[language_id][1];
+        var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
+        var html_header = '<!DOCTYPE html><html><head></head><body>';
+        var html_footer = '</body></html>';
+        var html_table = make_html_table(window_records);
+        return html_header + html_table + html_footer;
     }
 
     get onDidChange() {
