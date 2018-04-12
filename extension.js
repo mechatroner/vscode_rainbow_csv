@@ -285,7 +285,7 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
-        var html_header = '<!DOCTYPE html><html><head><style> table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219) } </style></head><body>';
+        var html_header = '<!DOCTYPE html><html><head><style> html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; } </style></head><body>';
         var html_footer = '</body></html>';
         var html_table = '<h3>Table preview around cursor:</h3>'
         html_table += make_html_table(window_records);
