@@ -184,7 +184,7 @@ function edit_rbql() {
     var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
     rbql_origin = {"document": active_doc, "line": cursor_line};
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
-    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Mode').then(handle_preview_success, handle_preview_error);
+    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
 
 
@@ -254,7 +254,9 @@ function handle_editor_change(editor) {
 
 function make_html_table(records) {
     result = [];
-    result.push('<table border="0">');
+    //result.push('<table border="1">');
+    // TODO use th elements for header row
+    result.push('<table>');
     for (var nr = 0; nr < records.length; nr++) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
@@ -283,10 +285,12 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
-        var html_header = '<!DOCTYPE html><html><head></head><body>';
+        var html_header = '<!DOCTYPE html><html><head><style> table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219) } </style></head><body>';
         var html_footer = '</body></html>';
-        var html_table = make_html_table(window_records);
-        return html_header + html_table + html_footer;
+        var html_table = '<h3>Table preview around cursor:</h3>'
+        html_table += make_html_table(window_records);
+        var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
+        return html_header + html_table + input_html + html_footer;
     }
 
     get onDidChange() {
