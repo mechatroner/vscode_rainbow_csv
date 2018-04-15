@@ -271,6 +271,71 @@ function make_html_table(records) {
 }
 
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// EMBEDDED JS BELOW
+//
+//TODO put into a separte module
+
+var script_src = `
+
+function postMessage(server, state, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", server + "/run");
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
+            callback();
+        }
+    };
+    xhr.send(JSON.stringify(state));
+}
+
+
+function process_server_success() {
+    // FIXME write impl
+}
+
+
+function start_rbql() {
+    var rbql_text = document.getElementById('rbql_input').value;
+    // FIXME choose port dynamically
+    rainbow_csv_server = "http://localhost:8319";
+    postMessage(rainbow_csv_server, {'query': rbql_text}, process_server_success);
+}
+
+
+function main() {
+    document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
+}
+
+
+document.addEventListener("DOMContentLoaded", function(event) {
+    main();
+});
+
+`
+
+// EMBEDDED JS ABOVE
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+function make_html_head(style, script) {
+    return '<head><style>' + style + '</style><script>' + script + '</script></head>';
+}
+
+function make_html_body(table_html, input_html) {
+    return '<body>' + table_html + input_html + '</body>';
+}
+
+function make_html(head, body) {
+    return '<!DOCTYPE html><html>' + head + body + '</html>';
+}
+
+
 class RBQLProvider {
     constructor(context) {
         this.onDidChangeEvent = new vscode.EventEmitter();
@@ -285,12 +350,29 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
-        var html_header = '<!DOCTYPE html><html><head><style> html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; } </style></head><body>';
-        var html_footer = '</body></html>';
-        var html_table = '<h3>Table preview around cursor:</h3>'
+
+        // shoud I use client-server model for data exchange?
+        // const port = this.server.listen(0).address().port; // 0 = listen on a random port
+        
+        // FIXME fix local script path, either use extension path or just embed the script inside this source.
+
+        var css_part = 'html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; }'
+        
+        var html_head = make_html_head(css_part, script_src);
+
+        var html_table = '<h3>Table preview around cursor:</h3>';
         html_table += make_html_table(window_records);
         var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
-        return html_header + html_table + input_html + html_footer;
+
+        var html_body = make_html_body(html_table, input_html);
+
+        return make_html(html_head, html_body);
+        //var html_head = '<!DOCTYPE html><html><head><style> html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; } </style><script src="/home/snow/vsc_extension/vscode_rainbow_csv/preview_controller.js" type="text/javascript"></script></head><body>';
+        //var html_footer = '</body></html>';
+        //var html_table = '<h3>Table preview around cursor:</h3>'
+        //var html_table += make_html_table(window_records);
+        //var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
+        //return html_head + html_table + input_html + html_footer;
     }
 
     get onDidChange() {
