@@ -1,4 +1,6 @@
 const vscode = require('vscode');
+const url = require('url');
+const http = require('http');
 
 var rainbow_utils = require('./rainbow_utils');
 
@@ -11,6 +13,8 @@ var rbql_origin = null;
 var sb_item = null;
 
 var rbql_provider = null;
+
+var http_server = null;
 
 
 function sample_preview_records(document, window_center, window_size, delim, policy) {
@@ -164,6 +168,16 @@ function handle_preview_error(reason) {
 }
 
 
+function handle_request(request, response) {
+    var url_parts = url.parse(request.url, true);
+    var query = url_parts.query;
+    var rbql_query = query.rbql_query;
+    oc_log.appendLine('rbql_query: ' + rbql_query);
+    response.writeHead(200, {'Content-Type': 'application/json'});
+    response.end(JSON.stringify({"received": true}));
+}
+
+
 function edit_rbql() {
     // TODO show error instead of silent exit
     var active_window = vscode.window;
@@ -182,7 +196,13 @@ function edit_rbql() {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
-    rbql_origin = {"document": active_doc, "line": cursor_line};
+    if (http_server) {
+        http_server.close();
+    }
+    // FIXME pass security tokens
+    http_server = http.createServer(handle_request);
+    var port = http_server.listen(0).address().port; // 0 means listen on a random port
+    rbql_origin = {"document": active_doc, "line": cursor_line, "server_port": port};
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
@@ -254,7 +274,6 @@ function handle_editor_change(editor) {
 
 function make_html_table(records) {
     result = [];
-    //result.push('<table border="1">');
     // TODO use th elements for header row
     result.push('<table>');
     for (var nr = 0; nr < records.length; nr++) {
@@ -278,31 +297,23 @@ function make_html_table(records) {
 //
 //TODO put into a separte module
 
-var script_src = `
-
-function postMessage(server, state, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", server + "/run");
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
-            callback();
-        }
-    };
-    xhr.send(JSON.stringify(state));
-}
+var client_side_js_template = `
 
 
-function process_server_success() {
-    // FIXME write impl
-}
+//function process_server_success() {
+//    // FIXME write impl
+//}
 
+
+// FIXME send a test query at initialization to make sure that connection is established.
 
 function start_rbql() {
     var rbql_text = document.getElementById('rbql_input').value;
-    // FIXME choose port dynamically
-    rainbow_csv_server = "http://localhost:8319";
-    postMessage(rainbow_csv_server, {'query': rbql_text}, process_server_success);
+    rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
+    var xhr = new XMLHttpRequest();
+    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text);
+    xhr.open("GET", rainbow_csv_server);
+    xhr.send();
 }
 
 
@@ -344,6 +355,7 @@ class RBQLProvider {
     provideTextDocumentContent(uri, token) {
         var origin_doc = rbql_origin.document;
         var origin_line = rbql_origin.line;
+        var server_port = rbql_origin.server_port;
         var language_id = origin_doc.languageId;
         if (!dialect_map.hasOwnProperty(language_id))
             return;
@@ -351,28 +363,20 @@ class RBQLProvider {
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
 
-        // shoud I use client-server model for data exchange?
-        // const port = this.server.listen(0).address().port; // 0 = listen on a random port
-        
-        // FIXME fix local script path, either use extension path or just embed the script inside this source.
-
         var css_part = 'html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; }'
         
-        var html_head = make_html_head(css_part, script_src);
+        var client_side_js = client_side_js_template.replace('__EMBEDDED_JS_PORT__', String(server_port));
+
+        var html_head = make_html_head(css_part, client_side_js);
 
         var html_table = '<h3>Table preview around cursor:</h3>';
         html_table += make_html_table(window_records);
         var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
 
+        // FIXME initially show "Establishing connection with localhost at port xxxx" message, and replace it with table and execute input when ready.
         var html_body = make_html_body(html_table, input_html);
 
         return make_html(html_head, html_body);
-        //var html_head = '<!DOCTYPE html><html><head><style> html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; } </style><script src="/home/snow/vsc_extension/vscode_rainbow_csv/preview_controller.js" type="text/javascript"></script></head><body>';
-        //var html_footer = '</body></html>';
-        //var html_table = '<h3>Table preview around cursor:</h3>'
-        //var html_table += make_html_table(window_records);
-        //var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
-        //return html_head + html_table + input_html + html_footer;
     }
 
     get onDidChange() {
