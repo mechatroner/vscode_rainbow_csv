@@ -3,6 +3,7 @@ const url = require('url');
 const http = require('http');
 
 var rainbow_utils = require('./rainbow_utils');
+var rainbow_client = require('./rainbow_client');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
@@ -290,49 +291,6 @@ function make_html_table(records) {
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// EMBEDDED JS BELOW
-//
-//TODO put into a separte module
-
-var client_side_js_template = `
-
-
-//function process_server_success() {
-//    // FIXME write impl
-//}
-
-
-// FIXME send a test query at initialization to make sure that connection is established.
-
-function start_rbql() {
-    var rbql_text = document.getElementById('rbql_input').value;
-    rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
-    var xhr = new XMLHttpRequest();
-    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text);
-    xhr.open("GET", rainbow_csv_server);
-    xhr.send();
-}
-
-
-function main() {
-    document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
-}
-
-
-document.addEventListener("DOMContentLoaded", function(event) {
-    main();
-});
-
-`
-
-// EMBEDDED JS ABOVE
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 function make_html_head(style, script) {
     return '<head><style>' + style + '</style><script>' + script + '</script></head>';
@@ -365,7 +323,7 @@ class RBQLProvider {
 
         var css_part = 'html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; }'
         
-        var client_side_js = client_side_js_template.replace('__EMBEDDED_JS_PORT__', String(server_port));
+        var client_side_js = rainbow_client.js_template.replace('__EMBEDDED_JS_PORT__', String(server_port));
 
         var html_head = make_html_head(css_part, client_side_js);
 
