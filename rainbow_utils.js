@@ -131,13 +131,7 @@ var entity_map = {
 };
 
 
-function escape_html(src) {
-    return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
-}
-
-
 module.exports.smart_split = smart_split;
 module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.guess_if_header = guess_if_header;
 module.exports.adjust_window_borders = adjust_window_borders;
-module.exports.escape_html = escape_html;

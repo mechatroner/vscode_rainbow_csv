@@ -4,6 +4,11 @@ var rainbow_client = require('./rainbow_client');
 // TODO consider converting part of the html generation code to a static template.html
 
 
+function escape_html(src) {
+    return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
+}
+
+
 function make_html_table(records) {
     result = [];
     // TODO use th elements for header row
@@ -12,7 +17,7 @@ function make_html_table(records) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
             result.push('<td>');
-            result.push(rainbow_utils.escape_html(records[nr][nf]));
+            result.push(escape_html(records[nr][nf]));
             result.push('</td>');
         }
         result.push('</tr>');
@@ -55,7 +60,8 @@ function make_preview(preview_records, origin_server_port) {
 
     // FIXME initially show "Establishing connection with localhost at port xxxx" message, and replace it with table and execute input when ready.
     var rbql_dashboard = '<div id="rbql_dashboard">' + html_table + input_html + '</div>';
-    var html_body = '<body>' + rbql_dashboard + '</body>';
+    var init_status = '<span id="init_status">Connecting to the main VSCode process at http://localhost:__EMBEDDED_JS_PORT__  Please submit a bugreport if this message doesn\'t disappear. You can also try to reopen this preview page.</span>'.replace('__EMBEDDED_JS_PORT__', String(origin_server_port))
+    var html_body = '<body>' + init_status + rbql_dashboard + '</body>';
 
     return make_html(html_head, html_body);
 }
