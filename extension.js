@@ -291,17 +291,26 @@ function make_html_table(records) {
 }
 
 
-
 function make_html_head(style, script) {
     return '<head><style>' + style + '</style><script>' + script + '</script></head>';
 }
 
-function make_html_body(table_html, input_html) {
-    return '<body>' + table_html + input_html + '</body>';
-}
 
 function make_html(head, body) {
     return '<!DOCTYPE html><html>' + head + body + '</html>';
+}
+
+
+// FIXME move html generation script into a separate module
+
+
+function make_css() {
+    css_rules = [];
+    css_rules.push('html * { font-size: 16px !important; }');
+    css_rules.push('table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; }');
+    css_rules.push('th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; }');
+    css_rules.push('input { margin: 10px; }');
+    return css_rules.join('\n');
 }
 
 
@@ -321,7 +330,7 @@ class RBQLProvider {
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
 
-        var css_part = 'html * { font-size: 16px !important; } table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; } th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; } input { margin: 10px; }'
+        var css_part = make_css();
         
         var client_side_js = rainbow_client.js_template.replace('__EMBEDDED_JS_PORT__', String(server_port));
 
@@ -332,7 +341,8 @@ class RBQLProvider {
         var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
 
         // FIXME initially show "Establishing connection with localhost at port xxxx" message, and replace it with table and execute input when ready.
-        var html_body = make_html_body(html_table, input_html);
+        var rbql_dashboard = '<div id="rbql_dashboard">' + html_table + input_html + '</div>';
+        var html_body = '<body>' + rbql_dashboard + '</body>';
 
         return make_html(html_head, html_body);
     }
