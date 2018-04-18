@@ -58,10 +58,9 @@ function make_preview(preview_records, origin_server_port) {
     html_table += make_html_table(preview_records);
     var input_html = '<br><br><input type="text" id="rbql_input"><button id="rbql_run_btn">Execute</button>'
 
-    // FIXME initially show "Establishing connection with localhost at port xxxx" message, and replace it with table and execute input when ready.
-    var rbql_dashboard = '<div id="rbql_dashboard">' + html_table + input_html + '</div>';
-    var init_status = '<span id="init_status">Connecting to the main VSCode process at http://localhost:__EMBEDDED_JS_PORT__  Please submit a bugreport if this message doesn\'t disappear. You can also try to reopen this preview page.</span>'.replace('__EMBEDDED_JS_PORT__', String(origin_server_port))
-    var html_body = '<body>' + init_status + rbql_dashboard + '</body>';
+    var rbql_dashboard = '<div id="rbql_dashboard" style="display:none">' + html_table + input_html + '</div>';
+    var init_running = '<span id="init_running">Connecting to the main VSCode process at http://localhost:__EMBEDDED_JS_PORT__...<br>Please submit a bugreport to https://github.com/mechatroner/vscode_rainbow_csv if this message doesn\'t disappear.<br>You can also try to reopen this preview page.</span>'.replace('__EMBEDDED_JS_PORT__', String(origin_server_port))
+    var html_body = '<body>' + init_running + rbql_dashboard + '</body>';
 
     return make_html(html_head, html_body);
 }

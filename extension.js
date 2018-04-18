@@ -170,12 +170,20 @@ function handle_preview_error(reason) {
 
 
 function handle_request(request, response) {
-    var url_parts = url.parse(request.url, true);
-    var query = url_parts.query;
-    var rbql_query = query.rbql_query;
-    oc_log.appendLine('rbql_query: ' + rbql_query);
-    response.writeHead(200, {'Content-Type': 'application/json'});
-    response.end(JSON.stringify({"received": true}));
+    var parsed_url = url.parse(request.url, true);
+    var pathname = parsed_url.pathname;
+    if (pathname == '/echo') {
+        response.writeHead(200, {'Content-Type': 'text/plain'});
+        response.end('ECHO');
+        return;
+    } else if (pathname == '/run') {
+        var query = parsed_url.query;
+        var rbql_query = query.rbql_query;
+        oc_log.appendLine('rbql_query: ' + rbql_query);
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        response.end(JSON.stringify({"received": true}));
+        return;
+    }
 }
 
 
