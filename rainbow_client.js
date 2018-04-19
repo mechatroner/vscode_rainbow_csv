@@ -36,6 +36,13 @@ function start_rbql() {
 function main() {
     run_handshake();
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
+    document.getElementById("rbql_input").focus();
+    document.getElementById("rbql_input").addEventListener("keyup", function(event) {
+        event.preventDefault();
+        if (event.keyCode == 13) {
+            start_rbql();
+        }
+    });
 }
 
 
