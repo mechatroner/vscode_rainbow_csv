@@ -22,6 +22,7 @@ function run_handshake() {
 
 
 function start_rbql() {
+    // FIXME prevent multiple clicks on the RUN button and multiple "Enter" presses.
     var rbql_text = document.getElementById('rbql_input').value;
     var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
     var xhr = new XMLHttpRequest();

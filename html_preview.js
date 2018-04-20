@@ -3,7 +3,7 @@ var rainbow_client = require('./rainbow_client');
 
 // TODO consider converting part of the html generation code to a static template.html
 
-// FIXME prettify, add help and examples. Add command history.
+// FIXME prettify, highlight columns in rainbow colors, highlight header, add help and examples. Add command history.
 
 function escape_html(src) {
     return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
@@ -50,11 +50,18 @@ function make_css() {
 }
 
 
+function dummy_replace_all(src, old_substr, new_substr) {
+    while (src.indexOf(old_substr) != -1) {
+        src = src.replace(old_substr, new_substr);
+    }
+    return src;
+}
+
 
 function make_preview(preview_records, origin_server_port) {
     var css_part = make_css();
     
-    var client_side_js = rainbow_client.js_template.replace('__EMBEDDED_JS_PORT__', String(origin_server_port));
+    var client_side_js = dummy_replace_all(rainbow_client.js_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
 
     var html_head = make_html_head(css_part, client_side_js);
 
