@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const url = require('url');
 const http = require('http');
+const child_process = require('child_process');
 
 var rainbow_utils = require('./rainbow_utils');
 var html_preview = require('./html_preview');
@@ -180,6 +181,12 @@ function handle_request(request, response) {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
         oc_log.appendLine('rbql_query: ' + rbql_query);
+        var cmd = 'python /home/snow/vsc_extension/vscode_rainbow_csv/dummy.py ' + rbql_query;
+        child_process.exec(cmd, function(error, stdout, stderr) {
+            oc_log.appendLine('error: ' + String(error));
+            oc_log.appendLine('stdout: ' + String(stdout));
+            oc_log.appendLine('stderr: ' + String(stderr));
+        });
         response.writeHead(200, {'Content-Type': 'application/json'});
         response.end(JSON.stringify({"received": true}));
         return;
