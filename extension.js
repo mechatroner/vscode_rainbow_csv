@@ -170,6 +170,28 @@ function handle_preview_error(reason) {
 }
 
 
+function show_warnings(warnings) {
+    // FIXME test with multiple warnings
+    if (!warnings || !warnings.length)
+        return;
+    var active_window = vscode.window;
+    if (!active_window)
+        return null;
+    var warning_msg = 'Warning! RBQL query completed with warnings:\n\n'
+    warning_msg += warnings.join('\n\n');
+    active_window.showInformationMessage(warning_msg);
+}
+
+
+function handle_rbql_result_file(text_doc, warnings) {
+    var active_window = vscode.window;
+    if (!active_window)
+        return;
+    var editor_promise = active_window.showTextDocument(text_doc);
+    editor_promise.then(function(editor) { show_warnings(warnings); }, function(reason) { });
+}
+
+
 function handle_request(request, response) {
     var parsed_url = url.parse(request.url, true);
     var pathname = parsed_url.pathname;
@@ -180,15 +202,41 @@ function handle_request(request, response) {
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
+        // FIXME either include this dummy script into the extension for test purposes or add a special test mode in vscode_rbql.py
         oc_log.appendLine('rbql_query: ' + rbql_query);
         var cmd = 'python /home/snow/vsc_extension/vscode_rainbow_csv/dummy.py ' + rbql_query;
+        // FIXME test with different errors
         child_process.exec(cmd, function(error, stdout, stderr) {
             oc_log.appendLine('error: ' + String(error));
             oc_log.appendLine('stdout: ' + String(stdout));
             oc_log.appendLine('stderr: ' + String(stderr));
+
+            var json_report = stdout;
+            if (error || !json_report.length) {
+                json_report = '{"error_type": "Unknown", "error_details": "Unknown Error"}';
+            }
+            var report = null;
+            try {
+                report = JSON.parse(json_report);
+            } catch (e) {
+                report = {"error_type": "Unknown", "error_details": "Report Parsing Error"};
+            }
+            response.writeHead(200, {'Content-Type': 'application/json'});
+            response.end(JSON.stringify(report));
+            if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+                return; // Error will be shown in the preview window
+            }
+            var warnings = [];
+            if (report.hasOwnProperty('warnings')) {
+                warnings = report['warnings'];
+            }
+            if (!report.hasOwnProperty('result_path')) {
+                return; // This should never happen
+            }
+            var dst_table_path = report['result_path'];
+            oc_log.appendLine('dst_table_path: ' + dst_table_path);
+            vscode.workspace.openTextDocument(dst_table_path).then(function(new_doc) { handle_rbql_result_file(new_doc, warnings); }, function(reason) { oc_log.appendLine('Failed to open result file. Reason: ' + reason) });
         });
-        response.writeHead(200, {'Content-Type': 'application/json'});
-        response.end(JSON.stringify({"received": true}));
         return;
     }
 }
