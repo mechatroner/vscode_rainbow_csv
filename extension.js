@@ -375,7 +375,7 @@ class RBQLProvider {
             return;
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
-        var window_records = sample_preview_records(origin_doc, origin_line, 16, delim, policy);
+        var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
         return html_preview.make_preview(window_records, server_port);
     }
 

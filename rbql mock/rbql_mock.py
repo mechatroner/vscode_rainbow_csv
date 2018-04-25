@@ -59,7 +59,6 @@ def main():
     if 'return_code' in params:
         return_code = int(params['return_code'])
         sys.exit(return_code)
-            
 
 
 if __name__ == '__main__':

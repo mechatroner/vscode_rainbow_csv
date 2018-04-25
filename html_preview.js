@@ -44,8 +44,9 @@ function make_css() {
     css_rules.push('table { display: block; overflow-x: auto; white-space: nowrap; border-collapse: collapse; }');
     css_rules.push('th, td { border: 1px solid rgb(130, 6, 219); padding: 3px 8px; }');
     css_rules.push('input { margin-right: 10px; font-size: 18px !important; vertical-align: bottom; height: 22px }');
-    css_rules.push('button { width: 70px; background-color: #4CAF50; text-decoration: none; display: inline-block; transition-duration: 0.3s; border:none; font-size: 18px !important; color: white; height: 28px;}');
-    css_rules.push('button:hover { background-color: #3e8e41; }');
+    css_rules.push('rbql_run_btn { width: 70px; background-color: #4CAF50; text-decoration: none; display: inline-block; transition-duration: 0.3s; border:none; font-size: 18px !important; color: white; height: 28px;}');
+    css_rules.push('#rbql_run_btn:hover { background-color: #3e8e41; }');
+    css_rules.push('#rbql_error_message { width: 50%; top: 0px; left: 0px; z-index: 1000000; padding: 2px; background-color: red; position: fixed; display: none; color: black; border: 2px solid rgb(130, 6, 219);}');
     return css_rules.join('\n');
 }
 
@@ -70,7 +71,9 @@ function make_preview(preview_records, origin_server_port) {
     var input_html = '<br><h3>Input SQL-like RBQL query and press Enter:</h3>';
     input_html += '<input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><button id="rbql_run_btn">Run</button>'
 
-    var rbql_dashboard = '<div id="rbql_dashboard" style="display:none">' + html_table + input_html + '</div>';
+    var status_label = '<br><div><span id="status_label"></span></div>';
+    var error_message = '<div id="rbql_error_message"><div><span>Error while executing RBQL query!</span><br><span id="error_message_header"></span></div><br><div><span>Details:</span><br><span id="error_message_details"></span></div><button id="ack_error">OK</button></div>';
+    var rbql_dashboard = '<div id="rbql_dashboard" style="display:none">' + html_table + input_html + status_label + error_message + '</div>';
     var init_running = '<span id="init_running">Connecting to the main VSCode process at http://localhost:__EMBEDDED_JS_PORT__...<br>Please submit a bugreport to https://github.com/mechatroner/vscode_rainbow_csv if this message doesn\'t disappear.<br>You can also try to reopen this preview page.</span>'.replace('__EMBEDDED_JS_PORT__', String(origin_server_port))
     var html_body = '<body>' + init_running + rbql_dashboard + '</body>';
 

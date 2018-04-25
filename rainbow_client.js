@@ -6,6 +6,7 @@ var js_template = `
 
 // FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
 
+var rbql_running = false;
 
 function run_handshake() {
     var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/echo";
@@ -21,15 +22,52 @@ function run_handshake() {
 }
 
 
+function show_error(error_type, error_details) {
+    // FIXME show floating html with OK button (and scrollable error details?)
+    document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
+    document.getElementById('error_message_details').textContent = error_details;
+    document.getElementById('rbql_error_message').style.display = 'block';
+}
+
+
+function process_rbql_result(rbql_result_json) {
+    rbql_running = false;
+    try {
+        report = JSON.parse(json_report);
+    } catch (e) {
+        report = {"error_type": "Integration", "error_details": "Server JSON response parsing error"};
+    }
+    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+        var error_type = report.hasOwnProperty('error_type') ? report['error_type'] : 'Unknown Error';
+        var error_details = report.hasOwnProperty('error_details') ? report['error_details'] : 'Unknown Error';
+        show_error(error_type, error_details);
+    }
+    document.getElementById('status_label').textContent = "";
+}
+
+
+function hide_error_msg() {
+    document.getElementById('rbql_error_message').style.display = 'none';
+}
+
+
 function start_rbql() {
-    // FIXME prevent multiple clicks on the RUN button and multiple "Enter" presses.
+    if (rbql_running) {
+        return;
+    }
+    rbql_running = true;
+    document.getElementById('status_label').textContent = "Running...";
+
     var rbql_text = document.getElementById('rbql_input').value;
     var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
     var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            process_rbql_result(xhr.responseText);
+        }
+    }
     rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text);
     xhr.open("GET", rainbow_csv_server);
-    // FIXME immediately show "Running" state. It can be replaced with error: If something is wrong with the rbql query.
-    // So the server responds either with query complete or query has error -> in this case error will be shown and user can adjust it.
     xhr.send();
 }
 
@@ -37,6 +75,7 @@ function start_rbql() {
 function main() {
     run_handshake();
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
+    document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("rbql_input").focus();
     document.getElementById("rbql_input").addEventListener("keyup", function(event) {
         event.preventDefault();
