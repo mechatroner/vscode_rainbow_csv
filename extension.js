@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const url = require('url');
 const http = require('http');
+const fs = require('fs');
 const child_process = require('child_process');
 
 var rainbow_utils = require('./rainbow_utils');
@@ -17,6 +18,10 @@ var sb_item = null;
 var rbql_provider = null;
 
 var http_server = null;
+
+var client_js_template_path = null;
+var mock_script_path = null;
+var client_js_template = null;
 
 
 function sample_preview_records(document, window_center, window_size, delim, policy) {
@@ -219,7 +224,8 @@ function handle_request(request, response) {
         const test_marker = 'test ';
         if (rbql_query.startsWith(test_marker)) {
             rbql_query = rbql_query.substr(test_marker.length);
-            cmd = 'python "/home/snow/vsc_extension/vscode_rainbow_csv/rbql mock/rbql_mock.py" "' + rbql_query + '"';
+            oc_log.appendLine('mock script path: ' + mock_script_path);
+            cmd = 'python "' + mock_script_path + '" "' + rbql_query + '"';
         }
         // FIXME test with different errors
         child_process.exec(cmd, function(error, stdout, stderr) {
@@ -376,7 +382,10 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
-        return html_preview.make_preview(window_records, server_port);
+        if (!client_js_template) {
+            client_js_template = fs.readFileSync(client_js_template_path, "utf8");
+        }
+        return html_preview.make_preview(client_js_template, window_records, server_port);
     }
 
     get onDidChange() {
@@ -395,6 +404,9 @@ function activate(context) {
     oc_log.appendLine('Activating "rainbow_csv"');
 
     rbql_provider = new RBQLProvider(context);
+
+    client_js_template_path = context.asAbsolutePath('rainbow_client.js');
+    mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
