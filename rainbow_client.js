@@ -1,4 +1,4 @@
-// This module contains client-side template js code
+// This module contains client-side template js code. DO NOT use newline "\n" symbol inside js_template variable
 
 var js_template = `
 
@@ -7,23 +7,28 @@ var js_template = `
 // FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
 
 var rbql_running = false;
+var handshake_completed = false;
 
-function run_handshake() {
+function run_handshake(num_attempts) {
+    if (num_attempts <= 0 || handshake_completed) {
+        return;
+    }
     var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/echo";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200 && xhr.responseText == 'ECHO') {
+            handshake_completed = true;
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
         }
     }
     xhr.open("GET", rainbow_csv_server);
     xhr.send();
+    setTimeout(function() { run_handshake(num_attempts - 1); }, 1000);
 }
 
 
 function show_error(error_type, error_details) {
-    // FIXME show floating html with OK button (and scrollable error details?)
     document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
     document.getElementById('error_message_details').textContent = error_details;
     document.getElementById('rbql_error_message').style.display = 'block';
@@ -73,7 +78,7 @@ function start_rbql() {
 
 
 function main() {
-    run_handshake();
+    run_handshake(3);
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("rbql_input").focus();
