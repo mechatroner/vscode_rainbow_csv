@@ -401,7 +401,7 @@ function activate(context) {
 
     rbql_provider = new RBQLProvider(context);
 
-    client_js_template_path = context.asAbsolutePath('rainbow_client.js');
+    client_js_template_path = context.asAbsolutePath('rbql_client.js');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
