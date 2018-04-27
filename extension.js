@@ -182,7 +182,7 @@ function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
-    active_window.showWarningMessage('RBQL query was completed with warnings!');
+    active_window.showWarningMessage('RBQL query has been completed with warnings!');
     for (var i = 0; i < warnings.length; i++) {
         active_window.showWarningMessage(warnings[i]);
     }
@@ -216,7 +216,6 @@ function handle_request(request, response) {
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
-        // FIXME either include this dummy script into the extension for test purposes or add a special test mode in vscode_rbql.py
         oc_log.appendLine('rbql_query: ' + rbql_query);
         // FIXME test situation when query takes some time to execute
         // FIXME make sure you escape both path to script and args for win and nix
@@ -238,7 +237,7 @@ function handle_request(request, response) {
             if (error || !json_report.length || stderr.length) {
                 var error_details = "Unknown Integration Error";
                 if (stderr.length) {
-                    error_details += '. stderr: ' + stderr;
+                    error_details += '\nstderr: ' + stderr;
                 }
                 report = {"error_type": "Integration", "error_details": error_details};
             } else {

@@ -25,6 +25,7 @@ function run_handshake(num_attempts) {
 
 
 function show_error(error_type, error_details) {
+    error_details = error_details.replace('\r?\n', '\r\n');
     document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
     document.getElementById('error_message_details').textContent = error_details;
     document.getElementById('rbql_error_message').style.display = 'block';
@@ -34,7 +35,7 @@ function show_error(error_type, error_details) {
 function process_rbql_result(rbql_result_json) {
     rbql_running = false;
     try {
-        report = JSON.parse(json_report);
+        report = JSON.parse(rbql_result_json);
     } catch (e) {
         report = {"error_type": "Integration", "error_details": "Server JSON response parsing error"};
     }

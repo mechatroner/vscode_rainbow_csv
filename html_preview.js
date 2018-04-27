@@ -46,12 +46,12 @@ function make_css() {
     css_rules.push('#rbql_error_message { width: 50%; top: 0px; left: 0px; z-index: 1000000; padding: 2px; background-color: #FF4444; position: fixed; display: none; color: black; border: 2px solid rgb(130, 6, 219);}');
     css_rules.push('#ack_error { width: 70px; background-color: #FF0000; text-decoration: none; display: inline-block; transition-duration: 0.3s; border:none; font-size: 18px !important; color: white; height: 28px; border: 1px solid black;}');
     css_rules.push('#ack_error:hover { background-color: #b70101; }');
-    css_rules.push('#error_message_details { height: 100px; overflow: auto; border: 1px solid black;}');
+    css_rules.push('#error_message_details { height: 100px; overflow: auto; border: 1px solid black; white-space: pre;}');
     return css_rules.join('\n');
 }
 
 
-function dummy_replace_all(src, old_substr, new_substr) {
+function slow_replace_all(src, old_substr, new_substr) {
     while (src.indexOf(old_substr) != -1) {
         src = src.replace(old_substr, new_substr);
     }
@@ -64,7 +64,7 @@ function make_preview(client_js_template, preview_records, origin_server_port) {
 
     const js_template = client_js_template;
     
-    var client_side_js = dummy_replace_all(js_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
+    var client_side_js = slow_replace_all(js_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
 
     var html_head = make_html_head(css_part, client_side_js);
 
