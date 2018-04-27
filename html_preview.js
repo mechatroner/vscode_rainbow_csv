@@ -43,7 +43,7 @@ function make_css() {
     css_rules.push('input { margin-right: 10px; font-size: 18px !important; vertical-align: bottom; height: 22px }');
     css_rules.push('#rbql_run_btn { width: 70px; background-color: #4CAF50; text-decoration: none; display: inline-block; transition-duration: 0.3s; border:none; font-size: 18px !important; color: white; height: 28px;}');
     css_rules.push('#rbql_run_btn:hover { background-color: #3e8e41; }');
-    css_rules.push('#rbql_error_message { width: 50%; top: 0px; left: 0px; z-index: 1000000; padding: 2px; background-color: #FF4444; position: fixed; display: none; color: black; border: 2px solid rgb(130, 6, 219);}');
+    css_rules.push('#rbql_error_message { width: 50%; top: 20%; left: 25%; z-index: 1000000; padding: 2px; background-color: #FF4444; position: fixed; display: none; color: black; border: 2px solid rgb(130, 6, 219);}');
     css_rules.push('#ack_error { width: 70px; background-color: #FF0000; text-decoration: none; display: inline-block; transition-duration: 0.3s; border:none; font-size: 18px !important; color: white; height: 28px; border: 1px solid black;}');
     css_rules.push('#ack_error:hover { background-color: #b70101; }');
     css_rules.push('#error_message_details { height: 100px; overflow: auto; border: 1px solid black; white-space: pre;}');
