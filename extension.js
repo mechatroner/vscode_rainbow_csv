@@ -21,7 +21,6 @@ var http_server = null;
 
 var client_js_template_path = null;
 var mock_script_path = null;
-var client_js_template = null;
 
 
 function sample_preview_records(document, window_center, window_size, delim, policy) {
@@ -381,9 +380,7 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
-        if (!client_js_template) {
-            client_js_template = fs.readFileSync(client_js_template_path, "utf8");
-        }
+        var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
         return html_preview.make_preview(client_js_template, window_records, server_port);
     }
 
