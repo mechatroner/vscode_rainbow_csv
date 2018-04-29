@@ -28,6 +28,10 @@ input {
     height: 22px
 }
 
+.padded_label {
+    padding: 5px;
+}
+
 #rbql_run_btn {
     width: 70px;
     background-color: #4CAF50;
@@ -118,15 +122,15 @@ input {
 
 <div id="rbql_error_message">
     <div id="rbql_error_message_header">
-        <span>Error while executing RBQL query!</span>
+        <span class="padded_label">Error while executing RBQL query!</span>
     </div>
     <br>
     <div>
-        <span id="error_message_header"></span>
+        <span class="padded_label" id="error_message_header"></span>
     </div>
     <br>
     <div>
-        <span>Details:</span>
+        <span class="padded_label">Details:</span>
         <br>
         <div id="error_message_details"></div>
     </div>
