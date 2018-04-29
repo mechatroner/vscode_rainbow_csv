@@ -12,8 +12,10 @@ function make_html_table(records) {
     for (var nr = 0; nr < records.length; nr++) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
-            var open_tag = nr ? '<td>' : '<th>';
-            var close_tag = nr ? '</td>' : '</th>';
+            var tag_name = nr ? 'td' : 'th';
+            var color_attr = nf ? '' : ' bgcolor="rgb(130, 6, 219)"'
+            var open_tag = '<' + tag_name + color_attr + '>';
+            var close_tag = '</' + tag_name + '>';
             result.push(open_tag);
             result.push(escape_html(records[nr][nf]));
             result.push(close_tag);
