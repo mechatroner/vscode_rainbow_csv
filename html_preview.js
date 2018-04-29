@@ -12,9 +12,11 @@ function make_html_table(records) {
     for (var nr = 0; nr < records.length; nr++) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
-            result.push('<td>');
+            var open_tag = nr ? '<td>' : '<th>';
+            var close_tag = nr ? '</td>' : '</th>';
+            result.push(open_tag);
             result.push(escape_html(records[nr][nf]));
-            result.push('</td>');
+            result.push(close_tag);
         }
         result.push('</tr>');
     }
