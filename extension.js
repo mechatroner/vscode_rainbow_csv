@@ -20,6 +20,7 @@ var rbql_provider = null;
 var http_server = null;
 
 var client_js_template_path = null;
+var client_html_template_path = null;
 var mock_script_path = null;
 
 
@@ -381,7 +382,8 @@ class RBQLProvider {
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
         var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
-        return html_preview.make_preview(client_js_template, window_records, server_port);
+        var client_html_template = fs.readFileSync(client_html_template_path, "utf8");
+        return html_preview.make_preview(client_html_template, client_js_template, window_records, server_port);
     }
 
     get onDidChange() {
@@ -402,6 +404,7 @@ function activate(context) {
     rbql_provider = new RBQLProvider(context);
 
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
+    client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
