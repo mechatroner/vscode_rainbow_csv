@@ -49,25 +49,29 @@ input {
     top: 20%; 
     left: 25%; 
     z-index: 1000000; 
-    padding: 2px; 
-    background-color: #FF4444; 
+    background-color: #FFFCD3; 
     position: fixed; 
     display: none;
     color: black;
-    border: 2px solid rgb(130, 6, 219);
+}
+
+#rbql_error_message_header { 
+    background-color: #FF4444; 
+    font-size: 18px !important;
+    height: 26px;
+    font-weight: bold;
 }
 
 #ack_error { 
     width: 70px;
-    background-color: #FF0000;
+    background-color: #FF4444;
     text-decoration: none;
     display: inline-block;
     transition-duration: 0.3s;
     border:none;
     font-size: 18px !important;
-    color: white;
     height: 28px;
-    border: 1px solid black;
+    font-weight: bold;
 }
 
 #ack_error:hover { 
@@ -79,6 +83,8 @@ input {
     overflow: auto;
     border: 1px solid black;
     white-space: pre;
+    margin: 5px;
+    background-color: #FFFFFF;
 }
 
 </style>
@@ -111,9 +117,11 @@ input {
 
 
 <div id="rbql_error_message">
-    <div>
+    <div id="rbql_error_message_header">
         <span>Error while executing RBQL query!</span>
-        <br>
+    </div>
+    <br>
+    <div>
         <span id="error_message_header"></span>
     </div>
     <br>
