@@ -293,7 +293,11 @@ function edit_rbql() {
     if (http_server) {
         http_server.close();
     }
-    // FIXME pass security tokens
+    // FIXME pass security tokens. In client:
+    // 1-st attempt - key1
+    // 2-nd attempt - key1,key2
+    // 3-rd attempt - key1,key2,key3
+    // essentially you send not only key{i} but all previous keys too to improve reliability
     http_server = http.createServer(handle_request);
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
     rbql_origin = {"document": active_doc, "line": cursor_line, "server_port": port};

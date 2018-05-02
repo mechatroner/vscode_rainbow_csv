@@ -7,7 +7,6 @@ function escape_html(src) {
 
 function make_html_table(records) {
     result = [];
-    // TODO use th elements for header row
     result.push('<table>');
     for (var nr = 0; nr < records.length; nr++) {
         result.push('<tr>');
