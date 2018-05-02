@@ -23,6 +23,19 @@ var client_js_template_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 
+var enable_debug_logging = true; // FIXME init this entry from config
+
+
+function dbg_log(msg) {
+    if (!enable_debug_logging)
+        return;
+    if (!oc_log) {
+        oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
+        oc_log.show();
+    }
+    oc_log.appendLine(msg);
+}
+
 
 function sample_preview_records(document, window_center, window_size, delim, policy) {
     var adjusted_window = rainbow_utils.adjust_window_borders(window_center, window_size, document.lineCount);
@@ -164,13 +177,13 @@ function csv_lint_cmd() {
 
 
 function handle_preview_success(success) {
-    oc_log.appendLine('preview success!');
+    dbg_log('preview success!');
 }
 
 
 function handle_preview_error(reason) {
-    oc_log.appendLine('preview failure!');
-    oc_log.appendLine(reason);
+    dbg_log('preview failure!');
+    dbg_log(reason);
     vscode.window.showErrorMessage('Unable to create query window.\nReason: ' + reason);
 }
 
@@ -216,21 +229,21 @@ function handle_request(request, response) {
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
-        oc_log.appendLine('rbql_query: ' + rbql_query);
+        dbg_log('rbql_query: ' + rbql_query);
         // FIXME test situation when query takes some time to execute
         // FIXME make sure you escape both path to script and args for win and nix
         var cmd = null;
         const test_marker = 'test ';
         if (rbql_query.startsWith(test_marker)) {
             rbql_query = rbql_query.substr(test_marker.length);
-            oc_log.appendLine('mock script path: ' + mock_script_path);
+            dbg_log('mock script path: ' + mock_script_path);
             cmd = 'python "' + mock_script_path + '" "' + rbql_query + '"';
         }
         // FIXME test with different errors
         child_process.exec(cmd, function(error, stdout, stderr) {
-            oc_log.appendLine('error: ' + String(error));
-            oc_log.appendLine('stdout: ' + String(stdout));
-            oc_log.appendLine('stderr: ' + String(stderr));
+            dbg_log('error: ' + String(error));
+            dbg_log('stdout: ' + String(stdout));
+            dbg_log('stderr: ' + String(stderr));
 
             var report = null;
             var json_report = stdout;
@@ -261,7 +274,7 @@ function handle_request(request, response) {
                 return;
             }
             var dst_table_path = report['result_path'];
-            oc_log.appendLine('dst_table_path: ' + dst_table_path);
+            dbg_log('dst_table_path: ' + dst_table_path);
 
             var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
             var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
@@ -370,6 +383,58 @@ function handle_editor_change(editor) {
 }
 
 
+
+function assert(condition, message) {
+    if (!condition) {
+        throw message || "Assertion failed";
+    }
+}
+
+
+function get_customized_colors() {
+    var rainbow_rules = ['rainbow1', 'keyword.rainbow2', 'entity.name.function.rainbow3', 'comment.rainbow4', 'string.rainbow5', 'variable.parameter.rainbow6', 'constant.numeric.rainbow7', 'entity.name.type.rainbow8', 'markup.bold.rainbow9', 'invalid.rainbow10']
+    var color_config = vscode.workspace.getConfiguration('editor.tokenColorCustomizations');
+    if (!color_config) {
+        dbg_log('config not found');
+        return null;
+    }
+    var text_mate_rules = color_config['textMateRules'];
+    if (!text_mate_rules) {
+        dbg_log('no text mate rules');
+        return null;
+    }
+    var result = [null, null, null, null, null, null, null, null, null, null];
+    assert(rainbow_rules.length == result.length, 'fail');
+    for (var i = 0; i < text_mate_rules.length; i++) {
+        var rule = text_mate_rules[i];
+        if (!rule) {
+            continue;
+        }
+        var scope = rule['scope'];
+        var idx = rainbow_rules.indexOf(scope);
+        if (idx == -1) {
+            continue;
+        }
+        var settings = rule['settings'];
+        if (!settings) {
+            dbg_log('no settings found for scope ' + scope);
+            continue;
+        }
+        if (rule == 'markup.bold.rainbow9' && !rule.hasOwnProperty('fontStyle')) {
+            settings['fontStyle'] = 'bold';
+        }
+        result[idx] = settings;
+    }
+    for (var i = 0; i < result.length; i++) {
+        if (!result[i] || !result[i].hasOwnProperty('foreground')) {
+            dbg_log('result entry ' + i + ' is empty');
+            return null;
+        }
+    }
+    return result;
+}
+
+
 class RBQLProvider {
     constructor(context) {
         this.onDidChangeEvent = new vscode.EventEmitter();
@@ -387,6 +452,8 @@ class RBQLProvider {
         var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
         var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
         var client_html_template = fs.readFileSync(client_html_template_path, "utf8");
+        var customized_colors = get_customized_colors();
+        dbg_log('customized_colors: ' + JSON.stringify(customized_colors));
         return html_preview.make_preview(client_html_template, client_js_template, window_records, server_port);
     }
 
@@ -401,9 +468,7 @@ class RBQLProvider {
 
 function activate(context) {
 
-    oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
-    oc_log.show();
-    oc_log.appendLine('Activating "rainbow_csv"');
+    dbg_log('Activating "rainbow_csv"');
 
     rbql_provider = new RBQLProvider(context);
 
