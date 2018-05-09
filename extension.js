@@ -23,11 +23,11 @@ var client_js_template_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 
-var enable_debug_logging = true; // FIXME init this entry from config
+var enable_dev_mode = true; // FIXME init this entry from config
 
 
 function dbg_log(msg) {
-    if (!enable_debug_logging)
+    if (!enable_dev_mode)
         return;
     if (!oc_log) {
         oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
@@ -420,8 +420,15 @@ function get_customized_colors() {
             dbg_log('no settings found for scope ' + scope);
             continue;
         }
-        if (rule == 'markup.bold.rainbow9' && !rule.hasOwnProperty('fontStyle')) {
-            settings['fontStyle'] = 'bold';
+        //if (rule == 'markup.bold.rainbow9' && !rule.hasOwnProperty('fontStyle')) {
+        //    settings['fontStyle'] = 'bold';
+        //}
+        if (!rule.hasOwnProperty('fontStyle')) {
+            if (rule == 'markup.bold.rainbow9') {
+                settings['fontStyle'] = 'bold';
+            } else {
+                settings['fontStyle'] = '';
+            }
         }
         result[idx] = settings;
     }
@@ -453,8 +460,11 @@ class RBQLProvider {
         var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
         var client_html_template = fs.readFileSync(client_html_template_path, "utf8");
         var customized_colors = get_customized_colors();
+        //if (enable_dev_mode && Math.random() > 0.5) {
+        //    customized_colors = null; // Improve code coverage in dev mode
+        //}
         dbg_log('customized_colors: ' + JSON.stringify(customized_colors));
-        return html_preview.make_preview(client_html_template, client_js_template, window_records, server_port);
+        return html_preview.make_preview(client_html_template, client_js_template, customized_colors, window_records, server_port);
     }
 
     get onDidChange() {

@@ -5,15 +5,23 @@ function escape_html(src) {
 }
 
 
-function make_html_table(records) {
+function make_html_table(customized_colors, records) {
     result = [];
     result.push('<table>');
     for (var nr = 0; nr < records.length; nr++) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
+            var style_attr = '';
+            if (customized_colors && nf > 0) {
+                var font_style = customized_colors[(nf - 1) % 10]['fontStyle']; // FIXME can be empty
+                var foreground = customized_colors[(nf - 1) % 10]['foreground'];
+                style_attr = ' style="color:' + foreground + '"';
+
+            }
+
             var tag_name = nr ? 'td' : 'th';
             var color_attr = nf ? '' : ' bgcolor="rgb(130, 6, 219)"'
-            var open_tag = '<' + tag_name + color_attr + '>';
+            var open_tag = '<' + tag_name + color_attr + style_attr + '>';
             var close_tag = '</' + tag_name + '>';
             result.push(open_tag);
             result.push(escape_html(records[nr][nf]));
@@ -34,9 +42,9 @@ function slow_replace_all(src, old_substr, new_substr) {
 }
 
 
-function make_preview(client_html_template, client_js_template, preview_records, origin_server_port) {
+function make_preview(client_html_template, client_js_template, customized_colors, preview_records, origin_server_port) {
     var client_side_js = slow_replace_all(client_js_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
-    var html_table = make_html_table(preview_records);
+    var html_table = make_html_table(customized_colors, preview_records);
     client_html_template = slow_replace_all(client_html_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
     client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_side_js);
     // TODO instead of replacing __TEMPLATE_HTML_TABLE__ pass table rows through extension server to get rid of this hack.
