@@ -12,16 +12,27 @@ function make_html_table(customized_colors, records) {
         result.push('<tr>');
         for (var nf = 0; nf < records[nr].length; nf++) {
             var style_attr = '';
+            var bold_attr = '';
             if (customized_colors && nf > 0) {
                 var font_style = customized_colors[(nf - 1) % 10]['fontStyle']; // FIXME can be empty
                 var foreground = customized_colors[(nf - 1) % 10]['foreground'];
-                style_attr = ' style="color:' + foreground + '"';
+                style_attr = 'color:' + foreground + ';';
+                if (font_style == 'bold') {
+                    style_attr += 'font-weight:bold;';
+                }
+                if (font_style == 'italic') {
+                    style_attr += 'font-style:italic;';
+                }
+                if (font_style == 'underline') {
+                    style_attr += 'text-decoration:underline;';
+                }
+                style_attr = ' style="' + style_attr + '"';
 
             }
 
             var tag_name = nr ? 'td' : 'th';
-            var color_attr = nf ? '' : ' bgcolor="rgb(130, 6, 219)"'
-            var open_tag = '<' + tag_name + color_attr + style_attr + '>';
+            var background_color_attr = nf ? '' : ' bgcolor="rgb(130, 6, 219)"'
+            var open_tag = '<' + tag_name + background_color_attr + style_attr + '>';
             var close_tag = '</' + tag_name + '>';
             result.push(open_tag);
             result.push(escape_html(records[nr][nf]));

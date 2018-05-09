@@ -420,11 +420,11 @@ function get_customized_colors() {
             dbg_log('no settings found for scope ' + scope);
             continue;
         }
-        //if (rule == 'markup.bold.rainbow9' && !rule.hasOwnProperty('fontStyle')) {
+        //if (scope == 'markup.bold.rainbow9' && !settings.hasOwnProperty('fontStyle')) {
         //    settings['fontStyle'] = 'bold';
         //}
-        if (!rule.hasOwnProperty('fontStyle')) {
-            if (rule == 'markup.bold.rainbow9') {
+        if (!settings.hasOwnProperty('fontStyle')) {
+            if (scope == 'markup.bold.rainbow9') {
                 settings['fontStyle'] = 'bold';
             } else {
                 settings['fontStyle'] = '';
