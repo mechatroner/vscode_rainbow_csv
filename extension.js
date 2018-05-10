@@ -19,6 +19,9 @@ var rbql_provider = null;
 
 var http_server = null;
 
+var active_file_path = null;
+var last_rbql_queries = new Map();
+
 var client_js_template_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
@@ -222,13 +225,19 @@ function handle_rbql_result_file(text_doc, warnings) {
 function handle_request(request, response) {
     var parsed_url = url.parse(request.url, true);
     var pathname = parsed_url.pathname;
-    if (pathname == '/echo') {
-        response.writeHead(200, {'Content-Type': 'text/plain'});
-        response.end('ECHO');
+    if (pathname == '/init') {
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        var init_msg = {"RBQL": "inited"};
+        var last_rbql_query = last_rbql_queries[active_file_path];
+        if (last_rbql_query) {
+            init_msg['last_query'] = last_rbql_query;
+        }
+        response.end(JSON.stringify(init_msg));
         return;
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
+        last_rbql_queries[active_file_path] = rbql_query;
         dbg_log('rbql_query: ' + rbql_query);
         // FIXME test situation when query takes some time to execute
         // FIXME make sure you escape both path to script and args for win and nix
@@ -312,6 +321,8 @@ function edit_rbql() {
     // 3-rd attempt - key1,key2,key3
     // essentially you send not only key{i} but all previous keys too to improve reliability
     http_server = http.createServer(handle_request);
+    active_file_path = active_doc.fileName;
+
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
     rbql_origin = {"document": active_doc, "line": cursor_line, "server_port": port};
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
@@ -464,6 +475,7 @@ class RBQLProvider {
             customized_colors = null; // Improve code coverage in dev mode
         }
         dbg_log('customized_colors: ' + JSON.stringify(customized_colors));
+
         return html_preview.make_preview(client_html_template, client_js_template, customized_colors, window_records, server_port);
     }
 

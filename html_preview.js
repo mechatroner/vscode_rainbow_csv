@@ -1,4 +1,5 @@
-// FIXME prettify, highlight columns in rainbow colors, highlight html table header, add help and examples. Add command history.
+// FIXME show previous query by default
+// FIXME split table on 3 parts max: begin, cursor, end
 
 function escape_html(src) {
     return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
@@ -42,7 +43,7 @@ function make_html_table(customized_colors, records) {
     }
     result.push('</table>');
     if (!customized_colors) {
-        result.push('<span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md">instructions</a></span><br>');
+        result.push('<span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span><br>');
     }
     return result.join('');
 }

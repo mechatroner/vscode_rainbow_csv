@@ -9,11 +9,18 @@ function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
         return;
     }
-    var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/echo";
+    var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/init";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
-        if (xhr.readyState == 4 && xhr.status == 200 && xhr.responseText == 'ECHO') {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            init_report = JSON.parse(xhr.responseText);
+            if (!init_report.hasOwnProperty('RBQL')) {
+                return;
+            }
             handshake_completed = true;
+            if (init_report.hasOwnProperty('last_query')) {
+                document.getElementById('rbql_input').value = init_report['last_query'];
+            }
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
         }
