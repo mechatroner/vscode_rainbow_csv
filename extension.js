@@ -460,9 +460,9 @@ class RBQLProvider {
         var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
         var client_html_template = fs.readFileSync(client_html_template_path, "utf8");
         var customized_colors = get_customized_colors();
-        //if (enable_dev_mode && Math.random() > 0.5) {
-        //    customized_colors = null; // Improve code coverage in dev mode
-        //}
+        if (enable_dev_mode && Math.random() > 0.5) {
+            customized_colors = null; // Improve code coverage in dev mode
+        }
         dbg_log('customized_colors: ' + JSON.stringify(customized_colors));
         return html_preview.make_preview(client_html_template, client_js_template, customized_colors, window_records, server_port);
     }

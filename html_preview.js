@@ -14,7 +14,7 @@ function make_html_table(customized_colors, records) {
             var style_attr = '';
             var bold_attr = '';
             if (customized_colors && nf > 0) {
-                var font_style = customized_colors[(nf - 1) % 10]['fontStyle']; // FIXME can be empty
+                var font_style = customized_colors[(nf - 1) % 10]['fontStyle'];
                 var foreground = customized_colors[(nf - 1) % 10]['foreground'];
                 style_attr = 'color:' + foreground + ';';
                 if (font_style == 'bold') {
@@ -41,6 +41,9 @@ function make_html_table(customized_colors, records) {
         result.push('</tr>');
     }
     result.push('</table>');
+    if (!customized_colors) {
+        result.push('<span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md">instructions</a></span><br>');
+    }
     return result.join('');
 }
 

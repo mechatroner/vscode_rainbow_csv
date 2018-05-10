@@ -1,6 +1,8 @@
 ### Colors customization 
 
-Add this fragment to VS Code settings to customize Rainbow CSV colors.
+Add this fragment to VS Code settings to modify Rainbow CSV colors and increase contrast.
+This will not affect syntax colors for other file types.
+You can modify "foreground" and "fontStyle" attributes as you like.
 
 ```
 "editor.tokenColorCustomizations": {
