@@ -9,7 +9,7 @@ var html_preview = require('./html_preview');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
-var oc_log = null; // For debug
+var oc_log = null;
 
 var lint_results = new Map();
 var rbql_origin = null;
@@ -28,6 +28,8 @@ var mock_script_path = null;
 
 var enable_dev_mode = true; // FIXME init this entry from config
 
+var client_js_template = null;
+var client_html_template = null;
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -240,7 +242,6 @@ function handle_request(request, response) {
         var rbql_query = query.rbql_query;
         last_rbql_queries[active_file_path] = rbql_query;
         dbg_log('rbql_query: ' + rbql_query);
-        // FIXME test situation when query takes some time to execute
         // FIXME make sure you escape both path to script and args for win and nix
         var cmd = null;
         const test_marker = 'test ';
@@ -249,7 +250,6 @@ function handle_request(request, response) {
             dbg_log('mock script path: ' + mock_script_path);
             cmd = 'python "' + mock_script_path + '" "' + rbql_query + '"';
         }
-        // FIXME test with different errors
         child_process.exec(cmd, function(error, stdout, stderr) {
             dbg_log('error: ' + String(error));
             dbg_log('stdout: ' + String(stdout));
@@ -318,9 +318,8 @@ function edit_rbql() {
     }
     // FIXME pass security tokens. In client:
     // 1-st attempt - key1
-    // 2-nd attempt - key1,key2
-    // 3-rd attempt - key1,key2,key3
-    // essentially you send not only key{i} but all previous keys too to improve reliability
+    // 2-nd attempt - key2
+    // 3-rd attempt - key3
     http_server = http.createServer(handle_request);
     active_file_path = active_doc.fileName;
 
@@ -444,9 +443,6 @@ function get_customized_colors() {
             dbg_log('no settings found for scope ' + scope);
             continue;
         }
-        //if (scope == 'markup.bold.rainbow9' && !settings.hasOwnProperty('fontStyle')) {
-        //    settings['fontStyle'] = 'bold';
-        //}
         if (!settings.hasOwnProperty('fontStyle')) {
             if (scope == 'markup.bold.rainbow9') {
                 settings['fontStyle'] = 'bold';
@@ -481,14 +477,16 @@ class RBQLProvider {
         var delim = dialect_map[language_id][0];
         var policy = dialect_map[language_id][1];
         var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
-        var client_js_template = fs.readFileSync(client_js_template_path, "utf8");
-        var client_html_template = fs.readFileSync(client_html_template_path, "utf8");
+        if (!client_js_template || enable_dev_mode) {
+            client_js_template = fs.readFileSync(client_js_template_path, "utf8");
+        }
+        if (!client_html_template || enable_dev_mode) {
+            client_html_template = fs.readFileSync(client_html_template_path, "utf8");
+        }
         var customized_colors = get_customized_colors();
         if (enable_dev_mode && Math.random() > 0.5) {
             customized_colors = null; // Improve code coverage in dev mode
         }
-        dbg_log('customized_colors: ' + JSON.stringify(customized_colors));
-
         return html_preview.make_preview(client_html_template, client_js_template, customized_colors, window_records, server_port);
     }
 
