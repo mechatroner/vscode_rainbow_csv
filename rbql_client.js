@@ -7,7 +7,39 @@
 var rbql_running = false;
 var handshake_completed = false;
 
-var host_lang_presentations = {'python': {'name': 'Python', 'color': '#3572A5'}, 'js': {'name': 'JavaScript', 'color': '#F1E05A'}};
+var host_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
+
+
+function display_host_language(host_language) {
+    var language_info = null;
+    for (var i = 0; i < host_lang_presentations.length; i++) {
+        if (host_lang_presentations[i]['key'] == host_language) {
+            language_info = host_lang_presentations[i];
+            break;
+        }
+    }
+    document.getElementById('host_language_change').style.backgroundColor = language_info['color'];
+    document.getElementById('host_language_change').textContent = language_info['name'];
+}
+
+
+function get_current_lang_idx() {
+    var current_lang_name = document.getElementById('host_language_change').textContent;
+    for (var i = 0; i < host_lang_presentations.length; i++) {
+        if (host_lang_presentations[i]['name'] == current_lang_name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+function switch_host_language() {
+    var lang_idx = get_current_lang_idx();
+    var next_idx = (lang_idx + 1) % host_lang_presentations.length;
+    display_host_language(host_lang_presentations[next_idx]['key']);
+}
+
 
 function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
@@ -25,11 +57,7 @@ function run_handshake(num_attempts) {
             if (init_report.hasOwnProperty('last_query')) {
                 document.getElementById('rbql_input').value = init_report['last_query'];
             }
-            var host_language = init_report['host_language'];
-            var host_language_name = host_lang_presentations[host_language]['name'];
-            var host_language_color = host_lang_presentations[host_language]['color'];
-            document.getElementById('host_language_change').textContent = host_language_name;
-            document.getElementById('host_language_change').style.backgroundColor = host_language_color;
+            display_host_language(init_report['host_language']);
             // FIXME change language on click
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
@@ -78,6 +106,7 @@ function start_rbql() {
     document.getElementById('status_label').textContent = "Running...";
 
     var rbql_text = document.getElementById('rbql_input').value;
+    var rbql_host_lang = document.getElementById('host_language_change')
     var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -85,7 +114,8 @@ function start_rbql() {
             process_rbql_result(xhr.responseText);
         }
     }
-    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text);
+    var host_language = host_lang_presentations[get_current_lang_idx()]['key'];
+    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language;
     xhr.open("GET", rainbow_csv_server);
     xhr.send();
 }
@@ -94,6 +124,7 @@ function start_rbql() {
 function main() {
     run_handshake(3);
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
+    document.getElementById("host_language_change").addEventListener("click", switch_host_language);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("rbql_input").focus();
     document.getElementById("rbql_input").addEventListener("keyup", function(event) {
