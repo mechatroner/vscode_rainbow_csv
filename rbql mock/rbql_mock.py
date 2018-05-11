@@ -6,6 +6,7 @@ import argparse
 import random
 import tempfile
 import json
+import time
 
 def parse_params(param_string):
     result = dict()
@@ -30,6 +31,11 @@ def main():
         for i in range(10):
             f.write(param_string + '\n')
     report = {'result_path': tmp_file}
+
+
+    if 'sleep' in params:
+        sleep_time = float(params['sleep'])
+        time.sleep(sleep_time)
 
     if 'error' in params:
         report['error_type'] = 'Mock Error'
