@@ -2,8 +2,12 @@
 
 // FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
 
+// FIXME pass all params using server mechanism
+
 var rbql_running = false;
 var handshake_completed = false;
+
+var host_lang_presentations = {'python': {'name': 'Python', 'color': '#3572A5'}, 'js': {'name': 'JavaScript', 'color': '#F1E05A'}};
 
 function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
@@ -21,6 +25,12 @@ function run_handshake(num_attempts) {
             if (init_report.hasOwnProperty('last_query')) {
                 document.getElementById('rbql_input').value = init_report['last_query'];
             }
+            var host_language = init_report['host_language'];
+            var host_language_name = host_lang_presentations[host_language]['name'];
+            var host_language_color = host_lang_presentations[host_language]['color'];
+            document.getElementById('host_language_change').textContent = host_language_name;
+            document.getElementById('host_language_change').style.backgroundColor = host_language_color;
+            // FIXME change language on click
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
         }

@@ -41,6 +41,24 @@ input {
     font-style:italic;
 }
 
+
+#host_language_change {
+    width: 110px;
+    text-decoration: none;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: white;
+    height: 28px;
+    cursor:pointer;
+}
+
+.host_lang_info {
+    font-size: 18px !important;
+    margin-left: 12px;
+}
+
+
 #rbql_run_btn {
     width: 70px;
     background-color: #4CAF50;
@@ -120,6 +138,10 @@ input {
 <div id="rbql_dashboard" style="display:none">
     <h3>Table preview around cursor:</h3>
     <!--__TEMPLATE_HTML_TABLE__-->
+    <br>
+    <div>
+        <button id="host_language_change"></button><span class="host_lang_info"> &ndash; RBQL host language</span>
+    </div>
     <br>
     <h3>Input SQL-like <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#RBQL">RBQL</a> query and press Enter:</h3>
     <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>

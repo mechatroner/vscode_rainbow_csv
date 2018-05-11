@@ -232,6 +232,7 @@ function handle_request(request, response) {
         if (last_rbql_query) {
             init_msg['last_query'] = last_rbql_query;
         }
+        init_msg['host_language'] = get_rbql_host_language();
         response.end(JSON.stringify(init_msg));
         return;
     } else if (pathname == '/run') {
@@ -329,6 +330,18 @@ function edit_rbql() {
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
 
+function get_rbql_host_language() {
+    var supported_hosts = ['python', 'js'];
+    var default_host = 'python';
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (config && config.get('rbql_host_language')) {
+        var host_language = config.get('rbql_host_language').toLowerCase();
+        if (supported_hosts.indexOf(host_language) != -1) {
+            return host_language;
+        }
+    }
+    return default_host;
+}
 
 function csv_lint(autolint, active_doc) {
     if (autolint) {
