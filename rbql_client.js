@@ -2,7 +2,9 @@
 
 // FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
 
-// FIXME pass all params using server mechanism
+// FIXME show preview table with 3 sections: begin, cursor, end
+
+// FIXME interface: make button with "?" mark, when clicked, a span with help link will be shown.
 
 var rbql_running = false;
 var handshake_completed = false;
@@ -40,6 +42,43 @@ function switch_host_language() {
     display_host_language(host_lang_presentations[next_idx]['key']);
 }
 
+function remove_children(root_node) {
+    while (root_node.firstChild) {
+        root_node.removeChild(root_node.firstChild);
+    }
+}
+
+
+function make_preview_table(customized_colors, records) {
+    var table = document.getElementById('preview_table');
+    remove_children(table);
+    for (var nr = 0; nr < records.length; nr++) {
+        var row = document.createElement('tr');
+        table.appendChild(row);
+        for (var nf = 0; nf < records[nr].length; nf++) {
+            var cell_type = nr ? 'td' : 'th';
+            var cell = document.createElement(cell_type);
+            if (customized_colors && nf > 0) {
+                var foreground = customized_colors[(nf - 1) % 10]['foreground'];
+                var font_style = customized_colors[(nf - 1) % 10]['fontStyle'];
+                cell.style.color = foreground;
+                if (font_style == 'bold') {
+                    cell.style.fontWeight = 'bold';
+                } else if (font_style == 'italic') {
+                    cell.style.fontStyle = 'italic';
+                } else if (font_style == 'underline') {
+                    cell.style.textDecoration = 'underline';
+                }
+            }
+            if (nf == 0) {
+                cell.style.backgroundColor = 'rgb(130, 6, 219)';
+            }
+            cell.textContent = records[nr][nf];
+            row.appendChild(cell);
+        }
+    }
+}
+
 
 function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
@@ -50,15 +89,17 @@ function run_handshake(num_attempts) {
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
             init_report = JSON.parse(xhr.responseText);
-            if (!init_report.hasOwnProperty('RBQL')) {
-                return;
-            }
             handshake_completed = true;
             if (init_report.hasOwnProperty('last_query')) {
                 document.getElementById('rbql_input').value = init_report['last_query'];
             }
+            var custom_colors = init_report['custom_colors'];
+            var window_records = init_report['window_records'];
+            make_preview_table(custom_colors, window_records);
+            if (!custom_colors) {
+                document.getElementById("colors_hint").style.display = 'block';
+            }
             display_host_language(init_report['host_language']);
-            // FIXME change language on click
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
         }

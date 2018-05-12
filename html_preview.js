@@ -1,53 +1,4 @@
-// FIXME show previous query by default
-// FIXME split table on 3 parts max: begin, cursor, end
-
-function escape_html(src) {
-    return String(src).replace(/[&<>"'`=\/]/g, function (s) { return entity_map[s]; });
-}
-
-
-function make_html_table(customized_colors, records) {
-    result = [];
-    result.push('<table>');
-    for (var nr = 0; nr < records.length; nr++) {
-        result.push('<tr>');
-        for (var nf = 0; nf < records[nr].length; nf++) {
-            var style_attr = '';
-            var bold_attr = '';
-            if (customized_colors && nf > 0) {
-                var font_style = customized_colors[(nf - 1) % 10]['fontStyle'];
-                var foreground = customized_colors[(nf - 1) % 10]['foreground'];
-                style_attr = 'color:' + foreground + ';';
-                if (font_style == 'bold') {
-                    style_attr += 'font-weight:bold;';
-                }
-                if (font_style == 'italic') {
-                    style_attr += 'font-style:italic;';
-                }
-                if (font_style == 'underline') {
-                    style_attr += 'text-decoration:underline;';
-                }
-                style_attr = ' style="' + style_attr + '"';
-
-            }
-
-            var tag_name = nr ? 'td' : 'th';
-            var background_color_attr = nf ? '' : ' bgcolor="rgb(130, 6, 219)"'
-            var open_tag = '<' + tag_name + background_color_attr + style_attr + '>';
-            var close_tag = '</' + tag_name + '>';
-            result.push(open_tag);
-            result.push(escape_html(records[nr][nf]));
-            result.push(close_tag);
-        }
-        result.push('</tr>');
-    }
-    result.push('</table>');
-    if (!customized_colors) {
-        result.push('<span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span><br>');
-    }
-    return result.join('');
-}
-
+// FIXME get rid of this module it has only 2 small functions: move them to extension.js
 
 function slow_replace_all(src, old_substr, new_substr) {
     while (src.indexOf(old_substr) != -1) {
@@ -57,15 +8,11 @@ function slow_replace_all(src, old_substr, new_substr) {
 }
 
 
-function make_preview(client_html_template, client_js_template, customized_colors, preview_records, origin_server_port) {
-    var client_side_js = slow_replace_all(client_js_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
-    var html_table = make_html_table(customized_colors, preview_records);
+function make_preview(client_html_template, client_js_template, origin_server_port) {
+    // FIXME find out whether you need to escape `<`, `>` and other chars when embedding js into html
+    client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_js_template);
     client_html_template = slow_replace_all(client_html_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
-    client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_side_js);
-    // TODO instead of replacing __TEMPLATE_HTML_TABLE__ pass table rows through extension server to get rid of this hack.
-    var client_side_html = slow_replace_all(client_html_template, '<!--__TEMPLATE_HTML_TABLE__-->', html_table);
-    return client_side_html;
+    return client_html_template;
 }
-
 
 module.exports.make_preview = make_preview;

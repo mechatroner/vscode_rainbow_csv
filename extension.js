@@ -12,14 +12,12 @@ var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semico
 var oc_log = null;
 
 var lint_results = new Map();
-var rbql_origin = null;
 var sb_item = null;
 
-var rbql_provider = null;
+var rbql_context = null;
 
 var http_server = null;
 
-var active_file_path = null;
 var last_rbql_queries = new Map();
 
 var client_js_template_path = null;
@@ -46,7 +44,7 @@ function sample_preview_records(document, window_center, window_size, delim, pol
     var adjusted_window = rainbow_utils.adjust_window_borders(window_center, window_size, document.lineCount);
     var line_begin = adjusted_window[0];
     var line_end = adjusted_window[1];
-    preview_records = [];
+    var preview_records = [];
     var max_cols = 0;
     for (var nr = line_begin; nr < line_end; nr++) {
         var line_text = document.lineAt(nr).text;
@@ -227,14 +225,25 @@ function handle_rbql_result_file(text_doc, warnings) {
 function handle_request(request, response) {
     var parsed_url = url.parse(request.url, true);
     var pathname = parsed_url.pathname;
+    var active_file_path = rbql_context['document'].fileName;
     if (pathname == '/init') {
         response.writeHead(200, {'Content-Type': 'application/json'});
-        var init_msg = {"RBQL": "inited"};
+        var init_msg = {"host_language": get_rbql_host_language()};
+        var window_records = sample_preview_records(rbql_context.document, rbql_context.line, 12, rbql_context.delim, rbql_context.policy);
+        init_msg['window_records'] = window_records;
+
+        var customized_colors = get_customized_colors();
+        if (enable_dev_mode && Math.random() > 0.5) {
+            customized_colors = null; // Improves code coverage in dev mode
+        }
+        if (customized_colors) {
+            init_msg['custom_colors'] = customized_colors;
+        }
+
         var last_rbql_query = last_rbql_queries[active_file_path];
         if (last_rbql_query) {
             init_msg['last_query'] = last_rbql_query;
         }
-        init_msg['host_language'] = get_rbql_host_language();
         response.end(JSON.stringify(init_msg));
         return;
     } else if (pathname == '/run') {
@@ -311,7 +320,9 @@ function edit_rbql() {
         return;
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
-        return;
+        return; // FIXME allow this. Non-csv language_id means monocolumn mode.
+    var delim = dialect_map[language_id][0];
+    var policy = dialect_map[language_id][1];
     var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
     if (http_server) {
         http_server.close();
@@ -321,10 +332,9 @@ function edit_rbql() {
     // 2-nd attempt - key2
     // 3-rd attempt - key3
     http_server = http.createServer(handle_request);
-    active_file_path = active_doc.fileName;
 
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
-    rbql_origin = {"document": active_doc, "line": cursor_line, "server_port": port};
+    rbql_context = {"document": active_doc, "line": cursor_line, "server_port": port, "delim": delim, "policy": policy};
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
@@ -374,7 +384,7 @@ function csv_lint(autolint, active_doc) {
 function show_linter_state() {
     if (sb_item)
         sb_item.hide();
-    active_doc = get_active_doc();
+    var active_doc = get_active_doc();
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -468,26 +478,13 @@ class RBQLProvider {
     }
 
     provideTextDocumentContent(uri, token) {
-        var origin_doc = rbql_origin.document;
-        var origin_line = rbql_origin.line;
-        var server_port = rbql_origin.server_port;
-        var language_id = origin_doc.languageId;
-        if (!dialect_map.hasOwnProperty(language_id))
-            return;
-        var delim = dialect_map[language_id][0];
-        var policy = dialect_map[language_id][1];
-        var window_records = sample_preview_records(origin_doc, origin_line, 12, delim, policy);
         if (!client_js_template || enable_dev_mode) {
             client_js_template = fs.readFileSync(client_js_template_path, "utf8");
         }
         if (!client_html_template || enable_dev_mode) {
             client_html_template = fs.readFileSync(client_html_template_path, "utf8");
         }
-        var customized_colors = get_customized_colors();
-        if (enable_dev_mode && Math.random() > 0.5) {
-            customized_colors = null; // Improve code coverage in dev mode
-        }
-        return html_preview.make_preview(client_html_template, client_js_template, customized_colors, window_records, server_port);
+        return html_preview.make_preview(client_html_template, client_js_template, rbql_context.server_port);
     }
 
     get onDidChange() {
@@ -503,7 +500,7 @@ function activate(context) {
 
     dbg_log('Activating "rainbow_csv"');
 
-    rbql_provider = new RBQLProvider(context);
+    var rbql_provider = new RBQLProvider(context);
 
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');

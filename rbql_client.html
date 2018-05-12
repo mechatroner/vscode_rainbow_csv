@@ -75,6 +75,10 @@ input {
     background-color: #3e8e41; 
 }
 
+#colors_hint {
+    display: none;
+}
+
 #rbql_error_message { 
     width: 50%; 
     top: 20%; 
@@ -137,12 +141,13 @@ input {
 
 <div id="rbql_dashboard" style="display:none">
     <h3>Table preview around cursor:</h3>
-    <!--__TEMPLATE_HTML_TABLE__-->
+    <table id="preview_table">
+    </table>
+    <div id="colors_hint"><span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span></div>
     <br>
     <div>
         <button id="host_language_change"></button><span class="host_lang_info"> &ndash; RBQL host language</span>
     </div>
-    <br>
     <h3>Input SQL-like <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#RBQL">RBQL</a> query and press Enter:</h3>
     <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
     <button id="rbql_run_btn">Run</button>
