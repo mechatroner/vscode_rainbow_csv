@@ -38,13 +38,13 @@ input {
 
 #host_language_change {
     width: 110px;
-    text-decoration: none;
     display: inline-block;
     border:none;
     font-size: 18px !important;
     color: white;
     height: 28px;
     cursor:pointer;
+    font-weight: bold;
 }
 
 .host_lang_info {
@@ -53,24 +53,39 @@ input {
 }
 
 
+#help_btn {
+    margin-left: 10px;
+    width: 28px;
+    background-color: #FFFFE6;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: black;
+    height: 28px;
+    cursor:pointer;
+    font-weight: bold;
+}
+
 #rbql_run_btn {
     width: 70px;
     background-color: #4CAF50;
-    text-decoration: none;
     display: inline-block;
-    transition-duration: 0.3s;
     border:none;
     font-size: 18px !important;
     color: white;
     height: 28px;
-}
-
-#rbql_run_btn:hover { 
-    background-color: #3e8e41; 
+    cursor:pointer;
+    font-weight: bold;
 }
 
 #colors_hint {
     display: none;
+}
+
+#rbql_help {
+    display: none;
+    font-size: 18px !important;
+    font-weight: bold;
 }
 
 #rbql_error_message { 
@@ -94,7 +109,6 @@ input {
 #ack_error { 
     width: 70px;
     background-color: #FF4444;
-    text-decoration: none;
     display: inline-block;
     transition-duration: 0.3s;
     border:none;
@@ -142,9 +156,10 @@ input {
     <div>
         <button id="host_language_change"></button><span class="host_lang_info"> &ndash; RBQL host language</span>
     </div>
-    <h3>Input SQL-like <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#RBQL">RBQL</a> query and press Enter:</h3>
+    <h3>Input SQL-like RBQL query and press Enter:</h3>
     <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
-    <button id="rbql_run_btn">Run</button>
+    <button id="rbql_run_btn">Run</button><button id="help_btn">?</button>
+    <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#RBQL">github</a></span></div>
     <br>
     <div><span id="status_label"></span></div>
 </div>

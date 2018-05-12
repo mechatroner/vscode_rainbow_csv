@@ -2,9 +2,11 @@
 
 // FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
 
-// FIXME show preview table with 3 sections: begin, cursor, end
+// FIXME show preview table with 2 sections: begin, cursor
 
-// FIXME interface: make button with "?" mark, when clicked, a span with help link will be shown.
+// FIXME custom handling of "query empty" error
+
+// FIXME save and restore previous host language along with the query
 
 var rbql_running = false;
 var handshake_completed = false;
@@ -140,6 +142,13 @@ function hide_error_msg() {
 }
 
 
+function toggle_help_msg() {
+    var style_before = document.getElementById('rbql_help').style.display;
+    var new_style = style_before == 'block' ? 'none' : 'block';
+    document.getElementById('rbql_help').style.display = new_style;
+}
+
+
 function start_rbql() {
     if (rbql_running) {
         return;
@@ -168,6 +177,7 @@ function main() {
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("host_language_change").addEventListener("click", switch_host_language);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
+    document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("rbql_input").focus();
     document.getElementById("rbql_input").addEventListener("keyup", function(event) {
         event.preventDefault();
