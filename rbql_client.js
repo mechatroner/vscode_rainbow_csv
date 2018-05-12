@@ -6,6 +6,8 @@
 
 // FIXME interface: make button with "?" mark, when clicked, a span with help link will be shown.
 
+// FIXME improve color or NR column in the table
+
 var rbql_running = false;
 var handshake_completed = false;
 

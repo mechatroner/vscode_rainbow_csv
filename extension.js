@@ -5,7 +5,6 @@ const fs = require('fs');
 const child_process = require('child_process');
 
 var rainbow_utils = require('./rainbow_utils');
-var html_preview = require('./html_preview');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
@@ -472,6 +471,22 @@ function get_customized_colors() {
 }
 
 
+function slow_replace_all(src, old_substr, new_substr) {
+    while (src.indexOf(old_substr) != -1) {
+        src = src.replace(old_substr, new_substr);
+    }
+    return src;
+}
+
+
+function make_preview(client_html_template, client_js_template, origin_server_port) {
+    // FIXME find out whether you need to escape `<`, `>` and other chars when embedding js into html
+    client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_js_template);
+    client_html_template = slow_replace_all(client_html_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
+    return client_html_template;
+}
+
+
 class RBQLProvider {
     constructor(context) {
         this.onDidChangeEvent = new vscode.EventEmitter();
@@ -484,7 +499,7 @@ class RBQLProvider {
         if (!client_html_template || enable_dev_mode) {
             client_html_template = fs.readFileSync(client_html_template_path, "utf8");
         }
-        return html_preview.make_preview(client_html_template, client_js_template, rbql_context.server_port);
+        return make_preview(client_html_template, client_js_template, rbql_context.server_port);
     }
 
     get onDidChange() {
