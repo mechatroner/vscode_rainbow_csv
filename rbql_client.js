@@ -6,8 +6,6 @@
 
 // FIXME interface: make button with "?" mark, when clicked, a span with help link will be shown.
 
-// FIXME improve color or NR column in the table
-
 var rbql_running = false;
 var handshake_completed = false;
 
@@ -58,8 +56,7 @@ function make_preview_table(customized_colors, records) {
         var row = document.createElement('tr');
         table.appendChild(row);
         for (var nf = 0; nf < records[nr].length; nf++) {
-            var cell_type = nr ? 'td' : 'th';
-            var cell = document.createElement(cell_type);
+            var cell = document.createElement('td');
             if (customized_colors && nf > 0) {
                 var foreground = customized_colors[(nf - 1) % 10]['foreground'];
                 var font_style = customized_colors[(nf - 1) % 10]['fontStyle'];
@@ -72,8 +69,10 @@ function make_preview_table(customized_colors, records) {
                     cell.style.textDecoration = 'underline';
                 }
             }
-            if (nf == 0) {
-                cell.style.backgroundColor = 'rgb(130, 6, 219)';
+            if (nf == 0 || nr == 0) {
+                cell.style.border = '1px solid red';
+            } else {
+                cell.style.border = '1px solid rgb(130, 6, 219)';
             }
             cell.textContent = records[nr][nf];
             row.appendChild(cell);
