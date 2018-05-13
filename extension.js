@@ -28,6 +28,9 @@ var enable_dev_mode = true; // FIXME init this entry from config
 var client_js_template = null;
 var client_html_template = null;
 
+var security_tokens = null;
+var used_tokens = null;
+
 function dbg_log(msg) {
     if (!enable_dev_mode)
         return;
@@ -223,6 +226,7 @@ function handle_rbql_result_file(text_doc, warnings) {
 
 function handle_request(request, response) {
     var parsed_url = url.parse(request.url, true);
+    dbg_log('request.url: ' + request.url);
     var pathname = parsed_url.pathname;
     var active_file_path = rbql_context['document'].fileName;
     if (pathname == '/init') {
@@ -248,6 +252,12 @@ function handle_request(request, response) {
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
+        var host_language = query.host_language;
+        var security_token = query.security_token;
+        dbg_log('security_token: ' + security_token);
+        if (security_tokens.indexOf(security_token) == -1 || used_tokens.indexOf(security_token) != -1)
+            return;
+        used_tokens.push(security_token);
         last_rbql_queries[active_file_path] = rbql_query;
         dbg_log('rbql_query: ' + rbql_query);
         // FIXME make sure you escape both path to script and args for win and nix
@@ -326,10 +336,6 @@ function edit_rbql() {
     if (http_server) {
         http_server.close();
     }
-    // FIXME pass security tokens. In client:
-    // 1-st attempt - key1
-    // 2-nd attempt - key2
-    // 3-rd attempt - key3
     http_server = http.createServer(handle_request);
 
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
@@ -480,11 +486,18 @@ function slow_replace_all(src, old_substr, new_substr) {
 
 
 function make_preview(client_html_template, client_js_template, origin_server_port) {
+    // This function gets called every time user activates RBQL preview tab and in original preview request.
+    security_tokens = [];
+    used_tokens = [];
+    for (var i = 0; i < 100; i++) {
+        security_tokens.push(String(Math.random()));
+    }
     if (client_js_template.indexOf('</script') != -1) {
         return null;
     }
     client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_js_template);
-    client_html_template = slow_replace_all(client_html_template, '__EMBEDDED_JS_PORT__', String(origin_server_port));
+    client_html_template = slow_replace_all(client_html_template, '__TEMPLATE_JS_PORT__', String(origin_server_port));
+    client_html_template = slow_replace_all(client_html_template, '"__TEMPLATE_SECURITY_TOKENS__"', security_tokens.join(','));
     return client_html_template;
 }
 

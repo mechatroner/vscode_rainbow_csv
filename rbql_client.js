@@ -11,6 +11,9 @@
 var rbql_running = false;
 var handshake_completed = false;
 
+var security_tokens = ["__TEMPLATE_SECURITY_TOKENS__"];
+var token_num = 0;
+
 var host_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
 
 
@@ -87,7 +90,7 @@ function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
         return;
     }
-    var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/init";
+    var rainbow_csv_server = "http://localhost:__TEMPLATE_JS_PORT__/init";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
@@ -158,7 +161,7 @@ function start_rbql() {
 
     var rbql_text = document.getElementById('rbql_input').value;
     var rbql_host_lang = document.getElementById('host_language_change')
-    var rainbow_csv_server = "http://localhost:__EMBEDDED_JS_PORT__/run?";
+    var rainbow_csv_server = "http://localhost:__TEMPLATE_JS_PORT__/run?";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
@@ -166,7 +169,12 @@ function start_rbql() {
         }
     }
     var host_language = host_lang_presentations[get_current_lang_idx()]['key'];
-    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language;
+    if (token_num >= security_tokens.length) {
+        return;
+    }
+    var security_token = security_tokens[token_num];
+    token_num += 1;
+    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language + '&security_token=' + security_token;
     xhr.open("GET", rainbow_csv_server);
     xhr.send();
 }
