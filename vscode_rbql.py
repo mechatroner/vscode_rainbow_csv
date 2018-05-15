@@ -17,7 +17,7 @@ from rbql_core import rbql
 
 def report_error_and_exit(error_type, error_details):
     sys.stdout.write(json.dumps({'error_type': error_type, 'error_details': error_details}))
-    sys.exit(1)
+    sys.exit()
 
 
 def report_success_and_exit(report):

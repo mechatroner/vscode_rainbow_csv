@@ -305,9 +305,10 @@ function handle_request(http_request, http_response) {
             init_msg['custom_colors'] = customized_colors;
         }
 
-        var last_rbql_query = last_rbql_queries[active_file_path];
-        if (last_rbql_query) {
-            init_msg['last_query'] = last_rbql_query;
+        if (last_rbql_queries.has(active_file_path)) {
+            last_query_info = last_rbql_queries.get(active_file_path);
+            init_msg['last_query'] = last_query_info['query'];
+            init_msg['host_language'] = last_query_info['host_language'];
         }
         http_response.end(JSON.stringify(init_msg));
         return;
@@ -320,7 +321,7 @@ function handle_request(http_request, http_response) {
         if (security_tokens.indexOf(security_token) == -1 || used_tokens.indexOf(security_token) != -1)
             return;
         used_tokens.push(security_token);
-        last_rbql_queries[active_file_path] = rbql_query;
+        last_rbql_queries.set(active_file_path, {'query': rbql_query, 'host_language': host_language});
         dbg_log('rbql_query: ' + rbql_query);
         var cmd = 'python';
         var args = null;
