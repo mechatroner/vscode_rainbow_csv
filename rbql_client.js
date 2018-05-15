@@ -8,6 +8,8 @@
 
 // FIXME save and restore previous host language along with the query
 
+// FIXME create RBQL.md readme file
+
 var rbql_running = false;
 var handshake_completed = false;
 

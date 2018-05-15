@@ -241,13 +241,55 @@ function run_command(cmd, args, callback_func) {
 }
 
 
-function handle_request(request, response) {
-    var parsed_url = url.parse(request.url, true);
-    dbg_log('request.url: ' + request.url);
+function handle_command_result(error_code, stdout, stderr, http_response) {
+    dbg_log('error_code: ' + String(error_code));
+    dbg_log('stdout: ' + String(stdout));
+    dbg_log('stderr: ' + String(stderr));
+
+    var report = null;
+    var json_report = stdout;
+    if (error_code || !json_report.length || stderr.length) {
+        var error_details = "Unknown Integration Error";
+        if (stderr.length) {
+            error_details += '\nstderr: ' + stderr;
+        }
+        report = {"error_type": "Integration", "error_details": error_details};
+    } else {
+        try {
+            report = JSON.parse(json_report);
+        } catch (e) {
+            report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
+        }
+    }
+    http_response.writeHead(200, {'Content-Type': 'application/json'});
+    http_response.end(JSON.stringify(report));
+    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+        return; // Just exit: error would be shown in the preview window.
+    }
+    var warnings = [];
+    if (report.hasOwnProperty('warnings')) {
+        warnings = report['warnings'];
+    }
+    if (!report.hasOwnProperty('result_path')) {
+        show_single_line_error('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
+        return;
+    }
+    var dst_table_path = report['result_path'];
+    dbg_log('dst_table_path: ' + dst_table_path);
+
+    var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
+    var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
+    vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
+}
+
+
+function handle_request(http_request, http_response) {
+    var parsed_url = url.parse(http_request.url, true);
+    dbg_log('http_request.url: ' + http_request.url);
     var pathname = parsed_url.pathname;
     var active_file_path = rbql_context['document'].fileName;
     if (pathname == '/init') {
-        response.writeHead(200, {'Content-Type': 'application/json'});
+        http_response.writeHead(200, {'Content-Type': 'application/json'});
         var init_msg = {"host_language": get_rbql_host_language()};
         var window_records = sample_preview_records(rbql_context.document, rbql_context.line, 12, rbql_context.delim, rbql_context.policy);
         init_msg['window_records'] = window_records;
@@ -264,7 +306,7 @@ function handle_request(request, response) {
         if (last_rbql_query) {
             init_msg['last_query'] = last_rbql_query;
         }
-        response.end(JSON.stringify(init_msg));
+        http_response.end(JSON.stringify(init_msg));
         return;
     } else if (pathname == '/run') {
         var query = parsed_url.query;
@@ -286,46 +328,7 @@ function handle_request(request, response) {
             cmd = 'python';
             args = [mock_script_path, rbql_query];
         }
-        run_command(cmd, args, function(error_code, stdout, stderr) {
-            dbg_log('error_code: ' + String(error_code));
-            dbg_log('stdout: ' + String(stdout));
-            dbg_log('stderr: ' + String(stderr));
-
-            var report = null;
-            var json_report = stdout;
-            if (error_code || !json_report.length || stderr.length) {
-                var error_details = "Unknown Integration Error";
-                if (stderr.length) {
-                    error_details += '\nstderr: ' + stderr;
-                }
-                report = {"error_type": "Integration", "error_details": error_details};
-            } else {
-                try {
-                    report = JSON.parse(json_report);
-                } catch (e) {
-                    report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
-                }
-            }
-            response.writeHead(200, {'Content-Type': 'application/json'});
-            response.end(JSON.stringify(report));
-            if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
-                return; // Just exit: error would be shown in the preview window.
-            }
-            var warnings = [];
-            if (report.hasOwnProperty('warnings')) {
-                warnings = report['warnings'];
-            }
-            if (!report.hasOwnProperty('result_path')) {
-                show_single_line_error('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
-                return;
-            }
-            var dst_table_path = report['result_path'];
-            dbg_log('dst_table_path: ' + dst_table_path);
-
-            var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
-            var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
-            vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
-        });
+        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, http_response); });
         return;
     }
 }
