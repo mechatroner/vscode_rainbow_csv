@@ -229,7 +229,7 @@ function handle_rbql_result_file(text_doc, warnings) {
 
 
 function run_command(cmd, args, callback_func) {
-    var command = child_process.spawn(cmd, args);
+    var command = child_process.spawn(cmd, args, {'windowsHide': true});
     var stdout = '';
     var stderr = '';
     command.stdout.on('data', function(data) {
