@@ -224,6 +224,23 @@ function handle_rbql_result_file(text_doc, warnings) {
 }
 
 
+
+function run_command(cmd, args, callback_func) {
+    var command = child_process.spawn(cmd, args);
+    var stdout = '';
+    var stderr = '';
+    command.stdout.on('data', function(data) {
+         stdout += data.toString();
+    });
+    command.stderr.on('data', function(data) {
+         stderr += data.toString();
+    });
+    command.on('close', function(code) {
+        return callback_func(code, stdout, stderr);
+    });
+}
+
+
 function handle_request(request, response) {
     var parsed_url = url.parse(request.url, true);
     dbg_log('request.url: ' + request.url);
@@ -260,22 +277,23 @@ function handle_request(request, response) {
         used_tokens.push(security_token);
         last_rbql_queries[active_file_path] = rbql_query;
         dbg_log('rbql_query: ' + rbql_query);
-        // FIXME make sure you escape both path to script and args for win and nix
         var cmd = null;
+        var args = null;
         const test_marker = 'test ';
         if (rbql_query.startsWith(test_marker)) {
             rbql_query = rbql_query.substr(test_marker.length);
             dbg_log('mock script path: ' + mock_script_path);
-            cmd = 'python "' + mock_script_path + '" "' + rbql_query + '"';
+            cmd = 'python';
+            args = [mock_script_path, rbql_query];
         }
-        child_process.exec(cmd, function(error, stdout, stderr) {
-            dbg_log('error: ' + String(error));
+        run_command(cmd, args, function(error_code, stdout, stderr) {
+            dbg_log('error_code: ' + String(error_code));
             dbg_log('stdout: ' + String(stdout));
             dbg_log('stderr: ' + String(stderr));
 
             var report = null;
             var json_report = stdout;
-            if (error || !json_report.length || stderr.length) {
+            if (error_code || !json_report.length || stderr.length) {
                 var error_details = "Unknown Integration Error";
                 if (stderr.length) {
                     error_details += '\nstderr: ' + stderr;
