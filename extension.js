@@ -22,6 +22,7 @@ var last_rbql_queries = new Map();
 var client_js_template_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
+var rbql_exec_path = null;
 
 var enable_dev_mode = true; // FIXME init this entry from config
 
@@ -30,6 +31,7 @@ var client_html_template = null;
 
 var security_tokens = null;
 var used_tokens = null;
+
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -206,6 +208,7 @@ function show_warnings(warnings) {
     }
 }
 
+
 function show_single_line_error(error_msg) {
     var active_window = vscode.window;
     if (!active_window)
@@ -319,14 +322,13 @@ function handle_request(http_request, http_response) {
         used_tokens.push(security_token);
         last_rbql_queries[active_file_path] = rbql_query;
         dbg_log('rbql_query: ' + rbql_query);
-        var cmd = null;
+        var cmd = 'python';
         var args = null;
         const test_marker = 'test ';
         if (rbql_query.startsWith(test_marker)) {
-            rbql_query = rbql_query.substr(test_marker.length);
-            dbg_log('mock script path: ' + mock_script_path);
-            cmd = 'python';
             args = [mock_script_path, rbql_query];
+        } else {
+            args = [rbql_exec_path, host_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
         }
         run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, http_response); });
         return;
@@ -365,6 +367,7 @@ function edit_rbql() {
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
 
+
 function get_rbql_host_language() {
     var supported_hosts = ['python', 'js'];
     var default_host = 'python';
@@ -377,6 +380,7 @@ function get_rbql_host_language() {
     }
     return default_host;
 }
+
 
 function csv_lint(autolint, active_doc) {
     if (autolint) {
@@ -547,8 +551,8 @@ class RBQLProvider {
     }
 }
 
-function activate(context) {
 
+function activate(context) {
     dbg_log('Activating "rainbow_csv"');
 
     var rbql_provider = new RBQLProvider(context);
@@ -556,6 +560,7 @@ function activate(context) {
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
+    rbql_exec_path = context.asAbsolutePath('vscode_rbql.py');
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
@@ -594,8 +599,10 @@ function activate(context) {
 
 exports.activate = activate;
 
+
 function deactivate() {
     // This method is called when extension is deactivated
 }
+
 
 exports.deactivate = deactivate;

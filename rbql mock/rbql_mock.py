@@ -8,7 +8,11 @@ import tempfile
 import json
 import time
 
+
 def parse_params(param_string):
+    test_marker = 'test '
+    assert param_string.startswith(test_marker)
+    param_string = param_string[len(test_marker):]
     result = dict()
     kv_pairs = param_string.split(',')
     for p in kv_pairs:
@@ -18,8 +22,10 @@ def parse_params(param_string):
         result[key] = value
     return result
 
+
 class MockException(RuntimeError):
     pass
+
 
 def main():
     param_string = sys.argv[1]

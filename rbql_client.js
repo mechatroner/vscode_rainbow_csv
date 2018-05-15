@@ -1,7 +1,3 @@
-// FIXME test situation when user switches back and forth between preview and origin file during query editing.
-
-// FIXME close the preview window from main process when query has succeed. We need this because otherwise user would be able to manually switch back to tab and enter another query.
-
 // FIXME show preview table with 2 sections: begin, cursor
 
 // FIXME custom handling of "query empty" error
