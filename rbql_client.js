@@ -1,7 +1,5 @@
 // FIXME show preview table with 2 sections: begin, cursor
 
-// FIXME custom handling of "query empty" error
-
 // FIXME save and restore previous host language along with the query
 
 // FIXME create RBQL.md readme file
@@ -151,13 +149,12 @@ function toggle_help_msg() {
 
 
 function start_rbql() {
-    if (rbql_running) {
+    var rbql_text = document.getElementById('rbql_input').value;
+    if (!rbql_text || rbql_running)
         return;
-    }
     rbql_running = true;
     document.getElementById('status_label').textContent = "Running...";
 
-    var rbql_text = document.getElementById('rbql_input').value;
     var rbql_host_lang = document.getElementById('host_language_change')
     var rainbow_csv_server = "http://localhost:__TEMPLATE_JS_PORT__/run?";
     var xhr = new XMLHttpRequest();
