@@ -358,10 +358,12 @@ function edit_rbql() {
     if (!orig_uri || orig_uri.scheme != 'file')
         return;
     var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return; // FIXME allow this. Non-csv language_id means monocolumn mode.
-    var delim = dialect_map[language_id][0];
-    var policy = dialect_map[language_id][1];
+    var delim = 'monocolumn';
+    var policy = 'monocolumn';
+    if (dialect_map.hasOwnProperty(language_id)) {
+        delim = dialect_map[language_id][0];
+        policy = dialect_map[language_id][1];
+    }
     var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
     if (http_server) {
         http_server.close();

@@ -49,6 +49,8 @@ function split_quoted_str(src, dlm, preserve_quotes=false) {
 function smart_split(src, dlm, policy, preserve_quotes) {
     if (policy === 'simple')
         return [src.split(dlm), false];
+    if (policy === 'monocolumn')
+        return [[src], false];
     return split_quoted_str(src, dlm, preserve_quotes);
 }
 
