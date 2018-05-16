@@ -1,4 +1,4 @@
-// FIXME show preview table with 2 sections: begin, cursor
+// FIXME implement scrollable preview table: put some buttons to the left of it, and get rid of "Table preview around cursor" title altogether
 
 var rbql_running = false;
 var handshake_completed = false;
