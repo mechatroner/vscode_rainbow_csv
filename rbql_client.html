@@ -79,27 +79,16 @@ input {
 }
 
 .navig_button {
-    width: 32px;
-    background-color: #4CAF50;
-    display: block;
+    width: 70px;
+    background-color: rgb(130, 6, 219);
+    display: inline-block;
     border:none;
     font-size: 18px !important;
     color: white;
     height: 28px;
     cursor:pointer;
     font-weight: bold;
-}
-
-#go_begin {
-    margin-bottom: 15px;
-}
-
-#go_up {
-    margin-bottom: 30px;
-}
-
-#go_down {
-    margin-bottom: 15px;
+    margin-right: 20px;
 }
 
 #colors_hint {
@@ -129,21 +118,6 @@ input {
     height: 26px;
     font-weight: bold;
 }
-
-#table_wrapper {
-    margin: 0 auto;
-}
-
-#navig_controls {
-    width: 40px;
-    min-height: 180px;
-    float: left;
-}
-
-#table_holder {
-    min-height: 180px;
-}
-
 
 #ack_error { 
     width: 70px;
@@ -187,18 +161,13 @@ input {
 
 
 <div id="rbql_dashboard" style="display:none">
-    <h3>Table preview around cursor:</h3>
-    <div id="table_wrapper">
-        <div id="navig_controls">
-            <button class="navig_button" id="go_begin">--</button>
-            <button class="navig_button" id="go_up">-</button>
-            <button class="navig_button" id="go_down">+</button>
-            <button class="navig_button" id="go_end">++</button>
-        </div>
-        <div id="table_holder">
-            <table id="preview_table">
-            </table>
-        </div>
+    <table id="preview_table">
+    </table>
+    <div id="navig_controls">
+        <button class="navig_button" id="go_begin">Begin</button>
+        <button class="navig_button" id="go_up">Up</button>
+        <button class="navig_button" id="go_down">Down</button>
+        <button class="navig_button" id="go_end">End</button>
     </div>
     <div id="colors_hint"><span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span></div>
     <br>
