@@ -24,7 +24,7 @@ var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
-var enable_dev_mode = true; // FIXME init this entry from config
+var enable_dev_mode = false;
 
 var client_js_template = null;
 var client_html_template = null;
@@ -554,6 +554,11 @@ class RBQLProvider {
 
 
 function activate(context) {
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (config && config.get('enable_dev_mode')) {
+        enable_dev_mode = true;
+    }
+
     dbg_log('Activating "rainbow_csv"');
 
     var rbql_provider = new RBQLProvider(context);
