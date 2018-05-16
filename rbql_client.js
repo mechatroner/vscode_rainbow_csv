@@ -1,7 +1,5 @@
 // FIXME show preview table with 2 sections: begin, cursor
 
-// FIXME test no-python situation and add error-handling
-
 var rbql_running = false;
 var handshake_completed = false;
 

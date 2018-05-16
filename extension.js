@@ -241,6 +241,10 @@ function run_command(cmd, args, callback_func) {
     command.on('close', function(code) {
         return callback_func(code, stdout, stderr);
     });
+    command.on('error', function(error) {
+        var error_msg = error ? error.name + ': ' + error.message : '';
+        callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to your PATH variable.\nDetails:\n' + error_msg);
+    });
 }
 
 
@@ -327,6 +331,8 @@ function handle_request(http_request, http_response) {
         var args = null;
         const test_marker = 'test ';
         if (rbql_query.startsWith(test_marker)) {
+            if (rbql_query.indexOf('nopython') != -1)
+                cmd = 'nopython';
             args = [mock_script_path, rbql_query];
         } else {
             args = [rbql_exec_path, host_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
