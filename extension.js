@@ -48,15 +48,18 @@ function dbg_log(msg) {
 
 function sample_preview_records_from_context(rbql_context) {
     var document = rbql_context.document;
+    var total_lines = document.lineCount;
     var line_begin = rbql_context.line;
     var delim = rbql_context.delim;
     var policy = rbql_context.policy;
 
     var preview_records = [];
     var max_cols = 0;
-    var line_end = line_begin + preview_window_size;
+    var line_end = Math.min(total_lines, line_begin + preview_window_size);
     for (var nr = line_begin; nr < line_end; nr++) {
         var line_text = document.lineAt(nr).text;
+        if (nr + 1 >= total_lines && total_lines > 1 && line_text == '')
+            break;
         var cur_record = rainbow_utils.smart_split(line_text, delim, policy, false)[0];
         max_cols = Math.max(max_cols, cur_record.length);
         cur_record.splice(0, 0, nr + 1);
@@ -294,6 +297,14 @@ function handle_command_result(error_code, stdout, stderr, http_response) {
     vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
 }
 
+function get_last_start_line(document) {
+    var num_lines = document.lineCount;
+    var skip_last = 0;
+    if (num_lines > 1 && document.lineAt(num_lines - 1).text == '') {
+        skip_last = 1;
+    }
+    return Math.max(0, rbql_context.document.lineCount - preview_window_size - skip_last);
+}
 
 function handle_request(http_request, http_response) {
     var parsed_url = url.parse(http_request.url, true);
@@ -322,8 +333,7 @@ function handle_request(http_request, http_response) {
         return;
     } else if (pathname == '/preview') {
         var navig_direction = parsed_url.query.navig_direction;
-        // FIXME make sure you skip the last "empty" line
-        last_start_line = Math.max(0, rbql_context.document.lineCount - preview_window_size);
+        var last_start_line = get_last_start_line(rbql_context.document);
         if (navig_direction == 'up') {
             rbql_context.line = Math.max(rbql_context.line - 1, 0);
         } else if (navig_direction == 'down') {
