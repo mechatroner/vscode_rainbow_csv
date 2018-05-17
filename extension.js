@@ -13,6 +13,8 @@ var oc_log = null;
 var lint_results = new Map();
 var sb_item = null;
 
+const preview_window_size = 12;
+
 var rbql_context = null;
 
 var http_server = null;
@@ -44,12 +46,15 @@ function dbg_log(msg) {
 }
 
 
-function sample_preview_records(document, window_center, window_size, delim, policy) {
-    var adjusted_window = rainbow_utils.adjust_window_borders(window_center, window_size, document.lineCount);
-    var line_begin = adjusted_window[0];
-    var line_end = adjusted_window[1];
+function sample_preview_records_from_context(rbql_context) {
+    var document = rbql_context.document;
+    var line_begin = rbql_context.line;
+    var delim = rbql_context.delim;
+    var policy = rbql_context.policy;
+
     var preview_records = [];
     var max_cols = 0;
+    var line_end = line_begin + preview_window_size;
     for (var nr = line_begin; nr < line_end; nr++) {
         var line_text = document.lineAt(nr).text;
         var cur_record = rainbow_utils.smart_split(line_text, delim, policy, false)[0];
@@ -298,8 +303,7 @@ function handle_request(http_request, http_response) {
     if (pathname == '/init') {
         http_response.writeHead(200, {'Content-Type': 'application/json'});
         var init_msg = {"host_language": get_rbql_host_language()};
-        var window_records = sample_preview_records(rbql_context.document, rbql_context.line, 12, rbql_context.delim, rbql_context.policy);
-        init_msg['window_records'] = window_records;
+        init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
 
         var customized_colors = get_customized_colors();
         if (enable_dev_mode && Math.random() > 0.5) {
@@ -315,6 +319,23 @@ function handle_request(http_request, http_response) {
             init_msg['host_language'] = last_query_info['host_language'];
         }
         http_response.end(JSON.stringify(init_msg));
+        return;
+    } else if (pathname == '/preview') {
+        var navig_direction = parsed_url.query.navig_direction;
+        // FIXME make sure you skip the last "empty" line
+        last_start_line = Math.max(0, rbql_context.document.lineCount - preview_window_size);
+        if (navig_direction == 'up') {
+            rbql_context.line = Math.max(rbql_context.line - 1, 0);
+        } else if (navig_direction == 'down') {
+            rbql_context.line = Math.min(rbql_context.line + 1, last_start_line);
+        } else if (navig_direction == 'begin') {
+            rbql_context.line = 0;
+        } else if (navig_direction == 'end') {
+            rbql_context.line = last_start_line;
+        }
+        var window_records = sample_preview_records_from_context(rbql_context)
+        http_response.writeHead(200, {'Content-Type': 'application/json'});
+        http_response.end(JSON.stringify({'window_records': window_records}));
         return;
     } else if (pathname == '/run') {
         var query = parsed_url.query;
@@ -364,14 +385,13 @@ function edit_rbql() {
         delim = dialect_map[language_id][0];
         policy = dialect_map[language_id][1];
     }
-    var cursor_line = active_editor.selection.isEmpty ? active_editor.selection.active.line : 0;
     if (http_server) {
         http_server.close();
     }
     http_server = http.createServer(handle_request);
 
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
-    rbql_context = {"document": active_doc, "line": cursor_line, "server_port": port, "delim": delim, "policy": policy};
+    rbql_context = {"document": active_doc, "line": 0, "server_port": port, "delim": delim, "policy": policy};
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }

@@ -1,4 +1,6 @@
-// FIXME implement scrollable preview table: put some buttons to the left of it, and get rid of "Table preview around cursor" title altogether
+// FIXME add table naming feature and document it
+
+// FIXME document default host language setting
 
 var rbql_running = false;
 var handshake_completed = false;
@@ -8,6 +10,9 @@ var token_num = 0;
 
 var host_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
 
+const vscode_server = 'http://localhost:__TEMPLATE_JS_PORT__';
+
+var custom_colors = null;
 
 function display_host_language(host_language) {
     var language_info = null;
@@ -82,16 +87,16 @@ function run_handshake(num_attempts) {
     if (num_attempts <= 0 || handshake_completed) {
         return;
     }
-    var rainbow_csv_server = "http://localhost:__TEMPLATE_JS_PORT__/init";
+    var api_url = vscode_server + "/init";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
-            init_report = JSON.parse(xhr.responseText);
+            var init_report = JSON.parse(xhr.responseText);
             handshake_completed = true;
             if (init_report.hasOwnProperty('last_query')) {
                 document.getElementById('rbql_input').value = init_report['last_query'];
             }
-            var custom_colors = init_report['custom_colors'];
+            custom_colors = init_report['custom_colors'];
             var window_records = init_report['window_records'];
             make_preview_table(custom_colors, window_records);
             if (!custom_colors) {
@@ -102,9 +107,45 @@ function run_handshake(num_attempts) {
             document.getElementById("rbql_dashboard").style.display = 'block';
         }
     }
-    xhr.open("GET", rainbow_csv_server);
+    xhr.open("GET", api_url);
     xhr.send();
     setTimeout(function() { run_handshake(num_attempts - 1); }, 1000);
+}
+
+
+function preview_up() {
+    navigate_preview('up');
+}
+
+
+function preview_down() {
+    navigate_preview('down');
+}
+
+
+function preview_begin() {
+    navigate_preview('begin');
+}
+
+
+function preview_end() {
+    navigate_preview('end');
+}
+
+
+function navigate_preview(direction) {
+    // TODO improve table display logic: make sure that columns width doesn't change.
+    var api_url = vscode_server + "/preview?navig_direction=" + direction;
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            var preview_report = JSON.parse(xhr.responseText);
+            var window_records = preview_report['window_records'];
+            make_preview_table(custom_colors, window_records);
+        }
+    }
+    xhr.open("GET", api_url);
+    xhr.send();
 }
 
 
@@ -152,7 +193,8 @@ function start_rbql() {
     document.getElementById('status_label').textContent = "Running...";
 
     var rbql_host_lang = document.getElementById('host_language_change')
-    var rainbow_csv_server = "http://localhost:__TEMPLATE_JS_PORT__/run?";
+
+    var api_url = vscode_server + "/run?";
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
@@ -165,8 +207,8 @@ function start_rbql() {
     }
     var security_token = security_tokens[token_num];
     token_num += 1;
-    rainbow_csv_server += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language + '&security_token=' + security_token;
-    xhr.open("GET", rainbow_csv_server);
+    api_url += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language + '&security_token=' + security_token;
+    xhr.open("GET", api_url);
     xhr.send();
 }
 
@@ -177,6 +219,10 @@ function main() {
     document.getElementById("host_language_change").addEventListener("click", switch_host_language);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
+    document.getElementById("go_begin").addEventListener("click", preview_begin);
+    document.getElementById("go_up").addEventListener("click", preview_up);
+    document.getElementById("go_down").addEventListener("click", preview_down);
+    document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").focus();
     document.getElementById("rbql_input").addEventListener("keyup", function(event) {
         event.preventDefault();
