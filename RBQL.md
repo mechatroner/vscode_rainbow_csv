@@ -7,6 +7,14 @@ To enter RBQL mode run `RBQL` command.
 * To use RBQL with Python you need python installed and added to the PATH variable in your OS.
 * To use RBQL with JavaScript you need both python and node.js installed and added to the PATH variable in your OS (this requirement is temporary, in later versions JavaScript will be dependency-free)
 
+#### Settings:
+* rbql_host_language
+valid values: ["python", "js"]; default: "python"
+I.e. to change default RBQL host language to JavaScript set `"rainbow_csv.rbql_host_language": "js"` in VS Code settings.
+
+#### Commads:
+* **RBQL** - activate RBQL mode for the current file (this can be even non-table file)
+
 
 # RBQL (RainBow Query Language) Description
 RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.

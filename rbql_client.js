@@ -1,7 +1,5 @@
 // FIXME add table naming feature and document it
 
-// FIXME document default host language setting
-
 var rbql_running = false;
 var handshake_completed = false;
 
