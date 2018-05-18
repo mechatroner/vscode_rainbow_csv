@@ -8,7 +8,8 @@ var rainbow_utils = require('./rainbow_utils');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
 
-var oc_log = null;
+var dev_log = null;
+var err_log = null;
 
 var lint_results = new Map();
 var sb_item = null;
@@ -38,11 +39,20 @@ var used_tokens = null;
 function dbg_log(msg) {
     if (!enable_dev_mode)
         return;
-    if (!oc_log) {
-        oc_log = vscode.window.createOutputChannel("rainbow_csv_oc");
-        oc_log.show();
+    if (!dev_log) {
+        dev_log = vscode.window.createOutputChannel("rainbow_csv_dev");
     }
-    oc_log.appendLine(msg);
+    dev_log.show();
+    dev_log.appendLine(msg);
+}
+
+
+function log_error(msg) {
+    if (!err_log) {
+        err_log = vscode.window.createOutputChannel("rainbow_csv_errors");
+    }
+    err_log.show();
+    err_log.appendLine(msg);
 }
 
 
@@ -256,7 +266,7 @@ function run_command(cmd, args, callback_func) {
 }
 
 
-function handle_command_result(error_code, stdout, stderr, http_response) {
+function handle_command_result(error_code, stdout, stderr, report_handler) {
     dbg_log('error_code: ' + String(error_code));
     dbg_log('stdout: ' + String(stdout));
     dbg_log('stderr: ' + String(stderr));
@@ -276,8 +286,7 @@ function handle_command_result(error_code, stdout, stderr, http_response) {
             report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
         }
     }
-    http_response.writeHead(200, {'Content-Type': 'application/json'});
-    http_response.end(JSON.stringify(report));
+    report_handler(report);
     if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
         return; // Just exit: error would be shown in the preview window.
     }
@@ -297,6 +306,7 @@ function handle_command_result(error_code, stdout, stderr, http_response) {
     vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
 }
 
+
 function get_last_start_line(document) {
     var num_lines = document.lineCount;
     var skip_last = 0;
@@ -305,6 +315,22 @@ function get_last_start_line(document) {
     }
     return Math.max(0, rbql_context.document.lineCount - preview_window_size - skip_last);
 }
+
+
+function run_rbql_query(active_file_path, host_language, rbql_query, report_handler) {
+    var cmd = 'python';
+    var args = null;
+    const test_marker = 'test ';
+    if (rbql_query.startsWith(test_marker)) {
+        if (rbql_query.indexOf('nopython') != -1)
+            cmd = 'nopython';
+        args = [mock_script_path, rbql_query];
+    } else {
+        args = [rbql_exec_path, host_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+    }
+    run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+}
+
 
 function handle_request(http_request, http_response) {
     var parsed_url = url.parse(http_request.url, true);
@@ -358,36 +384,29 @@ function handle_request(http_request, http_response) {
         used_tokens.push(security_token);
         last_rbql_queries.set(active_file_path, {'query': rbql_query, 'host_language': host_language});
         dbg_log('rbql_query: ' + rbql_query);
-        var cmd = 'python';
-        var args = null;
-        const test_marker = 'test ';
-        if (rbql_query.startsWith(test_marker)) {
-            if (rbql_query.indexOf('nopython') != -1)
-                cmd = 'nopython';
-            args = [mock_script_path, rbql_query];
-        } else {
-            args = [rbql_exec_path, host_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        var report_handler = function(report) {
+            http_response.writeHead(200, {'Content-Type': 'application/json'});
+            http_response.end(JSON.stringify(report));
         }
-        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, http_response); });
+        run_rbql_query(active_file_path, host_language, rbql_query, report_handler);
         return;
     }
 }
 
 
-function edit_rbql() {
-    // TODO show error instead of silent exit
+function init_rbql_context() {
     var active_window = vscode.window;
     if (!active_window)
-        return null;
+        return false;
     var active_editor = active_window.activeTextEditor;
     if (!active_editor)
-        return null;
+        return false;
     var active_doc = active_editor.document;
     if (!active_doc)
-        return null;
+        return false;
     var orig_uri = active_doc.uri;
     if (!orig_uri || orig_uri.scheme != 'file')
-        return;
+        return false;
     var language_id = active_doc.languageId;
     var delim = 'monocolumn';
     var policy = 'monocolumn';
@@ -395,13 +414,52 @@ function edit_rbql() {
         delim = dialect_map[language_id][0];
         policy = dialect_map[language_id][1];
     }
+    rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
+    return true;
+}
+
+
+function process_rbql_quick(host_language, query) {
+    if (!query)
+        return;
+    var report_handler = function(report) {
+        if (!report)
+            return;
+        var error_type = report['error_type'];
+        var error_details = report['error_details'];
+        if (error_type || error_details) {
+            show_single_line_error('RBQL error, check OUTPUT.rainbow_csv_errors VS Code log at the bottom for details.');
+            log_error('=====\nRBQL Error while executing query: ' + query);
+            log_error('Error Type: ' + error_type);
+            log_error('Error Details: ' + error_details);
+        }
+    }
+    var active_file_path = rbql_context['document'].fileName;
+    run_rbql_query(active_file_path, host_language, query, report_handler);
+}
+
+
+function edit_rbql_quick() {
+    // FIXME show host language and the previous query
+    if (!init_rbql_context())
+        return;
+    var host_language = get_rbql_host_language();
+    var title = "Input SQL-like RBQL query [in " + host_language + "]  ";
+    var handle_success = function(query) { process_rbql_quick(host_language, query); }
+    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
+    vscode.window.showInputBox({"ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..."}).then(handle_success, handle_failure);
+}
+
+function edit_rbql() {
+    if (!init_rbql_context())
+        return null;
     if (http_server) {
         http_server.close();
     }
     http_server = http.createServer(handle_request);
 
     var port = http_server.listen(0).address().port; // 0 means listen on a random port
-    rbql_context = {"document": active_doc, "line": 0, "server_port": port, "delim": delim, "policy": policy};
+    rbql_context['server_port'] = port;
     var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
     vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
 }
@@ -483,7 +541,6 @@ function handle_editor_change(editor) {
     csv_lint(true, null);
     show_linter_state();
 }
-
 
 
 function assert(condition, message) {
@@ -626,6 +683,7 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
+    var qrbql_cmd = vscode.commands.registerCommand('extension.Query', edit_rbql_quick);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
@@ -636,6 +694,7 @@ function activate(context) {
     context.subscriptions.push(scsv_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
+    context.subscriptions.push(qrbql_cmd);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(preview_subscription);
 }
