@@ -14,7 +14,7 @@ I.e. to change default RBQL host language to JavaScript set `"rainbow_csv.rbql_h
 
 #### Commads:
 * **RBQL** - activate RBQL mode for the current file (this can be even non-table file)
-* **Query** - execute RBQL query using VSCode text input. Use only if you have some experience with RBQL.
+* **QuickQuery** - execute RBQL query using VSCode text input. Use only if you have some experience with RBQL.
 
 
 # RBQL (RainBow Query Language) Description
