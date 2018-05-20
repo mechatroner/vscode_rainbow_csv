@@ -83,37 +83,6 @@ function sample_preview_records_from_context(rbql_context) {
     return preview_records;
 }
 
-
-function guess_document_header(document, delim, policy) {
-    var sampled_records = [];
-    var num_lines = document.lineCount;
-    var head_count = 10;
-    if (num_lines <= head_count * 2) {
-        for (var i = 1; i < num_lines; i++) {
-            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
-        }
-    } else {
-        for (var i = 1; i < head_count; i++) {
-            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
-        }
-        for (var i = num_lines - head_count; i < num_lines; i++) {
-            sampled_records.push(rainbow_utils.smart_split(document.lineAt(i).text, delim, policy, false)[0]);
-        }
-    }
-    while (sampled_records.length) {
-        var last = sampled_records[sampled_records.length - 1];
-        if (last.length != 1 || last[0] != "")
-            break;
-        sampled_records.pop();
-    }
-    if (sampled_records.length < 10)
-        return null;
-    var potential_header = rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
-    var has_header = rainbow_utils.guess_if_header(potential_header, sampled_records);
-    return has_header ? potential_header : null;
-}
-
-
 function make_hover_text(document, position, language_id) {
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
@@ -129,14 +98,17 @@ function make_hover_text(document, position, language_id) {
 
     if (col_num == null)
         return null;
-    var result = 'col# ' + (col_num + 1);
-    if (warning)
-        return result + '; This line has quoting error!';
-    var header = guess_document_header(document, delim, policy);
-    if (header !== null && header.length == entries.length) {
-        var column_name = header[col_num];
-        result += ', "' + column_name + '"';
+    var result = 'Col# ' + (col_num + 1);
+
+    var header = rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
+    if (col_num < header.length) {
+        result += ', Header: "' + header[col_num] + '"';
     }
+    if (header.length != entries.length) {
+        result += "; WARN: num of fields in Header and this line differs";
+    }
+    if (warning)
+        return result + '; This line has quoting error';
     return result;
 }
 

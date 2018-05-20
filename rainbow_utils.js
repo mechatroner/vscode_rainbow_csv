@@ -55,38 +55,6 @@ function smart_split(src, dlm, policy, preserve_quotes) {
 }
 
 
-function guess_if_header(potential_header, sampled_records) {
-    // single line - not header
-    if (sampled_records.length < 1)
-        return false;
-
-    // different number of columns - not header
-    var num_fields = potential_header.length;
-    for (var i = 0; i < sampled_records.length; i++) {
-        if (sampled_records[i].length != num_fields)
-            return false;
-    }
-
-    // all sampled lines do not have any letters in a column and potential header does - header
-    var optimistic_name_re = /^[a-zA-Z]{3,}/;
-    var pessimistic_name_re = /[a-zA-Z]/;
-    for (var c = 0; c < num_fields; c++) {
-        if (potential_header[c].match(optimistic_name_re) === null)
-            continue;
-        var all_numbers = true;
-        for (var r = 0; r < sampled_records.length; r++) {
-            if (sampled_records[r][c].match(pessimistic_name_re) !== null) {
-                all_numbers = false;
-                break;
-            }
-        }
-        if (all_numbers)
-            return true;
-    }
-    return false;
-}
-
-
 function get_field_by_line_position(fields, query_pos) {
     if (!fields.length)
         return null;
@@ -114,4 +82,3 @@ var entity_map = {
 
 module.exports.smart_split = smart_split;
 module.exports.get_field_by_line_position = get_field_by_line_position;
-module.exports.guess_if_header = guess_if_header;
