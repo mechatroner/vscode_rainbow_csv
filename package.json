@@ -51,6 +51,14 @@
         "commands": [{
             "command": "extension.CSVLint",
             "title": "CSV Lint"
+        },
+        {
+            "command": "extension.RBQL",
+            "title": "RBQL"
+        },
+        {
+            "command": "extension.QuickQuery",
+            "title": "QuickQuery"
         }],
         "grammars": [{
             "language": "csv",

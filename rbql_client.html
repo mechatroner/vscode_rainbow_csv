@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+
+<style>
+
+html * {
+    font-size: 16px !important;
+}
+
+table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-collapse: collapse;
+}
+
+td {
+    padding: 3px 8px;
+}
+
+input {
+    margin-right: 10px;
+    font-size: 18px !important;
+    vertical-align: bottom;
+    height: 22px
+}
+
+.padded_label {
+    padding: 5px;
+}
+
+.code_sample {
+    font-style:italic;
+}
+
+
+#host_language_change {
+    width: 110px;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: white;
+    height: 28px;
+    cursor:pointer;
+    font-weight: bold;
+}
+
+.host_lang_info {
+    font-size: 18px !important;
+    margin-left: 12px;
+}
+
+
+#help_btn {
+    margin-left: 10px;
+    width: 28px;
+    background-color: #FFFFE6;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: black;
+    height: 28px;
+    cursor:pointer;
+    font-weight: bold;
+}
+
+#rbql_run_btn {
+    width: 70px;
+    background-color: #4CAF50;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: white;
+    height: 28px;
+    cursor:pointer;
+    font-weight: bold;
+}
+
+.navig_button {
+    width: 70px;
+    background-color: #4CAF50;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: white;
+    height: 28px;
+    cursor:pointer;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-right: 20px;
+}
+
+#colors_hint {
+    display: none;
+}
+
+#rbql_help {
+    display: none;
+    font-size: 18px !important;
+    font-weight: bold;
+}
+
+#rbql_error_message { 
+    width: 50%; 
+    top: 20%; 
+    left: 25%; 
+    z-index: 1000000; 
+    background-color: #FFFCD3; 
+    position: fixed; 
+    display: none;
+    color: black;
+}
+
+#rbql_error_message_header { 
+    background-color: #FF4444; 
+    font-size: 18px !important;
+    height: 26px;
+    font-weight: bold;
+}
+
+#ack_error { 
+    width: 70px;
+    background-color: #FF4444;
+    display: inline-block;
+    transition-duration: 0.3s;
+    border:none;
+    font-size: 18px !important;
+    height: 28px;
+    font-weight: bold;
+}
+
+#ack_error:hover { 
+    background-color: #b70101;
+}
+
+#error_message_details { 
+    height: 100px;
+    overflow: auto;
+    border: 1px solid black;
+    white-space: pre;
+    margin: 5px;
+    background-color: #FFFFFF;
+}
+
+</style>
+
+
+<script>
+//__TEMPLATE_JS_CLIENT__
+</script>
+
+
+</head>
+
+
+<body>
+
+
+<span id="init_running">Connecting to the main VSCode process at http://localhost:__EMBEDDED_JS_PORT__/init ...<br>Please submit a bugreport to https://github.com/mechatroner/vscode_rainbow_csv if this message doesn\'t disappear.<br>You can also try to reopen this preview page.</span>
+
+
+<div id="rbql_dashboard" style="display:none">
+    <table id="preview_table">
+    </table>
+    <div id="navig_controls">
+        <button class="navig_button" id="go_begin">Begin</button>
+        <button class="navig_button" id="go_up">Up</button>
+        <button class="navig_button" id="go_down">Down</button>
+        <button class="navig_button" id="go_end">End</button>
+    </div>
+    <div id="colors_hint"><span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span></div>
+    <br>
+    <div>
+        <button id="host_language_change"></button><span class="host_lang_info"> &ndash; RBQL host language</span>
+    </div>
+    <h3>Input SQL-like RBQL query and press Enter:</h3>
+    <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
+    <button id="rbql_run_btn">Run</button><button id="help_btn">?</button>
+    <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#RBQL">github</a></span></div>
+    <br>
+    <div><span id="status_label"></span></div>
+</div>
+
+
+<div id="rbql_error_message">
+    <div id="rbql_error_message_header">
+        <span class="padded_label">Error while executing RBQL query!</span>
+    </div>
+    <br>
+    <div>
+        <span class="padded_label" id="error_message_header"></span>
+    </div>
+    <br>
+    <div>
+        <span class="padded_label">Details:</span>
+        <br>
+        <div id="error_message_details"></div>
+    </div>
+    <div style="display: flex; justify-content:center;">
+        <button id="ack_error">OK</button>
+    </div>
+</div>
+
+
+</body>
+
+</html>

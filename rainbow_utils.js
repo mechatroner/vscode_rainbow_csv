@@ -49,6 +49,8 @@ function split_quoted_str(src, dlm, preserve_quotes=false) {
 function smart_split(src, dlm, policy, preserve_quotes) {
     if (policy === 'simple')
         return [src.split(dlm), false];
+    if (policy === 'monocolumn')
+        return [[src], false];
     return split_quoted_str(src, dlm, preserve_quotes);
 }
 
@@ -97,6 +99,17 @@ function get_field_by_line_position(fields, query_pos) {
     return col_num;
 }
 
+
+var entity_map = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+  '/': '&#x2F;',
+  '`': '&#x60;',
+  '=': '&#x3D;'
+};
 
 
 module.exports.smart_split = smart_split;
