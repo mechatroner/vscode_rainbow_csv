@@ -35,6 +35,10 @@ var client_html_template = null;
 var security_tokens = null;
 var used_tokens = null;
 
+var globalState = null;
+
+//FIXME document EditHoverColumnNames command
+
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -83,6 +87,19 @@ function sample_preview_records_from_context(rbql_context) {
     return preview_records;
 }
 
+
+function get_header(document, delim, policy) {
+    var file_path = document.fileName;
+    if (file_path && globalState) {
+        var header = globalState.get(file_path);
+        if (header) {
+            return rainbow_utils.smart_split(header, ',', 'quoted', false)[0];
+        }
+    }
+    return rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
+}
+
+
 function make_hover_text(document, position, language_id) {
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
@@ -100,7 +117,7 @@ function make_hover_text(document, position, language_id) {
         return null;
     var result = 'Col# ' + (col_num + 1);
 
-    var header = rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
+    var header = get_header(document, delim, policy);
     if (col_num < header.length) {
         result += ', Header: "' + header[col_num] + '"';
     }
@@ -409,6 +426,40 @@ function process_rbql_quick(active_file_path, host_language, query) {
 }
 
 
+function get_dialect(document) {
+    var language_id = document.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return ['monocolumn', 'monocolumn'];
+    return dialect_map[language_id];
+}
+
+
+function save_new_header(file_path, new_header) {
+    globalState.update(file_path, new_header);
+}
+
+function edit_column_names() {
+    var active_doc = get_active_doc();
+    var dialect = get_dialect(active_doc);
+    var delim = dialect[0];
+    var policy = dialect[1];
+    var file_path = active_doc.fileName;
+    if (!file_path) {
+        show_single_line_error('Unable to edit column names for non-file documents');
+        return;
+    }
+    if (policy == 'monocolumn')
+        return;
+    var old_header = get_header(active_doc, delim, policy);
+    var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
+    var old_header_str = quoted_join(old_header, ',');
+    var input_box_props = {"prompt": title, "value": old_header_str};
+    var handle_success = function(new_header) { save_new_header(file_path, new_header); }
+    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
+    vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
+}
+
+
 function edit_rbql_quick() {
     if (!init_rbql_context())
         return;
@@ -424,6 +475,7 @@ function edit_rbql_quick() {
     }
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
+
 
 function edit_rbql() {
     if (!init_rbql_context())
@@ -581,6 +633,20 @@ function slow_replace_all(src, old_substr, new_substr) {
 }
 
 
+function quote_field(field, delim) {
+    if (field.indexOf('"') != -1 || field.indexOf(delim) != -1) {
+        return '"' + field.replace(/"/g, '""')  + '"';
+    }
+    return field;
+}
+
+
+function quoted_join(fields, delim) {
+    var quoted_fields = fields.map(function(val) { return quote_field(val, delim); });
+    return quoted_fields.join(delim);
+}
+
+
 function make_preview(client_html_template, client_js_template, origin_server_port) {
     // This function gets called every time user activates RBQL preview tab and in original preview request.
     security_tokens = [];
@@ -631,6 +697,7 @@ function activate(context) {
 
     dbg_log('Activating "rainbow_csv"');
 
+    globalState = context.globalState;
     var rbql_provider = new RBQLProvider(context);
 
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
@@ -659,6 +726,7 @@ function activate(context) {
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QuickQuery', edit_rbql_quick);
+    var edit_column_names_cmd = vscode.commands.registerCommand('extension.EditHoverColumnNames', edit_column_names);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
@@ -670,6 +738,7 @@ function activate(context) {
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(quick_rbql_cmd);
+    context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(preview_subscription);
 }

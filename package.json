@@ -53,6 +53,10 @@
             "title": "CSV Lint"
         },
         {
+            "command": "extension.EditHoverColumnNames",
+            "title": "EditHoverColumnNames"
+        },
+        {
             "command": "extension.RBQL",
             "title": "RBQL"
         },
