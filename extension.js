@@ -119,7 +119,11 @@ function make_hover_text(document, position, language_id) {
 
     var header = get_header(document, delim, policy);
     if (col_num < header.length) {
-        result += ', Header: "' + header[col_num] + '"';
+        const max_label_len = 50;
+        var column_label = header[col_num].substr(0, max_label_len);
+        if (column_label != header[col_num])
+            column_label = column_label + '...';
+        result += ', Header: "' + column_label + '"';
     }
     if (header.length != entries.length) {
         result += "; WARN: num of fields in Header and this line differs";
