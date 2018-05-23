@@ -37,6 +37,6 @@ To do so you need to modify your VS Code settings, e.g. if you add this json [fr
 
 ![customized colors](https://i.imgur.com/45EJJv4.png)
 
-### References
+#### Experimental
 
-* This VS Code extension is an adaptation of Vim's rainbow_csv [plugin](https://github.com/mechatroner/rainbow_csv)
+* Rainbow CSV has experimental RBQL mode. More info [here](RBQL.md)
