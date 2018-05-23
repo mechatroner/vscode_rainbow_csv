@@ -53,16 +53,16 @@
             "title": "CSV Lint"
         },
         {
-            "command": "extension.EditHoverColumnNames",
-            "title": "EditHoverColumnNames"
+            "command": "extension.SetVirtualHeader",
+            "title": "SetVirtualHeader"
         },
         {
             "command": "extension.RBQL",
             "title": "RBQL"
         },
         {
-            "command": "extension.QuickQuery",
-            "title": "QuickQuery"
+            "command": "extension.QueryHere",
+            "title": "QueryHere"
         }],
         "grammars": [{
             "language": "csv",

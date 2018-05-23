@@ -37,8 +37,6 @@ var used_tokens = null;
 
 var globalState = null;
 
-//FIXME document EditHoverColumnNames command
-
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -729,8 +727,8 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
-    var quick_rbql_cmd = vscode.commands.registerCommand('extension.QuickQuery', edit_rbql_quick);
-    var edit_column_names_cmd = vscode.commands.registerCommand('extension.EditHoverColumnNames', edit_column_names);
+    var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
+    var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
