@@ -33,10 +33,10 @@ The linter will check the following:
 
 ### Colors customization 
 You can customize Rainbow CSV highlighting colors to increase contrast.  
-To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md), colors will look like on the picture below:
+To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md#colors-customization), colors will look like on the picture below:
 
 ![customized colors](https://i.imgur.com/45EJJv4.png)
 
 #### Experimental
 
-* Rainbow CSV has experimental RBQL mode. More info [here](RBQL.md)
+* Rainbow CSV has experimental RBQL mode. More info [here](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)
