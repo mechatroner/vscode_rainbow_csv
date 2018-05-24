@@ -10,26 +10,30 @@
 
 ### Usage
 
-* If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
+If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
-* To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.
+#### Working with very big files
 
-* To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
+VS Code will disable rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a way to override this behavior.
+To highlight very big files add `"editor.largeFileOptimizations": false` to your VS Code settings (this will only work for version 1.23.1 and higher).
 
 #### CSVLint consistency check
 
-The linter will check the following:
-* consistency of double quotes usage in CSV rows
-* consistency of number of fields per CSV row
+The linter will check the following:  
+* consistency of double quotes usage in CSV rows  
+* consistency of number of fields per CSV row  
+
+To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
+To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.  
 
 ### Commands
 
-* `CSV Lint`  
-  Run CSV check even if autocheck is disabled in VS Code configuration.
+#### CSV Lint
+Run CSV check even if autocheck is disabled in VS Code configuration.
 
-* `SetVirtualHeader`  
-  Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
-  Rainbow CSV always assumes the first row as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
+#### SetVirtualHeader
+Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
+Rainbow CSV always assumes the first row as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
 
 ### Colors customization 
 You can customize Rainbow CSV highlighting colors to increase contrast.  
