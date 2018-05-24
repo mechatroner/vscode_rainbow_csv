@@ -3,22 +3,25 @@
 VSCode supports RBQL in experimental mode.  
 To enter RBQL mode run `RBQL` command.  
 
-#### System requirements:
+### System requirements
 * To use RBQL with Python you need python installed and added to the PATH variable in your OS.  
 * To use RBQL with JavaScript you need both python and node.js installed and added to the PATH variable in your OS (this requirement is temporary, in later versions JavaScript will be dependency-free)
 
-#### Settings:
-* rbql_host_language  
-  Valid values: ["python", "js"]  
-  Default: "python"  
-  Specifies interpreter to execute RBQL query expressions.  
-  I.e. to change default RBQL host language to JavaScript set `"rainbow_csv.rbql_host_language": "js"` in VS Code settings.
+### Settings
 
-#### Commads:
-* **RBQL**  
-  Activate RBQL mode for the current file (this can be even non-table file)
-* **QueryHere**  
-  Execute RBQL query using VSCode text input. Use only if you have some experience with RBQL.
+#### rbql_host_language
+Allowed values: _python_, _js_  
+Default: _python_  
+
+Specifies interpreter to execute RBQL query expressions. I.e. to change default RBQL host language to JavaScript set `"rainbow_csv.rbql_host_language": "js"` in VS Code settings.
+
+### Commads
+
+#### RBQL
+Activate RBQL mode for the current file (this can be even non-table file)
+
+#### QueryHere
+Execute RBQL query using VSCode text input. Use only if you have some experience with RBQL.
 
 
 # RBQL (RainBow Query Language) Description
