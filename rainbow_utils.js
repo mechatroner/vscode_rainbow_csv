@@ -68,17 +68,5 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
-var entity_map = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-  '/': '&#x2F;',
-  '`': '&#x60;',
-  '=': '&#x3D;'
-};
-
-
 module.exports.smart_split = smart_split;
 module.exports.get_field_by_line_position = get_field_by_line_position;
