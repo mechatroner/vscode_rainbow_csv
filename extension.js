@@ -343,7 +343,7 @@ function handle_request(http_request, http_response) {
         }
 
         if (last_rbql_queries.has(active_file_path)) {
-            last_query_info = last_rbql_queries.get(active_file_path);
+            var last_query_info = last_rbql_queries.get(active_file_path);
             init_msg['last_query'] = last_query_info['query'];
             init_msg['host_language'] = last_query_info['host_language'];
         }
