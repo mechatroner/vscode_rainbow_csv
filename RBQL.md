@@ -25,7 +25,9 @@ Execute RBQL query using VSCode text input. Use only if you have some experience
 
 
 # RBQL (RainBow Query Language) Description
-RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.
+RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.  
+
+[Official Site](https://rbql.org/)
 
 ### Main Features
 * Use Python or Java Script expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
@@ -44,17 +46,17 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 * GROUP BY
 * LIMIT _N_
 
-#### Keywords rules
-All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)
-But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
-* _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.
-* _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
+All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)  
 
-Some other rules:
-* _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.
-* _UPDATE_ has the same semantic as in SQL, but it is actually a special type of _SELECT_ query.
-* _JOIN_ statements must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON ai == bj_
-* _TOP_ and _LIMIT_ have identical semantic.
+
+#### RBQL-specific keywords, rules and limitations
+
+* _JOIN_ statements must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON ai == bj_  
+* _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.  
+* _UPDATE_ has the same meaning as in SQL, but it also can be considered as a special type of _SELECT_ query.  
+* _TOP_ and _LIMIT_ have identical meaning. Use whichever you like more.  
+* _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.  
+*  _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  
 
 ### Special variables
 
@@ -69,7 +71,7 @@ Some other rules:
 RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:  
 _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 
-**Limitations:**
+#### Limitations
 * Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
 * It is illegal to use aggregate functions inside Python (or JS) expressions. Although you can use expressions inside aggregate functions.
   E.g. `MAX(float(a1) / 1000)` - legal; `MAX(a1) / 1000` - illegal.
