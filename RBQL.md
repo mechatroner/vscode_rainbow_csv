@@ -3,6 +3,9 @@
 VSCode supports RBQL in experimental mode.  
 To enter RBQL mode run `RBQL` command.  
 
+Screenshot of RBQL Dashboard:  
+![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)
+
 ### System requirements
 * To use RBQL with Python you need python installed and added to the PATH variable in your OS.  
 * To use RBQL with JavaScript you need both python and node.js installed and added to the PATH variable in your OS (this requirement is temporary, in later versions JavaScript will be dependency-free)
