@@ -12,6 +12,16 @@
 
 If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
+#### Available separators
+
+|language name | separator | separator can be escaped in double quoted fields | extensions |
+|--------------|-----------|--------------------------------------------------|------------|
+|CSV           | , (comma) | YES                                              | .csv       |
+|TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
+|CSV (semicolon) | ; (semicolon)  | YES                                              |   |
+|CSV | (pipe) | \| (pipe)  | NO                                              |   |
+
+
 #### Working with very big files
 
 VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.
