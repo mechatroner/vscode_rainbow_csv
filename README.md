@@ -14,12 +14,12 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 
 #### Available separators
 
-|language name | separator | separator can be escaped in double quoted fields | extensions |
+|language name | separator | separator can be escaped in double-quoted fields | file extensions |
 |--------------|-----------|--------------------------------------------------|------------|
 |CSV           | , (comma) | YES                                              | .csv       |
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
-|CSV (semicolon) | ; (semicolon)  | YES                                              |   |
-|CSV \| (pipe) | \| (pipe)  | NO                                              |   |
+|CSV (semicolon) | ; (semicolon)  | YES                                              | manual selection only |
+|CSV \| (pipe) | \| (pipe)  | NO                                              | manual selection only |
 
 
 #### Working with very big files
