@@ -6,7 +6,7 @@ const child_process = require('child_process');
 
 var rainbow_utils = require('./rainbow_utils');
 
-var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted']};
+var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
 
 var dev_log = null;
 var err_log = null;
@@ -725,6 +725,12 @@ function activate(context) {
         }
     });
 
+    var pipe_provider = vscode.languages.registerHoverProvider('csv (pipe)', {
+        provideHover(document, position, token) {
+            return make_hover(document, position, 'csv (pipe)', token);
+        }
+    });
+
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
@@ -737,6 +743,7 @@ function activate(context) {
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
+    context.subscriptions.push(pipe_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(quick_rbql_cmd);

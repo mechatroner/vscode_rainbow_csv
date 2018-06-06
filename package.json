@@ -18,7 +18,7 @@
         "Languages"
     ],
     "activationEvents": [
-        "onLanguage:csv", "onLanguage:tsv", "onLanguage:csv (semicolon)"
+        "onLanguage:csv", "onLanguage:tsv", "onLanguage:csv (semicolon)", "onLanguage:csv (pipe)"
     ],
     "main": "./extension",
     "contributes": {
@@ -42,6 +42,11 @@
             "id": "tsv",
             "aliases": ["TSV", "tsv"],
             "extensions": [".tsv", ".tab"]
+        },
+        {
+            "id": "csv (pipe)",
+            "aliases": ["CSV | (pipe)"],
+            "extensions": []
         },
         {
             "id": "csv (semicolon)",
@@ -73,6 +78,11 @@
             "language": "tsv",
             "scopeName": "text.tsv",
             "path": "./syntaxes/tsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (pipe)",
+            "scopeName": "text.psv",
+            "path": "./syntaxes/pipe_simple.tmLanguage.json"
         },
         {
             "language": "csv (semicolon)",
