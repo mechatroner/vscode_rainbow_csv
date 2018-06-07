@@ -18,8 +18,8 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 |--------------|-----------|--------------------------------------------------|------------|
 |CSV           | , (comma) | YES                                              | .csv       |
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
-|CSV (semicolon) | ; (semicolon)  | YES                                              | manual selection only |
-|CSV \| (pipe) | \| (pipe)  | NO                                              | manual selection only |
+|CSV (semicolon) | ; (semicolon)  | YES                                              | |
+|CSV (pipe)    | \| (pipe)  | NO                                              | |
 
 
 #### Working with very big files

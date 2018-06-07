@@ -6,7 +6,7 @@ const child_process = require('child_process');
 
 var rainbow_utils = require('./rainbow_utils');
 
-var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
+var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted'], 'CSV (pipe)': ['|', 'simple']};
 
 var dev_log = null;
 var err_log = null;
@@ -707,27 +707,27 @@ function activate(context) {
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('vscode_rbql.py');
 
-    var csv_provider = vscode.languages.registerHoverProvider('csv', {
+    var csv_provider = vscode.languages.registerHoverProvider('CSV', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'csv', token);
+            return make_hover(document, position, 'CSV', token);
         }
     });
 
-    var tsv_provider = vscode.languages.registerHoverProvider('tsv', {
+    var tsv_provider = vscode.languages.registerHoverProvider('TSV', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'tsv', token);
+            return make_hover(document, position, 'TSV', token);
         }
     });
 
-    var scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
+    var scsv_provider = vscode.languages.registerHoverProvider('CSV (semicolon)', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'csv (semicolon)', token);
+            return make_hover(document, position, 'CSV (semicolon)', token);
         }
     });
 
-    var pipe_provider = vscode.languages.registerHoverProvider('csv (pipe)', {
+    var pipe_provider = vscode.languages.registerHoverProvider('CSV (pipe)', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'csv (pipe)', token);
+            return make_hover(document, position, 'CSV (pipe)', token);
         }
     });
 

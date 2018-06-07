@@ -18,7 +18,7 @@
         "Languages"
     ],
     "activationEvents": [
-        "onLanguage:csv", "onLanguage:tsv", "onLanguage:csv (semicolon)", "onLanguage:csv (pipe)"
+        "onLanguage:CSV", "onLanguage:TSV", "onLanguage:CSV (semicolon)", "onLanguage:CSV (pipe)"
     ],
     "main": "./extension",
     "contributes": {
@@ -34,24 +34,20 @@
             }
         },
         "languages": [{
-            "id": "csv",
-            "aliases": ["CSV", "csv"],
+            "id": "CSV",
             "extensions": [".csv"]
         },
         {
-            "id": "tsv",
-            "aliases": ["TSV", "tsv"],
+            "id": "TSV",
             "extensions": [".tsv", ".tab"]
         },
         {
-            "id": "csv (pipe)",
-            "aliases": ["CSV | (pipe)"],
+            "id": "CSV (pipe)",
             "extensions": []
         },
         {
-            "id": "csv (semicolon)",
-            "aliases": ["CSV (semicolon)", "csv (semicolon)"],
-            "extensions": [".scsv"]
+            "id": "CSV (semicolon)",
+            "extensions": []
         }],
         "commands": [{
             "command": "extension.CSVLint",
@@ -70,22 +66,22 @@
             "title": "QueryHere"
         }],
         "grammars": [{
-            "language": "csv",
+            "language": "CSV",
             "scopeName": "text.csv",
             "path": "./syntaxes/csv.tmLanguage.json"
         },
         {
-            "language": "tsv",
+            "language": "TSV",
             "scopeName": "text.tsv",
             "path": "./syntaxes/tsv.tmLanguage.json"
         },
         {
-            "language": "csv (pipe)",
+            "language": "CSV (pipe)",
             "scopeName": "text.psv",
             "path": "./syntaxes/pipe_simple.tmLanguage.json"
         },
         {
-            "language": "csv (semicolon)",
+            "language": "CSV (semicolon)",
             "scopeName": "text.scsv",
             "path": "./syntaxes/scsv.tmLanguage.json"
         }]
