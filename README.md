@@ -10,11 +10,11 @@
 
 ### Usage
 
-If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV" or "CSV (semicolon)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
+If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
-#### Available separators
+#### Supported separators
 
-|language name | separator | separator can be escaped in double-quoted fields | file extensions |
+|language name | separator | separator can be escaped in double-quoted field | file extensions |
 |--------------|-----------|--------------------------------------------------|------------|
 |CSV           | , (comma) | YES                                              | .csv       |
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
@@ -45,11 +45,21 @@ Adjust column names displayed in hover tooltips. Actual header line and file con
 Rainbow CSV always assumes the first row as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
 
 ### Colors customization 
-You can customize Rainbow CSV highlighting colors to increase contrast.  
-To do so you need to modify your VS Code settings, e.g. if you add this json [fragment](test/color_customization_example.md#colors-customization), colors will look like on the picture below:
+You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
 
-![customized colors](https://i.imgur.com/45EJJv4.png)
+### Experimental
 
-#### Experimental
+* Rainbow CSV has experimental RBQL mode. More info [here](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
-* Rainbow CSV has experimental RBQL mode. More info [here](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)
+
+### Comparison of Rainbow CSV technology with traditional graphical column alignment
+
+#### Advantages
+
+* Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive.  
+* WYSIWYG  
+* Ability to visually associate two same-colored columns from two different windows. This is impossible with graphical column alignment.  
+
+#### Disadvantages
+
+* Rainbow CSV technology may be less effective for CSV files with many (> 10) columns
