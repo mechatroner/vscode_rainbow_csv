@@ -4,10 +4,6 @@ Add the json fragment below to VS Code settings to modify Rainbow CSV colors and
 This will not affect syntax colors for other file types.  
 You can modify "foreground" and "fontStyle" attributes as you like.  
 
-Rainbow CSV after color customization:  
-
-![customized colors](https://i.imgur.com/45EJJv4.png)
-
 ```
 "editor.tokenColorCustomizations": {
     "textMateRules": [
@@ -80,3 +76,7 @@ Rainbow CSV after color customization:
     ]
 }
 ```
+
+#### Rainbow CSV after color customization
+
+![customized colors](https://i.imgur.com/45EJJv4.png)
