@@ -22,6 +22,19 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 |CSV (pipe)    | \| (pipe)  | NO                                              | |
 
 
+#### Customizing file extension - separator association
+If you often work with spreadsheet files with one specific extension, you can associate that extension with one of the supported separators.  
+For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the folowing lines to your VS Code config:  
+
+```
+"files.associations": {
+    "*.dat": "CSV (pipe)",
+    "*.csv": "CSV (semicolon)"
+},
+```
+See the list of supported languages/separators in the table.  
+
+
 #### Working with very big files
 
 VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.
