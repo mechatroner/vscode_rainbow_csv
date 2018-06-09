@@ -19,7 +19,7 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 |CSV           | , (comma) | YES                                              | .csv       |
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
 |CSV (semicolon) | ; (semicolon)  | YES                                              | |
-|CSV (pipe)    | \| (pipe)  | NO                                              | |
+|CSV (pipe)    | &#124; (pipe)  | NO                                              | |
 
 
 #### Customizing file extension - separator association
