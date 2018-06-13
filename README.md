@@ -70,8 +70,9 @@ You can customize Rainbow CSV colors to increase contrast. [Instructions](test/c
 #### Advantages
 
 * WYSIWYG  
-* Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
 * Familiar editing environment of your favorite text editor  
+* Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
+* High information density: Rainbow CSV shows more data per screen than column aligned views since it doesn't insert space fillers.
 * Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
 
 #### Disadvantages
