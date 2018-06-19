@@ -105,7 +105,7 @@ function make_hover_text(document, position, language_id) {
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
 
-    var report = rainbow_utils.smart_split(line, delim, policy, false);
+    var report = rainbow_utils.smart_split(line, delim, policy, true);
 
     var entries = report[0];
     var warning = report[1];
