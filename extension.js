@@ -7,6 +7,7 @@ const child_process = require('child_process');
 var rainbow_utils = require('./rainbow_utils');
 
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted'], 'CSV (pipe)': ['|', 'simple']};
+var autodetection_dialects = ['TSV', 'CSV', 'CSV (semicolon)'];
 
 var dev_log = null;
 var err_log = null;
@@ -168,6 +169,17 @@ function produce_lint_report(active_doc, delim, policy, max_check_size) {
         }
     }
     return 'OK';
+}
+
+
+function get_active_text_editor() {
+    var active_window = vscode.window;
+    if (!active_window)
+        return null;
+    var active_editor = active_window.activeTextEditor;
+    if (!active_editor)
+        return null;
+    return active_editor;
 }
 
 
@@ -566,7 +578,82 @@ function show_linter_state() {
 }
 
 
+function sample_lines(active_doc, max_sample_count) {
+    var num_lines = active_doc.lineCount;
+    var result = [];
+    for (var lnum = 0; lnum < num_lines && lnum < max_sample_count; lnum++) {
+        var line_text = active_doc.lineAt(lnum).text;
+        if (lnum + 1 == num_lines && !line_text)
+            break;
+        result.push(line_text);
+    }
+    return result;
+}
+
+
+function is_delimited_table(sampled_lines, delim, policy) {
+    if (sampled_lines.length < 2)
+        return false;
+    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, true);
+    if (split_result[1])
+        return false;
+    var num_fields = split_result[0].length;
+    if (num_fields < 2)
+        return false;
+    for (var i = 1; i < sampled_lines.length; i++) {
+        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, true);
+        if (split_result[1])
+            return false;
+        if (split_result[0].length != num_fields)
+            return false;
+    }
+    return true;
+}
+
+
+function autodetect_dialect(active_doc) {
+    const sample_count = 5;
+    var sampled_lines = sample_lines(active_doc, sample_count);
+    if (sampled_lines.length < sample_count)
+        return null;
+    for (var i = 0; i < autodetection_dialects.length; i++) {
+        var dialect_id = autodetection_dialects[i];
+        if (!dialect_map.hasOwnProperty(dialect_id)) {
+            continue;
+        }
+        var [delim, policy] = dialect_map[dialect_id];
+        if (is_delimited_table(sampled_lines, delim, policy))
+            return dialect_id;
+    }
+    return null;
+}
+
+
+function autoenable_rainbow_csv() {
+    var active_editor = get_active_text_editor();
+    if (!active_editor)
+        return;
+    if (!active_editor.setLanguageById) {
+        dbg_log('setLanguageById function not found!');
+        return;
+    }
+    var active_doc = active_editor.document;
+    if (!active_doc)
+        return;
+    var language_id = active_doc.languageId;
+    if (language_id != 'plaintext')
+        return;
+    var rainbow_csv_language_id = autodetect_dialect(active_doc);
+    if (!rainbow_csv_language_id)
+        return;
+    // FIXME change method signature: return promise
+    var func_result = active_editor.setLanguageById(rainbow_csv_language_id);
+}
+
+
 function handle_editor_change(editor) {
+    // FIXME check if this works for vscode invocation with a single txt csv file
+    autoenable_rainbow_csv();
     csv_lint(true, null);
     show_linter_state();
 }

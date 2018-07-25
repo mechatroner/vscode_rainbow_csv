@@ -18,7 +18,7 @@
         "Languages"
     ],
     "activationEvents": [
-        "onLanguage:CSV", "onLanguage:TSV", "onLanguage:CSV (semicolon)", "onLanguage:CSV (pipe)"
+        "onLanguage:CSV", "onLanguage:TSV", "onLanguage:CSV (semicolon)", "onLanguage:CSV (pipe)", "onLanguage:plaintext"
     ],
     "main": "./extension",
     "contributes": {
