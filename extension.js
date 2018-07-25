@@ -651,11 +651,14 @@ function autoenable_rainbow_csv() {
 }
 
 
-function handle_editor_change(editor) {
-    // FIXME check if this works for vscode invocation with a single txt csv file
+function init_current_editor() {
     autoenable_rainbow_csv();
     csv_lint(true, null);
     show_linter_state();
+}
+
+function handle_editor_change(editor) {
+    init_current_editor();
 }
 
 
@@ -837,6 +840,9 @@ function activate(context) {
     context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(preview_subscription);
+
+    // FIXME why CSVLint is not shown for the first doc on vscode start?
+    init_current_editor();
 }
 
 
