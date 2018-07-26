@@ -646,8 +646,7 @@ function autoenable_rainbow_csv() {
     var rainbow_csv_language_id = autodetect_dialect(active_doc);
     if (!rainbow_csv_language_id)
         return;
-    // FIXME change method signature: return promise
-    var func_result = active_editor.setLanguageById(rainbow_csv_language_id);
+    active_editor.setLanguageById(rainbow_csv_language_id);
 }
 
 
@@ -841,7 +840,7 @@ function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(preview_subscription);
 
-    // FIXME why CSVLint is not shown for the first doc on vscode start?
+    // CSVLint won't be shown immediately, but it will be shown later since it is bound to the hover tooltip.
     init_current_editor();
 }
 
