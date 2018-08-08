@@ -139,7 +139,7 @@ def strip_js_comments(cline):
     return cline
 
 
-def py_source_escape(src):
+def escape_string_literal(src):
     result = src.replace('\\', '\\\\')
     result = result.replace('\t', '\\t')
     result = result.replace("'", r"\'")
@@ -197,7 +197,7 @@ def translate_update_expression(update_expression, indent):
     translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(afields, \\1,', update_expression)
     update_statements = translated.split('\n')
     update_statements = [s.strip() for s in update_statements]
-    if len(update_statements) < 2 or len(update_statements[0]) > 0:
+    if len(update_statements) < 2 or update_statements[0] != '':
         raise RBParsingError('Unable to parse "UPDATE" expression')
     update_statements = update_statements[1:]
     update_statements = ['{})'.format(s) for s in update_statements]
@@ -256,10 +256,10 @@ def do_separate_string_literals(rbql_expression, string_literals_regex):
     return (format_expression, string_literals)
 
 
-def combine_string_literals(host_expression, string_literals):
+def combine_string_literals(backend_expression, string_literals):
     for i in range(len(string_literals)):
-        host_expression = host_expression.replace('###RBQL_STRING_LITERAL###{}'.format(i), string_literals[i])
-    return host_expression
+        backend_expression = backend_expression.replace('###RBQL_STRING_LITERAL###{}'.format(i), string_literals[i])
+    return backend_expression
 
 
 def locate_statements(rbql_expression):
@@ -275,7 +275,6 @@ def locate_statements(rbql_expression):
     result = list()
     for st_group in statement_groups:
         for statement in st_group:
-            rgxp = None
             rgxp = r'(?i)(?:^| ){} '.format(statement.replace(' ', ' *'))
             matches = list(re.finditer(rgxp, rbql_expression))
             if not len(matches):
@@ -375,10 +374,10 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
     py_meta_params = dict()
     py_meta_params['import_expression'] = import_expression
-    py_meta_params['input_delim'] = py_source_escape(input_delim)
+    py_meta_params['input_delim'] = escape_string_literal(input_delim)
     py_meta_params['input_policy'] = input_policy
     py_meta_params['csv_encoding'] = csv_encoding
-    py_meta_params['output_delim'] = py_source_escape(out_delim)
+    py_meta_params['output_delim'] = escape_string_literal(out_delim)
     py_meta_params['output_policy'] = out_policy
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
@@ -400,20 +399,19 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
         join_delim, join_policy = input_delim, input_policy
         join_format_record = get_index_record(table_index_path, rhs_table_path)
-        if join_format_record is not None:
-            join_delim, join_policy = join_format_record[1:3]
-            join_delim = normalize_delim(join_delim)
+        if join_format_record is not None and len(join_format_record) >= 3:
+            join_delim = normalize_delim(join_format_record[1])
+            join_policy = join_format_record[2]
 
-        joiners = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
-        py_meta_params['joiner_type'] = joiners[rb_actions[JOIN]['join_subtype']]
-        py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
+        py_meta_params['join_operation'] = rb_actions[JOIN]['join_subtype']
+        py_meta_params['rhs_table_path'] = escape_string_literal(rhs_table_path)
         py_meta_params['lhs_join_var'] = lhs_join_var
         py_meta_params['rhs_join_var'] = rhs_join_var
-        py_meta_params['join_delim'] = py_source_escape(join_delim)
+        py_meta_params['join_delim'] = escape_string_literal(join_delim)
         py_meta_params['join_policy'] = join_policy
     else:
-        py_meta_params['joiner_type'] = 'none_joiner'
-        py_meta_params['rhs_table_path'] = 'None'
+        py_meta_params['join_operation'] = 'VOID'
+        py_meta_params['rhs_table_path'] = ''
         py_meta_params['lhs_join_var'] = 'None'
         py_meta_params['rhs_join_var'] = 'None'
         py_meta_params['join_delim'] = ''
@@ -427,25 +425,25 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
     if UPDATE in rb_actions:
         update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 8)
-        py_meta_params['writer_type'] = 'SimpleWriter'
+        py_meta_params['writer_type'] = 'simple'
         py_meta_params['select_expression'] = 'None'
         py_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
-        py_meta_params['process_function'] = 'process_update'
+        py_meta_params['is_select_query'] = 'False'
         py_meta_params['top_count'] = 'None'
 
     if SELECT in rb_actions:
         top_count = find_top(rb_actions)
         py_meta_params['top_count'] = str(top_count) if top_count is not None else 'None'
         if 'distinct_count' in rb_actions[SELECT]:
-            py_meta_params['writer_type'] = 'UniqCountWriter'
+            py_meta_params['writer_type'] = 'uniq_count'
         elif 'distinct' in rb_actions[SELECT]:
-            py_meta_params['writer_type'] = 'UniqWriter'
+            py_meta_params['writer_type'] = 'uniq'
         else:
-            py_meta_params['writer_type'] = 'SimpleWriter'
+            py_meta_params['writer_type'] = 'simple'
         select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
         py_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         py_meta_params['update_statements'] = 'pass'
-        py_meta_params['process_function'] = 'process_select'
+        py_meta_params['is_select_query'] = 'True'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
@@ -473,13 +471,13 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
 
     js_meta_params = dict()
     # TODO add require modules feature
-    js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
-    js_meta_params['input_delim'] = py_source_escape(input_delim)
+    js_meta_params['rbql_home_dir'] = escape_string_literal(rbql_home_dir)
+    js_meta_params['input_delim'] = escape_string_literal(input_delim)
     js_meta_params['input_policy'] = input_policy
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
-    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
-    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
-    js_meta_params['output_delim'] = py_source_escape(out_delim)
+    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(escape_string_literal(src_table_path))
+    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(escape_string_literal(dst_table_path))
+    js_meta_params['output_delim'] = escape_string_literal(out_delim)
     js_meta_params['output_policy'] = out_policy
 
     if GROUP_BY in rb_actions:
@@ -502,15 +500,14 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
             join_delim, join_policy = join_format_record[1:3]
             join_delim = normalize_delim(join_delim)
 
-        join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
-        js_meta_params['join_function'] = join_funcs[rb_actions[JOIN]['join_subtype']]
-        js_meta_params['rhs_table_path'] ="'{}'".format(py_source_escape(rhs_table_path))
+        js_meta_params['join_operation'] = rb_actions[JOIN]['join_subtype']
+        js_meta_params['rhs_table_path'] ="'{}'".format(escape_string_literal(rhs_table_path))
         js_meta_params['lhs_join_var'] = lhs_join_var
         js_meta_params['rhs_join_var'] = rhs_join_var
-        js_meta_params['join_delim'] = py_source_escape(join_delim)
+        js_meta_params['join_delim'] = escape_string_literal(join_delim)
         js_meta_params['join_policy'] = join_policy
     else:
-        js_meta_params['join_function'] = 'null_join'
+        js_meta_params['join_operation'] = 'VOID'
         js_meta_params['rhs_table_path'] = 'null'
         js_meta_params['lhs_join_var'] = 'null'
         js_meta_params['rhs_join_var'] = 'null'
@@ -525,25 +522,25 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
 
     if UPDATE in rb_actions:
         update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 8)
-        js_meta_params['writer_type'] = 'SimpleWriter'
+        js_meta_params['writer_type'] = 'simple'
         js_meta_params['select_expression'] = 'null'
         js_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
-        js_meta_params['process_function'] = 'process_update'
+        js_meta_params['is_select_query'] = 'false'
         js_meta_params['top_count'] = 'null'
 
     if SELECT in rb_actions:
         top_count = find_top(rb_actions)
         js_meta_params['top_count'] = str(top_count) if top_count is not None else 'null'
         if 'distinct_count' in rb_actions[SELECT]:
-            js_meta_params['writer_type'] = 'UniqCountWriter'
+            js_meta_params['writer_type'] = 'uniq_count'
         elif 'distinct' in rb_actions[SELECT]:
-            js_meta_params['writer_type'] = 'UniqWriter'
+            js_meta_params['writer_type'] = 'uniq'
         else:
-            js_meta_params['writer_type'] = 'SimpleWriter'
+            js_meta_params['writer_type'] = 'simple'
         select_expression = translate_select_expression_js(rb_actions[SELECT]['text'])
         js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         js_meta_params['update_statements'] = ''
-        js_meta_params['process_function'] = 'process_select'
+        js_meta_params['is_select_query'] = 'true'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])

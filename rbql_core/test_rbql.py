@@ -23,11 +23,11 @@ import rbql_utils
 
 
 default_csv_encoding = rbql.default_csv_encoding
+script_dir = os.path.dirname(os.path.abspath(__file__))
+tmp_dir = tempfile.gettempdir()
 
 TEST_JS = True
 #TEST_JS = False #DBG
-
-#FIXME add monocolumn unit test
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -118,7 +118,6 @@ rainbow_ut_prefix = 'ut_rbconvert_'
 
 
 def run_file_query_test_py(query, input_path, testname, delim, policy, csv_encoding):
-    tmp_dir = tempfile.gettempdir()
     dst_table_filename = '{}.{}.{}.tsv'.format(testname, time.time(), random.randint(1, 1000000))
     output_path = os.path.join(tmp_dir, dst_table_filename)
     with rbql.RbqlPyEnv() as worker_env:
@@ -176,7 +175,26 @@ def run_conversion_test_py(query, input_table, testname, input_delim, input_poli
 
 
 def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encoding):
-    tmp_dir = tempfile.gettempdir()
+    rnd_string = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    dst_table_filename = '{}.tsv'.format(rnd_string)
+    output_path = os.path.join(tmp_dir, dst_table_filename)
+    assert not os.path.exists(output_path)
+    cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
+
+    cmd = ['node', cli_rbql_js_path, '--delim', delim, '--policy', policy, '--input_table_path', input_path, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--output_table_path', output_path]
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out_data, err_data = pobj.communicate()
+    exit_code = pobj.returncode
+
+    operation_report = rbql.parse_json_report(exit_code, err_data)
+    warnings = operation_report.get('warnings')
+    operation_error = operation_report.get('error')
+    if operation_error is not None:
+        raise RuntimeError("Error in file test: {}.\nError text:\n{}\n".format(testname, operation_error))
+    return (output_path, warnings)
+
+
+def run_file_query_test_py_js(query, input_path, testname, delim, policy, csv_encoding):
     rnd_string = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     script_filename = '{}.js'.format(rnd_string)
     tmp_path = os.path.join(tmp_dir, script_filename)
@@ -200,8 +218,38 @@ def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encod
     return (output_path, warnings)
 
 
-def run_conversion_test_js(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, csv_encoding=default_csv_encoding):
-    tmp_dir = tempfile.gettempdir()
+def run_conversion_test_js(*args, **kwargs):
+    # TODO get rid of py_js mode
+    if random.choice([True, False]):
+        return do_run_conversion_test_js(*args, **kwargs)
+    else:
+        return do_run_conversion_test_py_js(*args, **kwargs)
+
+
+def do_run_conversion_test_js(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, csv_encoding=default_csv_encoding):
+    cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
+    src = table_to_string(input_table, input_delim, input_policy)
+    cmd = ['node', cli_rbql_js_path, '--delim', input_delim, '--policy', input_policy, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--out_delim', output_delim, '--out_policy', output_policy]
+
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    out_data, err_data = pobj.communicate(src.encode(csv_encoding))
+    exit_code = pobj.returncode
+
+    operation_report = rbql.parse_json_report(exit_code, err_data)
+    warnings = operation_report.get('warnings')
+    operation_error = operation_report.get('error')
+    if operation_error is not None:
+        raise RuntimeError("Error in file test: {}.\nError text:\n{}\n".format(testname, operation_error))
+
+    out_table = []
+    out_data = out_data.decode(csv_encoding)
+    if len(out_data):
+        out_lines = out_data[:-1].split('\n')
+        out_table = [smart_split(ln, output_delim, output_policy) for ln in out_lines]
+    return (out_table, warnings)
+
+
+def do_run_conversion_test_py_js(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, csv_encoding=default_csv_encoding):
     script_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     script_name += '.js'
     tmp_path = os.path.join(tmp_dir, script_name)
@@ -299,7 +347,6 @@ class TestEverything(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        tmp_dir = tempfile.gettempdir()
         old_unused = [f for f in os.listdir(tmp_dir) if f.startswith(rainbow_ut_prefix)]
         for name in old_unused:
             script_path = os.path.join(tmp_dir, name)
@@ -1293,7 +1340,6 @@ class TestFiles(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old_dir = os.getcwd()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
         ut_dir = os.path.join(script_dir, 'unit_tests')
         os.chdir(ut_dir)
 
@@ -1320,11 +1366,11 @@ class TestFiles(unittest.TestCase):
                     delim = '\t'
                 default_policy = 'quoted' if delim in [';', ','] else 'simple'
                 policy = config.get('policy', default_policy)
-                host_language = config.get('host_language', 'python')
+                backend_language = config.get('backend_language', 'python')
                 canonic_path = None if canonic_table is None else os.path.abspath(canonic_table)
                 canonic_md5 = calc_file_md5(canonic_table)
 
-                if host_language == 'python':
+                if backend_language == 'python':
                     warnings = None
                     try:
                         result_table, warnings = run_file_query_test_py(query, src_path, str(test_no), delim, policy, encoding)
@@ -1336,9 +1382,10 @@ class TestFiles(unittest.TestCase):
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
                     compare_warnings(self, canonic_warnings, warnings)
-                
-                elif TEST_JS:
-                    assert host_language == 'js'
+                else: 
+                    if not TEST_JS:
+                        continue
+                    assert backend_language == 'js'
                     try:
                         result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:
@@ -1349,6 +1396,19 @@ class TestFiles(unittest.TestCase):
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
                     compare_warnings(self, canonic_warnings, warnings)
+
+                    # TODO get rid of the mode and of the tests below:
+                    try:
+                        result_table, warnings = run_file_query_test_py_js(query, src_path, str(test_no), delim, policy, encoding)
+                    except Exception as e:
+                        if canonic_error_msg is None or str(e).find(canonic_error_msg) == -1:
+                            raise
+                        continue
+                    test_path = os.path.abspath(result_table) 
+                    test_md5 = calc_file_md5(result_table)
+                    self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
+                    compare_warnings(self, canonic_warnings, warnings)
+
 
 
 
@@ -1448,7 +1508,6 @@ class TestSplitMethods(unittest.TestCase):
             canonic_fields = rec[0]
             escaped_entry = rec[1]
             canonic_warning = rec[2]
-            #FIXME compare with preserving split method
             test_fields, test_warning = rbql_utils.split_quoted_str(escaped_entry, ',')
             test_fields_preserved, test_warning_preserved = rbql_utils.split_quoted_str(escaped_entry, ',', True)
             self.assertEqual(','.join(test_fields_preserved), escaped_entry)
@@ -1484,10 +1543,7 @@ def test_random_csv_table(src_path):
             assert rbql.unquote_fields(test_fields_preserved) == test_fields
             assert int(test_warning) == canonic_warning
             if not test_warning and (test_fields != canonic_fields):
-                print( "Errror", file=sys.stderr) #FOR_DEBUG
-                print( "escaped_entry:", escaped_entry, file=sys.stderr) #FOR_DEBUG
-                print( "canonic_fields:", canonic_fields, file=sys.stderr) #FOR_DEBUG
-                print( "test_fields:", test_fields, file=sys.stderr) #FOR_DEBUG
+                print("Error", file=sys.stderr)
                 sys.exit(1)
 
 

@@ -345,8 +345,12 @@ def read_join_table(join_table_path):
     return (result, fields_max_len)
 
 
-def none_joiner(path):
-    return None
+class NoneJoiner(object):
+    def __init__(self, join_table_path):
+        pass
+
+    def get_rhs(self, lhs_key):
+        return None
 
 
 class InnerJoiner(object):
@@ -489,6 +493,10 @@ def process_select(NR, NF, afields, rhs_records):
     return True
 
 
+process_function = process_select if __RBQLMP__is_select_query else process_update
+joiner_type = {'VOID': NoneJoiner, 'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}['__RBQLMP__join_operation'];
+
+
 def rb_transform(source, destination):
     global module_was_used_failsafe
     assert not module_was_used_failsafe
@@ -498,10 +506,11 @@ def rb_transform(source, destination):
     global defective_csv_line_in_input
     global utf8_bom_removed
     global writer
-    writer = __RBQLMP__writer_type(destination)
+    writer_type = {'simple': SimpleWriter, 'uniq': UniqWriter, 'uniq_count': UniqCountWriter}['__RBQLMP__writer_type']
+    writer = writer_type(destination)
     if __RBQLMP__sort_flag:
         writer = SortedWriter(writer)
-    joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
+    joiner = joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         if NR == 1:
             clean_line = remove_utf8_bom(line, csv_encoding)
@@ -516,11 +525,8 @@ def rb_transform(source, destination):
         if NF not in input_fields_info:
             input_fields_info[NF] = NR
         try:
-            rhs_records = None
-            if joiner is not None:
-                rhs_records = joiner.get_rhs(__RBQLMP__lhs_join_var)
-            # __RBQLMP__process_function below is either "process_select" or "process_update"
-            if not __RBQLMP__process_function(NR, NF, afields, rhs_records):
+            rhs_records = joiner.get_rhs(__RBQLMP__lhs_join_var)
+            if not process_function(NR, NF, afields, rhs_records):
                 break
         except BadFieldError as e:
             bad_idx = e.bad_idx

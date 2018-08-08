@@ -1,6 +1,6 @@
-fs = require('fs')
-readline = require('readline');
-rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
+const fs = require('fs');
+const readline = require('readline');
+const rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js');
 
 var csv_encoding = '__RBQLMP__csv_encoding';
 
@@ -10,19 +10,75 @@ var output_delim = '__RBQLMP__output_delim';
 
 var join_table_path = __RBQLMP__rhs_table_path;
 
+var module_was_used_failsafe = false;
 
-function exit_with_error_msg(error_msg) {
-    var report = new Object();
-    report.error = error_msg
-    process.stderr.write(JSON.stringify(report));
-    process.exit(1);
+var external_error_handler = null;
+var external_success_handler = null;
+
+var enable_monocolumn_csv_ux_optimization_hack = true;
+
+var NR = 0;
+var NU = 0; // NU - Num Updated. Alternative variables: NW (Num Where) - Not Practical. NW (Num Written) - Impossible to implement.
+
+var line_reader = null;
+var dst_stream = null;
+var writer = null;
+
+// For warnings:
+var join_fields_info = new Object();
+var input_fields_info = new Object();
+var null_value_in_output = false;
+var delim_in_simple_output = false;
+var output_switch_to_csv = null; // Need this as warning because user could use TSV files and CSV would be unexpected. Also this is a marker for editor to use CSV syntax for output instead of  monocolumn.
+var utf8_bom_removed = false;
+var defective_csv_line_in_input = 0;
+var defective_csv_line_in_join = 0;
+
+// Aggregators:
+var aggregation_stage = 0;
+var aggr_init_counter = 0;
+var functional_aggregators = [];
+
+var process_function = __RBQLMP__is_select_query ? process_select : process_update;
+var join_function = {'VOID': null_join, 'JOIN': inner_join, 'INNER JOIN': inner_join, 'LEFT JOIN': left_join, 'STRICT LEFT JOIN': strict_left_join}['__RBQLMP__join_operation'];
+
+var output_join = null;
+var input_split = null;
+var join_split = null;
+
+var join_map = null;
+var max_join_fields = null;
+var null_record = null;
+
+var finished_with_error = false;
+
+// TODO run linter against ready template
+// FIXME fix tests to use rbql.js
+
+function finish_processing_error(error_msg) {
+    finished_with_error = true;
+    if (line_reader)
+        line_reader.close();
+    external_error_handler(error_msg);
 }
 
 
 function assert(condition, message) {
     if (!condition) {
-        exit_with_error_msg(message);
+        finish_processing_error(message);
     }
+}
+
+
+function BadFieldError(idx) {
+    this.idx = idx;
+    this.name = 'BadFieldError';
+}
+
+
+function RbqlError(error_msg) {
+    this.error_msg = error_msg;
+    this.name = 'RbqlError';
 }
 
 
@@ -34,26 +90,6 @@ function quote_field(src, delim) {
     }
     return src;
 }
-
-var enable_monocolumn_csv_ux_optimization_hack = true;
-
-var NR = 0;
-var NU = 0; // NU - Num Updated. Alternative variables: NW (Num Where) - Not Practical. NW (Num Written) - Impossible to implement.
-
-// For warnings:
-var join_fields_info = new Object();
-var input_fields_info = new Object();
-var null_value_in_output = false;
-var delim_in_simple_output = false;
-var output_switch_to_csv = null; // Need this as warning because user could use TSV files and CSV would be unexpected. Also this is a marker for editor to use CSV syntax for output instead of  monocolumn.
-var utf8_bom_removed = false;
-var defective_csv_line_in_input = 0
-var defective_csv_line_in_join = 0
-
-// Aggregators:
-var aggregation_stage = 0;
-var aggr_init_counter = 0;
-var functional_aggregators = [];
 
 
 function quoted_join(fields, delim) {
@@ -75,7 +111,7 @@ function mono_join(fields, delim) {
         }
     }
     if (fields.length > 1) {
-        exit_with_error_msg('Unable to use "Monocolumn" output format: some records have more than one field');
+        throw new RbqlError('Unable to use "Monocolumn" output format: some records have more than one field');
     }
     return fields[0];
 }
@@ -90,43 +126,6 @@ function simple_join(fields, delim) {
 }
 
 
-output_join = null
-if ('__RBQLMP__output_policy' == 'simple') {
-    output_join = simple_join;
-} else if ('__RBQLMP__output_policy' == 'quoted') {
-    output_join = quoted_join;
-} else if ('__RBQLMP__output_policy' == 'monocolumn') {
-    output_join = mono_join;
-} else {
-    exit_with_error_msg('unknown output csv policy');
-}
-
-
-input_split = null
-if ('__RBQLMP__input_policy' == 'simple') {
-    input_split = function(line) { return [line.split(input_delim), false]; }
-} else if ('__RBQLMP__input_policy' == 'quoted') {
-    input_split = function(line) { return rbql_utils.split_quoted_str(line, input_delim); }
-} else if ('__RBQLMP__input_policy' == 'monocolumn') {
-    input_split = function(line) { return [[line], false]; }
-} else {
-    exit_with_error_msg('unknown input csv policy');
-}
-
-join_impl = null
-if ('__RBQLMP__join_policy' == '') {
-    join_split = function(line) { return [null, null]; }
-} else if ('__RBQLMP__join_policy' == 'simple') {
-    join_split = function(line) { return [line.split(join_delim), false]; }
-} else if ('__RBQLMP__join_policy' == 'quoted') {
-    join_split = function(line) { return rbql_utils.split_quoted_str(line, join_delim); }
-} else if ('__RBQLMP__join_policy' == 'monocolumn') {
-    join_split = function(line) { return [[line], false]; }
-} else {
-    exit_with_error_msg('unknown join csv policy');
-}
-
-
 function strip_cr(line) {
     if (line.charAt(line.length - 1) === '\r') {
         return line.substring(0, line.length - 1);
@@ -135,30 +134,11 @@ function strip_cr(line) {
 }
 
 
-var lineReader = null;
-var src_table_path = __RBQLMP__src_table_path;
-if (src_table_path != null) {
-    lineReader = readline.createInterface({ input: fs.createReadStream(src_table_path, {encoding: csv_encoding}) });
-} else {
-    process.stdin.setEncoding(csv_encoding);
-    lineReader = readline.createInterface({ input: process.stdin });
-}
-
-var dst_stream = null;
-var dst_table_path = __RBQLMP__dst_table_path;
-if (dst_table_path != null) {
-    dst_stream = fs.createWriteStream(dst_table_path, {defaultEncoding: csv_encoding});
-} else {
-    process.stdout.setDefaultEncoding(csv_encoding);
-    dst_stream = process.stdout;
-}
-
-
 function Marker(marker_id, value) {
     this.marker_id = marker_id;
     this.value = value;
     this.toString = function() {
-        exit_with_error_msg('Unsupported aggregate expression');
+        throw new RbqlError('Unsupported aggregate expression');
     }
 }
 
@@ -323,12 +303,6 @@ function AggregateWriter(subwriter) {
 }
 
 
-function BadFieldError(idx) {
-    this.idx = idx;
-    this.name = 'BadFieldError';
-}
-
-
 function safe_get(record, idx) {
     if (idx - 1 < record.length) {
         return record[idx - 1];
@@ -377,7 +351,7 @@ function read_join_table(table_path) {
             key = __RBQLMP__rhs_join_var;
         } catch (e) {
             if (e instanceof BadFieldError) {
-                exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
+                throw new RbqlError('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
             }
         }
         var old_records = result.get(key);
@@ -393,7 +367,6 @@ function read_join_table(table_path) {
 
 function generate_warnings() {
     var warnings = new Object();
-
     if (null_value_in_output)
         warnings['null_value_in_output'] = true;
     if (delim_in_simple_output)
@@ -412,19 +385,7 @@ function generate_warnings() {
         warnings['join_fields_info'] = join_fields_info;
     if (!Object.keys(warnings).length)
         return null;
-    return JSON.stringify({'warnings': warnings});
-}
-
-
-var join_map = null;
-var max_join_fields = null;
-var null_record = null;
-
-if (join_table_path !== null) {
-    var join_params = read_join_table(join_table_path);
-    join_map = join_params[0];
-    max_join_fields = join_params[1];
-    null_record = [Array(max_join_fields).fill(null)];
+    return warnings;
 }
 
 
@@ -451,7 +412,7 @@ function left_join(lhs_key) {
 function strict_left_join(lhs_key) {
     var result = join_map.get(lhs_key);
     if (result == null || result.length != 1) {
-        exit_with_error_msg('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"');
+        throw new RbqlError('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"');
     }
     return result;
 }
@@ -466,15 +427,10 @@ function replace_null_values(out_fields) {
     }
 }
 
-var writer = new __RBQLMP__writer_type(dst_stream);
-if (__RBQLMP__sort_flag) {
-    writer = new SortedWriter(writer);
-}
-
 
 function process_update(NF, afields, rhs_records) {
     if (rhs_records != null && rhs_records.length > 1)
-        exit_with_error_msg('More than one record in UPDATE query matched A-key in join table B at line: ' + NR);
+        throw new RbqlError('More than one record in UPDATE query matched A-key in join table B at line: ' + NR);
     var bfields = null;
     if (rhs_records != null && rhs_records.length == 1)
         bfields = rhs_records[0];
@@ -511,7 +467,7 @@ function select_aggregated(NF, afields, bfields, transparent_values) {
     }
     if (aggregation_stage === 1) {
         if (!(writer instanceof SimpleWriter)) {
-            exit_with_error_msg('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query');
+            throw new RbqlError('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query');
         }
         writer = new AggregateWriter(writer);
         for (var i = 0; i < transparent_values.length; i++) {
@@ -545,6 +501,7 @@ function process_select(NF, afields, rhs_records) {
             star_fields = afields.concat(bfields);
         if (!(__RBQLMP__where_expression))
             continue;
+        // TODO wrap all user expression in try/catch block to improve error reporting
         var out_fields = __RBQLMP__select_expression;
         if (aggregation_stage > 0) {
             select_aggregated(NF, afields, bfields, out_fields);
@@ -569,6 +526,21 @@ function remove_utf8_bom(line, assumed_source_encoding) {
 
 
 function process_line(line) {
+    try {
+        do_process_line(line);
+    } catch (e) {
+        if (e instanceof BadFieldError) {
+            finish_processing_error('No "a' + (e.idx + 1) + '" column at line: ' + NR);
+        } else if (e instanceof RbqlError) {
+            finish_processing_error(e.error_msg);
+        } else {
+            finish_processing_error('Unexpected exception while processing line ' + NR + ': "' + e + '"');
+        }
+    }
+}
+
+
+function do_process_line(line) {
     if (NR === 0) {
         var clean_line = remove_utf8_bom(line, csv_encoding);
         if (clean_line != line) {
@@ -586,35 +558,152 @@ function process_line(line) {
     var NF = afields.length;
     if (!input_fields_info.hasOwnProperty(NF))
         input_fields_info[NF] = NR;
-    try {
-        rhs_records = null;
-        if (join_map != null)
-            rhs_records = __RBQLMP__join_function(__RBQLMP__lhs_join_var);
-        // __RBQLMP__process_function below is either "process_select" or "process_update"
-        if (!__RBQLMP__process_function(NF, afields, rhs_records)) {
-            lineReader.close();
-            return;
-        }
-    } catch (e) {
-        if (e instanceof BadFieldError) {
-            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
-        }
-        if (typeof e === 'string') {
-            exit_with_error_msg('Error while processing line ' + NR + ': "' + e + '"');
-        }
-        throw(e);
+    rhs_records = null;
+    if (join_map != null)
+        rhs_records = join_function(__RBQLMP__lhs_join_var);
+    if (!process_function(NF, afields, rhs_records)) {
+        line_reader.close();
+        return;
     }
 }
 
 
-function finish_processing() {
-    writer.finish();
-    var warnings_report = generate_warnings();
-    if (warnings_report)
-        process.stderr.write(warnings_report);
+function finish_processing_success() {
+    if (finished_with_error)
+        return;
+    try {
+        writer.finish();
+        var warnings = generate_warnings();
+    } catch (e) {
+        if (e instanceof RbqlError) {
+            finish_processing_error(e.error_msg);
+        } else {
+            finish_processing_error('Unexpected exception: ' + e);
+        }
+        return;
+    }
+    external_success_handler(warnings);
 }
 
 
-lineReader.on('line', process_line);
-lineReader.on('close', finish_processing);
+function do_run_encapsulated(input_reader, output_stream) {
+    // TODO add join_reader
+    if (module_was_used_failsafe) {
+        throw new RbqlError('Module can only be used once');
+    }
+    module_was_used_failsafe = true;
 
+    line_reader = input_reader;
+    dst_stream = output_stream;
+
+    if ('__RBQLMP__output_policy' == 'simple') {
+        output_join = simple_join;
+    } else if ('__RBQLMP__output_policy' == 'quoted') {
+        output_join = quoted_join;
+    } else if ('__RBQLMP__output_policy' == 'monocolumn') {
+        output_join = mono_join;
+    } else {
+        throw new RbqlError('unknown output csv policy');
+    }
+
+
+    if ('__RBQLMP__input_policy' == 'simple') {
+        input_split = function(line) { return [line.split(input_delim), false]; }
+    } else if ('__RBQLMP__input_policy' == 'quoted') {
+        input_split = function(line) { return rbql_utils.split_quoted_str(line, input_delim); }
+    } else if ('__RBQLMP__input_policy' == 'monocolumn') {
+        input_split = function(line) { return [[line], false]; }
+    } else {
+        throw new RbqlError('unknown input csv policy');
+    }
+
+    if ('__RBQLMP__join_policy' == '') {
+        join_split = function(line) { return [null, null]; }
+    } else if ('__RBQLMP__join_policy' == 'simple') {
+        join_split = function(line) { return [line.split(join_delim), false]; }
+    } else if ('__RBQLMP__join_policy' == 'quoted') {
+        join_split = function(line) { return rbql_utils.split_quoted_str(line, join_delim); }
+    } else if ('__RBQLMP__join_policy' == 'monocolumn') {
+        join_split = function(line) { return [[line], false]; }
+    } else {
+        throw new RbqlError('unknown join csv policy');
+    }
+
+    if (join_table_path !== null) {
+        var join_params = read_join_table(join_table_path);
+        join_map = join_params[0];
+        max_join_fields = join_params[1];
+        null_record = [Array(max_join_fields).fill(null)];
+    }
+
+    var writer_type = {'simple': SimpleWriter, 'uniq': UniqWriter, 'uniq_count': UniqCountWriter}['__RBQLMP__writer_type'];
+    writer = new writer_type(dst_stream);
+    if (__RBQLMP__sort_flag) {
+        writer = new SortedWriter(writer);
+    }
+
+    line_reader.on('line', process_line);
+    line_reader.on('close', finish_processing_success);
+}
+
+
+function run_encapsulated(input_reader, output_stream, external_success_cb, external_error_cb) {
+    // This is the future worker interface (it is internal for now)
+    external_success_handler = external_success_cb;
+    external_error_handler = external_error_cb;
+    try {
+        do_run_encapsulated(input_reader, output_stream);
+    } catch (e) {
+        if (e instanceof RbqlError) {
+            finish_processing_error(e.error_msg);
+        } else {
+            finish_processing_error('Unexpected exception: ' + e);
+        }
+    }
+}
+
+
+function run_on_node(external_success_cb, external_error_cb) {
+    var input_reader = null;
+    var src_table_path = __RBQLMP__src_table_path;
+    if (src_table_path != null) {
+        input_reader = readline.createInterface({ input: fs.createReadStream(src_table_path, {encoding: csv_encoding}) });
+    } else {
+        process.stdin.setEncoding(csv_encoding);
+        input_reader = readline.createInterface({ input: process.stdin });
+    }
+
+    var output_stream = null;
+    var dst_table_path = __RBQLMP__dst_table_path;
+    if (dst_table_path != null) {
+        output_stream = fs.createWriteStream(dst_table_path, {defaultEncoding: csv_encoding});
+    } else {
+        process.stdout.setDefaultEncoding(csv_encoding);
+        output_stream = process.stdout;
+    }
+    run_encapsulated(input_reader, output_stream, external_success_cb, external_error_cb);
+}
+
+
+function cli_success_cb(warnings) {
+    if (warnings !== null) {
+        var warnings_report = JSON.stringify({'warnings': warnings});
+        process.stderr.write(warnings_report);
+    }
+}
+
+
+function cli_error_cb(error_msg) {
+    var report = new Object();
+    report.error = error_msg
+    process.stderr.write(JSON.stringify(report));
+    process.exit(1);
+}
+
+
+if (require.main === module) {
+    run_on_node(cli_success_cb, cli_error_cb);
+}
+
+
+module.exports.run_on_node = run_on_node;
