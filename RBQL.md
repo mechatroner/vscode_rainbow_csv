@@ -12,11 +12,11 @@ Screenshot of RBQL Dashboard:
 
 ### Settings
 
-#### rbql_host_language
+#### rbql_backend_language
 Allowed values: _python_, _js_  
 Default: _python_  
 
-Specifies interpreter to execute RBQL query expressions. I.e. to change default RBQL host language to JavaScript set `"rainbow_csv.rbql_host_language": "js"` in VS Code settings.
+Specifies interpreter to execute RBQL query expressions. I.e. to change default RBQL backend language to JavaScript set `"rainbow_csv.rbql_backend_language": "js"` in VS Code settings.
 
 ### Commads
 

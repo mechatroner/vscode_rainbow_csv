@@ -6,29 +6,29 @@ var handshake_completed = false;
 var security_tokens = ["__TEMPLATE_SECURITY_TOKENS__"];
 var token_num = 0;
 
-var host_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
+var backend_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
 
 const vscode_server = 'http://localhost:__TEMPLATE_JS_PORT__';
 
 var custom_colors = null;
 
-function display_host_language(host_language) {
+function display_backend_language(backend_language) {
     var language_info = null;
-    for (var i = 0; i < host_lang_presentations.length; i++) {
-        if (host_lang_presentations[i]['key'] == host_language) {
-            language_info = host_lang_presentations[i];
+    for (var i = 0; i < backend_lang_presentations.length; i++) {
+        if (backend_lang_presentations[i]['key'] == backend_language) {
+            language_info = backend_lang_presentations[i];
             break;
         }
     }
-    document.getElementById('host_language_change').style.backgroundColor = language_info['color'];
-    document.getElementById('host_language_change').textContent = language_info['name'];
+    document.getElementById('backend_language_change').style.backgroundColor = language_info['color'];
+    document.getElementById('backend_language_change').textContent = language_info['name'];
 }
 
 
 function get_current_lang_idx() {
-    var current_lang_name = document.getElementById('host_language_change').textContent;
-    for (var i = 0; i < host_lang_presentations.length; i++) {
-        if (host_lang_presentations[i]['name'] == current_lang_name) {
+    var current_lang_name = document.getElementById('backend_language_change').textContent;
+    for (var i = 0; i < backend_lang_presentations.length; i++) {
+        if (backend_lang_presentations[i]['name'] == current_lang_name) {
             return i;
         }
     }
@@ -36,10 +36,10 @@ function get_current_lang_idx() {
 }
 
 
-function switch_host_language() {
+function switch_backend_language() {
     var lang_idx = get_current_lang_idx();
-    var next_idx = (lang_idx + 1) % host_lang_presentations.length;
-    display_host_language(host_lang_presentations[next_idx]['key']);
+    var next_idx = (lang_idx + 1) % backend_lang_presentations.length;
+    display_backend_language(backend_lang_presentations[next_idx]['key']);
 }
 
 function remove_children(root_node) {
@@ -100,7 +100,7 @@ function run_handshake(num_attempts) {
             if (!custom_colors) {
                 document.getElementById("colors_hint").style.display = 'block';
             }
-            display_host_language(init_report['host_language']);
+            display_backend_language(init_report['backend_language']);
             document.getElementById("init_running").style.display = 'none';
             document.getElementById("rbql_dashboard").style.display = 'block';
         }
@@ -190,7 +190,7 @@ function start_rbql() {
     rbql_running = true;
     document.getElementById('status_label').textContent = "Running...";
 
-    var rbql_host_lang = document.getElementById('host_language_change')
+    var rbql_backend_lang = document.getElementById('backend_language_change')
 
     var api_url = vscode_server + "/run?";
     var xhr = new XMLHttpRequest();
@@ -199,13 +199,13 @@ function start_rbql() {
             process_rbql_result(xhr.responseText);
         }
     }
-    var host_language = host_lang_presentations[get_current_lang_idx()]['key'];
+    var backend_language = backend_lang_presentations[get_current_lang_idx()]['key'];
     if (token_num >= security_tokens.length) {
         return;
     }
     var security_token = security_tokens[token_num];
     token_num += 1;
-    api_url += 'rbql_query=' + encodeURIComponent(rbql_text) + '&host_language=' + host_language + '&security_token=' + security_token;
+    api_url += 'rbql_query=' + encodeURIComponent(rbql_text) + '&backend_language=' + backend_language + '&security_token=' + security_token;
     xhr.open("GET", api_url);
     xhr.send();
 }
@@ -214,7 +214,7 @@ function start_rbql() {
 function main() {
     run_handshake(3);
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
-    document.getElementById("host_language_change").addEventListener("click", switch_host_language);
+    document.getElementById("backend_language_change").addEventListener("click", switch_backend_language);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("go_begin").addEventListener("click", preview_begin);

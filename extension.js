@@ -308,8 +308,8 @@ function get_last_start_line(document) {
 }
 
 
-function run_rbql_query(active_file_path, host_language, rbql_query, report_handler) {
-    last_rbql_queries.set(active_file_path, {'query': rbql_query, 'host_language': host_language});
+function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
+    last_rbql_queries.set(active_file_path, {'query': rbql_query, 'backend_language': backend_language});
     var cmd = 'python';
     var args = null;
     const test_marker = 'test ';
@@ -318,7 +318,7 @@ function run_rbql_query(active_file_path, host_language, rbql_query, report_hand
             cmd = 'nopython';
         args = [mock_script_path, rbql_query];
     } else {
-        args = [rbql_exec_path, host_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
     }
     run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
 }
@@ -331,7 +331,7 @@ function handle_request(http_request, http_response) {
     var active_file_path = rbql_context['document'].fileName;
     if (pathname == '/init') {
         http_response.writeHead(200, {'Content-Type': 'application/json'});
-        var init_msg = {"host_language": get_rbql_host_language()};
+        var init_msg = {"backend_language": get_rbql_backend_language()};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
 
         var customized_colors = get_customized_colors();
@@ -345,7 +345,7 @@ function handle_request(http_request, http_response) {
         if (last_rbql_queries.has(active_file_path)) {
             var last_query_info = last_rbql_queries.get(active_file_path);
             init_msg['last_query'] = last_query_info['query'];
-            init_msg['host_language'] = last_query_info['host_language'];
+            init_msg['backend_language'] = last_query_info['backend_language'];
         }
         http_response.end(JSON.stringify(init_msg));
         return;
@@ -368,7 +368,7 @@ function handle_request(http_request, http_response) {
     } else if (pathname == '/run') {
         var query = parsed_url.query;
         var rbql_query = query.rbql_query;
-        var host_language = query.host_language;
+        var backend_language = query.backend_language;
         var security_token = query.security_token;
         dbg_log('security_token: ' + security_token);
         if (security_tokens.indexOf(security_token) == -1 || used_tokens.indexOf(security_token) != -1)
@@ -378,7 +378,7 @@ function handle_request(http_request, http_response) {
             http_response.writeHead(200, {'Content-Type': 'application/json'});
             http_response.end(JSON.stringify(report));
         }
-        run_rbql_query(active_file_path, host_language, rbql_query, report_handler);
+        run_rbql_query(active_file_path, backend_language, rbql_query, report_handler);
         return;
     }
 }
@@ -409,7 +409,7 @@ function init_rbql_context() {
 }
 
 
-function process_rbql_quick(active_file_path, host_language, query) {
+function process_rbql_quick(active_file_path, backend_language, query) {
     if (!query)
         return;
     var report_handler = function(report) {
@@ -424,7 +424,7 @@ function process_rbql_quick(active_file_path, host_language, query) {
             log_error('Error Details: ' + error_details);
         }
     }
-    run_rbql_query(active_file_path, host_language, query, report_handler);
+    run_rbql_query(active_file_path, backend_language, query, report_handler);
 }
 
 
@@ -466,9 +466,9 @@ function edit_rbql_quick() {
     if (!init_rbql_context())
         return;
     var active_file_path = rbql_context['document'].fileName;
-    var host_language = get_rbql_host_language();
-    var title = "Input SQL-like RBQL query [in " + host_language + "]  ";
-    var handle_success = function(query) { process_rbql_quick(active_file_path, host_language, query); }
+    var backend_language = get_rbql_backend_language();
+    var title = "Input SQL-like RBQL query [in " + backend_language + "]  ";
+    var handle_success = function(query) { process_rbql_quick(active_file_path, backend_language, query); }
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     var input_box_props = {"ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..."};
     if (last_rbql_queries.has(active_file_path)) {
@@ -494,17 +494,17 @@ function edit_rbql() {
 }
 
 
-function get_rbql_host_language() {
-    var supported_hosts = ['python', 'js'];
-    var default_host = 'python';
+function get_rbql_backend_language() {
+    var supported_backends = ['python', 'js'];
+    var default_backend = 'python';
     const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config && config.get('rbql_host_language')) {
-        var host_language = config.get('rbql_host_language').toLowerCase();
-        if (supported_hosts.indexOf(host_language) != -1) {
-            return host_language;
+    if (config && config.get('rbql_backend_language')) {
+        var backend_language = config.get('rbql_backend_language').toLowerCase();
+        if (supported_backends.indexOf(backend_language) != -1) {
+            return backend_language;
         }
     }
-    return default_host;
+    return default_backend;
 }
 
 

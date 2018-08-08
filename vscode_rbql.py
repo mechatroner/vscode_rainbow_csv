@@ -108,7 +108,7 @@ def get_dst_table_path(src_table_path, output_delim):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('host_language', metavar='LANG', help='script language to use in query', choices=['python', 'js'])
+    parser.add_argument('backend_language', metavar='LANG', help='script language to use in query', choices=['python', 'js'])
     parser.add_argument('delim', help='Delimiter')
     parser.add_argument('policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
     parser.add_argument('query', help='Query string in rbql')
@@ -124,7 +124,7 @@ def main():
 
     output_path = get_dst_table_path(input_path, output_delim)
     
-    if args.host_language == 'python':
+    if args.backend_language == 'python':
         run_with_python(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
     else:
         run_with_js(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
