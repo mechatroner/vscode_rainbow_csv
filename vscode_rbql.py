@@ -72,7 +72,7 @@ def run_with_js(input_path, delim, policy, csv_encoding, query, output_delim, ou
     operation_report = rbql.parse_json_report(exit_code, err_data)
     operation_error = operation_report.get('error')
     if operation_error is not None:
-        report_error_and_exit('Host_Execution', operation_error)
+        report_error_and_exit('RBQL_backend', operation_error)
     warnings = operation_report.get('warnings')
     if warnings is not None:
         warnings = rbql.make_warnings_human_readable(warnings)

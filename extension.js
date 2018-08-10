@@ -2,9 +2,12 @@ const vscode = require('vscode');
 const url = require('url');
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const child_process = require('child_process');
 
-var rainbow_utils = require('./rainbow_utils');
+const rainbow_utils = require('./rainbow_utils');
+const rbql = require('./rbql_core/rbql');
 
 var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted'], 'CSV (pipe)': ['|', 'simple']};
 
@@ -257,6 +260,13 @@ function run_command(cmd, args, callback_func) {
 }
 
 
+function finish_rbql_success(dst_table_path, warnings) {
+    var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
+    var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
+    vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
+}
+
+
 function handle_command_result(error_code, stdout, stderr, report_handler) {
     dbg_log('error_code: ' + String(error_code));
     dbg_log('stdout: ' + String(stdout));
@@ -291,10 +301,7 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     }
     var dst_table_path = report['result_path'];
     dbg_log('dst_table_path: ' + dst_table_path);
-
-    var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
-    vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
+    finish_rbql_success(dst_table_path, warnings);
 }
 
 
@@ -308,19 +315,90 @@ function get_last_start_line(document) {
 }
 
 
+function get_dst_table_name(input_path, output_delim) {
+    var table_name = path.basename(input_path);
+    var orig_extension = path.extname(table_name);
+    var delim_ext_map = {'\t': '.tsv', ',': '.csv'};
+    var dst_extension = '.txt';
+    if (delim_ext_map.hasOwnProperty(output_delim)) {
+        dst_extension = delim_ext_map[output_delim];
+    } else if (orig_extension.length > 1) {
+        dst_extension = orig_extension;
+    }
+    return table_name + dst_extension;
+}
+
+
+function remove_if_exists(file_path) {
+    if (fs.existsSync(file_path)) {
+        fs.unlinkSync(file_path);
+    }
+}
+
+
+function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
+    dbg_log('Worker success');
+    remove_if_exists(tmp_worker_module_path);
+    var report = {'result_path': output_path, 'warnings': warnings};
+    report_handler(report);
+    finish_rbql_success(output_path, warnings);
+}
+
+
+function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
+    dbg_log('Worker failure: ' + error_msg);
+    var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
+    report_handler(report);
+}
+
+
+function call_js_rbql(input_path, query, delim, policy, report_handler) {
+    var rbql_lines = [query];
+    var tmp_dir = os.tmpdir();
+    var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
+    var tmp_worker_module_path = path.join(tmp_dir, script_filename);
+    var output_delim = delim;
+    var output_policy = policy;
+    var csv_encoding = rbql.default_csv_encoding;
+
+    var output_file_name = get_dst_table_name(input_path, output_delim);
+    var output_path = path.join(tmp_dir, output_file_name);
+
+    try {
+        rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
+    } catch (e) {
+        let report = {'error_type': 'RBQL_parsing', 'error_details': String(e)};
+        report_handler(report);
+        return;
+    }
+    var worker_module = require(tmp_worker_module_path);
+    var handle_success = function(warnings) {
+        handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
+    }
+    var handle_failure = function(error_msg) {
+        handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
+    }
+    worker_module.run_on_node(handle_success, handle_failure);
+}
+
+
 function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
     last_rbql_queries.set(active_file_path, {'query': rbql_query, 'backend_language': backend_language});
     var cmd = 'python';
-    var args = null;
     const test_marker = 'test ';
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1)
             cmd = 'nopython';
-        args = [mock_script_path, rbql_query];
-    } else {
-        args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        let args = [mock_script_path, rbql_query];
+        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        return;
     }
-    run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+    if (backend_language == 'js') {
+        call_js_rbql(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
+    } else {
+        let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+    }
 }
 
 
