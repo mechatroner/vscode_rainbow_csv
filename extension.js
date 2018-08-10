@@ -363,15 +363,16 @@ function call_js_rbql(input_path, query, delim, policy, report_handler) {
 
     var output_file_name = get_dst_table_name(input_path, output_delim);
     var output_path = path.join(tmp_dir, output_file_name);
+    var worker_module = null;
 
     try {
         rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
+        worker_module = require(tmp_worker_module_path);
     } catch (e) {
         let report = {'error_type': 'RBQL_parsing', 'error_details': String(e)};
         report_handler(report);
         return;
     }
-    var worker_module = require(tmp_worker_module_path);
     var handle_success = function(warnings) {
         handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
     }
