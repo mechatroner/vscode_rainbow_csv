@@ -181,7 +181,7 @@ def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encod
     assert not os.path.exists(output_path)
     cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
 
-    cmd = ['node', cli_rbql_js_path, '--delim', delim, '--policy', policy, '--input_table_path', input_path, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--output_table_path', output_path]
+    cmd = ['node', cli_rbql_js_path, '--delim', delim, '--policy', policy, '--input_table_path', input_path, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--output_table_path', output_path, '--error_format', 'json']
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out_data, err_data = pobj.communicate()
     exit_code = pobj.returncode
@@ -229,7 +229,7 @@ def run_conversion_test_js(*args, **kwargs):
 def do_run_conversion_test_js(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, csv_encoding=default_csv_encoding):
     cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
     src = table_to_string(input_table, input_delim, input_policy)
-    cmd = ['node', cli_rbql_js_path, '--delim', input_delim, '--policy', input_policy, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--out_delim', output_delim, '--out_policy', output_policy]
+    cmd = ['node', cli_rbql_js_path, '--delim', input_delim, '--policy', input_policy, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--out_delim', output_delim, '--out_policy', output_policy, '--error_format', 'json']
 
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     out_data, err_data = pobj.communicate(src.encode(csv_encoding))
