@@ -339,9 +339,10 @@ function remove_if_exists(file_path) {
 function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
     dbg_log('Worker success');
     remove_if_exists(tmp_worker_module_path);
-    var report = {'result_path': output_path, 'warnings': warnings};
+    let hr_warnings = rbql.make_warnings_human_readable(warnings);
+    var report = {'result_path': output_path, 'warnings': hr_warnings};
     report_handler(report);
-    finish_rbql_success(output_path, warnings);
+    finish_rbql_success(output_path, hr_warnings);
 }
 
 
@@ -352,7 +353,7 @@ function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler
 }
 
 
-function call_js_rbql(input_path, query, delim, policy, report_handler) {
+function run_rbql_native(input_path, query, delim, policy, report_handler) {
     var rbql_lines = [query];
     var tmp_dir = os.tmpdir();
     var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
@@ -395,7 +396,7 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
         return;
     }
     if (backend_language == 'js') {
-        call_js_rbql(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
+        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
     } else {
         let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
         run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });

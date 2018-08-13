@@ -478,8 +478,8 @@ function make_inconsistent_num_fields_hr_warning(table_name, inconsistent_lines_
     }
     entries.sort(function(a, b) { return a[0] - b[0]; });
     assert(entries.length > 1);
-    let [num_fields_1, lnum_1] = entries[0];
-    let [num_fields_2, lnum_2] = entries[1];
+    let [lnum_1, num_fields_1] = entries[0];
+    let [lnum_2, num_fields_2] = entries[1];
     let warn_msg = `Number of fields in ${table_name} table is not consistent. `;
     warn_msg += `E.g. there are ${num_fields_1} fields at line ${lnum_1}, and ${num_fields_2} fields at line ${lnum_2}.`;
     return warn_msg;
