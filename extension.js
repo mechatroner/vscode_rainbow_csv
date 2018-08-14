@@ -339,8 +339,12 @@ function remove_if_exists(file_path) {
 function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
     dbg_log('Worker success');
     remove_if_exists(tmp_worker_module_path);
-    let hr_warnings = rbql.make_warnings_human_readable(warnings);
-    var report = {'result_path': output_path, 'warnings': hr_warnings};
+    let hr_warnings = [];
+    let report = {'result_path': output_path};
+    if (warnings) {
+        hr_warnings = rbql.make_warnings_human_readable(warnings);
+        report['warnings'] = hr_warnings; 
+    }
     report_handler(report);
     finish_rbql_success(output_path, hr_warnings);
 }
