@@ -4,4 +4,5 @@ test/**
 .gitignore
 jsconfig.json
 .eslintrc.json
+.eslintrc_browser.json
 cli_test.js
