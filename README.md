@@ -2,9 +2,11 @@
 
 ### Main features
 
-* Highlight columns in comma (.csv), tab (.tsv) and semicolon separated files in different colors.
+* Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Provide info about column on mouse hover.
 * Automatic consistency check for csv files (CSVLint).
+* Run queries in SQL-like language
+* Lightweight and dependency-free
 
 ![screenshot](https://i.imgur.com/PRFKVIN.png)
 
@@ -50,6 +52,9 @@ To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
 
 ### Commands
 
+#### RBQL
+Enter RBQL - SQL-like language query editing mode.
+
 #### CSV Lint
 Run CSV check even if autocheck is disabled in VS Code configuration.
 
@@ -60,9 +65,16 @@ Rainbow CSV always assumes the first row as a header, so when there is no real h
 ### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
 
-### Experimental
+### SQL-like "RBQL" query language
 
-* Rainbow CSV has experimental RBQL mode. More info [here](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
+Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries.  
+To enter query-editing mode, execute `RBQL` command.  
+RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks.  
+For more info read the [documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
+
+
+Screenshot of RBQL Dashboard:  
+![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)  
 
 
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment
