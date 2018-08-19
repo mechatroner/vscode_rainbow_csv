@@ -50,7 +50,7 @@ The linter will check the following:
 To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
 To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.  
 
-### Commands
+### Commands:
 
 #### RBQL
 Enter RBQL - SQL-like language query editing mode.
