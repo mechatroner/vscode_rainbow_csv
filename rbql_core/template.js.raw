@@ -57,7 +57,7 @@ var finished_with_error = false;
 function finish_processing_error(error_msg) {
     finished_with_error = true;
     if (line_reader)
-        line_reader.close();
+        line_reader.close(); // Sometimes linereader still calls "line" callback even after "close()" method has been called.
     external_error_handler(error_msg);
 }
 
@@ -525,6 +525,8 @@ function remove_utf8_bom(line, assumed_source_encoding) {
 
 
 function process_line(line) {
+    if (finished_with_error)
+        return;
     try {
         do_process_line(line);
     } catch (e) {
