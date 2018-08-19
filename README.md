@@ -1,6 +1,4 @@
-# Rainbow CSV
-
-### Main features
+## Rainbow CSV: Main features
 
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Provide info about column on mouse hover.
@@ -10,7 +8,7 @@
 
 ![screenshot](https://i.imgur.com/PRFKVIN.png)
 
-### Usage
+## Usage
 
 If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
 
@@ -65,7 +63,7 @@ Rainbow CSV always assumes the first row as a header, so when there is no real h
 ### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
 
-### SQL-like "RBQL" query language
+## SQL-like "RBQL" query language
 
 Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries.  
 To enter query-editing mode, execute `RBQL` command.  
@@ -77,7 +75,7 @@ Screenshot of RBQL Dashboard:
 ![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)  
 
 
-### Comparison of Rainbow CSV technology with traditional graphical column alignment
+## Comparison of Rainbow CSV technology with traditional graphical column alignment
 
 #### Advantages
 
