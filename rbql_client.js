@@ -17,6 +17,11 @@ function display_backend_language(backend_language) {
             break;
         }
     }
+    if (backend_language == 'python') {
+        document.getElementById('python_warning').textContent = ' (Requires python installed and added to PATH) ';
+    } else {
+        document.getElementById('python_warning').textContent = '';
+    }
     document.getElementById('backend_language_change').style.backgroundColor = language_info['color'];
     document.getElementById('backend_language_change').textContent = language_info['name'];
 }

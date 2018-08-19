@@ -222,7 +222,7 @@ function handle_rbql_result_file(text_doc, warnings) {
 
 
 
-function run_command(cmd, args, callback_func) {
+function run_command(cmd, args, close_and_error_guard, callback_func) {
     var command = child_process.spawn(cmd, args, {'windowsHide': true});
     var stdout = '';
     var stderr = '';
@@ -233,11 +233,19 @@ function run_command(cmd, args, callback_func) {
          stderr += data.toString();
     });
     command.on('close', function(code) {
-        return callback_func(code, stdout, stderr);
+        dbg_log('child_process got "close" event');
+        if (!close_and_error_guard['process_reported']) {
+            close_and_error_guard['process_reported'] = true;
+            callback_func(code, stdout, stderr);
+        }
     });
     command.on('error', function(error) {
+        dbg_log('child_process got "error" event');
         var error_msg = error ? error.name + ': ' + error.message : '';
-        callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to your PATH variable.\nDetails:\n' + error_msg);
+        if (!close_and_error_guard['process_reported']) {
+            close_and_error_guard['process_reported'] = true;
+            callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
+        }
     });
 }
 
@@ -371,21 +379,24 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
 
 
 function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
+    dbg_log('running query: ' + rbql_query);
     last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
+    let close_and_error_guard = {'process_reported': false};
     if (rbql_query.startsWith(test_marker)) {
-        if (rbql_query.indexOf('nopython') != -1)
+        if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
+        }
         let args = [mock_script_path, rbql_query];
-        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
         return;
     }
     if (backend_language == 'js') {
         run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
     } else {
         let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
-        run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
     }
 }
 
