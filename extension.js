@@ -1,6 +1,4 @@
 const vscode = require('vscode');
-const url = require('url');
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -21,8 +19,6 @@ const preview_window_size = 12;
 
 var rbql_context = null;
 
-var http_server = null;
-
 var last_rbql_queries = new Map();
 
 var client_js_template_path = null;
@@ -35,11 +31,9 @@ var enable_dev_mode = false;
 var client_js_template = null;
 var client_html_template = null;
 
-var security_tokens = null;
-var used_tokens = null;
+var global_state = null;
 
-var globalState = null;
-
+var preview_panel = null;
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -91,8 +85,8 @@ function sample_preview_records_from_context(rbql_context) {
 
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
-    if (file_path && globalState) {
-        var header = globalState.get(file_path);
+    if (file_path && global_state) {
+        var header = global_state.get(file_path);
         if (header) {
             return rainbow_utils.smart_split(header, ',', 'quoted', false)[0];
         }
@@ -192,18 +186,6 @@ function csv_lint_cmd() {
     csv_lint(false, null);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
     setTimeout(show_linter_state, 500);
-}
-
-
-function handle_preview_success(success) {
-    dbg_log('preview success!');
-}
-
-
-function handle_preview_error(reason) {
-    dbg_log('preview failure!');
-    dbg_log(reason);
-    vscode.window.showErrorMessage('Unable to create query window.\nReason: ' + reason);
 }
 
 
@@ -389,7 +371,7 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
 
 
 function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
-    last_rbql_queries.set(active_file_path, {'query': rbql_query, 'backend_language': backend_language});
+    last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
     if (rbql_query.startsWith(test_marker)) {
@@ -404,66 +386,6 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
     } else {
         let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
         run_command(cmd, args, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
-    }
-}
-
-
-function handle_request(http_request, http_response) {
-    var parsed_url = url.parse(http_request.url, true);
-    dbg_log('http_request.url: ' + http_request.url);
-    var pathname = parsed_url.pathname;
-    var active_file_path = rbql_context['document'].fileName;
-    if (pathname == '/init') {
-        http_response.writeHead(200, {'Content-Type': 'application/json'});
-        var init_msg = {"backend_language": get_rbql_backend_language()};
-        init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
-
-        var customized_colors = get_customized_colors();
-        if (enable_dev_mode && Math.random() > 0.5) {
-            customized_colors = null; // Improves code coverage in dev mode
-        }
-        if (customized_colors) {
-            init_msg['custom_colors'] = customized_colors;
-        }
-
-        if (last_rbql_queries.has(active_file_path)) {
-            var last_query_info = last_rbql_queries.get(active_file_path);
-            init_msg['last_query'] = last_query_info['query'];
-            init_msg['backend_language'] = last_query_info['backend_language'];
-        }
-        http_response.end(JSON.stringify(init_msg));
-        return;
-    } else if (pathname == '/preview') {
-        var navig_direction = parsed_url.query.navig_direction;
-        var last_start_line = get_last_start_line(rbql_context.document);
-        if (navig_direction == 'up') {
-            rbql_context.line = Math.max(rbql_context.line - 1, 0);
-        } else if (navig_direction == 'down') {
-            rbql_context.line = Math.min(rbql_context.line + 1, last_start_line);
-        } else if (navig_direction == 'begin') {
-            rbql_context.line = 0;
-        } else if (navig_direction == 'end') {
-            rbql_context.line = last_start_line;
-        }
-        var window_records = sample_preview_records_from_context(rbql_context)
-        http_response.writeHead(200, {'Content-Type': 'application/json'});
-        http_response.end(JSON.stringify({'window_records': window_records}));
-        return;
-    } else if (pathname == '/run') {
-        var query = parsed_url.query;
-        var rbql_query = query.rbql_query;
-        var backend_language = query.backend_language;
-        var security_token = query.security_token;
-        dbg_log('security_token: ' + security_token);
-        if (security_tokens.indexOf(security_token) == -1 || used_tokens.indexOf(security_token) != -1)
-            return;
-        used_tokens.push(security_token);
-        var report_handler = function(report) {
-            http_response.writeHead(200, {'Content-Type': 'application/json'});
-            http_response.end(JSON.stringify(report));
-        }
-        run_rbql_query(active_file_path, backend_language, rbql_query, report_handler);
-        return;
     }
 }
 
@@ -521,7 +443,7 @@ function get_dialect(document) {
 
 
 function save_new_header(file_path, new_header) {
-    globalState.update(file_path, new_header);
+    global_state.update(file_path, new_header);
 }
 
 function edit_column_names() {
@@ -563,32 +485,87 @@ function edit_rbql_quick() {
 }
 
 
+
+function handle_rbql_client_message(webview, message) {
+    dbg_log('got message from rbql client: ' + JSON.stringify(message));
+    let message_type = message['msg_type'];
+
+    if (message_type == 'handshake') {
+        var active_file_path = rbql_context['document'].fileName;
+        var init_msg = {'msg_type': 'handshake', 'backend_language': get_rbql_backend_language()};
+        init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
+        var customized_colors = get_customized_colors();
+        if (enable_dev_mode && Math.random() > 0.5) {
+            customized_colors = null; // Improves code coverage in dev mode
+        }
+        if (customized_colors) {
+            init_msg['custom_colors'] = customized_colors;
+        }
+        if (last_rbql_queries.has(active_file_path)) {
+            var last_query_info = last_rbql_queries.get(active_file_path);
+            init_msg['last_query'] = last_query_info['query'];
+        }
+        webview.postMessage(init_msg);
+    }
+
+    if (message_type == 'navigate') {
+        var navig_direction = message['direction'];
+        var last_start_line = get_last_start_line(rbql_context.document);
+        if (navig_direction == 'up') {
+            rbql_context.line = Math.max(rbql_context.line - 1, 0);
+        } else if (navig_direction == 'down') {
+            rbql_context.line = Math.min(rbql_context.line + 1, last_start_line);
+        } else if (navig_direction == 'begin') {
+            rbql_context.line = 0;
+        } else if (navig_direction == 'end') {
+            rbql_context.line = last_start_line;
+        }
+        var window_records = sample_preview_records_from_context(rbql_context);
+        webview.postMessage({'msg_type': 'navigate', 'window_records': window_records});
+    }
+
+    if (message_type == 'run') {
+        let rbql_query = message['query'];
+        let backend_language = message['backend_language'];
+        var report_handler = function(report) {
+            var report_msg = {'msg_type': 'rbql_report', 'report': report};
+            webview.postMessage(report_msg);
+        }
+        var active_file_path = rbql_context['document'].fileName;
+        run_rbql_query(active_file_path, backend_language, rbql_query, report_handler);
+    }
+
+    if (message_type == 'backend_language_change') {
+        let backend_language = message['backend_language'];
+        if (global_state) {
+            global_state.update('rbql_backend_language', backend_language);
+        }
+    }
+}
+
+
 function edit_rbql() {
     if (!init_rbql_context())
         return null;
-    if (http_server) {
-        http_server.close();
+    preview_panel = vscode.window.createWebviewPanel('rbql-dashboard', 'RBQL Dashboard', vscode.ViewColumn.Active, {enableScripts: true});
+    if (!client_js_template || enable_dev_mode) {
+        client_js_template = fs.readFileSync(client_js_template_path, "utf8");
     }
-    http_server = http.createServer(handle_request);
-
-    var port = http_server.listen(0).address().port; // 0 means listen on a random port
-    rbql_context['server_port'] = port;
-    var rbql_uri = vscode.Uri.parse('rbql://authority/rbql');
-    vscode.commands.executeCommand('vscode.previewHtml', rbql_uri, undefined, 'RBQL Dashboard').then(handle_preview_success, handle_preview_error);
+    if (!client_html_template || enable_dev_mode) {
+        client_html_template = fs.readFileSync(client_html_template_path, "utf8");
+    }
+    preview_panel.webview.html = client_html_template.replace('//__TEMPLATE_JS_CLIENT__', client_js_template);
+    preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
 
 
 function get_rbql_backend_language() {
-    var supported_backends = ['python', 'js'];
-    var default_backend = 'python';
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config && config.get('rbql_backend_language')) {
-        var backend_language = config.get('rbql_backend_language').toLowerCase();
-        if (supported_backends.indexOf(backend_language) != -1) {
+    if (global_state) {
+        var backend_language = global_state.get('rbql_backend_language');
+        if (backend_language)
             return backend_language;
-        }
     }
-    return default_backend;
+    return 'js';
 }
 
 
@@ -711,14 +688,6 @@ function get_customized_colors() {
 }
 
 
-function slow_replace_all(src, old_substr, new_substr) {
-    while (src.indexOf(old_substr) != -1) {
-        src = src.replace(old_substr, new_substr);
-    }
-    return src;
-}
-
-
 function quote_field(field, delim) {
     if (field.indexOf('"') != -1 || field.indexOf(delim) != -1) {
         return '"' + field.replace(/"/g, '""')  + '"';
@@ -733,48 +702,6 @@ function quoted_join(fields, delim) {
 }
 
 
-function make_preview(client_html_template, client_js_template, origin_server_port) {
-    // This function gets called every time user activates RBQL preview tab and in original preview request.
-    security_tokens = [];
-    used_tokens = [];
-    for (var i = 0; i < 100; i++) {
-        security_tokens.push(String(Math.random()));
-    }
-    if (client_js_template.indexOf('</script') != -1) {
-        return null;
-    }
-    client_html_template = slow_replace_all(client_html_template, '//__TEMPLATE_JS_CLIENT__', client_js_template);
-    client_html_template = slow_replace_all(client_html_template, '__TEMPLATE_JS_PORT__', String(origin_server_port));
-    client_html_template = slow_replace_all(client_html_template, '"__TEMPLATE_SECURITY_TOKENS__"', security_tokens.join(','));
-    return client_html_template;
-}
-
-
-class RBQLProvider {
-    constructor(context) {
-        this.onDidChangeEvent = new vscode.EventEmitter();
-    }
-
-    provideTextDocumentContent(uri, token) {
-        if (!client_js_template || enable_dev_mode) {
-            client_js_template = fs.readFileSync(client_js_template_path, "utf8");
-        }
-        if (!client_html_template || enable_dev_mode) {
-            client_html_template = fs.readFileSync(client_html_template_path, "utf8");
-        }
-        return make_preview(client_html_template, client_js_template, rbql_context.server_port);
-    }
-
-    get onDidChange() {
-        return this.onDidChangeEvent.event;
-    }
-
-    update(uri) {
-        this.onDidChangeEvent.fire(uri);
-    }
-}
-
-
 function activate(context) {
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (config && config.get('enable_dev_mode')) {
@@ -783,8 +710,7 @@ function activate(context) {
 
     dbg_log('Activating "rainbow_csv"');
 
-    globalState = context.globalState;
-    var rbql_provider = new RBQLProvider(context);
+    global_state = context.globalState;
 
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
@@ -822,8 +748,6 @@ function activate(context) {
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
-    var preview_subscription = vscode.workspace.registerTextDocumentContentProvider('rbql', rbql_provider);
-
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
     context.subscriptions.push(scsv_provider);
@@ -833,7 +757,6 @@ function activate(context) {
     context.subscriptions.push(quick_rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(switch_event);
-    context.subscriptions.push(preview_subscription);
 }
 
 

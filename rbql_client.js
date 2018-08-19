@@ -1,16 +1,13 @@
-// FIXME add table naming feature and document it
+// TODO add table naming feature and document it
 
 var rbql_running = false;
-var handshake_completed = false;
-
-var security_tokens = ["__TEMPLATE_SECURITY_TOKENS__"];
-var token_num = 0;
 
 var backend_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
 
-const vscode_server = 'http://localhost:__TEMPLATE_JS_PORT__';
-
 var custom_colors = null;
+var handshake_completed = false;
+
+const vscode = acquireVsCodeApi();
 
 function display_backend_language(backend_language) {
     var language_info = null;
@@ -39,8 +36,11 @@ function get_current_lang_idx() {
 function switch_backend_language() {
     var lang_idx = get_current_lang_idx();
     var next_idx = (lang_idx + 1) % backend_lang_presentations.length;
-    display_backend_language(backend_lang_presentations[next_idx]['key']);
+    let backend_language = backend_lang_presentations[next_idx]['key'];
+    vscode.postMessage({'msg_type': 'backend_language_change', 'backend_language': backend_language});
+    display_backend_language(backend_language);
 }
+
 
 function remove_children(root_node) {
     while (root_node.firstChild) {
@@ -81,33 +81,8 @@ function make_preview_table(customized_colors, records) {
 }
 
 
-function run_handshake(num_attempts) {
-    if (num_attempts <= 0 || handshake_completed) {
-        return;
-    }
-    var api_url = vscode_server + "/init";
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            var init_report = JSON.parse(xhr.responseText);
-            handshake_completed = true;
-            if (init_report.hasOwnProperty('last_query')) {
-                document.getElementById('rbql_input').value = init_report['last_query'];
-            }
-            custom_colors = init_report['custom_colors'];
-            var window_records = init_report['window_records'];
-            make_preview_table(custom_colors, window_records);
-            if (!custom_colors) {
-                document.getElementById("colors_hint").style.display = 'block';
-            }
-            display_backend_language(init_report['backend_language']);
-            document.getElementById("init_running").style.display = 'none';
-            document.getElementById("rbql_dashboard").style.display = 'block';
-        }
-    }
-    xhr.open("GET", api_url);
-    xhr.send();
-    setTimeout(function() { run_handshake(num_attempts - 1); }, 1000);
+function navigate_preview(direction) {
+    vscode.postMessage({'msg_type': 'navigate', 'direction': direction});
 }
 
 
@@ -131,43 +106,11 @@ function preview_end() {
 }
 
 
-function navigate_preview(direction) {
-    // TODO improve table display logic: make sure that columns width doesn't change.
-    var api_url = vscode_server + "/preview?navig_direction=" + direction;
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            var preview_report = JSON.parse(xhr.responseText);
-            var window_records = preview_report['window_records'];
-            make_preview_table(custom_colors, window_records);
-        }
-    }
-    xhr.open("GET", api_url);
-    xhr.send();
-}
-
-
 function show_error(error_type, error_details) {
     error_details = error_details.replace('\r?\n', '\r\n');
     document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
     document.getElementById('error_message_details').textContent = error_details;
     document.getElementById('rbql_error_message').style.display = 'block';
-}
-
-
-function process_rbql_result(rbql_result_json) {
-    rbql_running = false;
-    try {
-        report = JSON.parse(rbql_result_json);
-    } catch (e) {
-        report = {"error_type": "Integration", "error_details": "Server JSON response parsing error"};
-    }
-    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
-        var error_type = report.hasOwnProperty('error_type') ? report['error_type'] : 'Unknown Error';
-        var error_details = report.hasOwnProperty('error_details') ? report['error_details'] : 'Unknown Error';
-        show_error(error_type, error_details);
-    }
-    document.getElementById('status_label').textContent = "";
 }
 
 
@@ -189,30 +132,54 @@ function start_rbql() {
         return;
     rbql_running = true;
     document.getElementById('status_label').textContent = "Running...";
+    let backend_language = backend_lang_presentations[get_current_lang_idx()]['key'];
+    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language});
+}
 
-    var rbql_backend_lang = document.getElementById('backend_language_change')
 
-    var api_url = vscode_server + "/run?";
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            process_rbql_result(xhr.responseText);
+function handle_message(msg_event) {
+    var message = msg_event.data;
+    console.log('message received at client: ' + JSON.stringify(msg_event));
+    let message_type = message['msg_type'];
+
+    if (message_type == 'handshake') {
+        if (handshake_completed)
+            return;
+        handshake_completed = true;
+        if (message.hasOwnProperty('last_query')) {
+            document.getElementById('rbql_input').value = message['last_query'];
         }
+        custom_colors = message['custom_colors'];
+        var window_records = message['window_records'];
+        make_preview_table(custom_colors, window_records);
+        if (!custom_colors) {
+            document.getElementById("colors_hint").style.display = 'block';
+        }
+        display_backend_language(message['backend_language']);
     }
-    var backend_language = backend_lang_presentations[get_current_lang_idx()]['key'];
-    if (token_num >= security_tokens.length) {
-        return;
+
+    if (message_type == 'navigate') {
+        let window_records = message['window_records'];
+        make_preview_table(custom_colors, window_records);
     }
-    var security_token = security_tokens[token_num];
-    token_num += 1;
-    api_url += 'rbql_query=' + encodeURIComponent(rbql_text) + '&backend_language=' + backend_language + '&security_token=' + security_token;
-    xhr.open("GET", api_url);
-    xhr.send();
+
+    if (message_type == 'rbql_report') {
+        let report = message['report'];
+        rbql_running = false;
+        if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+            let error_type = report.hasOwnProperty('error_type') ? report['error_type'] : 'Unknown Error';
+            let error_details = report.hasOwnProperty('error_details') ? report['error_details'] : 'Unknown Error';
+            show_error(error_type, error_details);
+        }
+        document.getElementById('status_label').textContent = "";
+    }
 }
 
 
 function main() {
-    run_handshake(3);
+    window.addEventListener('message', handle_message);
+    vscode.postMessage({'msg_type': 'handshake'});
+
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("backend_language_change").addEventListener("click", switch_backend_language);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
