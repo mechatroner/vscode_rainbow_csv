@@ -24,7 +24,7 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 
 #### Customizing file extension - separator association
 If you often work with spreadsheet files with one specific extension, you can associate that extension with one of the supported separators.  
-For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the folowing lines to your VS Code config:  
+For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code config:  
 
 ```
 "files.associations": {
@@ -57,7 +57,7 @@ Enter RBQL - SQL-like language query editing mode.
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
 
 #### CSV Lint
-Run CSV check even if autocheck is disabled in VS Code configuration.
+Run CSV check even if auto-check is disabled in VS Code configuration.
 
 #### SetVirtualHeader
 Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
