@@ -53,6 +53,9 @@ To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
 #### RBQL
 Enter RBQL - SQL-like language query editing mode.
 
+#### QueryHere
+Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
+
 #### CSV Lint
 Run CSV check even if autocheck is disabled in VS Code configuration.
 
