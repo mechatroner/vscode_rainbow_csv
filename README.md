@@ -71,6 +71,10 @@ You can customize Rainbow CSV colors to increase contrast. [Instructions](test/c
 ## SQL-like "RBQL" query language
 
 Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries.  
+Example:  
+```
+SELECT a1, a2 * 10 WHERE a1 == "Buy" && a4.indexOf('oil') != -1 ORDER BY parseInt(a2), a4 LIMIT 100
+```
 To enter query-editing mode, execute `RBQL` command.  
 RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks.  
 For more info read the [documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
