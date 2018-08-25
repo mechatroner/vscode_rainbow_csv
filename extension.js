@@ -7,7 +7,7 @@ const child_process = require('child_process');
 const rainbow_utils = require('./rainbow_utils');
 const rbql = require('./rbql_core/rbql');
 
-var dialect_map = {'CSV': [',', 'quoted'], 'TSV': ['\t', 'simple'], 'CSV (semicolon)': [';', 'quoted'], 'CSV (pipe)': ['|', 'simple']};
+var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
 
 var dev_log = null;
 var err_log = null;
@@ -728,27 +728,27 @@ function activate(context) {
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('vscode_rbql.py');
 
-    var csv_provider = vscode.languages.registerHoverProvider('CSV', {
+    var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'CSV', token);
+            return make_hover(document, position, 'csv', token);
         }
     });
 
-    var tsv_provider = vscode.languages.registerHoverProvider('TSV', {
+    var tsv_provider = vscode.languages.registerHoverProvider('tsv', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'TSV', token);
+            return make_hover(document, position, 'tsv', token);
         }
     });
 
-    var scsv_provider = vscode.languages.registerHoverProvider('CSV (semicolon)', {
+    var scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'CSV (semicolon)', token);
+            return make_hover(document, position, 'csv (semicolon)', token);
         }
     });
 
-    var pipe_provider = vscode.languages.registerHoverProvider('CSV (pipe)', {
+    var pipe_provider = vscode.languages.registerHoverProvider('csv (pipe)', {
         provideHover(document, position, token) {
-            return make_hover(document, position, 'CSV (pipe)', token);
+            return make_hover(document, position, 'csv (pipe)', token);
         }
     });
 

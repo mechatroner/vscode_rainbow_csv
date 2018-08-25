@@ -28,10 +28,12 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 
 ```
 "files.associations": {
-    "*.dat": "CSV (pipe)",
-    "*.csv": "CSV (semicolon)"
+    "*.dat": "csv (pipe)",
+    "*.csv": "csv (semicolon)"
 },
 ```
+
+Important: language identifiers in config must be specified in **lower case**! e.g. `csv (semicolon)`, but not `CSV (semicolon)`.  
 See the list of supported languages/separators in the table.  
 
 
@@ -78,16 +80,19 @@ Screenshot of RBQL Dashboard:
 ![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)  
 
 
-## Comparison of Rainbow CSV technology with traditional graphical column alignment
+## Other
+### Comparison of Rainbow CSV technology with traditional graphical column alignment
 
-#### Advantages
+#### Advantages:
 
 * WYSIWYG  
 * Familiar editing environment of your favorite text editor  
 * Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
-* High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.
+* High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.  
 * Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
 
-#### Disadvantages
+#### Disadvantages:
 
-* Rainbow CSV technology may be less effective for CSV files with many (> 10) columns
+* Rainbow CSV may be less effective for CSV files with many (> 10) columns.  
+* Rainbow CSV can't correctly handle newlines inside double-quoted CSV fields (well, theorethically it can, but only under specific conditions)  
+
