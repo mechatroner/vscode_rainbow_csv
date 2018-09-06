@@ -38,9 +38,11 @@ if [ "$rc" != 0 ] || [ -z "$node_version" ] ; then
 fi
 
 python test_rbql.py --create_random_csv_table random_ut.csv
+python test_rbql.py --test_random_csv_table random_ut.csv
 
 if [ "$has_node" == "yes" ] ; then
-    node ./unit_tests.js random_ut.csv
+    node ./unit_tests.js
+    node ./unit_tests.js --test_random_csv_table random_ut.csv
 fi
 
 

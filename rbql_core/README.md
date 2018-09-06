@@ -29,7 +29,7 @@ All keywords have the same meaning as in SQL queries. You can check them [online
 * _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.  
 * _UPDATE_ has the same meaning as in SQL, but it also can be considered as a special type of _SELECT_ query.  
 * _TOP_ and _LIMIT_ have identical meaning. Use whichever you like more.  
-* _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.  
+* _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurrences of the entry, similar to _uniq -c_ unix command.  
 *  _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  
 
 ### Special variables

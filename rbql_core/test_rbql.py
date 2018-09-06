@@ -1488,7 +1488,7 @@ class TestSplitMethods(unittest.TestCase):
         test_cases.append(('"aaa,bbb","ccc"', (['aaa,bbb','ccc'], False)))
         test_cases.append(('"aaa,bbb","ccc,ddd"', (['aaa,bbb','ccc,ddd'], False)))
         test_cases.append(('"aaa,bbb",ccc,ddd', (['aaa,bbb','ccc', 'ddd'], False)))
-        test_cases.append(('"a"aa" a,bbb",ccc,ddd', (['a"aa" a,bbb','ccc', 'ddd'], True)))
+        test_cases.append(('"a"aa" a,bbb",ccc,ddd', (['"a"aa" a', 'bbb"','ccc', 'ddd'], True)))
         test_cases.append(('"aa, bb, cc",ccc",ddd', (['aa, bb, cc','ccc"', 'ddd'], True)))
         test_cases.append(('hello,world,"', (['hello','world', '"'], True)))
         for tc in test_cases:
@@ -1498,8 +1498,10 @@ class TestSplitMethods(unittest.TestCase):
             test_dst_preserved = rbql_utils.split_quoted_str(tc[0], ',', True)
             self.assertEqual(test_dst[1], test_dst_preserved[1])
             self.assertEqual(','.join(test_dst_preserved[0]), tc[0], 'preserved split failure')
-            self.assertEqual(test_dst[0], rbql_utils.unquote_fields(test_dst_preserved[0]))
-            self.assertEqual(canonic_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
+            warning_expected = canonic_dst[1]
+            if not warning_expected:
+                self.assertEqual(test_dst[0], rbql_utils.unquote_fields(test_dst_preserved[0]))
+            self.assertEqual(test_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
 
 
     def test_random(self):
@@ -1530,7 +1532,7 @@ def make_random_csv_table(dst_path):
 
 def test_random_csv_table(src_path):
     with open(src_path) as src:
-        for line in src:
+        for iline, line in enumerate(src, 1):
             line = line.rstrip('\n')
             rec = line.split('\t')
             assert len(rec) == 3
@@ -1539,11 +1541,12 @@ def test_random_csv_table(src_path):
             canonic_fields = rec[2].split(';')
             test_fields, test_warning = rbql_utils.split_quoted_str(escaped_entry, ',')
             test_fields_preserved, test_warning = rbql_utils.split_quoted_str(escaped_entry, ',', True)
-            assert ','.join(test_fields_preserved) == test_fields
-            assert rbql.unquote_fields(test_fields_preserved) == test_fields
             assert int(test_warning) == canonic_warning
-            if not test_warning and (test_fields != canonic_fields):
-                print("Error", file=sys.stderr)
+            assert ','.join(test_fields_preserved) == escaped_entry
+            if not canonic_warning:
+                assert rbql_utils.unquote_fields(test_fields_preserved) == test_fields
+            if not canonic_warning and test_fields != canonic_fields:
+                eprint("Error at line {} (1-based). Test fields: {}, canonic fields: {}".format(iline, test_fields, canonic_fields))
                 sys.exit(1)
 
 
