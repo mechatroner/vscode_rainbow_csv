@@ -9,6 +9,10 @@ html * {
     font-size: 16px !important;
 }
 
+body {
+    background-color: #1E1E1E;
+}
+
 table {
     display: block;
     overflow-x: auto;
@@ -53,6 +57,9 @@ input {
     margin-left: 12px;
 }
 
+#rbql_dashboard {
+    margin-top: 20px;
+}
 
 #help_btn {
     margin-left: 10px;
@@ -79,18 +86,39 @@ input {
     font-weight: bold;
 }
 
-.navig_button {
-    width: 70px;
-    background-color: #4CAF50;
-    display: inline-block;
+
+.navig_button_new {
+    font-size: 18px !important;
+    width: 28px;
+    background-color: #FFFFE6;
     border:none;
     font-size: 18px !important;
-    color: white;
+    color: black;
     height: 28px;
     cursor:pointer;
     font-weight: bold;
-    margin-top: 10px;
-    margin-right: 20px;
+}
+
+#navig_bar {
+    display: flex;
+    flex-direction: column;
+    margin-right: 5px;
+    width: 28px;
+}
+
+
+#navig_top {
+    height: 50%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#navig_bottom {
+    height: 50%;
+    width: 100%;
+    display: flex;
+    flex-direction: column-reverse;
 }
 
 #colors_hint {
@@ -112,6 +140,10 @@ input {
     position: fixed; 
     display: none;
     color: black;
+}
+
+#table_group {
+    display: flex; /*equal height for children*/
 }
 
 #rbql_error_message_header { 
@@ -160,20 +192,26 @@ input {
 
 
 <div id="rbql_dashboard">
-    <table id="preview_table">
-    </table>
-    <div id="navig_controls">
-        <button class="navig_button" id="go_begin">Begin</button>
-        <button class="navig_button" id="go_up">Up</button>
-        <button class="navig_button" id="go_down">Down</button>
-        <button class="navig_button" id="go_end">End</button>
+    <div id="table_group">
+        <div id="navig_bar">
+            <div id="navig_top">
+                <button class="navig_button_new" id="go_begin">&#8648;</button>
+                <button class="navig_button_new" id="go_up">&#8593;</button>
+            </div>
+            <div id="navig_bottom">
+                <button class="navig_button_new" id="go_end">&#8650;</button>
+                <button class="navig_button_new" id="go_down">&#8595;</button>
+            </div>
+        </div>
+        <table id="preview_table">
+        </table>
     </div>
     <div id="colors_hint"><span>Hint: To highlight this preview table with rainbow colors, follow the github README.md <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/test/color_customization_example.md#colors-customization">instructions</a></span></div>
     <br>
     <div>
         <button id="backend_language_change"></button><span id="python_warning"></span><span class="backend_lang_info"> &ndash; RBQL backend language</span>
     </div>
-    <h3>Input SQL-like RBQL query and press Enter:</h3>
+    <h3>Input SQL-like RBQL query and press Enter. Use a1, a2, a3, ... as column names.</h3>
     <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
     <button id="rbql_run_btn">Run</button><button id="help_btn">?</button>
     <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql-rainbow-query-language-description">github</a></span></div>
