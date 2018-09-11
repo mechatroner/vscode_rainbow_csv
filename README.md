@@ -81,7 +81,7 @@ For more info read the [documentation](https://github.com/mechatroner/vscode_rai
 
 
 Screenshot of RBQL Dashboard:  
-![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)  
+![VSCode RBQL Dashboard](https://i.imgur.com/HsBG2Y1.png)  
 
 
 ## Other
