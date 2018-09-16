@@ -1,7 +1,10 @@
 const fs = require('fs');
 const readline = require('readline');
+
 const rbql_utils = require('./rbql_utils.js');
 const cli_rbql = require('./cli_rbql.js');
+const rbql = require('./rbql.js')
+
 
 function arrays_are_equal(a, b) {
     if (a.length != b.length)
@@ -13,11 +16,13 @@ function arrays_are_equal(a, b) {
     return true;
 }
 
+
 function assert(condition, message = null) {
     if (!condition) {
         throw message || "Assertion failed";
     }
 }
+
 
 function compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warning) {
     if (test_warning != canonic_warning || !arrays_are_equal(test_dst, canonic_dst)) {
@@ -28,6 +33,7 @@ function compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warnin
         process.exit(1);
     }
 }
+
 
 function process_random_test_line(line) {
     var records = line.split('\t');
@@ -53,8 +59,60 @@ function process_random_test_line(line) {
 }
 
 
+function test_comments_strip() {
+    let a = ` // a comment  `;
+    let a_strp = rbql.strip_js_comments(a);
+    assert(a_strp === '');
 
-function test_all() {
+}
+
+
+function test_separate_string_literals() {
+    let query = 'Select `hello` order by a1';
+    let [format_expression, string_literals] = rbql.separate_string_literals_js(query);
+    assert(arrays_are_equal(['`hello`'], string_literals));
+}
+
+
+function test_select_expression_translation() {
+    let rbql_src = null;
+    let test_dst = null;
+    let canonic_dst = null;
+
+    rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst, 'translation 1');
+
+    rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst, 'translation 2');
+
+    rbql_src = ' * ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst);
+
+    rbql_src = ' *,* ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst);
+
+    rbql_src = ' *,*, * ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst);
+
+    rbql_src = ' *,*, * , *';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    assert(canonic_dst === test_dst);
+}
+
+
+
+function test_split() {
     var test_cases = []
     test_cases.push(['hello,world', ['hello','world'], false]);
     test_cases.push(['hello,"world"', ['hello','world'], false]);
@@ -90,6 +148,14 @@ function test_all() {
             compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warning);
         }
     }
+}
+
+
+function test_all() {
+    test_split();
+    test_comments_strip();
+    test_separate_string_literals();
+    test_select_expression_translation();
 }
 
 

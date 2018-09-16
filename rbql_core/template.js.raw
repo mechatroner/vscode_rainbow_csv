@@ -52,8 +52,6 @@ var null_record = null;
 
 var finished_with_error = false;
 
-// TODO run linter against ready template
-
 function finish_processing_error(error_msg) {
     finished_with_error = true;
     if (line_reader)
@@ -270,7 +268,7 @@ function SortedWriter(subwriter) {
         if (__RBQLMP__reverse_flag)
             unsorted_entries.reverse();
         for (var i = 0; i < unsorted_entries.length; i++) {
-            entry = unsorted_entries[i];
+            var entry = unsorted_entries[i];
             if (!this.subwriter.write(entry[entry.length - 1]))
                 break;
         }
@@ -393,7 +391,7 @@ function null_join(lhs_key) {
 }
 
 function inner_join(lhs_key) {
-    result = join_map.get(lhs_key);
+    var result = join_map.get(lhs_key);
     if (result == null)
         return [];
     return result;
@@ -433,6 +431,7 @@ function process_update(NF, afields, rhs_records) {
     var bfields = null;
     if (rhs_records != null && rhs_records.length == 1)
         bfields = rhs_records[0];
+    __RBQLMP__init_column_vars
     if ((rhs_records == null || rhs_records.length == 1) && (__RBQLMP__where_expression)) {
         NU += 1;
         __RBQLMP__update_statements
@@ -444,11 +443,11 @@ function process_update(NF, afields, rhs_records) {
 }
 
 
-function select_simple(NF, afields, bfields, out_fields) {
+function select_simple(sort_key, out_fields) {
     replace_null_values(out_fields);
     var out_record = output_join(out_fields, output_delim);
     if (__RBQLMP__sort_flag) {
-        var sort_entry = [__RBQLMP__sort_key_expression, NR, out_record];
+        var sort_entry = sort_key.concat([NR, out_record]);
         if (!writer.write(sort_entry))
             return false;
     } else {
@@ -459,8 +458,7 @@ function select_simple(NF, afields, bfields, out_fields) {
 }
 
 
-function select_aggregated(NF, afields, bfields, transparent_values) {
-    var key = __RBQLMP__aggregation_key_expression
+function select_aggregated(key, transparent_values) {
     if (key !== null) {
         key = output_join(key, output_delim);
     }
@@ -498,14 +496,17 @@ function process_select(NF, afields, rhs_records) {
         var star_fields = afields;
         if (bfields != null)
             star_fields = afields.concat(bfields);
+        __RBQLMP__init_column_vars
         if (!(__RBQLMP__where_expression))
             continue;
         // TODO wrap all user expression in try/catch block to improve error reporting
         var out_fields = __RBQLMP__select_expression;
         if (aggregation_stage > 0) {
-            select_aggregated(NF, afields, bfields, out_fields);
+            var key = __RBQLMP__aggregation_key_expression;
+            select_aggregated(key, out_fields);
         } else {
-            if (!select_simple(NF, afields, bfields, out_fields))
+            var sort_key = [__RBQLMP__sort_key_expression];
+            if (!select_simple(sort_key, out_fields))
                 return false;
         }
     }
@@ -559,7 +560,7 @@ function do_process_line(line) {
     var NF = afields.length;
     if (!input_fields_info.hasOwnProperty(NF))
         input_fields_info[NF] = NR;
-    rhs_records = null;
+    var rhs_records = null;
     if (join_map != null)
         rhs_records = join_function(__RBQLMP__lhs_join_var);
     if (!process_function(NF, afields, rhs_records)) {

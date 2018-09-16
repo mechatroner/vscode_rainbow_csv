@@ -87,7 +87,7 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 ### FAQ
 
 #### How does RBQL work?
-Python module rbql.py parses RBQL query, creates a new python worker module, then imports and executes it.
+RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.
 
 Explanation of simplified Python version of RBQL algorithm by example.
 1. User enters the following query, which is stored as a string _Q_:
