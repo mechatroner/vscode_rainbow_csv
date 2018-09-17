@@ -3,6 +3,7 @@
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Provide info about column on mouse hover.
 * Automatic consistency check for csv files (CSVLint).
+* Multi-cursor column edit
 * Run queries in SQL-like language
 * Lightweight and dependency-free
 
@@ -57,6 +58,9 @@ Enter RBQL - SQL-like language query editing mode.
 
 #### QueryHere
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
+
+#### ColumnEditBefore (and ColumnEditAfter)
+Activate multi-cursor column-editing for the current column
 
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.

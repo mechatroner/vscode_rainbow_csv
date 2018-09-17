@@ -182,6 +182,17 @@ function get_active_doc() {
 }
 
 
+function get_active_editor() {
+    var active_window = vscode.window;
+    if (!active_window)
+        return null;
+    var active_editor = active_window.activeTextEditor;
+    if (!active_editor)
+        return null;
+    return active_editor;
+}
+
+
 function csv_lint_cmd() {
     csv_lint(false, null);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
@@ -457,6 +468,7 @@ function save_new_header(file_path, new_header) {
     global_state.update(file_path, new_header);
 }
 
+
 function edit_column_names() {
     var active_doc = get_active_doc();
     var dialect = get_dialect(active_doc);
@@ -476,6 +488,50 @@ function edit_column_names() {
     var handle_success = function(new_header) { save_new_header(file_path, new_header); }
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
+}
+
+
+function column_edit(edit_after) {
+    let active_editor = get_active_editor();
+    if (!active_editor || !active_editor.selection)
+        return;
+    let active_doc = active_editor.document;
+    if (!active_doc)
+        return;
+    let dialect = get_dialect(active_doc);
+    let delim = dialect[0];
+    let policy = dialect[1];
+
+    let position = active_editor.selection.active;
+    let lnum = position.line;
+    let cnum = position.character;
+    let line = active_doc.lineAt(lnum).text;
+
+    let report = rainbow_utils.smart_split(line, delim, policy, true);
+
+    let entries = report[0];
+    let warning = report[1];
+    let col_num = rainbow_utils.get_field_by_line_position(entries, cnum + 1);
+
+    let selections = [];
+    let num_lines = active_doc.lineCount;
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (lnum + 1 == num_lines && !line_text)
+            break;
+        let report = rainbow_utils.smart_split(line_text, delim, policy, true);
+        // TODO handle warning
+        // TODO check for huge files
+        let entries = report[0];
+        if (col_num >= entries.length) {
+            show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
+            return;
+        }
+        let col_pos = entries.slice(0, col_num + edit_after).join('').length + col_num;
+        let position = new vscode.Position(lnum, col_pos);
+        selections.push(new vscode.Selection(position, position));
+    }
+    active_editor.selections = selections;
 }
 
 
@@ -558,6 +614,7 @@ function handle_rbql_client_message(webview, message) {
 function edit_rbql() {
     if (!init_rbql_context())
         return null;
+    // TODO use "editor.selection" to set initial view point
     preview_panel = vscode.window.createWebviewPanel('rbql-dashboard', 'RBQL Dashboard', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
@@ -756,6 +813,8 @@ function activate(context) {
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
+    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit(false); });
+    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit(true); });
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
@@ -767,6 +826,8 @@ function activate(context) {
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(quick_rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
+    context.subscriptions.push(column_edit_before_cmd);
+    context.subscriptions.push(column_edit_after_cmd);
     context.subscriptions.push(switch_event);
 }
 
