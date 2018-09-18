@@ -40,7 +40,8 @@ See the list of supported languages/separators in the table.
 
 #### Working with very big files
 
-VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.
+VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.  
+All other Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB.
 
 #### CSVLint consistency check
 
