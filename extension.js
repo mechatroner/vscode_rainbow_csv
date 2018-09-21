@@ -515,13 +515,16 @@ function column_edit(edit_after) {
 
     let selections = [];
     let num_lines = active_doc.lineCount;
+    if (num_lines >= 10000) {
+        show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
+        return;
+    }
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
         let report = rainbow_utils.smart_split(line_text, delim, policy, true);
         // TODO handle warning
-        // TODO check for huge files
         let entries = report[0];
         if (col_num >= entries.length) {
             show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);

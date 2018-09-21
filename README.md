@@ -61,7 +61,7 @@ Enter RBQL - SQL-like language query editing mode.
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore (and ColumnEditAfter)
-Activate multi-cursor column-editing for the current column
+Activate multi-cursor column editing for the current column. Works only for files with less than 10000 lines.
 
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.
