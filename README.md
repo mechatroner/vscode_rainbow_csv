@@ -61,7 +61,7 @@ Enter RBQL - SQL-like language query editing mode.
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore (and ColumnEditAfter)
-Activate multi-cursor column editing for the current column. Works only for files with less than 10000 lines.
+Activate multi-cursor column editing for the current column. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.
 
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.
@@ -75,13 +75,16 @@ You can customize Rainbow CSV colors to increase contrast. [Instructions](test/c
 
 ## SQL-like "RBQL" query language
 
-Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries.  
+Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries using a1, a2, a3, ... column names.  
 Example:  
 ```
 SELECT a1, a2 * 10 WHERE a1 == "Buy" && a4.indexOf('oil') != -1 ORDER BY parseInt(a2), a4 LIMIT 100
 ```
-To enter query-editing mode, execute `RBQL` command.  
-RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks.  
+To enter query-editing mode, execute `RBQL` VSCode command.  
+RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks and convert your csv tables to bash scripts, single-lines json, single-line xml files, etc.  
+It supports SELECT, UPDATE, ORDER BY, JOIN, TOP (LIMIT), GROUP BY keywords.  
+RBQL is very simple and takes almost zero time to learn even if you don't know SQL. For example to leave only third and first columns use `SELECT a3, a1`  
+RBQL uses JavaScript (default) or Python (requires system python interpreter) backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
 For more info read the [documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
 
