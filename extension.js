@@ -194,6 +194,7 @@ function get_active_editor() {
 
 
 function csv_lint_cmd() {
+    // TODO re-run on each file save with content change
     csv_lint(false, null);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
     setTimeout(show_linter_state, 500);
@@ -491,7 +492,12 @@ function edit_column_names() {
 }
 
 
-function column_edit(edit_after) {
+function is_double_quoted(entry) {
+    return entry.length >= 2 && entry.charAt(0) == '"' && entry.charAt(entry.length - 1) == '"';
+}
+
+
+function column_edit(edit_mode) {
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -510,7 +516,7 @@ function column_edit(edit_after) {
     let report = rainbow_utils.smart_split(line, delim, policy, true);
 
     let entries = report[0];
-    let warning = report[1];
+    let quoting_warning = report[1];
     let col_num = rainbow_utils.get_field_by_line_position(entries, cnum + 1);
 
     let selections = [];
@@ -524,17 +530,39 @@ function column_edit(edit_after) {
         if (lnum + 1 == num_lines && !line_text)
             break;
         let report = rainbow_utils.smart_split(line_text, delim, policy, true);
-        // TODO handle warning
         let entries = report[0];
+        quoting_warning = quoting_warning || report[1];
         if (col_num >= entries.length) {
             show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
             return;
         }
-        let col_pos = entries.slice(0, col_num + edit_after).join('').length + col_num;
-        let position = new vscode.Position(lnum, col_pos);
-        selections.push(new vscode.Selection(position, position));
+        let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
+        let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
+        if (edit_mode != 'ce_select' && policy == 'quoted' && is_double_quoted(entries[col_num])) {
+            char_pos_before += 1;
+            char_pos_after -= 1;
+        }
+        if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
+            // This is to prevent accidental corruption of table structure by pressing backspace for field removal. On empty field this would remove separator char. Can't use warning here.
+            show_single_line_error(`Unable to select column: field ${col_num + 1} at line ${lnum + 1} is empty.`);
+            return;
+        }
+        let position_before = new vscode.Position(lnum, char_pos_before);
+        let position_after = new vscode.Position(lnum, char_pos_after);
+        if (edit_mode == 'ce_before') {
+            selections.push(new vscode.Selection(position_before, position_before));
+        }
+        if (edit_mode == 'ce_after') {
+            selections.push(new vscode.Selection(position_after, position_after));
+        }
+        if (edit_mode == 'ce_select') {
+            selections.push(new vscode.Selection(position_before, position_after));
+        }
     }
     active_editor.selections = selections;
+    if (quoting_warning) {
+        vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
+    }
 }
 
 
@@ -816,8 +844,9 @@ function activate(context) {
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
-    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit(false); });
-    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit(true); });
+    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
+    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
+    var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
@@ -831,6 +860,7 @@ function activate(context) {
     context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(column_edit_before_cmd);
     context.subscriptions.push(column_edit_after_cmd);
+    context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(switch_event);
 }
 
