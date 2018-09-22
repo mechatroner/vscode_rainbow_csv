@@ -61,7 +61,7 @@ Enter RBQL - SQL-like language query editing mode.
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore (and ColumnEditAfter)
-Activate multi-cursor column editing for the current column. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.
+Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.
 
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.
@@ -82,14 +82,18 @@ SELECT a1, a2 * 10 WHERE a1 == "Buy" && a4.indexOf('oil') != -1 ORDER BY parseIn
 ```
 To enter query-editing mode, execute `RBQL` VSCode command.  
 RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks and convert your csv tables to bash scripts, single-lines json, single-line xml files, etc.  
-RBQL is very easy to use even if you don't know SQL. For example to leave only third and first columns use `SELECT a3, a1`  
-RBQL uses JavaScript (default) or Python (requires system python interpreter) backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
-For more info read the [documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
+It is very easy to start using RBQL even if you don't know SQL. For example to cut out third and first columns use `SELECT a3, a1`  
+
+[Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
 
 Screenshot of RBQL Dashboard:  
 ![VSCode RBQL Dashboard](https://i.imgur.com/HsBG2Y1.png)  
 
+#### Gotchas:
+* Unlike Rainbow CSV, which always treats first line as header, RBQL is header-agnostic i.e. it never treats first line as header, so to skip over header line add `WHERE NR > 1` to your query.  
+* RBQL uses JavaScript or Python backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
+* If you want to use RBQL with Python backend language instead of JavaScript, make sure you have Python interpreter insatalled and added to PATH variable of your OS.  
 
 ## Other
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment
