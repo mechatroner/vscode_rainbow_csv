@@ -3,6 +3,7 @@
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Provide info about column on mouse hover.
 * Automatic consistency check for csv files (CSVLint).
+* Multi-cursor column edit
 * Run queries in SQL-like language
 * Lightweight and dependency-free
 
@@ -39,7 +40,8 @@ See the list of supported languages/separators in the table.
 
 #### Working with very big files
 
-VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.
+VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.  
+All other Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB.
 
 #### CSVLint consistency check
 
@@ -58,6 +60,13 @@ Enter RBQL - SQL-like language query editing mode.
 #### QueryHere
 Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
 
+#### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
+Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.  
+**WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL "UPDATE" query if you are not sure.  
+To remove cursor/selection from the header line use "Alt+Click" on it.  
+ColumnEditBefore adds a cursor before the field (but after the enclosing double quote for comma- and semicolon- separated files).  
+ColumnEditAfter adds a cursor after the field (but before the enclosing double quote for comma- and semicolon- separated files).  
+
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.
 
@@ -70,19 +79,25 @@ You can customize Rainbow CSV colors to increase contrast. [Instructions](test/c
 
 ## SQL-like "RBQL" query language
 
-Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries.  
+Rainbow CSV has built-in RBQL query language interpreter that allows you to run SQL-like queries using a1, a2, a3, ... column names.  
 Example:  
 ```
 SELECT a1, a2 * 10 WHERE a1 == "Buy" && a4.indexOf('oil') != -1 ORDER BY parseInt(a2), a4 LIMIT 100
 ```
-To enter query-editing mode, execute `RBQL` command.  
-RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks.  
-For more info read the [documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
+To enter query-editing mode, execute `RBQL` VSCode command.  
+RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks and convert your csv tables to bash scripts, single-lines json, single-line xml files, etc.  
+It is very easy to start using RBQL even if you don't know SQL. For example to cut out third and first columns use `SELECT a3, a1`  
+
+[Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
 
 Screenshot of RBQL Dashboard:  
-![VSCode RBQL Dashboard](https://i.imgur.com/8FfGesY.png)  
+![VSCode RBQL Dashboard](https://i.imgur.com/HsBG2Y1.png)  
 
+#### Gotchas:
+* Unlike Rainbow CSV, which always treats first line as header, RBQL is header-agnostic i.e. it never treats first line as header, so to skip over header line add `WHERE NR > 1` to your query.  
+* RBQL uses JavaScript or Python backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
+* If you want to use RBQL with Python backend language instead of JavaScript, make sure you have Python interpreter insatalled and added to PATH variable of your OS.  
 
 ## Other
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment

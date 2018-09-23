@@ -66,6 +66,18 @@
             "title": "RBQL"
         },
         {
+            "command": "extension.ColumnEditBefore",
+            "title": "ColumnEditBefore"
+        },
+        {
+            "command": "extension.ColumnEditSelect",
+            "title": "ColumnEditSelect"
+        },
+        {
+            "command": "extension.ColumnEditAfter",
+            "title": "ColumnEditAfter"
+        },
+        {
             "command": "extension.QueryHere",
             "title": "QueryHere"
         }],

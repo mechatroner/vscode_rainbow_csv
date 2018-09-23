@@ -1,42 +1,39 @@
 from collections import defaultdict
 
+def extract_next_field(src, dlm, preserve_quotes, cidx, result):
+    warning = False
+    if (src[cidx] == '"'):
+        uidx = src.find('"', cidx + 1)
+        while uidx != -1 and uidx + 1 < len(src) and src[uidx + 1] == '"':
+            uidx = src.find('"', uidx + 2)
+        if uidx != -1 and (uidx + 1 == len(src) or src[uidx + 1] == dlm):
+            if preserve_quotes:
+                result.append(src[cidx:uidx + 1])
+            else:
+                result.append(src[cidx + 1:uidx].replace('""', '"'))
+            return (uidx + 2, False)
+        warning = True
+    uidx = src.find(dlm, cidx)
+    if uidx == -1:
+        uidx = len(src)
+    field = src[cidx:uidx]
+    warning = warning or field.find('"') != -1
+    result.append(field)
+    return (uidx + 1, warning)
+
+
 def split_quoted_str(src, dlm, preserve_quotes=False):
     assert dlm != '"'
-    if src.find('"') == -1: #optimization for majority of lines
+    if src.find('"') == -1: # Optimization for most common case
         return (src.split(dlm), False)
     result = list()
     cidx = 0
     warning = False
     while cidx < len(src):
-        if src[cidx] == '"':
-            uidx = cidx + 1
-            while True:
-                uidx = src.find('"', uidx)
-                if uidx == -1:
-                    result.append(src[cidx:])
-                    return (result, True)
-                elif uidx + 1 == len(src) or src[uidx + 1] == dlm:
-                    if preserve_quotes:
-                        result.append(src[cidx:uidx + 1])
-                    else:
-                        result.append(src[cidx + 1:uidx].replace('""', '"'))
-                    cidx = uidx + 2
-                    break
-                elif src[uidx + 1] == '"':
-                    uidx += 2
-                    continue
-                else:
-                    result.append(src[cidx:])
-                    return (result, True)
-        else:
-            uidx = src.find(dlm, cidx)
-            if uidx == -1:
-                uidx = len(src)
-            field = src[cidx:uidx]
-            if field.find('"') != -1:
-                warning = True
-            result.append(field)
-            cidx = uidx + 1
+        extraction_report = extract_next_field(src, dlm, preserve_quotes, cidx, result)
+        cidx = extraction_report[0]
+        warning = warning or extraction_report[1]
+
     if src[-1] == dlm:
         result.append('')
     return (result, warning)

@@ -2,7 +2,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-const version = '0.1.0';
+const version = '0.2.0';
 
 const GROUP_BY = 'GROUP BY';
 const UPDATE = 'UPDATE';
@@ -64,9 +64,19 @@ function escape_string_literal(src) {
 }
 
 
-function replace_column_vars(rbql_expression) {
-    var rgx = /(^|[^_a-zA-Z0-9])([ab])([1-9][0-9]*)(?:$|(?=[^_a-zA-Z0-9]))/g;
-    return rbql_expression.replace(rgx, '$1safe_get($2fields, $3)');
+function extract_column_vars(rbql_expression) {
+    var rgx = /(?:^|[^_a-zA-Z0-9])([ab][1-9][0-9]*)(?:$|(?=[^_a-zA-Z0-9]))/g;
+    var result = [];
+    var seen = {};
+    var matches = get_all_matches(rgx, rbql_expression);
+    for (var i = 0; i < matches.length; i++) {
+        var var_name = matches[i][1];
+        if (!seen.hasOwnProperty(var_name)) {
+            result.push(var_name);
+            seen[var_name] = 1;
+        }
+    }
+    return result;
 }
 
 
@@ -303,7 +313,6 @@ function translate_update_expression(update_expression, indent) {
         update_statements[i] = indent + update_statements[i];
     }
     var translated = update_statements.join('\n');
-    translated = replace_column_vars(translated);
     return translated;
 }
 
@@ -341,7 +350,6 @@ function replace_star_vars_js(rbql_expression) {
 
 function translate_select_expression_js(select_expression) {
     var translated = replace_star_count(select_expression);
-    translated = replace_column_vars(translated);
     translated = replace_star_vars_js(translated);
     translated = str_strip(translated);
     if (!translated.length) {
@@ -352,16 +360,34 @@ function translate_select_expression_js(select_expression) {
 
 
 function rbql_meta_format(template_src, meta_params) {
-    for (var k in meta_params) {
-        if (!meta_params.hasOwnProperty(k))
+    for (var key in meta_params) {
+        if (!meta_params.hasOwnProperty(key))
             continue;
-        var v = meta_params[k];
-        var template_marker = `__RBQLMP__${k}`;
-        var template_src_upd = replace_all(template_src, template_marker, v);
+        var value = meta_params[key];
+        var template_src_upd = replace_all(template_src, key, value);
         assert(template_src_upd != template_src);
         template_src = template_src_upd;
     }
     return template_src;
+}
+
+
+function generate_init_statements(column_vars, indent) {
+    var init_statements = [];
+    for (var i = 0; i < column_vars.length; i++) {
+        var var_name = column_vars[i];
+        var var_group = var_name.charAt(0);
+        var zero_based_idx = parseInt(var_name.substr(1)) - 1;
+        if (var_group == 'a') {
+            init_statements.push(`var ${var_name} = afields[${zero_based_idx}];`);
+        } else {
+            init_statements.push(`var ${var_name} = bfields === null ? undefined : bfields[${zero_based_idx}];`);
+        }
+    }
+    for (var i = 1; i < init_statements.length; i++) {
+        init_statements[i] = indent + init_statements[i];
+    }
+    return init_statements.join('\n');
 }
 
 
@@ -371,26 +397,27 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
     rbql_lines = rbql_lines.map(strip_js_comments);
     rbql_lines = rbql_lines.filter(line => line.length);
     var full_rbql_expression = rbql_lines.join(' ');
+    var column_vars = extract_column_vars(full_rbql_expression);
     var [format_expression, string_literals] = separate_string_literals_js(full_rbql_expression);
     var rb_actions = separate_actions(format_expression);
 
     var js_meta_params = {};
-    js_meta_params['rbql_home_dir'] = escape_string_literal(rbql_home_dir);
-    js_meta_params['input_delim'] = escape_string_literal(input_delim);
-    js_meta_params['input_policy'] = input_policy;
-    js_meta_params['csv_encoding'] = csv_encoding == 'latin-1' ? 'binary' : csv_encoding;
-    js_meta_params['src_table_path'] = src_table_path === null ? "null" : "'" + escape_string_literal(src_table_path) + "'";
-    js_meta_params['dst_table_path'] = dst_table_path === null ? "null" : "'" + escape_string_literal(dst_table_path) + "'";
-    js_meta_params['output_delim'] = escape_string_literal(out_delim);
-    js_meta_params['output_policy'] = out_policy;
+    js_meta_params['__RBQLMP__rbql_home_dir'] = escape_string_literal(rbql_home_dir);
+    js_meta_params['__RBQLMP__input_delim'] = escape_string_literal(input_delim);
+    js_meta_params['__RBQLMP__input_policy'] = input_policy;
+    js_meta_params['__RBQLMP__csv_encoding'] = csv_encoding == 'latin-1' ? 'binary' : csv_encoding;
+    js_meta_params['__RBQLMP__src_table_path'] = src_table_path === null ? "null" : "'" + escape_string_literal(src_table_path) + "'";
+    js_meta_params['__RBQLMP__dst_table_path'] = dst_table_path === null ? "null" : "'" + escape_string_literal(dst_table_path) + "'";
+    js_meta_params['__RBQLMP__output_delim'] = escape_string_literal(out_delim);
+    js_meta_params['__RBQLMP__output_policy'] = out_policy;
 
     if (rb_actions.hasOwnProperty(GROUP_BY)) {
         if (rb_actions.hasOwnProperty(ORDER_BY) || rb_actions.hasOwnProperty(UPDATE))
             throw new RBParsingError('"ORDER BY" and "UPDATE" are not allowed in aggregate queries');
-        var aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text']);
-        js_meta_params['aggregation_key_expression'] = '[' + combine_string_literals(aggregation_key_expression, string_literals) + ']';
+        var aggregation_key_expression = rb_actions[GROUP_BY]['text'];
+        js_meta_params['__RBQLMP__aggregation_key_expression'] = '[' + combine_string_literals(aggregation_key_expression, string_literals) + ']';
     } else {
-        js_meta_params['aggregation_key_expression'] = 'null';
+        js_meta_params['__RBQLMP__aggregation_key_expression'] = 'null';
     }
 
     if (rb_actions.hasOwnProperty(JOIN)) {
@@ -405,62 +432,66 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
             join_delim = normalize_delim(join_format_record[1]);
             join_policy = join_format_record[2];
         }
-        js_meta_params['join_operation'] = rb_actions[JOIN]['join_subtype'];
-        js_meta_params['rhs_table_path'] = "'" + escape_string_literal(rhs_table_path) + "'";
-        js_meta_params['lhs_join_var'] = lhs_join_var;
-        js_meta_params['rhs_join_var'] = rhs_join_var;
-        js_meta_params['join_delim'] = escape_string_literal(join_delim);
-        js_meta_params['join_policy'] = join_policy;
+        js_meta_params['__RBQLMP__join_operation'] = rb_actions[JOIN]['join_subtype'];
+        js_meta_params['__RBQLMP__rhs_table_path'] = "'" + escape_string_literal(rhs_table_path) + "'";
+        js_meta_params['__RBQLMP__lhs_join_var'] = lhs_join_var;
+        js_meta_params['__RBQLMP__rhs_join_var'] = rhs_join_var;
+        js_meta_params['__RBQLMP__join_delim'] = escape_string_literal(join_delim);
+        js_meta_params['__RBQLMP__join_policy'] = join_policy;
     } else {
-        js_meta_params['join_operation'] = 'VOID';
-        js_meta_params['rhs_table_path'] = 'null';
-        js_meta_params['lhs_join_var'] = 'null';
-        js_meta_params['rhs_join_var'] = 'null';
-        js_meta_params['join_delim'] = '';
-        js_meta_params['join_policy'] = '';
+        js_meta_params['__RBQLMP__join_operation'] = 'VOID';
+        js_meta_params['__RBQLMP__rhs_table_path'] = 'null';
+        js_meta_params['__RBQLMP__lhs_join_var'] = 'null';
+        js_meta_params['__RBQLMP__rhs_join_var'] = 'null';
+        js_meta_params['__RBQLMP__join_delim'] = '';
+        js_meta_params['__RBQLMP__join_policy'] = '';
     }
 
     if (rb_actions.hasOwnProperty(WHERE)) {
-        var where_expression = replace_column_vars(rb_actions[WHERE]['text']);
-        js_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals);
+        var where_expression = rb_actions[WHERE]['text'];
+        js_meta_params['__RBQLMP__where_expression'] = combine_string_literals(where_expression, string_literals);
     } else {
-        js_meta_params['where_expression'] = 'true';
+        js_meta_params['__RBQLMP__where_expression'] = 'true';
     }
+
 
     if (rb_actions.hasOwnProperty(UPDATE)) {
         var update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' '.repeat(8));
-        js_meta_params['writer_type'] = 'simple';
-        js_meta_params['select_expression'] = 'null';
-        js_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals);
-        js_meta_params['is_select_query'] = 'false';
-        js_meta_params['top_count'] = 'null';
+        js_meta_params['__RBQLMP__writer_type'] = 'simple';
+        js_meta_params['__RBQLMP__select_expression'] = 'null';
+        js_meta_params['__RBQLMP__update_statements'] = combine_string_literals(update_expression, string_literals);
+        js_meta_params['__RBQLMP__is_select_query'] = 'false';
+        js_meta_params['__RBQLMP__top_count'] = 'null';
+        js_meta_params['__RBQLMP__init_column_vars'] = generate_init_statements(column_vars, ' '.repeat(4));
+    } else {
+        js_meta_params['__RBQLMP__init_column_vars'] = generate_init_statements(column_vars, ' '.repeat(8));
     }
 
     if (rb_actions.hasOwnProperty(SELECT)) {
         var top_count = find_top(rb_actions);
-        js_meta_params['top_count'] = top_count === null ? 'null' : String(top_count);
+        js_meta_params['__RBQLMP__top_count'] = top_count === null ? 'null' : String(top_count);
         if (rb_actions[SELECT].hasOwnProperty('distinct_count')) {
-            js_meta_params['writer_type'] = 'uniq_count';
+            js_meta_params['__RBQLMP__writer_type'] = 'uniq_count';
         } else if (rb_actions[SELECT].hasOwnProperty('distinct')) {
-            js_meta_params['writer_type'] = 'uniq';
+            js_meta_params['__RBQLMP__writer_type'] = 'uniq';
         } else {
-            js_meta_params['writer_type'] = 'simple';
+            js_meta_params['__RBQLMP__writer_type'] = 'simple';
         }
         var select_expression = translate_select_expression_js(rb_actions[SELECT]['text']);
-        js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals);
-        js_meta_params['update_statements'] = '';
-        js_meta_params['is_select_query'] = 'true';
+        js_meta_params['__RBQLMP__select_expression'] = combine_string_literals(select_expression, string_literals);
+        js_meta_params['__RBQLMP__update_statements'] = '';
+        js_meta_params['__RBQLMP__is_select_query'] = 'true';
     }
 
     if (rb_actions.hasOwnProperty(ORDER_BY)) {
-        var order_expression = replace_column_vars(rb_actions[ORDER_BY]['text']);
-        js_meta_params['sort_key_expression'] = combine_string_literals(order_expression, string_literals);
-        js_meta_params['reverse_flag'] = rb_actions[ORDER_BY]['reverse'] ? 'true' : 'false';
-        js_meta_params['sort_flag'] = 'true';
+        var order_expression = rb_actions[ORDER_BY]['text'];
+        js_meta_params['__RBQLMP__sort_key_expression'] = combine_string_literals(order_expression, string_literals);
+        js_meta_params['__RBQLMP__reverse_flag'] = rb_actions[ORDER_BY]['reverse'] ? 'true' : 'false';
+        js_meta_params['__RBQLMP__sort_flag'] = 'true';
     } else {
-        js_meta_params['sort_key_expression'] = 'null';
-        js_meta_params['reverse_flag'] = 'false';
-        js_meta_params['sort_flag'] = 'false';
+        js_meta_params['__RBQLMP__sort_key_expression'] = 'null';
+        js_meta_params['__RBQLMP__reverse_flag'] = 'false';
+        js_meta_params['__RBQLMP__sort_flag'] = 'false';
     }
     var js_script_body = fs.readFileSync(path.join(rbql_home_dir, 'template.js.raw'), 'utf-8');
     fs.writeFileSync(js_dst, rbql_meta_format(js_script_body, js_meta_params));
@@ -525,3 +556,6 @@ module.exports.assert = assert;
 module.exports.default_csv_encoding = default_csv_encoding;
 module.exports.parse_to_js = parse_to_js;
 module.exports.make_warnings_human_readable = make_warnings_human_readable;
+module.exports.strip_js_comments = strip_js_comments;
+module.exports.separate_string_literals_js = separate_string_literals_js;
+module.exports.translate_select_expression_js = translate_select_expression_js;
