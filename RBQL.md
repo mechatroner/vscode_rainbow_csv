@@ -50,23 +50,8 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 * It is illegal to use aggregate functions inside Python (or JS) expressions. Although you can use expressions inside aggregate functions.
   E.g. `MAX(float(a1) / 1000)` - legal; `MAX(a1) / 1000` - illegal.
 
+
 ### Examples of RBQL queries
-
-#### With Python expressions
-
-* `select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2)`
-* `select * order by random.random()` - random sort, this is an equivalent of bash command _sort -R_
-* `select top 20 len(a1) / 10, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
-* `select len(a1) / 10, a2 where a2 in ["car", "plane", "boat"] limit 20`
-* `update set a3 = 'US' where a3.find('of America') != -1`
-* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
-* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
-* `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
-* `select NR, *` - enumerate lines, NR is 1-based
-* `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
-* `select distinct count len(a1) where a2 != 'US'`
-* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
 
 #### With JavaScript expressions
 
@@ -84,10 +69,27 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 * `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
 
 
+#### With Python expressions
+
+* `select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2)`
+* `select * order by random.random()` - random sort, this is an equivalent of bash command _sort -R_
+* `select top 20 len(a1) / 10, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
+* `select len(a1) / 10, a2 where a2 in ["car", "plane", "boat"] limit 20`
+* `update set a3 = 'US' where a3.find('of America') != -1`
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select NR, *` - enumerate lines, NR is 1-based
+* `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
+* `select distinct count len(a1) where a2 != 'US'`
+* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
+
+
 ### FAQ
 
 #### How does RBQL work?
-Python module rbql.py parses RBQL query, creates a new python worker module, then imports and executes it.
+RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.
 
 Explanation of simplified Python version of RBQL algorithm by example.
 1. User enters the following query, which is stored as a string _Q_:
@@ -136,18 +138,27 @@ It should be: RBQL scripts have only 1000 - 2000 lines combined (depending on ho
 There is no complex logic, even query parsing functions are very simple. If something goes wrong RBQL will show an error instead of producing incorrect output, also there are currently 5 different warning types.
 
 
-### cli_rbql.py and cli_rbql.js scripts
+### Standalone CLI Apps
 
-RBQL comes with cli_rbql.py and cli_rbql.js scripts.
-Use them as standalone programs to execute RBQL queries from command line.
+You can also use two standalone RBQL Apps: with JavaScript and Python backends
 
-Usage example:
+#### rbql-js
+Installation:
+```
+$ npm i rbql
+```
+Usage:
+```
+$ rbql-js --query "select a1, a2 order by a1" < input.tsv
+```
 
+#### rbql-py
+Installation:
 ```
-./cli_rbql.py --query "select a1, a2 order by a1" < input.tsv
+$ pip install rbql
 ```
-To find out more about cli_rbql.py and available options, execute:
+Usage:
 ```
-./cli_rbql.py -h
+$ rbql-py --query "select a1, a2 order by a1" < input.tsv
 ```
 
