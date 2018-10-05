@@ -58,7 +58,7 @@ To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
 Enter RBQL - SQL-like language query editing mode.
 
 #### QueryHere
-Enter RBQL query without launching RBQL Dashboard. Use only if you have experience with regular RBQL command.  
+Enter RBQL query without launching RBQL Console. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.  
@@ -91,8 +91,8 @@ It is very easy to start using RBQL even if you don't know SQL. For example to c
 [Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
 
-Screenshot of RBQL Dashboard:  
-![VSCode RBQL Dashboard](https://i.imgur.com/HsBG2Y1.png)  
+Screenshot of RBQL Console:  
+![VSCode RBQL Console](https://i.imgur.com/HsBG2Y1.png)  
 
 #### Gotchas:
 * Unlike Rainbow CSV, which always treats first line as header, RBQL is header-agnostic i.e. it never treats first line as header, so to skip over header line add `WHERE NR > 1` to your query.  

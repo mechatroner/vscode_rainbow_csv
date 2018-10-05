@@ -646,7 +646,7 @@ function edit_rbql() {
     if (!init_rbql_context())
         return null;
     // TODO use "editor.selection" to set initial view point
-    preview_panel = vscode.window.createWebviewPanel('rbql-dashboard', 'RBQL Dashboard', vscode.ViewColumn.Active, {enableScripts: true});
+    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
     }
