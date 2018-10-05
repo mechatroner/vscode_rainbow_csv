@@ -538,13 +538,16 @@ function column_edit(edit_mode) {
         }
         let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
         let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
-        if (edit_mode != 'ce_select' && policy == 'quoted' && is_double_quoted(entries[col_num])) {
-            char_pos_before += 1;
-            char_pos_after -= 1;
+        if (edit_mode == 'ce_before' && policy == 'quoted' && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
+            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            return;
+        }
+        if (edit_mode == 'ce_after' && policy == 'quoted' && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
+            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            return;
         }
         if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
-            // This is to prevent accidental corruption of table structure by pressing backspace for field removal. On empty field this would remove separator char. Can't use warning here.
-            show_single_line_error(`Unable to select column: field ${col_num + 1} at line ${lnum + 1} is empty.`);
+            show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
             return;
         }
         let position_before = new vscode.Position(lnum, char_pos_before);

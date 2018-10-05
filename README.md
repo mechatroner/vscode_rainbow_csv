@@ -61,11 +61,10 @@ Enter RBQL - SQL-like language query editing mode.
 Enter RBQL query without launching RBQL Console. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
-Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use "UPDATE" RBQL query.  
-**WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL "UPDATE" query if you are not sure.  
+Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
+**WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL if you are not sure.  
 To remove cursor/selection from the header line use "Alt+Click" on it.  
-ColumnEditBefore adds a cursor before the field (but after the enclosing double quote for comma- and semicolon- separated files).  
-ColumnEditAfter adds a cursor after the field (but before the enclosing double quote for comma- and semicolon- separated files).  
+
 
 #### CSV Lint
 Run CSV check even if auto-check is disabled in VS Code configuration.
