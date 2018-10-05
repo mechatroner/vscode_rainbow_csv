@@ -86,6 +86,7 @@ SELECT a1, a2 * 10 WHERE a1 == "Buy" && a4.indexOf('oil') != -1 ORDER BY parseIn
 To enter query-editing mode, execute `RBQL` VSCode command.  
 RBQL is a very simple and powerful tool which would allow you to quickly and easily perform most common data-manipulation tasks and convert your csv tables to bash scripts, single-lines json, single-line xml files, etc.  
 It is very easy to start using RBQL even if you don't know SQL. For example to cut out third and first columns use `SELECT a3, a1`  
+You can use RBQL command for all possible types of files (e.g. .js, .xml, .html), but for non-table files only two variables: _NR_ and _a1_ would be available.
 
 [Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
 
