@@ -55,6 +55,17 @@ function log_error(msg) {
 }
 
 
+function map_separator_to_language_id(separator) {
+    for (let dialect_name in dialect_map) {
+        if (!dialect_map.hasOwnProperty(dialect_name))
+            continue;
+        if (dialect_map[dialect_name][0] == separator)
+            return dialect_name;
+    }
+    return null;
+}
+
+
 function sample_preview_records_from_context(rbql_context) {
     var document = rbql_context.document;
     var total_lines = document.lineCount;
@@ -471,11 +482,28 @@ function save_new_header(file_path, new_header) {
 
 
 function set_rainbow_separator() {
-    // FIXME activae on commands: RBQL, RainbowSeparator, QueryHere
-
-    //FIXME use language_id based on currently selected separator
-    let language_id = 'csv';
+    // FIXME add command to restore previous language
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
     var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    let selection = active_editor.selection;
+    if (!selection) {
+        show_single_line_error("Selection is empty");
+        return;
+    }
+    if (selection.start.line != selection.end.line || selection.start.character + 1 != selection.end.character) {
+        show_single_line_error("Selection must contain exactly one separator character");
+        return;
+    }
+    let separator = active_doc.lineAt(selection.start.line).text.charAt(selection.start.character);
+    let language_id = map_separator_to_language_id(separator);
+    if (!language_id) {
+        show_single_line_error("Selected separator is not supported");
+        return;
+    }
     // FIXME use try/catch for old editor versions
     vscode.languages.setTextDocumentLanguage(active_doc, language_id);
 }

@@ -1,7 +1,7 @@
 {
     "name": "rainbow-csv",
     "displayName": "Rainbow CSV",
-    "description": "Highlight CSV and TSV files in different colors",
+    "description": "Highlight CSV and TSV files in different colors, Run SQL-like queries",
     "version": "0.6.0",
     "publisher": "mechatroner",
     "icon": "rainbow_csv_logo.png",
@@ -18,7 +18,14 @@
         "Languages"
     ],
     "activationEvents": [
-        "onLanguage:csv", "onLanguage:tsv", "onLanguage:csv (semicolon)", "onLanguage:csv (pipe)"
+        "onLanguage:csv",
+        "onLanguage:tsv",
+        "onLanguage:csv (semicolon)",
+        "onLanguage:csv (pipe)",
+        "onLanguage:plaintext",
+        "onCommand:extension.QueryHere",
+        "onCommand:extension.RBQL",
+        "onCommand:extension.RainbowSeparator"
     ],
     "main": "./extension",
     "contributes": {
