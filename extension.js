@@ -470,6 +470,17 @@ function save_new_header(file_path, new_header) {
 }
 
 
+function set_rainbow_separator() {
+    // FIXME activae on commands: RBQL, RainbowSeparator, QueryHere
+
+    //FIXME use language_id based on currently selected separator
+    let language_id = 'csv';
+    var active_doc = get_active_doc();
+    // FIXME use try/catch for old editor versions
+    vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+}
+
+
 function edit_column_names() {
     var active_doc = get_active_doc();
     var dialect = get_dialect(active_doc);
@@ -850,6 +861,7 @@ function activate(context) {
     var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
+    var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
 
@@ -865,6 +877,7 @@ function activate(context) {
     context.subscriptions.push(column_edit_after_cmd);
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(switch_event);
+    context.subscriptions.push(set_separator_cmd);
 }
 
 

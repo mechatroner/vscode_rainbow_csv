@@ -74,6 +74,10 @@
             "title": "ColumnEditSelect"
         },
         {
+            "command": "extension.RainbowSeparator",
+            "title": "RainbowSeparator"
+        },
+        {
             "command": "extension.ColumnEditAfter",
             "title": "ColumnEditAfter"
         },
