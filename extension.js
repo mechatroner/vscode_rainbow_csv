@@ -505,8 +505,12 @@ function set_rainbow_separator() {
         show_single_line_error("Selected separator is not supported");
         return;
     }
-    // FIXME use try/catch for old editor versions
-    vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+    try {
+        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+    } catch (error) {
+        dbg_log('Unable to change language: ' + error);
+        show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
+    }
 }
 
 
