@@ -483,6 +483,7 @@ function save_new_header(file_path, new_header) {
 
 function set_rainbow_separator() {
     // FIXME add command to restore previous language
+    // FIXME when CSV doc is getting closed and then quickly opened as another file type - disable autodetect for it.
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -685,6 +686,7 @@ function handle_rbql_client_message(webview, message) {
 
 
 function edit_rbql() {
+    // FIXME add encoding and output format parameters
     if (!init_rbql_context())
         return null;
     // TODO use "editor.selection" to set initial view point

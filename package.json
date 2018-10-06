@@ -40,6 +40,13 @@
                 }
             }
         },
+        "menus": {
+            "editor/context": [{
+                "when": "editorHasSelection",
+                "command": "extension.RainbowSeparator",
+                "group": "rainbow_csv"
+            }]
+        },
         "languages": [{
             "id": "csv",
             "aliases": ["CSV", "csv"],
