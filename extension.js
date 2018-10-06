@@ -8,9 +8,12 @@ const rainbow_utils = require('./rainbow_utils');
 const rbql = require('./rbql_core/rbql');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
+var autodetection_dialects = ['tsv', 'csv', 'csv (semicolon)']; //FIXME read from user config
 
 var dev_log = null;
 var err_log = null;
+
+var dbg_counter = 0;
 
 var lint_results = new Map();
 var sb_item = null;
@@ -27,6 +30,7 @@ var mock_script_path = null;
 var rbql_exec_path = null;
 
 var enable_dev_mode = false;
+var enable_dev_mode = true; //FIXME
 
 var client_js_template = null;
 var client_html_template = null;
@@ -143,7 +147,7 @@ function make_hover_text(document, position, language_id) {
 function make_hover(document, position, language_id, cancellation_token) {
     setTimeout(function() { 
         if (csv_lint(true, document)) {
-            show_linter_state();
+            show_linter_state(document);
         }
     });
     var hover_text = make_hover_text(document, position, language_id);
@@ -480,6 +484,17 @@ function save_new_header(file_path, new_header) {
     global_state.update(file_path, new_header);
 }
 
+function try_change_document_language(active_doc, language_id) {
+    try {
+        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+    } catch (error) {
+        dbg_log('Unable to change language: ' + error);
+        show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
+        return false;
+    }
+    return true;
+}
+
 
 function set_rainbow_separator() {
     // FIXME add command to restore previous language
@@ -505,12 +520,7 @@ function set_rainbow_separator() {
         show_single_line_error("Selected separator is not supported");
         return;
     }
-    try {
-        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
-    } catch (error) {
-        dbg_log('Unable to change language: ' + error);
-        show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
-    }
+    try_change_document_language(active_doc, language_id);
 }
 
 
@@ -735,7 +745,7 @@ function csv_lint(autolint, active_doc) {
     if (autolint && lint_results.has(file_path))
         return false;
     lint_results.set(file_path, 'Processing...');
-    show_linter_state(); // Visual feedback
+    show_linter_state(active_doc); // Visual feedback
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
     var max_check_size = autolint ? 50000 : null;
@@ -745,10 +755,13 @@ function csv_lint(autolint, active_doc) {
 }
 
 
-function show_linter_state() {
+function show_linter_state(active_doc) {
+    if (!active_doc)
+        active_doc = get_active_doc();
+    if (!active_doc)
+        return;
     if (sb_item)
         sb_item.hide();
-    var active_doc = get_active_doc();
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -774,9 +787,90 @@ function show_linter_state() {
 }
 
 
-function handle_editor_change(editor) {
-    csv_lint(true, null);
-    show_linter_state();
+function sample_lines(active_doc, max_sample_count) {
+    var num_lines = active_doc.lineCount;
+    var result = [];
+    for (var lnum = 0; lnum < num_lines && lnum < max_sample_count; lnum++) {
+        var line_text = active_doc.lineAt(lnum).text;
+        if (lnum + 1 == num_lines && !line_text)
+            break;
+        result.push(line_text);
+    }
+    return result;
+}
+
+
+function is_delimited_table(sampled_lines, delim, policy) {
+    if (sampled_lines.length < 2)
+        return false;
+    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, true);
+    if (split_result[1])
+        return false;
+    var num_fields = split_result[0].length;
+    if (num_fields < 2)
+        return false;
+    for (var i = 1; i < sampled_lines.length; i++) {
+        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, true);
+        if (split_result[1])
+            return false;
+        if (split_result[0].length != num_fields)
+            return false;
+    }
+    return true;
+}
+
+
+function autodetect_dialect(active_doc) {
+    const sample_count = 10;
+    var sampled_lines = sample_lines(active_doc, sample_count);
+    if (sampled_lines.length < sample_count)
+        return null;
+    for (var i = 0; i < autodetection_dialects.length; i++) {
+        var dialect_id = autodetection_dialects[i];
+        if (!dialect_map.hasOwnProperty(dialect_id)) {
+            continue;
+        }
+        var [delim, policy] = dialect_map[dialect_id];
+        if (is_delimited_table(sampled_lines, delim, policy))
+            return dialect_id;
+    }
+    return null;
+}
+
+
+function autoenable_rainbow_csv(active_doc) {
+    if (!active_doc)
+        return;
+    dbg_log('step 0.6')
+    // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
+    var language_id = active_doc.languageId;
+    dbg_log('current language is ' + language_id);
+    if (language_id != 'plaintext')
+        return;
+    dbg_log('step 1');
+    var rainbow_csv_language_id = autodetect_dialect(active_doc);
+    if (!rainbow_csv_language_id)
+        return;
+    dbg_log('step 2');
+    try_change_document_language(active_doc, rainbow_csv_language_id);
+}
+
+
+function init_current_editor(active_doc) {
+    autoenable_rainbow_csv(active_doc);
+    csv_lint(true, active_doc);
+    show_linter_state(active_doc);
+}
+
+
+function handle_doc_open(active_doc) {
+    // FIXME this actually get's called twice: first time for old editor, next time for the new editor.
+    // Use different callback event instead.
+    dbg_counter += 1;
+    dbg_log('doc opened ' + dbg_counter);
+    // FIXME there is something wrong here: language_id can be Log or even CSV (with highlighting off)
+    // Perhaps we need to wait for some time or show 
+    init_current_editor(active_doc);
 }
 
 
@@ -855,7 +949,7 @@ function activate(context) {
         enable_dev_mode = true;
     }
 
-    dbg_log('Activating "rainbow_csv"');
+    //dbg_log('Activating "rainbow_csv"');
 
     global_state = context.globalState;
 
@@ -897,7 +991,7 @@ function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
 
-    var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_change)
+    var switch_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open)
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
@@ -912,6 +1006,14 @@ function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
+
+    // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
+    // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and get's VSCode focus
+    setTimeout(function() {
+        var active_doc = get_active_doc();
+        init_current_editor(active_doc);
+    }, 1000);
+
 }
 
 
