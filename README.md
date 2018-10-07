@@ -66,9 +66,6 @@ Activate multi-cursor column editing for column under the cursor. Works only for
 To remove cursor/selection from the header line use "Alt+Click" on it.  
 
 
-#### CSV Lint
-Run CSV check even if auto-check is disabled in VS Code configuration.
-
 #### SetVirtualHeader
 Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
 Rainbow CSV always assumes the first row as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.

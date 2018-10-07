@@ -37,6 +37,20 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enables automatic linting/checking of opened csv files"
+                },
+                "rainbow_csv.enable_separator_autodetection": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables automatic content based separator autodetection"
+                },
+                "rainbow_csv.autodetect_separators": {
+                    "type": "array",
+                    "default": ["\t", ",", ";"],
+                    "description": "Enables automatic content-based separator autodetection for specified list of separators.",
+                    "items": {
+                        "type": "string",
+                        "description": "Separator"
+                    }
                 }
             }
         },

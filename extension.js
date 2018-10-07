@@ -16,6 +16,7 @@ var err_log = null;
 var dbg_counter = 0;
 
 var lint_results = new Map();
+var double_autodetection_failsafe = new Set();
 var sb_item = null;
 
 const preview_window_size = 12;
@@ -28,6 +29,8 @@ var client_js_template_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
+
+// FIXME add RBQL statusline button in the next version
 
 var enable_dev_mode = false;
 var enable_dev_mode = true; //FIXME
@@ -498,13 +501,14 @@ function try_change_document_language(active_doc, language_id) {
 
 function set_rainbow_separator() {
     // FIXME add command to restore previous language
-    // FIXME when CSV doc is getting closed and then quickly opened as another file type - disable autodetect for it.
+    // Or you better create a statusline "Rainbow OFF" button which would revert the original language back.
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
     var active_doc = get_active_doc();
     if (!active_doc)
         return;
+    double_autodetection_failsafe.add(active_doc.fileName);
     let selection = active_editor.selection;
     if (!selection) {
         show_single_line_error("Selection is empty");
@@ -700,10 +704,10 @@ function handle_rbql_client_message(webview, message) {
 
 
 function edit_rbql() {
-    // FIXME add encoding and output format parameters
+    // TODO add encoding and output format parameters
     if (!init_rbql_context())
         return null;
-    // TODO use "editor.selection" to set initial view point
+    // TODO add SetRBQLTableName command
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
@@ -841,17 +845,25 @@ function autodetect_dialect(active_doc) {
 function autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return;
-    dbg_log('step 0.6')
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (config && config.get('enable_separator_autodetection') === false) {
+        dbg_log('autodetection is disabled in user config');
+        return;
+    }
     // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
     var language_id = active_doc.languageId;
     dbg_log('current language is ' + language_id);
     if (language_id != 'plaintext')
         return;
-    dbg_log('step 1');
+    var file_path = active_doc.fileName;
+    if (double_autodetection_failsafe.has(file_path)) {
+        dbg_log('autodetection has already been applied to this doc');
+        return;
+    }
     var rainbow_csv_language_id = autodetect_dialect(active_doc);
+    double_autodetection_failsafe.add(file_path);
     if (!rainbow_csv_language_id)
         return;
-    dbg_log('step 2');
     try_change_document_language(active_doc, rainbow_csv_language_id);
 }
 
@@ -864,12 +876,8 @@ function init_current_editor(active_doc) {
 
 
 function handle_doc_open(active_doc) {
-    // FIXME this actually get's called twice: first time for old editor, next time for the new editor.
-    // Use different callback event instead.
     dbg_counter += 1;
     dbg_log('doc opened ' + dbg_counter);
-    // FIXME there is something wrong here: language_id can be Log or even CSV (with highlighting off)
-    // Perhaps we need to wait for some time or show 
     init_current_editor(active_doc);
 }
 
@@ -1007,9 +1015,9 @@ function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
 
-    // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
-    // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and get's VSCode focus
     setTimeout(function() {
+        // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
+        // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus
         var active_doc = get_active_doc();
         init_current_editor(active_doc);
     }, 1000);
