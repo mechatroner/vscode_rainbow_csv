@@ -38,11 +38,6 @@ Important: language identifiers in config must be specified in **lower case**! e
 See the list of supported languages/separators in the table.  
 
 
-#### Working with very big files
-
-VS Code disables rainbow syntax highlighting for very big files (more than 300K lines or 20MB), but starting from VS Code version 1.23.1 there is a workaround: add `"editor.largeFileOptimizations": false` to your VS Code settings to highlight large CSV files.  
-All other Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB.
-
 #### CSVLint consistency check
 
 The linter will check the following:  
@@ -57,8 +52,6 @@ To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.
 #### RBQL
 Enter RBQL - SQL-like language query editing mode.
 
-#### QueryHere
-Enter RBQL query without launching RBQL Console. Use only if you have experience with regular RBQL command.  
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
