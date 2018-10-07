@@ -106,6 +106,10 @@
             "title": "RainbowSeparator"
         },
         {
+            "command": "extension.RainbowSeparatorOff",
+            "title": "RainbowSeparatorOff"
+        },
+        {
             "command": "extension.ColumnEditAfter",
             "title": "ColumnEditAfter"
         },

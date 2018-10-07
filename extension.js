@@ -8,7 +8,6 @@ const rainbow_utils = require('./rainbow_utils');
 const rbql = require('./rbql_core/rbql');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
-var autodetection_dialects = ['tsv', 'csv', 'csv (semicolon)']; //FIXME read from user config
 
 var dev_log = null;
 var err_log = null;
@@ -16,8 +15,8 @@ var err_log = null;
 var dbg_counter = 0;
 
 var lint_results = new Map();
-var double_autodetection_failsafe = new Set();
-var sb_item = null;
+var original_language_ids = new Map();
+var lint_status_bar_button = null;
 
 const preview_window_size = 12;
 
@@ -30,7 +29,7 @@ var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
-// FIXME add RBQL statusline button in the next version
+// FIXME add RBQL statusline button
 
 var enable_dev_mode = false;
 var enable_dev_mode = true; //FIXME
@@ -508,7 +507,7 @@ function set_rainbow_separator() {
     var active_doc = get_active_doc();
     if (!active_doc)
         return;
-    double_autodetection_failsafe.add(active_doc.fileName);
+    original_language_ids.set(active_doc.fileName, active_doc.languageId);
     let selection = active_editor.selection;
     if (!selection) {
         show_single_line_error("Selection is empty");
@@ -525,6 +524,25 @@ function set_rainbow_separator() {
         return;
     }
     try_change_document_language(active_doc, language_id);
+}
+
+
+function restore_original_language() {
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    let file_path = active_doc.fileName;
+    if (!original_language_ids.has(file_path)) {
+        show_single_line_error("Unable to restore original language");
+        return;
+    }
+    let original_language_id = original_language_ids.get(file_path);
+    if (!original_language_id || original_language_id == active_doc.languageId) {
+        show_single_line_error("Unable to restore original language");
+        return;
+    }
+    // FIXME also hide the "Rainbow Off" button
+    try_change_document_language(active_doc, original_language_id);
 }
 
 
@@ -764,8 +782,8 @@ function show_linter_state(active_doc) {
         active_doc = get_active_doc();
     if (!active_doc)
         return;
-    if (sb_item)
-        sb_item.hide();
+    if (lint_status_bar_button)
+        lint_status_bar_button.hide();
     if (!active_doc)
         return;
     var language_id = active_doc.languageId;
@@ -775,19 +793,19 @@ function show_linter_state(active_doc) {
     if (!lint_results.has(file_path))
         return;
     var lint_report = lint_results.get(file_path);
-    if (!sb_item)
-        sb_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    sb_item.text = 'CSVLint';
+    if (!lint_status_bar_button)
+        lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    lint_status_bar_button.text = 'CSVLint';
     if (lint_report === 'OK') {
-        sb_item.color = '#62f442';
+        lint_status_bar_button.color = '#62f442';
     } else if (lint_report.indexOf('File is too big') != -1 || lint_report == 'Processing...') {
-        sb_item.color = '#ffff28';
+        lint_status_bar_button.color = '#ffff28';
     } else {
-        sb_item.color = '#f44242';
+        lint_status_bar_button.color = '#f44242';
     }
-    sb_item.tooltip = lint_report + '\nClick to recheck';
-    sb_item.command = 'extension.CSVLint';
-    sb_item.show();
+    lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
+    lint_status_bar_button.command = 'extension.CSVLint';
+    lint_status_bar_button.show();
 }
 
 
@@ -829,9 +847,19 @@ function autodetect_dialect(active_doc) {
     var sampled_lines = sample_lines(active_doc, sample_count);
     if (sampled_lines.length < sample_count)
         return null;
-    for (var i = 0; i < autodetection_dialects.length; i++) {
-        var dialect_id = autodetection_dialects[i];
-        if (!dialect_map.hasOwnProperty(dialect_id)) {
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config)
+        return null;
+    if (config.get('enable_separator_autodetection') === false) {
+        dbg_log('autodetection is disabled in user config');
+        return;
+    }
+    let autodetect_separators = config.get('autodetect_separators');
+    if (!autodetect_separators)
+        return null;
+    for (var i = 0; i < autodetect_separators.length; i++) {
+        var dialect_id = map_separator_to_language_id(autodetect_separators[i]);
+        if (!dialect_id || !dialect_map.hasOwnProperty(dialect_id)) {
             continue;
         }
         var [delim, policy] = dialect_map[dialect_id];
@@ -851,17 +879,17 @@ function autoenable_rainbow_csv(active_doc) {
         return;
     }
     // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
-    var language_id = active_doc.languageId;
-    dbg_log('current language is ' + language_id);
-    if (language_id != 'plaintext')
+    var original_language_id = active_doc.languageId;
+    dbg_log('original language is ' + original_language_id);
+    if (original_language_id != 'plaintext')
         return;
     var file_path = active_doc.fileName;
-    if (double_autodetection_failsafe.has(file_path)) {
+    if (original_language_ids.has(file_path)) {
         dbg_log('autodetection has already been applied to this doc');
         return;
     }
     var rainbow_csv_language_id = autodetect_dialect(active_doc);
-    double_autodetection_failsafe.add(file_path);
+    original_language_ids.set(file_path, original_language_id);
     if (!rainbow_csv_language_id)
         return;
     try_change_document_language(active_doc, rainbow_csv_language_id);
@@ -998,6 +1026,7 @@ function activate(context) {
     var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
+    var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
 
     var switch_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open)
 
@@ -1014,6 +1043,7 @@ function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
+    context.subscriptions.push(rainbow_off_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
