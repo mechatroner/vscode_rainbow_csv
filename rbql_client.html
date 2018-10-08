@@ -40,6 +40,9 @@ input {
     font-style:italic;
 }
 
+.color_span {
+    color: #4CAF50;
+}
 
 #backend_language_change {
     width: 110px;
@@ -206,7 +209,7 @@ input {
     <div>
         <button id="backend_language_change"></button><span id="python_warning"></span><span class="backend_lang_info"> &ndash; RBQL backend language</span>
     </div>
-    <h3>Input SQL-like RBQL query and press Enter. Use a1, a2, a3, ... and NR as column names.</h3>
+    <h3>Input SQL-like RBQL query and press Enter. Use <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span> as column names.</h3>
     <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
     <button id="rbql_run_btn">Run</button><button id="help_btn">?</button>
     <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql-rainbow-query-language-description">github</a></span></div>
