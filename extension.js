@@ -33,6 +33,7 @@ var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
+// FIXME set correct language_id for RBQL result set
 
 var enable_dev_mode = false;
 var enable_dev_mode = true; //FIXME
@@ -482,6 +483,7 @@ function save_new_header(file_path, new_header) {
 }
 
 function try_change_document_language(active_doc, language_id) {
+    // FIXME add param is_manual, otherwise the error would be shown on each failed autodetect in old version, i.e. VERY often
     try {
         vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     } catch (error) {
