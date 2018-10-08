@@ -669,13 +669,6 @@ function handle_rbql_client_message(webview, message) {
         var active_file_path = rbql_context['document'].fileName;
         var init_msg = {'msg_type': 'handshake', 'backend_language': get_rbql_backend_language()};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
-        var customized_colors = get_customized_colors();
-        if (enable_dev_mode && Math.random() > 0.5) {
-            customized_colors = null; // Improves code coverage in dev mode
-        }
-        if (customized_colors) {
-            init_msg['custom_colors'] = customized_colors;
-        }
         if (last_rbql_queries.has(active_file_path)) {
             var last_query_info = last_rbql_queries.get(active_file_path);
             init_msg['last_query'] = last_query_info['query'];
@@ -953,54 +946,6 @@ function assert(condition, message) {
     if (!condition) {
         throw message || "Assertion failed";
     }
-}
-
-
-function get_customized_colors() {
-    var rainbow_rules = ['rainbow1', 'keyword.rainbow2', 'entity.name.function.rainbow3', 'comment.rainbow4', 'string.rainbow5', 'variable.parameter.rainbow6', 'constant.numeric.rainbow7', 'entity.name.type.rainbow8', 'markup.bold.rainbow9', 'invalid.rainbow10']
-    var color_config = vscode.workspace.getConfiguration('editor.tokenColorCustomizations');
-    if (!color_config) {
-        dbg_log('config not found');
-        return null;
-    }
-    var text_mate_rules = color_config['textMateRules'];
-    if (!text_mate_rules) {
-        dbg_log('no text mate rules');
-        return null;
-    }
-    var result = [null, null, null, null, null, null, null, null, null, null];
-    assert(rainbow_rules.length == result.length, 'fail');
-    for (var i = 0; i < text_mate_rules.length; i++) {
-        var rule = text_mate_rules[i];
-        if (!rule) {
-            continue;
-        }
-        var scope = rule['scope'];
-        var idx = rainbow_rules.indexOf(scope);
-        if (idx == -1) {
-            continue;
-        }
-        var settings = rule['settings'];
-        if (!settings) {
-            dbg_log('no settings found for scope ' + scope);
-            continue;
-        }
-        if (!settings.hasOwnProperty('fontStyle')) {
-            if (scope == 'markup.bold.rainbow9') {
-                settings['fontStyle'] = 'bold';
-            } else {
-                settings['fontStyle'] = '';
-            }
-        }
-        result[idx] = settings;
-    }
-    for (var i = 0; i < result.length; i++) {
-        if (!result[i] || !result[i].hasOwnProperty('foreground')) {
-            dbg_log('result entry ' + i + ' is empty');
-            return null;
-        }
-    }
-    return result;
 }
 
 

@@ -4,10 +4,11 @@ var rbql_running = false;
 
 var backend_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
 
-var custom_colors = null;
 var handshake_completed = false;
 
 const vscode = acquireVsCodeApi();
+
+// FIXME highlight header variables in green as in hint label.
 
 function display_backend_language(backend_language) {
     var language_info = null;
@@ -54,7 +55,7 @@ function remove_children(root_node) {
 }
 
 
-function make_preview_table(customized_colors, records) {
+function make_preview_table(records) {
     var table = document.getElementById('preview_table');
     remove_children(table);
     for (var nr = 0; nr < records.length; nr++) {
@@ -62,18 +63,6 @@ function make_preview_table(customized_colors, records) {
         table.appendChild(row);
         for (var nf = 0; nf < records[nr].length; nf++) {
             var cell = document.createElement('td');
-            if (customized_colors && nf > 0) {
-                var foreground = customized_colors[(nf - 1) % 10]['foreground'];
-                var font_style = customized_colors[(nf - 1) % 10]['fontStyle'];
-                cell.style.color = foreground;
-                if (font_style == 'bold') {
-                    cell.style.fontWeight = 'bold';
-                } else if (font_style == 'italic') {
-                    cell.style.fontStyle = 'italic';
-                } else if (font_style == 'underline') {
-                    cell.style.textDecoration = 'underline';
-                }
-            }
             if (nf == 0 || nr == 0) {
                 cell.style.border = '1px solid red';
             } else {
@@ -154,15 +143,14 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('last_query')) {
             document.getElementById('rbql_input').value = message['last_query'];
         }
-        custom_colors = message['custom_colors'];
         var window_records = message['window_records'];
-        make_preview_table(custom_colors, window_records);
+        make_preview_table(window_records);
         display_backend_language(message['backend_language']);
     }
 
     if (message_type == 'navigate') {
         let window_records = message['window_records'];
-        make_preview_table(custom_colors, window_records);
+        make_preview_table(window_records);
     }
 
     if (message_type == 'rbql_report') {
