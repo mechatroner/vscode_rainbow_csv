@@ -157,9 +157,6 @@ function handle_message(msg_event) {
         custom_colors = message['custom_colors'];
         var window_records = message['window_records'];
         make_preview_table(custom_colors, window_records);
-        if (!custom_colors && Math.random() > 0.9) {
-            document.getElementById("colors_hint").style.display = 'block';
-        }
         display_backend_language(message['backend_language']);
     }
 
