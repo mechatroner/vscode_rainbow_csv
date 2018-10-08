@@ -23,21 +23,6 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 |CSV (pipe)    | &#124; (pipe)  | NO                                              | |
 
 
-#### Customizing file extension - separator association
-If you often work with spreadsheet files with one specific extension, you can associate that extension with one of the supported separators.  
-For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code config:  
-
-```
-"files.associations": {
-    "*.dat": "csv (pipe)",
-    "*.csv": "csv (semicolon)"
-},
-```
-
-Important: language identifiers in config must be specified in **lower case**! e.g. `csv (semicolon)`, but not `CSV (semicolon)`.  
-See the list of supported languages/separators in the table.  
-
-
 #### CSVLint consistency check
 
 The linter will check the following:  
@@ -45,7 +30,7 @@ The linter will check the following:
 * consistency of number of fields per CSV row  
 
 To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
-To recheck a csv file click on "CSVLint" button or run `CSV Lint` command.  
+To recheck a csv file click on "CSVLint" button.
 
 ### Commands:
 
