@@ -8,7 +8,6 @@ var handshake_completed = false;
 
 const vscode = acquireVsCodeApi();
 
-// FIXME highlight header variables in green as in hint label.
 
 function display_backend_language(backend_language) {
     var language_info = null;
@@ -67,6 +66,9 @@ function make_preview_table(records) {
                 cell.style.border = '1px solid red';
             } else {
                 cell.style.border = '1px solid rgb(130, 6, 219)';
+            }
+            if (nr == 0) {
+                cell.style.color = '#4CAF50';
             }
             cell.textContent = records[nr][nf];
             row.appendChild(cell);
