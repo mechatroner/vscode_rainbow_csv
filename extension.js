@@ -206,9 +206,102 @@ function get_active_doc(active_editor=null) {
 }
 
 
+function show_lint_status_bar_button(file_path) {
+    if (!lint_results.has(file_path))
+        return;
+    var lint_report = lint_results.get(file_path);
+    if (!lint_status_bar_button)
+        lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    lint_status_bar_button.text = 'CSVLint';
+    if (lint_report === 'OK') {
+        lint_status_bar_button.color = '#62f442';
+    } else if (lint_report.indexOf('File is too big') != -1 || lint_report == 'Processing...') {
+        lint_status_bar_button.color = '#ffff28';
+    } else {
+        lint_status_bar_button.color = '#f44242';
+    }
+    lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
+    lint_status_bar_button.command = 'extension.CSVLint';
+    lint_status_bar_button.show();
+}
+
+
+function show_rainbow_off_status_bar_button(file_path) {
+    let original_language_id = original_language_ids.get(file_path);
+    if (!original_language_id) {
+        return;
+    }
+    if (!rainbow_off_status_bar_button)
+        rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    rainbow_off_status_bar_button.text = 'Rainbow OFF';
+    rainbow_off_status_bar_button.tooltip = 'Click to restore original file type and syntax';
+    rainbow_off_status_bar_button.command = 'extension.RainbowSeparatorOff';
+    rainbow_off_status_bar_button.show();
+}
+
+
+function show_rbql_status_bar_button() {
+    if (!rbql_status_bar_button)
+        rbql_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    rbql_status_bar_button.text = 'RBQL';
+    rbql_status_bar_button.tooltip = 'Click to run RBQL query';
+    rbql_status_bar_button.command = 'extension.RBQL';
+    rbql_status_bar_button.show();
+}
+
+
+function refresh_status_bar_buttons(active_doc=null) {
+    if (!active_doc)
+        active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button];
+    for (let i = 0; i < all_buttons.length; i++) {
+        if (all_buttons[i])
+            all_buttons[i].hide();
+    }
+    var language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    var file_path = active_doc.fileName;
+    show_lint_status_bar_button(file_path);
+    show_rbql_status_bar_button();
+    show_rainbow_off_status_bar_button(file_path);
+}
+
+
+function csv_lint(active_doc, is_manual_op) {
+    if (!active_doc)
+        active_doc = get_active_doc();
+    if (!active_doc)
+        return false;
+    var file_path = active_doc.fileName;
+    if (!file_path)
+        return false;
+    var language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return false;
+    if (!is_manual_op) {
+        if (lint_results.has(file_path))
+            return false;
+        const config = vscode.workspace.getConfiguration('rainbow_csv');
+        if (config && config.get('enable_auto_csv_lint') === false)
+            return false;
+    }
+    lint_results.set(file_path, 'Processing...');
+    refresh_status_bar_buttons(active_doc); // Visual feedback
+    var delim = dialect_map[language_id][0];
+    var policy = dialect_map[language_id][1];
+    var max_check_size = is_manual_op ? null : 50000;
+    var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
+    lint_results.set(file_path, lint_report);
+    return true;
+}
+
+
 function csv_lint_cmd() {
     // TODO re-run on each file save with content change
-    csv_lint(false, null);
+    csv_lint(null, true);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
     setTimeout(refresh_status_bar_buttons, 500);
 }
@@ -482,13 +575,13 @@ function save_new_header(file_path, new_header) {
     global_state.update(file_path, new_header);
 }
 
-function try_change_document_language(active_doc, language_id) {
-    // FIXME add param is_manual, otherwise the error would be shown on each failed autodetect in old version, i.e. VERY often
+function try_change_document_language(active_doc, language_id, is_manual_op) {
     try {
         vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     } catch (error) {
         dbg_log('Unable to change language: ' + error);
-        show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
+        if (is_manual_op)
+            show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
         return false;
     }
     return true;
@@ -518,8 +611,9 @@ function set_rainbow_separator() {
         show_single_line_error("Selected separator is not supported");
         return;
     }
-    if (try_change_document_language(active_doc, language_id)) {
+    if (try_change_document_language(active_doc, language_id, true)) {
         original_language_ids.set(active_doc.fileName, original_language_id);
+        csv_lint(active_doc, false);
         refresh_status_bar_buttons(active_doc);
     }
 }
@@ -539,7 +633,7 @@ function restore_original_language() {
         show_single_line_error("Unable to restore original language");
         return;
     }
-    if (try_change_document_language(active_doc, original_language_id)) {
+    if (try_change_document_language(active_doc, original_language_id, true)) {
         original_language_ids.delete(file_path);
         refresh_status_bar_buttons(active_doc);
     }
@@ -565,11 +659,6 @@ function edit_column_names() {
     var handle_success = function(new_header) { save_new_header(file_path, new_header); }
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
-}
-
-
-function is_double_quoted(entry) {
-    return entry.length >= 2 && entry.charAt(0) == '"' && entry.charAt(entry.length - 1) == '"';
 }
 
 
@@ -741,100 +830,6 @@ function get_rbql_backend_language() {
 }
 
 
-function csv_lint(autolint, active_doc) {
-    if (autolint) {
-        const config = vscode.workspace.getConfiguration('rainbow_csv');
-        if (config && config.get('enable_auto_csv_lint') === false)
-            return false;
-    }
-    if (!active_doc)
-        active_doc = get_active_doc();
-    if (!active_doc)
-        return false;
-    var file_path = active_doc.fileName;
-    if (!file_path)
-        return false;
-    var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return false;
-    if (autolint && lint_results.has(file_path))
-        return false;
-    lint_results.set(file_path, 'Processing...');
-    refresh_status_bar_buttons(active_doc); // Visual feedback
-    var delim = dialect_map[language_id][0];
-    var policy = dialect_map[language_id][1];
-    var max_check_size = autolint ? 50000 : null;
-    var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
-    lint_results.set(file_path, lint_report);
-    return true;
-}
-
-
-function show_lint_status_bar_button(file_path) {
-    if (!lint_results.has(file_path))
-        return;
-    var lint_report = lint_results.get(file_path);
-    if (!lint_status_bar_button)
-        lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    lint_status_bar_button.text = 'CSVLint';
-    if (lint_report === 'OK') {
-        lint_status_bar_button.color = '#62f442';
-    } else if (lint_report.indexOf('File is too big') != -1 || lint_report == 'Processing...') {
-        lint_status_bar_button.color = '#ffff28';
-    } else {
-        lint_status_bar_button.color = '#f44242';
-    }
-    lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
-    lint_status_bar_button.command = 'extension.CSVLint';
-    lint_status_bar_button.show();
-}
-
-
-function show_rainbow_off_status_bar_button(file_path) {
-    let original_language_id = original_language_ids.get(file_path);
-    if (!original_language_id) {
-        return;
-    }
-    if (!rainbow_off_status_bar_button)
-        rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rainbow_off_status_bar_button.text = 'Rainbow OFF';
-    rainbow_off_status_bar_button.tooltip = 'Click to restore original file type and syntax';
-    rainbow_off_status_bar_button.command = 'extension.RainbowSeparatorOff';
-    rainbow_off_status_bar_button.show();
-}
-
-
-function show_rbql_status_bar_button() {
-    if (!rbql_status_bar_button)
-        rbql_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rbql_status_bar_button.text = 'RBQL';
-    rbql_status_bar_button.tooltip = 'Click to run RBQL query';
-    rbql_status_bar_button.command = 'extension.RBQL';
-    rbql_status_bar_button.show();
-}
-
-
-function refresh_status_bar_buttons(active_doc=null) {
-    if (!active_doc)
-        active_doc = get_active_doc();
-    if (!active_doc)
-        return;
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button];
-    for (let i = 0; i < all_buttons.length; i++) {
-        if (all_buttons[i])
-            all_buttons[i].hide();
-    }
-    var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return;
-    var file_path = active_doc.fileName;
-    show_lint_status_bar_button(file_path);
-    show_rbql_status_bar_button();
-    show_rainbow_off_status_bar_button(file_path);
-}
-
-
-
 function sample_lines(active_doc, max_sample_count) {
     var num_lines = active_doc.lineCount;
     var result = [];
@@ -901,53 +896,41 @@ function autoenable_rainbow_csv(active_doc) {
         return;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (config && config.get('enable_separator_autodetection') === false) {
-        dbg_log('autodetection is disabled in user config');
         return;
     }
     // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
     var original_language_id = active_doc.languageId;
-    dbg_log('original language is ' + original_language_id);
     if (original_language_id != 'plaintext')
         return;
     var file_path = active_doc.fileName;
     if (autodetected_docs.has(file_path)) {
-        dbg_log('autodetection has already been applied to this doc');
         return;
     }
     autodetected_docs.add(file_path);
     var rainbow_csv_language_id = autodetect_dialect(active_doc);
     if (!rainbow_csv_language_id)
         return;
-    if (try_change_document_language(active_doc, rainbow_csv_language_id)) {
+    if (try_change_document_language(active_doc, rainbow_csv_language_id, false)) {
         original_language_ids.set(file_path, original_language_id);
+        csv_lint(active_doc, false);
         refresh_status_bar_buttons(active_doc);
     }
 }
 
 
-function init_current_editor(active_doc) {
-    autoenable_rainbow_csv(active_doc);
-    csv_lint(true, active_doc);
+function handle_editor_switch(editor) {
+    dbg_counter += 1;
+    let active_doc = get_active_doc(editor);
+    csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
-}
-
-
-function update_status_bar(editor) {
-    refresh_status_bar_buttons(get_active_doc(editor));
 }
 
 
 function handle_doc_open(active_doc) {
     dbg_counter += 1;
-    dbg_log('doc opened ' + dbg_counter);
-    init_current_editor(active_doc);
-}
-
-
-function assert(condition, message) {
-    if (!condition) {
-        throw message || "Assertion failed";
-    }
+    autoenable_rainbow_csv(active_doc);
+    csv_lint(active_doc, false);
+    refresh_status_bar_buttons(active_doc);
 }
 
 
@@ -970,8 +953,6 @@ function activate(context) {
     if (config && config.get('enable_dev_mode')) {
         enable_dev_mode = true;
     }
-
-    //dbg_log('Activating "rainbow_csv"');
 
     global_state = context.globalState;
 
@@ -1015,7 +996,7 @@ function activate(context) {
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
-    var switch_event = vscode.window.onDidChangeActiveTextEditor(update_status_bar);
+    var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
     context.subscriptions.push(csv_provider);
     context.subscriptions.push(tsv_provider);
@@ -1037,7 +1018,7 @@ function activate(context) {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
         // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus
         var active_doc = get_active_doc();
-        init_current_editor(active_doc);
+        handle_doc_open(active_doc);
     }, 1000);
 
 }
