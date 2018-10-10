@@ -33,8 +33,6 @@ var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
-// FIXME set correct language_id for RBQL result set
-
 var enable_dev_mode = false;
 var enable_dev_mode = true; //FIXME
 
@@ -371,6 +369,7 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 function finish_rbql_success(dst_table_path, warnings) {
     var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
     var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
+    // TODO set correct language id
     vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
 }
 
@@ -830,33 +829,24 @@ function get_rbql_backend_language() {
 }
 
 
-function sample_lines(active_doc, max_sample_count) {
+function is_delimited_table(active_doc, delim, policy) {
     var num_lines = active_doc.lineCount;
-    var result = [];
-    for (var lnum = 0; lnum < num_lines && lnum < max_sample_count; lnum++) {
+    if (num_lines < 10)
+        return false;
+    let num_fields = null;
+    for (var lnum = 0; lnum < num_lines; lnum++) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        result.push(line_text);
-    }
-    return result;
-}
-
-
-function is_delimited_table(sampled_lines, delim, policy) {
-    if (sampled_lines.length < 2)
-        return false;
-    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, true);
-    if (split_result[1])
-        return false;
-    var num_fields = split_result[0].length;
-    if (num_fields < 2)
-        return false;
-    for (var i = 1; i < sampled_lines.length; i++) {
-        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, true);
-        if (split_result[1])
-            return false;
-        if (split_result[0].length != num_fields)
+        let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
+        if (warning)
+            return false; // TODO don't fail on warnings in future versions
+        if (num_fields === null) {
+            num_fields = fields.length;
+            if (num_fields < 2)
+                return false;
+        }
+        if (num_fields != fields.length)
             return false;
     }
     return true;
@@ -864,19 +854,11 @@ function is_delimited_table(sampled_lines, delim, policy) {
 
 
 function autodetect_dialect(active_doc) {
-    const sample_count = 10;
-    var sampled_lines = sample_lines(active_doc, sample_count);
-    if (sampled_lines.length < sample_count)
-        return null;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (!config)
         return null;
-    if (config.get('enable_separator_autodetection') === false) {
-        dbg_log('autodetection is disabled in user config');
-        return;
-    }
     let autodetect_separators = config.get('autodetect_separators');
-    if (!autodetect_separators)
+    if (!autodetect_separators || config.get('enable_separator_autodetection') === false)
         return null;
     for (var i = 0; i < autodetect_separators.length; i++) {
         var dialect_id = map_separator_to_language_id(autodetect_separators[i]);
@@ -884,7 +866,7 @@ function autodetect_dialect(active_doc) {
             continue;
         }
         var [delim, policy] = dialect_map[dialect_id];
-        if (is_delimited_table(sampled_lines, delim, policy))
+        if (is_delimited_table(active_doc, delim, policy))
             return dialect_id;
     }
     return null;
