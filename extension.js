@@ -853,15 +853,9 @@ function is_delimited_table(active_doc, delim, policy) {
 }
 
 
-function autodetect_dialect(active_doc) {
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (!config)
-        return null;
-    let autodetect_separators = config.get('autodetect_separators');
-    if (!autodetect_separators || config.get('enable_separator_autodetection') === false)
-        return null;
-    for (var i = 0; i < autodetect_separators.length; i++) {
-        var dialect_id = map_separator_to_language_id(autodetect_separators[i]);
+function autodetect_dialect(active_doc, candidate_separators) {
+    for (var i = 0; i < candidate_separators.length; i++) {
+        var dialect_id = map_separator_to_language_id(candidate_separators[i]);
         if (!dialect_id || !dialect_map.hasOwnProperty(dialect_id)) {
             continue;
         }
@@ -877,9 +871,9 @@ function autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config && config.get('enable_separator_autodetection') === false) {
-        return;
-    }
+    if (!config || !config.get('enable_separator_autodetection'))
+        return
+    let candidate_separators = config.get('autodetect_separators');
     // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
     var original_language_id = active_doc.languageId;
     if (original_language_id != 'plaintext')
@@ -889,7 +883,7 @@ function autoenable_rainbow_csv(active_doc) {
         return;
     }
     autodetected_docs.add(file_path);
-    var rainbow_csv_language_id = autodetect_dialect(active_doc);
+    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id)
         return;
     if (try_change_document_language(active_doc, rainbow_csv_language_id, false)) {
