@@ -11,7 +11,8 @@
 
 ## Usage
 
-If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)
+If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)  
+Another way to do this: select one separator character with mouse cursor -> right click -> "Set as Rainbow separator"  
 
 #### Supported separators
 
@@ -21,6 +22,11 @@ If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
 |CSV (semicolon) | ; (semicolon)  | YES                                              | |
 |CSV (pipe)    | &#124; (pipe)  | NO                                              | |
+
+
+#### Content-based separator autodetection
+Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
+You can adjust autodetection parameters or disable it in Rainbow CSV extension settings section.  
 
 
 #### CSVLint consistency check

@@ -34,7 +34,6 @@ var mock_script_path = null;
 var rbql_exec_path = null;
 
 var enable_dev_mode = false;
-var enable_dev_mode = true; //FIXME
 
 var client_js_template = null;
 var client_html_template = null;

@@ -103,7 +103,7 @@
         },
         {
             "command": "extension.RainbowSeparator",
-            "title": "RainbowSeparator"
+            "title": "Set as Rainbow separator"
         },
         {
             "command": "extension.RainbowSeparatorOff",
