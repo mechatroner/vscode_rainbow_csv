@@ -68,7 +68,7 @@ function make_preview_table(records) {
                 cell.style.border = '1px solid rgb(130, 6, 219)';
             }
             if (nr == 0) {
-                cell.style.color = '#B6B5FF';
+                cell.style.color = '#FF6868';
                 cell.style.fontWeight = 'bold';
             }
             cell.textContent = records[nr][nf];
