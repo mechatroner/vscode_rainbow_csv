@@ -193,9 +193,10 @@ function get_active_editor() {
 
 
 function get_active_doc(active_editor=null) {
-    if (!active_editor) {
+    if (!active_editor)
         active_editor = get_active_editor();
-    }
+    if (!active_editor)
+        return null;
     var active_doc = active_editor.document;
     if (!active_doc)
         return null;
