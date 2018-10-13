@@ -2,7 +2,7 @@
     "name": "rainbow-csv",
     "displayName": "Rainbow CSV",
     "description": "Highlight CSV and TSV files in different colors, Run SQL-like queries",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "publisher": "mechatroner",
     "icon": "rainbow_csv_logo.png",
     "engines": {
