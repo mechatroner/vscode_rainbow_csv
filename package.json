@@ -83,34 +83,42 @@
         }],
         "commands": [{
             "command": "extension.CSVLint",
+            "category": "Rainbow CSV",
             "title": "CSV Lint"
         },
         {
             "command": "extension.SetVirtualHeader",
+            "category": "Rainbow CSV",
             "title": "SetVirtualHeader"
         },
         {
             "command": "extension.RBQL",
+            "category": "Rainbow CSV",
             "title": "RBQL"
         },
         {
             "command": "extension.ColumnEditBefore",
+            "category": "Rainbow CSV",
             "title": "ColumnEditBefore"
         },
         {
             "command": "extension.ColumnEditSelect",
+            "category": "Rainbow CSV",
             "title": "ColumnEditSelect"
         },
         {
             "command": "extension.RainbowSeparator",
+            "category": "Rainbow CSV",
             "title": "Set as Rainbow separator"
         },
         {
             "command": "extension.RainbowSeparatorOff",
+            "category": "Rainbow CSV",
             "title": "RainbowSeparatorOff"
         },
         {
             "command": "extension.ColumnEditAfter",
+            "category": "Rainbow CSV",
             "title": "ColumnEditAfter"
         },
         {
