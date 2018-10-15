@@ -5,7 +5,7 @@ const os = require('os');
 const child_process = require('child_process');
 
 const rainbow_utils = require('./rainbow_utils');
-const rbql = require('./rbql_core/rbql');
+const rbql = require('./rbql_core/rbql-js/rbql');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
 
@@ -935,7 +935,7 @@ function activate(context) {
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
-    rbql_exec_path = context.asAbsolutePath('vscode_rbql.py');
+    rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
 
     var csv_provider = vscode.languages.registerHoverProvider('csv', {
         provideHover(document, position, token) {

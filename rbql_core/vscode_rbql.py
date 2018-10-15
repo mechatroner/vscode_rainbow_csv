@@ -11,8 +11,7 @@ import subprocess
 import argparse
 import json
 
-import rbql_core
-from rbql_core import rbql
+import rbql
 
 
 def report_error_and_exit(error_type, error_details):
