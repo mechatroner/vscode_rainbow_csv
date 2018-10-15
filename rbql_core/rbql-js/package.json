@@ -1,0 +1,22 @@
+{
+  "name": "rbql",
+  "version": "0.2.0",
+  "description": "Rainbow Query Language",
+  "main": "rbql.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mechatroner/rbql-js.git"
+  },
+  "author": "Dmitry Ignatovich",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mechatroner/rbql-js/issues"
+  },
+  "homepage": "https://rbql.org",
+  "bin": {
+    "rbql-js": "./cli_rbql.js"
+  }
+}

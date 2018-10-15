@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
@@ -35,9 +36,6 @@ function normalize_cli_key(cli_key) {
 
 function parse_cmd_args(cmd_args, scheme) {
     var result = {};
-    if (cmd_args.length < 2 || !cmd_args[0].endsWith('node')) {
-        die('script must be envoked like this: "/path/to/node cli_rbql.js arg1 arg2 ..."');
-    }
     for (var arg_key in scheme) {
         var arg_info = scheme[arg_key];
         if (arg_info.hasOwnProperty('default'))
@@ -160,6 +158,7 @@ function handle_worker_failure(error_msg) {
 
 
 function run_with_js(args) {
+    // FIXME handle exceptions and report in CLI-friendly way
     var delim = normalize_delim(args['delim']);
     var policy = args['policy'];
     if (!policy) {

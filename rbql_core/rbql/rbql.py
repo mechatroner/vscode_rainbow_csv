@@ -390,6 +390,8 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
+        if re.search(r'[^!=]=[^=]', where_expression) is not None:
+            raise RBParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="')
         py_meta_params['__RBQLMP__where_expression'] = combine_string_literals(where_expression, string_literals)
     else:
         py_meta_params['__RBQLMP__where_expression'] = 'True'

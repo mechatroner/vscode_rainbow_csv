@@ -157,7 +157,7 @@ function parse_join_expression(src) {
     var rgx = /^ *([^ ]+) +on +([ab][0-9]+) *== *([ab][0-9]+) *$/i;
     var match = rgx.exec(src);
     if (match === null) {
-        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
+        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
     }
     var table_id = match[1];
     var avar = match[2];
@@ -166,7 +166,7 @@ function parse_join_expression(src) {
         [avar, bvar] = [bvar, avar];
     }
     if (avar.charAt(0) != 'a' || bvar.charAt(0) != 'b') {
-        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
+        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
     }
     avar = avar.substr(1);
     bvar = bvar.substr(1);
@@ -449,6 +449,9 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
 
     if (rb_actions.hasOwnProperty(WHERE)) {
         var where_expression = rb_actions[WHERE]['text'];
+        if (/[^!=]=[^=]/.exec(where_expression)) {
+            throw new RBParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "==" or "==="');
+        }
         js_meta_params['__RBQLMP__where_expression'] = combine_string_literals(where_expression, string_literals);
     } else {
         js_meta_params['__RBQLMP__where_expression'] = 'true';

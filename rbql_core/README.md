@@ -50,24 +50,7 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 * It is illegal to use aggregate functions inside Python (or JS) expressions. Although you can use expressions inside aggregate functions.
   E.g. `MAX(float(a1) / 1000)` - legal; `MAX(a1) / 1000` - illegal.
 
-
 ### Examples of RBQL queries
-
-#### With JavaScript expressions
-
-* `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)`
-* `select * order by Math.random()` - random sort, this is an equivalent of bash command _sort -R_
-* `select top 20 a1.length / 10, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
-* `select a1.length / 10, a2 where ["car", "plane", "boat"].indexOf(a2) > -1 limit 20`
-* `update set a3 = 'US' where a3.indexOf('of America') != -1`
-* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
-* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
-* `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
-* `select NR, *` - enumerate lines, NR is 1-based
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
-* `select distinct count a1.length where a2 != 'US'`
-* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
-
 
 #### With Python expressions
 
@@ -83,6 +66,21 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
 * `select distinct count len(a1) where a2 != 'US'`
+* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
+
+#### With JavaScript expressions
+
+* `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)`
+* `select * order by Math.random()` - random sort, this is an equivalent of bash command _sort -R_
+* `select top 20 a1.length / 10, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
+* `select a1.length / 10, a2 where ["car", "plane", "boat"].indexOf(a2) > -1 limit 20`
+* `update set a3 = 'US' where a3.indexOf('of America') != -1`
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select NR, *` - enumerate lines, NR is 1-based
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
+* `select distinct count a1.length where a2 != 'US'`
 * `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
 
 
@@ -138,27 +136,10 @@ It should be: RBQL scripts have only 1000 - 2000 lines combined (depending on ho
 There is no complex logic, even query parsing functions are very simple. If something goes wrong RBQL will show an error instead of producing incorrect output, also there are currently 5 different warning types.
 
 
-### Standalone CLI Apps
+### References
 
-You can also use two standalone RBQL Apps: with JavaScript and Python backends
+This repository includes source code of two independent RBQL implementations:
 
-#### rbql-js
-Installation:
-```
-$ npm i rbql
-```
-Usage:
-```
-$ rbql-js --query "select a1, a2 order by a1" < input.tsv
-```
-
-#### rbql-py
-Installation:
-```
-$ pip install rbql
-```
-Usage:
-```
-$ rbql-py --query "select a1, a2 order by a1" < input.tsv
-```
+* JavaScript-based RBQL: [rbql-js](https://github.com/mechatroner/rbql-js)
+* Python-based RBQL: [rbql-py](https://github.com/mechatroner/rbql-py)
 

@@ -10,7 +10,7 @@ import tempfile
 import subprocess
 import argparse
 
-import rbql
+from . import rbql
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)

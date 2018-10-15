@@ -17,7 +17,7 @@ import io
 import subprocess
 
 import rbql
-import rbql_utils
+from rbql import rbql_utils
 
 #This module must be both python2 and python3 compatible
 
@@ -195,7 +195,7 @@ def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encod
     dst_table_filename = '{}.tsv'.format(rnd_string)
     output_path = os.path.join(tmp_dir, dst_table_filename)
     assert not os.path.exists(output_path)
-    cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
+    cli_rbql_js_path = os.path.join(script_dir, 'rbql-js', 'cli_rbql.js')
 
     cmd = ['node', cli_rbql_js_path, '--delim', delim, '--policy', policy, '--input_table_path', input_path, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--output_table_path', output_path, '--error_format', 'json']
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -215,7 +215,7 @@ def run_conversion_test_js(*args, **kwargs):
 
 
 def do_run_conversion_test_js(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, csv_encoding=default_csv_encoding):
-    cli_rbql_js_path = os.path.join(script_dir, 'cli_rbql.js')
+    cli_rbql_js_path = os.path.join(script_dir, 'rbql-js', 'cli_rbql.js')
     src = table_to_string(input_table, input_delim, input_policy)
     cmd = ['node', cli_rbql_js_path, '--delim', input_delim, '--policy', input_policy, '--csv_encoding', csv_encoding, '--query', query.encode('utf-8'), '--out_delim', output_delim, '--out_policy', output_policy, '--error_format', 'json']
 
@@ -1314,6 +1314,80 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
+
+    def test_run30(self):
+        test_name = 'test30'
+
+        input_table = list()
+        input_table.append(['5', 'haha', 'hoho'])
+        input_table.append(['-20', 'haha', 'hioho'])
+        input_table.append(['50', 'haha', 'dfdf'])
+        input_table.append(['20', 'haha', ''])
+
+        canonic_table = list()
+        canonic_table.append(['2'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = 'select NR where a3 == "hioho"'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = 'select NR where a3 == "hioho"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run31(self):
+        test_name = 'test31'
+
+        input_table = list()
+        input_table.append(['5', 'haha', 'hoho'])
+        input_table.append(['-20', 'haha', 'hioho'])
+        input_table.append(['50', 'haha', 'dfdf'])
+        input_table.append(['20', 'haha', ''])
+
+        canonic_table = list()
+        canonic_table.append(['2'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = 'select NR where a3 = "hioho"'
+        with self.assertRaises(Exception) as cm:
+            test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        e = cm.exception
+        self.assertTrue(str(e).find('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="') != -1)
+
+        if TEST_JS:
+            query = 'select NR where a3 = "hioho"'
+            with self.assertRaises(Exception) as cm:
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            e = cm.exception
+            self.assertTrue(str(e).find('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "==" or "==="') != -1)
+
+
+    def test_run32(self):
+        test_name = 'test32'
+
+        input_table = list()
+        input_table.append(['5', 'haha', 'hoho'])
+        input_table.append(['-20', 'haha', 'hioho'])
+        input_table.append(['50', 'haha', 'dfdf'])
+        input_table.append(['20', 'haha', ''])
+
+        canonic_table = list()
+        canonic_table.append(['2'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        if TEST_JS:
+            query = 'select NR where a3 === "hioho"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
 

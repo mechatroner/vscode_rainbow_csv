@@ -1,9 +1,9 @@
 const fs = require('fs');
 const readline = require('readline');
 
-const rbql_utils = require('./rbql-js/rbql_utils.js');
-const cli_rbql = require('./rbql-js/cli_rbql.js');
-const rbql = require('./rbql-js/rbql.js')
+const rbql_utils = require('./rbql_utils.js');
+const cli_rbql = require('./cli_rbql.js');
+const rbql = require('./rbql.js')
 
 
 function arrays_are_equal(a, b) {
