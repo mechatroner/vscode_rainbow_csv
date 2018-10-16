@@ -128,7 +128,7 @@ function make_hover_text(document, position, language_id) {
 
     if (col_num == null)
         return null;
-    var result = 'Col# ' + (col_num + 1);
+    var result = 'Col #' + (col_num + 1);
 
     var header = get_header(document, delim, policy);
     if (col_num < header.length) {
