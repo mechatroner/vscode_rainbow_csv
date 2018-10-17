@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const readline = require('readline')
 const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
@@ -923,6 +924,34 @@ function quoted_join(fields, delim) {
     return quoted_fields.join(delim);
 }
 
+function sample(uri) {
+    var filePath = uri.fsPath;
+
+    var sizeLimit = 102400; // KB
+    var fileSizeInBytes = fs.statSync(filePath)['size'];
+    if (fileSizeInBytes < sizeLimit) {
+        return;
+    }
+
+    var rl = readline.createInterface({
+        input: fs.createReadStream(filePath, {
+            start: 0,
+            end: sizeLimit
+        }),
+        crlfDelay: Infinity
+    });
+
+    var lines = [];
+
+    rl.on('line', (line) => {
+        lines.push(line);
+    });
+
+    rl.on('close', () => {
+        lines.pop();
+        fs.writeFileSync(filePath.replace('.csv', '.sample.csv'), lines.join(os.EOL));
+    });
+}
 
 function activate(context) {
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -970,6 +999,7 @@ function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
+    var sample_cmd = vscode.commands.registerCommand('extension.sample', sample);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -989,6 +1019,7 @@ function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
+    context.subscriptions.push(sample_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document

@@ -59,7 +59,14 @@
                 "when": "editorHasSelection",
                 "command": "extension.RainbowSeparator",
                 "group": "rainbow_csv"
-            }]
+            }],
+            "explorer/context": [
+                {
+                    "when": "resourceLangId == csv",
+                    "command": "extension.sample",
+                    "group": "navigation"
+                }
+            ]
         },
         "languages": [{
             "id": "csv",
