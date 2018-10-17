@@ -1,14 +1,14 @@
-const vscode = require('vscode');
-const fs = require('fs');
-const readline = require('readline')
-const path = require('path');
-const os = require('os');
 const child_process = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const readline = require('readline')
+const vscode = require('vscode');
 
 const rainbow_utils = require('./rainbow_utils');
 const rbql = require('./rbql_core/rbql-js/rbql');
 
-var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
+var dialect_map = { 'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple'] };
 
 var dev_log = null;
 var err_log = null;
@@ -193,7 +193,7 @@ function get_active_editor() {
 }
 
 
-function get_active_doc(active_editor=null) {
+function get_active_doc(active_editor = null) {
     if (!active_editor)
         active_editor = get_active_editor();
     if (!active_editor)
@@ -249,7 +249,7 @@ function show_rbql_status_bar_button() {
 }
 
 
-function refresh_status_bar_buttons(active_doc=null) {
+function refresh_status_bar_buttons(active_doc = null) {
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
@@ -332,31 +332,31 @@ function handle_rbql_result_file(text_doc, warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return;
-    var handle_success = function(editor) { show_warnings(warnings); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to show open document'); };
+    var handle_success = function (editor) { show_warnings(warnings); };
+    var handle_failure = function (reason) { show_single_line_error('Unable to show open document'); };
     active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
 }
 
 
 
 function run_command(cmd, args, close_and_error_guard, callback_func) {
-    var command = child_process.spawn(cmd, args, {'windowsHide': true});
+    var command = child_process.spawn(cmd, args, { 'windowsHide': true });
     var stdout = '';
     var stderr = '';
-    command.stdout.on('data', function(data) {
-         stdout += data.toString();
+    command.stdout.on('data', function (data) {
+        stdout += data.toString();
     });
-    command.stderr.on('data', function(data) {
-         stderr += data.toString();
+    command.stderr.on('data', function (data) {
+        stderr += data.toString();
     });
-    command.on('close', function(code) {
+    command.on('close', function (code) {
         dbg_log('child_process got "close" event');
         if (!close_and_error_guard['process_reported']) {
             close_and_error_guard['process_reported'] = true;
             callback_func(code, stdout, stderr);
         }
     });
-    command.on('error', function(error) {
+    command.on('error', function (error) {
         dbg_log('child_process got "error" event');
         var error_msg = error ? error.name + ': ' + error.message : '';
         if (!close_and_error_guard['process_reported']) {
@@ -368,8 +368,8 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 
 
 function finish_rbql_success(dst_table_path, warnings) {
-    var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
+    var handle_success = function (new_doc) { handle_rbql_result_file(new_doc, warnings); };
+    var handle_failure = function (reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
     // TODO set correct language id
     vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
 }
@@ -387,12 +387,12 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
         if (stderr.length) {
             error_details += '\nstderr: ' + stderr;
         }
-        report = {"error_type": "Integration", "error_details": error_details};
+        report = { "error_type": "Integration", "error_details": error_details };
     } else {
         try {
             report = JSON.parse(json_report);
         } catch (e) {
-            report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
+            report = { "error_type": "Integration", "error_details": "Report JSON parsing error" };
         }
     }
     report_handler(report);
@@ -426,7 +426,7 @@ function get_last_start_line(document) {
 function get_dst_table_name(input_path, output_delim) {
     var table_name = path.basename(input_path);
     var orig_extension = path.extname(table_name);
-    var delim_ext_map = {'\t': '.tsv', ',': '.csv'};
+    var delim_ext_map = { '\t': '.tsv', ',': '.csv' };
     var dst_extension = '.txt';
     if (delim_ext_map.hasOwnProperty(output_delim)) {
         dst_extension = delim_ext_map[output_delim];
@@ -448,10 +448,10 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
     dbg_log('Worker success');
     remove_if_exists(tmp_worker_module_path);
     let hr_warnings = [];
-    let report = {'result_path': output_path};
+    let report = { 'result_path': output_path };
     if (warnings) {
         hr_warnings = rbql.make_warnings_human_readable(warnings);
-        report['warnings'] = hr_warnings; 
+        report['warnings'] = hr_warnings;
     }
     report_handler(report);
     finish_rbql_success(output_path, hr_warnings);
@@ -460,7 +460,7 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
 
 function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
     dbg_log('Worker failure: ' + error_msg);
-    var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
+    var report = { 'error_type': 'RBQL_backend', 'error_details': error_msg };
     report_handler(report);
 }
 
@@ -482,14 +482,14 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
         rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
         worker_module = require(tmp_worker_module_path);
     } catch (e) {
-        let report = {'error_type': 'RBQL_parsing', 'error_details': String(e)};
+        let report = { 'error_type': 'RBQL_parsing', 'error_details': String(e) };
         report_handler(report);
         return;
     }
-    var handle_success = function(warnings) {
+    var handle_success = function (warnings) {
         handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
     }
-    var handle_failure = function(error_msg) {
+    var handle_failure = function (error_msg) {
         handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
     }
     worker_module.run_on_node(handle_success, handle_failure);
@@ -498,23 +498,23 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
 
 function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
     dbg_log('running query: ' + rbql_query);
-    last_rbql_queries.set(active_file_path, {'query': rbql_query});
+    last_rbql_queries.set(active_file_path, { 'query': rbql_query });
     var cmd = 'python';
     const test_marker = 'test ';
-    let close_and_error_guard = {'process_reported': false};
+    let close_and_error_guard = { 'process_reported': false };
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
         }
         let args = [mock_script_path, rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function (error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
         return;
     }
     if (backend_language == 'js') {
         run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
     } else {
         let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function (error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
     }
 }
 
@@ -539,7 +539,7 @@ function init_rbql_context() {
         delim = dialect_map[language_id][0];
         policy = dialect_map[language_id][1];
     }
-    rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
+    rbql_context = { "document": active_doc, "line": 0, "delim": delim, "policy": policy };
     return true;
 }
 
@@ -547,7 +547,7 @@ function init_rbql_context() {
 function process_rbql_quick(active_file_path, backend_language, query) {
     if (!query)
         return;
-    var report_handler = function(report) {
+    var report_handler = function (report) {
         if (!report)
             return;
         var error_type = report['error_type'];
@@ -655,9 +655,9 @@ function edit_column_names() {
     var old_header = get_header(active_doc, delim, policy);
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = quoted_join(old_header, ',');
-    var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function(new_header) { save_new_header(file_path, new_header); }
-    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
+    var input_box_props = { "prompt": title, "value": old_header_str };
+    var handle_success = function (new_header) { save_new_header(file_path, new_header); }
+    var handle_failure = function (reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
 
@@ -740,9 +740,9 @@ function edit_rbql_quick() {
     var active_file_path = rbql_context['document'].fileName;
     var backend_language = get_rbql_backend_language();
     var title = "Input SQL-like RBQL query [in " + backend_language + "]  ";
-    var handle_success = function(query) { process_rbql_quick(active_file_path, backend_language, query); }
-    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
-    var input_box_props = {"ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..."};
+    var handle_success = function (query) { process_rbql_quick(active_file_path, backend_language, query); }
+    var handle_failure = function (reason) { show_single_line_error('Unable to create input box: ' + reason); };
+    var input_box_props = { "ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..." };
     if (last_rbql_queries.has(active_file_path)) {
         var last_query_info = last_rbql_queries.get(active_file_path);
         input_box_props['value'] = last_query_info['query'];
@@ -758,7 +758,7 @@ function handle_rbql_client_message(webview, message) {
 
     if (message_type == 'handshake') {
         var active_file_path = rbql_context['document'].fileName;
-        var init_msg = {'msg_type': 'handshake', 'backend_language': get_rbql_backend_language()};
+        var init_msg = { 'msg_type': 'handshake', 'backend_language': get_rbql_backend_language() };
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
         if (last_rbql_queries.has(active_file_path)) {
             var last_query_info = last_rbql_queries.get(active_file_path);
@@ -780,14 +780,14 @@ function handle_rbql_client_message(webview, message) {
             rbql_context.line = last_start_line;
         }
         var window_records = sample_preview_records_from_context(rbql_context);
-        webview.postMessage({'msg_type': 'navigate', 'window_records': window_records});
+        webview.postMessage({ 'msg_type': 'navigate', 'window_records': window_records });
     }
 
     if (message_type == 'run') {
         let rbql_query = message['query'];
         let backend_language = message['backend_language'];
-        var report_handler = function(report) {
-            var report_msg = {'msg_type': 'rbql_report', 'report': report};
+        var report_handler = function (report) {
+            var report_msg = { 'msg_type': 'rbql_report', 'report': report };
             webview.postMessage(report_msg);
         }
         var active_file_path = rbql_context['document'].fileName;
@@ -808,7 +808,7 @@ function edit_rbql() {
     if (!init_rbql_context())
         return null;
     // TODO add SetRBQLTableName command
-    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
+    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, { enableScripts: true });
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
     }
@@ -816,7 +816,7 @@ function edit_rbql() {
         client_html_template = fs.readFileSync(client_html_template_path, "utf8");
     }
     preview_panel.webview.html = client_html_template.replace('//__TEMPLATE_JS_CLIENT__', client_js_template);
-    preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
+    preview_panel.webview.onDidReceiveMessage(function (message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
 
 
@@ -913,14 +913,14 @@ function handle_doc_open(active_doc) {
 
 function quote_field(field, delim) {
     if (field.indexOf('"') != -1 || field.indexOf(delim) != -1) {
-        return '"' + field.replace(/"/g, '""')  + '"';
+        return '"' + field.replace(/"/g, '""') + '"';
     }
     return field;
 }
 
 
 function quoted_join(fields, delim) {
-    var quoted_fields = fields.map(function(val) { return quote_field(val, delim); });
+    var quoted_fields = fields.map(function (val) { return quote_field(val, delim); });
     return quoted_fields.join(delim);
 }
 
@@ -994,9 +994,9 @@ function activate(context) {
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
-    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
-    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
-    var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
+    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function () { column_edit('ce_before'); });
+    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function () { column_edit('ce_after'); });
+    var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function () { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
     var sample_cmd = vscode.commands.registerCommand('extension.sample', sample);
@@ -1021,7 +1021,7 @@ function activate(context) {
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_cmd);
 
-    setTimeout(function() {
+    setTimeout(function () {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
         // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus
         var active_doc = get_active_doc();
@@ -1030,13 +1030,10 @@ function activate(context) {
 
 }
 
-
 exports.activate = activate;
-
 
 function deactivate() {
     // This method is called when extension is deactivated
 }
-
 
 exports.deactivate = deactivate;
