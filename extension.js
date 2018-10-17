@@ -927,9 +927,10 @@ function quoted_join(fields, delim) {
 function sample(uri) {
     var filePath = uri.fsPath;
 
-    var sizeLimit = 102400; // KB
+    var sizeLimit = 102400; // 100 KB
     var fileSizeInBytes = fs.statSync(filePath)['size'];
     if (fileSizeInBytes < sizeLimit) {
+        vscode.window.showInformationMessage('No need to cut.')
         return;
     }
 
@@ -949,7 +950,9 @@ function sample(uri) {
 
     rl.on('close', () => {
         lines.pop();
-        fs.writeFileSync(filePath.replace('.csv', '.sample.csv'), lines.join(os.EOL));
+        const outPath = filePath.replace('.csv', '.100kb.csv').replace('.tsv', '.100kb.tsv');
+        fs.writeFileSync(outPath, lines.join(os.EOL));
+        vscode.workspace.openTextDocument(outPath).then(doc => vscode.window.showTextDocument(doc));
     });
 }
 
