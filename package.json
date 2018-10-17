@@ -25,7 +25,8 @@
         "onLanguage:plaintext",
         "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
-        "onCommand:extension.RainbowSeparator"
+        "onCommand:extension.RainbowSeparator",
+        "onCommand:extension.sample"
     ],
     "main": "./extension",
     "contributes": {
@@ -157,6 +158,10 @@
             {
                 "command": "extension.QueryHere",
                 "title": "QueryHere"
+            },
+            {
+                "command": "extension.sample",
+                "title": "Create a Sample CSV"
             }
         ],
         "grammars": [
