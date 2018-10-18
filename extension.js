@@ -1,6 +1,5 @@
 const vscode = require('vscode');
 const fs = require('fs');
-const readline = require('readline')
 const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
@@ -934,25 +933,27 @@ function sample_head(uri) {
         return;
     }
 
-    var rl = readline.createInterface({
-        input: fs.createReadStream(file_path, {
-            start: 0,
-            end: size_limit
-        }),
-        crlfDelay: Infinity
-    });
+    const out_path = path.join(path.dirname(file_path), '.rb_csv_preview.' + path.basename(file_path));
 
-    var lines = [];
+    fs.open(file_path, 'r', (err, fd) => {
+        if (err) {
+            console.log(err.message);
+            return;
+        }
 
-    rl.on('line', (line) => {
-        lines.push(line);
-    });
+        var buffer = Buffer.alloc(size_limit);
+        fs.read(fd, buffer, 0, size_limit, 0, function(err, num) {
+            if (err) {
+                console.log(err.message);
+                return;
+            }
 
-    rl.on('close', () => {
-        lines.pop();
-        const out_path = path.join(path.dirname(file_path), '.rb_csv_preview.' + path.basename(file_path));
-        fs.writeFileSync(out_path, lines.join(os.EOL));
-        vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
+            const buffer_str = buffer.toString();
+            const content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
+            fs.writeFileSync(out_path, content);
+
+            vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
+        });
     });
 }
 
