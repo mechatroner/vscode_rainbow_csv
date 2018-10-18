@@ -26,7 +26,7 @@
         "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
         "onCommand:extension.RainbowSeparator",
-        "onCommand:extension.sample"
+        "onCommand:extension.SampleHead"
     ],
     "main": "./extension",
     "contributes": {
@@ -70,7 +70,7 @@
             "explorer/context": [
                 {
                     "when": "resourceLangId == csv",
-                    "command": "extension.sample",
+                    "command": "extension.SampleHead",
                     "group": "navigation"
                 }
             ]
@@ -160,7 +160,7 @@
                 "title": "QueryHere"
             },
             {
-                "command": "extension.sample",
+                "command": "extension.SampleHead",
                 "title": "Create a Sample CSV"
             }
         ],

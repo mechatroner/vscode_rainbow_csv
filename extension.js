@@ -924,20 +924,20 @@ function quoted_join(fields, delim) {
     return quoted_fields.join(delim);
 }
 
-function sample(uri) {
-    var filePath = uri.fsPath;
+function sample_head(uri) {
+    var file_path = uri.fsPath;
 
-    var sizeLimit = 102400; // 100 KB
-    var fileSizeInBytes = fs.statSync(filePath)['size'];
-    if (fileSizeInBytes < sizeLimit) {
-        vscode.window.showInformationMessage('No need to cut.')
+    var size_limit = 1024000; // ~1MB
+    var file_size_in_bytes = fs.statSync(file_path)['size'];
+    if (file_size_in_bytes < size_limit) {
+        vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
     }
 
     var rl = readline.createInterface({
-        input: fs.createReadStream(filePath, {
+        input: fs.createReadStream(file_path, {
             start: 0,
-            end: sizeLimit
+            end: size_limit
         }),
         crlfDelay: Infinity
     });
@@ -950,9 +950,9 @@ function sample(uri) {
 
     rl.on('close', () => {
         lines.pop();
-        const outPath = filePath.replace('.csv', '.100kb.csv').replace('.tsv', '.100kb.tsv');
-        fs.writeFileSync(outPath, lines.join(os.EOL));
-        vscode.workspace.openTextDocument(outPath).then(doc => vscode.window.showTextDocument(doc));
+        const out_path = path.join(path.dirname(file_path), '.rb_csv_preview.' + path.basename(file_path));
+        fs.writeFileSync(out_path, lines.join(os.EOL));
+        vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
     });
 }
 
@@ -1002,7 +1002,7 @@ function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
-    var sample_cmd = vscode.commands.registerCommand('extension.sample', sample);
+    var sample_cmd = vscode.commands.registerCommand('extension.SampleHead', sample_head);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
