@@ -46,11 +46,7 @@
                 },
                 "rainbow_csv.autodetect_separators": {
                     "type": "array",
-                    "default": [
-                        "\t",
-                        ",",
-                        ";"
-                    ],
+                    "default": ["\t", ",", ";"],
                     "description": "Enables automatic content-based separator autodetection for specified list of separators.",
                     "items": {
                         "type": "string",
@@ -60,13 +56,11 @@
             }
         },
         "menus": {
-            "editor/context": [
-                {
-                    "when": "editorHasSelection",
-                    "command": "extension.RainbowSeparator",
-                    "group": "rainbow_csv"
-                }
-            ],
+            "editor/context": [{
+                "when": "editorHasSelection",
+                "command": "extension.RainbowSeparator",
+                "group": "rainbow_csv"
+            }],
             "explorer/context": [
                 {
                     "when": "resourceLangId == csv",
@@ -75,117 +69,94 @@
                 }
             ]
         },
-        "languages": [
-            {
-                "id": "csv",
-                "aliases": [
-                    "CSV",
-                    "csv"
-                ],
-                "extensions": [
-                    ".csv"
-                ]
-            },
-            {
-                "id": "tsv",
-                "aliases": [
-                    "TSV",
-                    "tsv"
-                ],
-                "extensions": [
-                    ".tsv",
-                    ".tab"
-                ]
-            },
-            {
-                "id": "csv (pipe)",
-                "aliases": [
-                    "CSV (pipe)",
-                    "csv (pipe)"
-                ],
-                "extensions": []
-            },
-            {
-                "id": "csv (semicolon)",
-                "aliases": [
-                    "CSV (semicolon)",
-                    "csv (semicolon)"
-                ],
-                "extensions": []
-            }
-        ],
-        "commands": [
-            {
-                "command": "extension.CSVLint",
-                "category": "Rainbow CSV",
-                "title": "CSV Lint"
-            },
-            {
-                "command": "extension.SetVirtualHeader",
-                "category": "Rainbow CSV",
-                "title": "SetVirtualHeader"
-            },
-            {
-                "command": "extension.RBQL",
-                "category": "Rainbow CSV",
-                "title": "RBQL"
-            },
-            {
-                "command": "extension.ColumnEditBefore",
-                "category": "Rainbow CSV",
-                "title": "ColumnEditBefore"
-            },
-            {
-                "command": "extension.ColumnEditSelect",
-                "category": "Rainbow CSV",
-                "title": "ColumnEditSelect"
-            },
-            {
-                "command": "extension.RainbowSeparator",
-                "category": "Rainbow CSV",
-                "title": "Set as Rainbow separator"
-            },
-            {
-                "command": "extension.RainbowSeparatorOff",
-                "category": "Rainbow CSV",
-                "title": "RainbowSeparatorOff"
-            },
-            {
-                "command": "extension.ColumnEditAfter",
-                "category": "Rainbow CSV",
-                "title": "ColumnEditAfter"
-            },
-            {
-                "command": "extension.QueryHere",
-                "title": "QueryHere"
-            },
-            {
-                "command": "extension.SampleHead",
-                "title": "Create a Sample CSV"
-            }
-        ],
-        "grammars": [
-            {
-                "language": "csv",
-                "scopeName": "text.csv",
-                "path": "./syntaxes/csv.tmLanguage.json"
-            },
-            {
-                "language": "tsv",
-                "scopeName": "text.tsv",
-                "path": "./syntaxes/tsv.tmLanguage.json"
-            },
-            {
-                "language": "csv (pipe)",
-                "scopeName": "text.psv",
-                "path": "./syntaxes/pipe_simple.tmLanguage.json"
-            },
-            {
-                "language": "csv (semicolon)",
-                "scopeName": "text.scsv",
-                "path": "./syntaxes/scsv.tmLanguage.json"
-            }
-        ]
+        "languages": [{
+            "id": "csv",
+            "aliases": ["CSV", "csv"],
+            "extensions": [".csv"]
+        },
+        {
+            "id": "tsv",
+            "aliases": ["TSV", "tsv"],
+            "extensions": [".tsv", ".tab"]
+        },
+        {
+            "id": "csv (pipe)",
+            "aliases": ["CSV (pipe)", "csv (pipe)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (semicolon)",
+            "aliases": ["CSV (semicolon)", "csv (semicolon)"],
+            "extensions": []
+        }],
+        "commands": [{
+            "command": "extension.CSVLint",
+            "category": "Rainbow CSV",
+            "title": "CSV Lint"
+        },
+        {
+            "command": "extension.SetVirtualHeader",
+            "category": "Rainbow CSV",
+            "title": "SetVirtualHeader"
+        },
+        {
+            "command": "extension.RBQL",
+            "category": "Rainbow CSV",
+            "title": "RBQL"
+        },
+        {
+            "command": "extension.ColumnEditBefore",
+            "category": "Rainbow CSV",
+            "title": "ColumnEditBefore"
+        },
+        {
+            "command": "extension.ColumnEditSelect",
+            "category": "Rainbow CSV",
+            "title": "ColumnEditSelect"
+        },
+        {
+            "command": "extension.RainbowSeparator",
+            "category": "Rainbow CSV",
+            "title": "Set as Rainbow separator"
+        },
+        {
+            "command": "extension.RainbowSeparatorOff",
+            "category": "Rainbow CSV",
+            "title": "RainbowSeparatorOff"
+        },
+        {
+            "command": "extension.ColumnEditAfter",
+            "category": "Rainbow CSV",
+            "title": "ColumnEditAfter"
+        },
+        {
+            "command": "extension.QueryHere",
+            "title": "QueryHere"
+        },
+        {
+            "command": "extension.SampleHead",
+            "title": "Create a Sample CSV"
+        }],
+        "grammars": [{
+            "language": "csv",
+            "scopeName": "text.csv",
+            "path": "./syntaxes/csv.tmLanguage.json"
+        },
+        {
+            "language": "tsv",
+            "scopeName": "text.tsv",
+            "path": "./syntaxes/tsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (pipe)",
+            "scopeName": "text.psv",
+            "path": "./syntaxes/pipe_simple.tmLanguage.json"
+        },
+        {
+            "language": "csv (semicolon)",
+            "scopeName": "text.scsv",
+            "path": "./syntaxes/scsv.tmLanguage.json"
+        }]
     },
     "capabilities": {
         "hoverProvider": "true"
