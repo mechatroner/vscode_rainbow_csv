@@ -925,10 +925,15 @@ function quoted_join(fields, delim) {
 
 function sample_head(uri) {
     var file_path = uri.fsPath;
+    if (!file_path || !fs.existsSync(file_path)) {
+        vscode.window.showErrorMessage('Invalid file');
+        return;
+    }
 
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes < size_limit) {
+        vscode.window.showWarningMessage('No need to preview. Showing the original file)');
         vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
     }
@@ -938,6 +943,7 @@ function sample_head(uri) {
     fs.open(file_path, 'r', (err, fd) => {
         if (err) {
             console.log(err.message);
+            vscode.window.showErrorMessage('Unable to preview file');
             return;
         }
 
@@ -945,6 +951,7 @@ function sample_head(uri) {
         fs.read(fd, buffer, 0, size_limit, 0, function(err, num) {
             if (err) {
                 console.log(err.message);
+                vscode.window.showErrorMessage('Unable to preview file');
                 return;
             }
 
