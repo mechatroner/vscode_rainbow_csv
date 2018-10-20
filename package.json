@@ -25,7 +25,8 @@
         "onLanguage:plaintext",
         "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
-        "onCommand:extension.RainbowSeparator"
+        "onCommand:extension.RainbowSeparator",
+        "onCommand:extension.SampleHead"
     ],
     "main": "./extension",
     "contributes": {
@@ -59,7 +60,14 @@
                 "when": "editorHasSelection",
                 "command": "extension.RainbowSeparator",
                 "group": "rainbow_csv"
-            }]
+            }],
+            "explorer/context": [
+                {
+                    "when": "resourceLangId == csv",
+                    "command": "extension.SampleHead",
+                    "group": "navigation"
+                }
+            ]
         },
         "languages": [{
             "id": "csv",
@@ -124,6 +132,10 @@
         {
             "command": "extension.QueryHere",
             "title": "QueryHere"
+        },
+        {
+            "command": "extension.SampleHead",
+            "title": "Create a Sample CSV"
         }],
         "grammars": [{
             "language": "csv",

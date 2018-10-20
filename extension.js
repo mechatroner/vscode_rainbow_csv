@@ -343,10 +343,10 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
     var stdout = '';
     var stderr = '';
     command.stdout.on('data', function(data) {
-         stdout += data.toString();
+        stdout += data.toString();
     });
     command.stderr.on('data', function(data) {
-         stderr += data.toString();
+        stderr += data.toString();
     });
     command.on('close', function(code) {
         dbg_log('child_process got "close" event');
@@ -912,7 +912,7 @@ function handle_doc_open(active_doc) {
 
 function quote_field(field, delim) {
     if (field.indexOf('"') != -1 || field.indexOf(delim) != -1) {
-        return '"' + field.replace(/"/g, '""')  + '"';
+        return '"' + field.replace(/"/g, '""') + '"';
     }
     return field;
 }
@@ -923,6 +923,46 @@ function quoted_join(fields, delim) {
     return quoted_fields.join(delim);
 }
 
+function sample_head(uri) {
+    var file_path = uri.fsPath;
+    if (!file_path || !fs.existsSync(file_path)) {
+        vscode.window.showErrorMessage('Invalid file');
+        return;
+    }
+
+    var size_limit = 1024000; // ~1MB
+    var file_size_in_bytes = fs.statSync(file_path)['size'];
+    if (file_size_in_bytes < size_limit) {
+        vscode.window.showWarningMessage('No need to preview. Showing the original file)');
+        vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
+        return;
+    }
+
+    const out_path = path.join(path.dirname(file_path), '.rb_csv_preview.' + path.basename(file_path));
+
+    fs.open(file_path, 'r', (err, fd) => {
+        if (err) {
+            console.log(err.message);
+            vscode.window.showErrorMessage('Unable to preview file');
+            return;
+        }
+
+        var buffer = Buffer.alloc(size_limit);
+        fs.read(fd, buffer, 0, size_limit, 0, function(err, num) {
+            if (err) {
+                console.log(err.message);
+                vscode.window.showErrorMessage('Unable to preview file');
+                return;
+            }
+
+            const buffer_str = buffer.toString();
+            const content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
+            fs.writeFileSync(out_path, content);
+
+            vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
+        });
+    });
+}
 
 function activate(context) {
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -970,6 +1010,7 @@ function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
+    var sample_cmd = vscode.commands.registerCommand('extension.SampleHead', sample_head);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -989,6 +1030,7 @@ function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
+    context.subscriptions.push(sample_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
