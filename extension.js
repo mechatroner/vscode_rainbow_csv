@@ -464,6 +464,13 @@ function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler
 }
 
 
+function get_error_message(error) {
+    if (error && error.message)
+        return error.message;
+    return String(error);
+}
+
+
 function run_rbql_native(input_path, query, delim, policy, report_handler) {
     var rbql_lines = [query];
     var tmp_dir = os.tmpdir();
@@ -481,7 +488,7 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
         rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
         worker_module = require(tmp_worker_module_path);
     } catch (e) {
-        let report = {'error_type': 'RBQL_parsing', 'error_details': String(e)};
+        let report = {'error_type': 'RBQL_parsing', 'error_details': get_error_message(e)};
         report_handler(report);
         return;
     }
