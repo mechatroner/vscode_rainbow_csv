@@ -26,7 +26,8 @@
         "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
         "onCommand:extension.RainbowSeparator",
-        "onCommand:extension.SampleHead"
+        "onCommand:extension.SampleHead",
+        "onCommand:extension.SampleTail"
     ],
     "main": "./extension",
     "contributes": {
@@ -64,6 +65,10 @@
             "explorer/context": [
                 {
                     "command": "extension.SampleHead",
+                    "group": "rainbow_csv"
+                },
+                {
+                    "command": "extension.SampleTail",
                     "group": "rainbow_csv"
                 }
             ]
@@ -135,6 +140,10 @@
         {
             "command": "extension.SampleHead",
             "title": "Preview big CSV: head"
+        },
+        {
+            "command": "extension.SampleTail",
+            "title": "Preview big CSV: tail"
         }],
         "grammars": [{
             "language": "csv",

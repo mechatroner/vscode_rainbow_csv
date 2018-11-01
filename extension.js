@@ -930,7 +930,7 @@ function quoted_join(fields, delim) {
     return quoted_fields.join(delim);
 }
 
-function sample_head(uri) {
+function make_preview(uri, preview_mode) {
     var file_path = uri.fsPath;
     if (!file_path || !fs.existsSync(file_path)) {
         vscode.window.showErrorMessage('Invalid file');
@@ -939,7 +939,7 @@ function sample_head(uri) {
 
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
-    if (file_size_in_bytes < size_limit) {
+    if (file_size_in_bytes <= size_limit) {
         vscode.window.showWarningMessage('Too small to preview: Showing the original file instead');
         vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
@@ -955,7 +955,8 @@ function sample_head(uri) {
         }
 
         var buffer = Buffer.alloc(size_limit);
-        fs.read(fd, buffer, 0, size_limit, 0, function(err, num) {
+        let read_begin_pos = preview_mode == 'head' ? 0 : Math.max(file_size_in_bytes - size_limit, 0);
+        fs.read(fd, buffer, 0, size_limit, read_begin_pos, function(err, num) {
             if (err) {
                 console.log(err.message);
                 vscode.window.showErrorMessage('Unable to preview file');
@@ -963,8 +964,13 @@ function sample_head(uri) {
             }
 
             const buffer_str = buffer.toString();
-            // TODO handle old mac line endings
-            const content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
+            // TODO handle old mac '\r' line endings
+            let content = null;
+            if (preview_mode == 'head') {
+                content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
+            } else {
+                content = buffer_str.substr(buffer_str.indexOf('\n') + 1);
+            }
             fs.writeFileSync(out_path, content);
             vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
         });
@@ -1017,7 +1023,8 @@ function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
-    var sample_cmd = vscode.commands.registerCommand('extension.SampleHead', sample_head);
+    var sample_head_cmd = vscode.commands.registerCommand('extension.SampleHead', uri => make_preview(uri, 'head'));
+    var sample_tail_cmd = vscode.commands.registerCommand('extension.SampleTail', uri => make_preview(uri, 'tail'));
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1037,7 +1044,8 @@ function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
-    context.subscriptions.push(sample_cmd);
+    context.subscriptions.push(sample_head_cmd);
+    context.subscriptions.push(sample_tail_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
