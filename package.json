@@ -95,7 +95,6 @@
         }],
         "commands": [{
             "command": "extension.CSVLint",
-            "category": "Rainbow CSV",
             "title": "CSV Lint"
         },
         {
@@ -120,12 +119,10 @@
         },
         {
             "command": "extension.RainbowSeparator",
-            "category": "Rainbow CSV",
             "title": "Set as Rainbow separator"
         },
         {
             "command": "extension.RainbowSeparatorOff",
-            "category": "Rainbow CSV",
             "title": "RainbowSeparatorOff"
         },
         {
