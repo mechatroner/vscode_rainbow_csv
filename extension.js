@@ -15,7 +15,7 @@ var err_log = null;
 var dbg_counter = 0;
 
 var lint_results = new Map();
-var autodetected_docs = new Set();
+var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
 
 var lint_status_bar_button = null;
@@ -630,6 +630,7 @@ function restore_original_language() {
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
+    autodetection_stoplist.add(file_path);
     if (!original_language_ids.has(file_path)) {
         show_single_line_error("Unable to restore original language");
         return;
@@ -886,10 +887,9 @@ function autoenable_rainbow_csv(active_doc) {
     if (original_language_id != 'plaintext')
         return;
     var file_path = active_doc.fileName;
-    if (autodetected_docs.has(file_path)) {
+    if (autodetection_stoplist.has(file_path)) {
         return;
     }
-    autodetected_docs.add(file_path);
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id)
         return;
@@ -940,12 +940,12 @@ function sample_head(uri) {
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes < size_limit) {
-        vscode.window.showWarningMessage('No need to preview. Showing the original file)');
+        vscode.window.showWarningMessage('Too small to preview: Showing the original file instead');
         vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
     }
 
-    const out_path = path.join(path.dirname(file_path), '.rb_csv_preview.' + path.basename(file_path));
+    const out_path = path.join(os.tmpdir(), '.rb_csv_preview_head.' + path.basename(file_path));
 
     fs.open(file_path, 'r', (err, fd) => {
         if (err) {
@@ -963,9 +963,9 @@ function sample_head(uri) {
             }
 
             const buffer_str = buffer.toString();
+            // TODO handle old mac line endings
             const content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
             fs.writeFileSync(out_path, content);
-
             vscode.workspace.openTextDocument(out_path).then(doc => vscode.window.showTextDocument(doc));
         });
     });

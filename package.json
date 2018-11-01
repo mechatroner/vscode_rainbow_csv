@@ -63,9 +63,8 @@
             }],
             "explorer/context": [
                 {
-                    "when": "resourceLangId == csv",
                     "command": "extension.SampleHead",
-                    "group": "navigation"
+                    "group": "rainbow_csv"
                 }
             ]
         },
@@ -135,7 +134,7 @@
         },
         {
             "command": "extension.SampleHead",
-            "title": "Create a Sample CSV"
+            "title": "Preview big CSV: head"
         }],
         "grammars": [{
             "language": "csv",
