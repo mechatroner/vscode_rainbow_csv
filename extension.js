@@ -647,6 +647,71 @@ function restore_original_language() {
 }
 
 
+function update_records(records, record_key, new_record) {
+    for (var i = 0; i < records.length; i++) {
+        if (records[i].length && records[i][0] == record_key) {
+            records[i] = new_record;
+            return;
+        }
+    }
+    records.push(new_record);
+}
+
+
+function try_read_index(index_path) {
+    var content = null;
+    try {
+        content = fs.readFileSync(index_path, 'utf-8');
+    } catch (e) {
+        return [];
+    }
+    var lines = content.split('\n');
+    var records = [];
+    for (var i = 0; i < lines.length; i++) {
+        if (!lines[i])
+            continue;
+        var record = lines[i].split('\t');
+        records.push(record);
+    }
+    return records;
+}
+
+
+function write_index(records, index_path) {
+    var lines = [];
+    for (var i = 0; i < records.length; i++) {
+        lines.push(records[i].join('\t'));
+    }
+    fs.writeFileSync(index_path, lines.join('\n'));
+}
+
+
+function do_set_table_name(table_path, table_name) {
+    let home_dir = os.homedir();
+    let index_path = path.join(home_dir, '.rbql_table_names');
+    let records = try_read_index(index_path);
+    let new_record = [table_name, table_path];
+    update_records(records, table_name, new_record);
+    if (records.length > 100) {
+        records.splice(0, 1);
+    }
+    write_index(records, index_path);
+}
+
+
+function set_join_table_name() {
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    let file_path = active_doc.fileName;
+    if (!file_path)
+        return;
+    var title = "Input table name to use in RBQL JOIN expressions instead of table path";
+    var input_box_props = {"prompt": title};
+    vscode.window.showInputBox(input_box_props).then(table_name => do_set_table_name(file_path, table_name));
+}
+
+
 function edit_column_names() {
     var active_doc = get_active_doc();
     var dialect = get_dialect(active_doc);
@@ -1018,6 +1083,7 @@ function activate(context) {
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
+    var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
     var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
@@ -1046,6 +1112,7 @@ function activate(context) {
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
     context.subscriptions.push(sample_tail_cmd);
+    context.subscriptions.push(set_join_table_name_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
