@@ -204,10 +204,11 @@ function get_active_doc(active_editor=null) {
 }
 
 
-function show_lint_status_bar_button(file_path) {
-    if (!lint_results.has(file_path))
+function show_lint_status_bar_button(file_path, language_id) {
+    let lint_cache_key = `${file_path}.${language_id}`;
+    if (!lint_results.has(lint_cache_key))
         return;
-    var lint_report = lint_results.get(file_path);
+    var lint_report = lint_results.get(lint_cache_key);
     if (!lint_status_bar_button)
         lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     lint_status_bar_button.text = 'CSVLint';
@@ -262,7 +263,7 @@ function refresh_status_bar_buttons(active_doc=null) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     var file_path = active_doc.fileName;
-    show_lint_status_bar_button(file_path);
+    show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
     show_rainbow_off_status_bar_button(file_path);
 }
@@ -279,20 +280,21 @@ function csv_lint(active_doc, is_manual_op) {
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return false;
+    let lint_cache_key = `${file_path}.${language_id}`;
     if (!is_manual_op) {
-        if (lint_results.has(file_path))
+        if (lint_results.has(lint_cache_key))
             return false;
         const config = vscode.workspace.getConfiguration('rainbow_csv');
         if (config && config.get('enable_auto_csv_lint') === false)
             return false;
     }
-    lint_results.set(file_path, 'Processing...');
+    lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
     var max_check_size = is_manual_op ? null : 50000;
     var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
-    lint_results.set(file_path, lint_report);
+    lint_results.set(lint_cache_key, lint_report);
     return true;
 }
 
@@ -946,15 +948,27 @@ function autoenable_rainbow_csv(active_doc) {
     if (!config || !config.get('enable_separator_autodetection'))
         return
     let candidate_separators = config.get('autodetect_separators');
-    // TODO add logic to do automatic CSV -> CSV(semicolon) language switch for *.csv files.
     var original_language_id = active_doc.languageId;
-    if (original_language_id != 'plaintext')
+    if (original_language_id != 'plaintext' && original_language_id != 'csv')
         return;
     var file_path = active_doc.fileName;
     if (autodetection_stoplist.has(file_path)) {
         return;
     }
-    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
+    let rainbow_csv_language_id = null;
+    if (original_language_id == 'csv') {
+        let alternative_candidates = candidate_separators.slice(0);
+        let comma_idx = alternative_candidates.indexOf(',');
+        if (comma_idx != -1) {
+            alternative_candidates.splice(comma_idx, 1);
+        }
+        rainbow_csv_language_id = autodetect_dialect(active_doc, alternative_candidates);
+        if (rainbow_csv_language_id && is_delimited_table(active_doc, ',', 'quoted')) {
+            rainbow_csv_language_id = null;
+        }
+    } else {
+        rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
+    }
     if (!rainbow_csv_language_id)
         return;
     if (try_change_document_language(active_doc, rainbow_csv_language_id, false)) {
