@@ -879,7 +879,6 @@ function edit_rbql() {
     // TODO add encoding and output format parameters
     if (!init_rbql_context())
         return null;
-    // TODO add SetRBQLTableName command
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
@@ -1010,7 +1009,8 @@ function make_preview(uri, preview_mode) {
         return;
     }
 
-    const out_path = path.join(os.tmpdir(), '.rb_csv_preview_head.' + path.basename(file_path));
+    let file_basename = path.basename(file_path);
+    const out_path = path.join(os.tmpdir(), `.rb_csv_preview.${preview_mode}.${file_basename}`);
 
     fs.open(file_path, 'r', (err, fd) => {
         if (err) {
