@@ -42,6 +42,8 @@ var global_state = null;
 
 var preview_panel = null;
 
+// TODO add tooltip customization options
+
 function dbg_log(msg) {
     if (!enable_dev_mode)
         return;
@@ -330,11 +332,12 @@ function show_single_line_error(error_msg) {
 
 
 function handle_rbql_result_file(text_doc, warnings) {
+    // TODO set correct language id
     var active_window = vscode.window;
     if (!active_window)
         return;
     var handle_success = function(editor) { show_warnings(warnings); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to show open document'); };
+    var handle_failure = function(reason) { show_single_line_error('Unable to open document'); };
     active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
 }
 
@@ -365,14 +368,6 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
             callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
         }
     });
-}
-
-
-function finish_rbql_success(dst_table_path, warnings) {
-    var handle_success = function(new_doc) { handle_rbql_result_file(new_doc, warnings); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to open result set file at ' + dst_table_path); };
-    // TODO set correct language id
-    vscode.workspace.openTextDocument(dst_table_path).then(handle_success, handle_failure);
 }
 
 
@@ -410,7 +405,7 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     }
     var dst_table_path = report['result_path'];
     dbg_log('dst_table_path: ' + dst_table_path);
-    finish_rbql_success(dst_table_path, warnings);
+    vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
 
@@ -455,7 +450,7 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
         report['warnings'] = hr_warnings; 
     }
     report_handler(report);
-    finish_rbql_success(output_path, hr_warnings);
+    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
 
