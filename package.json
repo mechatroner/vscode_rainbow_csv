@@ -50,6 +50,16 @@
                     "default": true,
                     "description": "Enables column-info tooltip on hover"
                 },
+                "rainbow_csv.enable_tooltip_column_names": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show column names in tooltip"
+                },
+                "rainbow_csv.enable_tooltip_warnings": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show warnings in tooltip"
+                },
                 "rainbow_csv.autodetect_separators": {
                     "type": "array",
                     "default": ["\t", ",", ";"],

@@ -35,6 +35,8 @@ var rbql_exec_path = null;
 
 var enable_dev_mode = false;
 var enable_tooltip = true;
+var enable_tooltip_column_names = true;
+var enable_tooltip_warnings = true;
 
 var client_js_template = null;
 var client_html_template = null;
@@ -134,18 +136,17 @@ function make_hover_text(document, position, language_id) {
     var result = 'Col #' + (col_num + 1);
 
     var header = get_header(document, delim, policy);
-    if (col_num < header.length) {
+    if (enable_tooltip_column_names && col_num < header.length) {
         const max_label_len = 50;
         var column_label = header[col_num].substr(0, max_label_len);
         if (column_label != header[col_num])
             column_label = column_label + '...';
         result += ', Header: "' + column_label + '"';
     }
-    if (header.length != entries.length) {
+    if (enable_tooltip_warnings && header.length != entries.length)
         result += "; WARN: num of fields in Header and this line differs";
-    }
-    if (warning)
-        return result + '; This line has quoting error';
+    if (enable_tooltip_warnings && warning)
+        result += '; This line has quoting error';
     return result;
 }
 
@@ -1068,6 +1069,10 @@ function activate(context) {
             enable_dev_mode = true;
         if (config.get('enable_tooltip') === false)
             enable_tooltip = false;
+        if (config.get('enable_tooltip_column_names') === false)
+            enable_tooltip_column_names = false;
+        if (config.get('enable_tooltip_warnings') === false)
+            enable_tooltip_warnings = false;
     }
 
     global_state = context.globalState;
