@@ -45,6 +45,11 @@
                     "default": true,
                     "description": "Enables automatic content based separator autodetection"
                 },
+                "rainbow_csv.enable_tooltip": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enables column-info tooltip on hover"
+                },
                 "rainbow_csv.autodetect_separators": {
                     "type": "array",
                     "default": ["\t", ",", ";"],

@@ -34,6 +34,7 @@ var mock_script_path = null;
 var rbql_exec_path = null;
 
 var enable_dev_mode = false;
+var enable_tooltip = true;
 
 var client_js_template = null;
 var client_html_template = null;
@@ -150,6 +151,8 @@ function make_hover_text(document, position, language_id) {
 
 
 function make_hover(document, position, language_id, cancellation_token) {
+    if (!enable_tooltip)
+        return;
     var hover_text = make_hover_text(document, position, language_id);
     if (hover_text && !cancellation_token.isCancellationRequested) {
         return new vscode.Hover(hover_text);
@@ -1060,8 +1063,11 @@ function make_preview(uri, preview_mode) {
 
 function activate(context) {
     const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config && config.get('enable_dev_mode')) {
-        enable_dev_mode = true;
+    if (config) {
+        if (config.get('enable_dev_mode') === true)
+            enable_dev_mode = true;
+        if (config.get('enable_tooltip') === false)
+            enable_tooltip = false;
     }
 
     global_state = context.globalState;
