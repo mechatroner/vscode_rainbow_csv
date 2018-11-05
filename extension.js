@@ -316,7 +316,7 @@ function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
-    active_window.showWarningMessage('RBQL query has been completed with warnings!');
+    active_window.showWarningMessage('RBQL query succeed with warnings!');
     for (var i = 0; i < warnings.length; i++) {
         active_window.showWarningMessage(warnings[i]);
     }
@@ -332,11 +332,18 @@ function show_single_line_error(error_msg) {
 
 
 function handle_rbql_result_file(text_doc, warnings) {
-    // TODO set correct language id
+    var out_delim = rbql_context.delim;
+    let language_id = map_separator_to_language_id(out_delim);
     var active_window = vscode.window;
     if (!active_window)
         return;
-    var handle_success = function(editor) { show_warnings(warnings); };
+    var handle_success = function(editor) { 
+        if (language_id && text_doc.language_id != language_id) {
+            console.log('changing RBQL result language');
+            try_change_document_language(text_doc, language_id, false);
+        }
+        show_warnings(warnings); 
+    };
     var handle_failure = function(reason) { show_single_line_error('Unable to open document'); };
     active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
 }
@@ -450,7 +457,7 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
         report['warnings'] = hr_warnings; 
     }
     report_handler(report);
-    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, warnings));
+    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, hr_warnings));
 }
 
 
