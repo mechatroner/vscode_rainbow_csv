@@ -416,6 +416,7 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     }
     var dst_table_path = report['result_path'];
     dbg_log('dst_table_path: ' + dst_table_path);
+    autodetection_stoplist.add(dst_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
@@ -461,6 +462,7 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
         report['warnings'] = hr_warnings; 
     }
     report_handler(report);
+    autodetection_stoplist.add(output_path);
     vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, hr_warnings));
 }
 
@@ -955,7 +957,7 @@ function autoenable_rainbow_csv(active_doc) {
         return
     let candidate_separators = config.get('autodetect_separators');
     var original_language_id = active_doc.languageId;
-    if (original_language_id != 'plaintext' && original_language_id != 'csv')
+    if (['plaintext', 'csv'].indexOf(original_language_id) == -1)
         return;
     var file_path = active_doc.fileName;
     if (autodetection_stoplist.has(file_path)) {
