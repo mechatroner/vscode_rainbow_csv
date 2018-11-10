@@ -231,9 +231,8 @@ function show_lint_status_bar_button(file_path, language_id) {
 }
 
 
-function show_rainbow_off_status_bar_button(file_path) {
-    let original_language_id = original_language_ids.get(file_path);
-    if (!original_language_id) {
+function show_rainbow_off_status_bar_button() {
+    if (typeof vscode.languages.setTextDocumentLanguage == "undefined") { 
         return;
     }
     if (!rainbow_off_status_bar_button)
@@ -271,7 +270,7 @@ function refresh_status_bar_buttons(active_doc=null) {
     var file_path = active_doc.fileName;
     show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
-    show_rainbow_off_status_bar_button(file_path);
+    show_rainbow_off_status_bar_button();
 }
 
 
@@ -641,11 +640,10 @@ function restore_original_language() {
         return;
     let file_path = active_doc.fileName;
     autodetection_stoplist.add(file_path);
-    if (!original_language_ids.has(file_path)) {
-        show_single_line_error("Unable to restore original language");
-        return;
+    let original_language_id = 'plaintext';
+    if (original_language_ids.has(file_path)) {
+        original_language_id = original_language_ids.get(file_path);
     }
-    let original_language_id = original_language_ids.get(file_path);
     if (!original_language_id || original_language_id == active_doc.languageId) {
         show_single_line_error("Unable to restore original language");
         return;
