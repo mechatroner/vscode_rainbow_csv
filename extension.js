@@ -45,7 +45,6 @@ var global_state = null;
 
 var preview_panel = null;
 
-// TODO add tooltip customization options
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
