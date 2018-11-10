@@ -41,9 +41,9 @@ To recheck a csv file click on "CSVLint" button.
 
 
 #### Working with large files
-To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.
-You can preview huge files by clicking "Preview... " option in VS Code File Explorer context menu.
-All Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB.
+To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.  
+You can preview huge files by clicking "Preview... " option in VS Code File Explorer context menu.  
+All Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB.  
 
 
 ### Commands:
