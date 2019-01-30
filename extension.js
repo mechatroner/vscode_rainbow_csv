@@ -275,14 +275,11 @@ function refresh_status_bar_buttons(active_doc=null) {
         return;
     var file_path = active_doc.fileName;
     var language_id = active_doc.languageId;
-    console.log('hiding buttons for ' + file_path + ', language id: ' + language_id);
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    console.log('showing buttons for ' + file_path);
     show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
     show_rainbow_off_status_bar_button();
-    console.log('done showing buttons for ' + file_path);
 }
 
 
@@ -393,7 +390,7 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 }
 
 
-function handle_command_result(src_table_path, error_code, stdout, stderr, report_handler) {
+function handle_command_result(error_code, stdout, stderr, report_handler) {
     dbg_log('error_code: ' + String(error_code));
     dbg_log('stdout: ' + String(stdout));
     dbg_log('stderr: ' + String(stderr));
@@ -428,7 +425,6 @@ function handle_command_result(src_table_path, error_code, stdout, stderr, repor
     var dst_table_path = report['result_path'];
     dbg_log('dst_table_path: ' + dst_table_path);
     autodetection_stoplist.add(dst_table_path);
-    result_set_parent_map.set(dst_table_path, src_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
@@ -515,7 +511,6 @@ function run_rbql_native(input_path, query, delim, policy, report_handler) {
         return;
     }
     var handle_success = function(warnings) {
-        result_set_parent_map.set(output_path, input_path);
         handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
     }
     var handle_failure = function(error_msg) {
@@ -536,14 +531,14 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
             cmd = 'nopython';
         }
         let args = [mock_script_path, rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
         return;
     }
     if (backend_language == 'js') {
         run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
     } else {
         let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
     }
 }
 
@@ -1003,7 +998,6 @@ function handle_editor_switch(editor) {
     dbg_counter += 1;
     let active_doc = get_active_doc(editor);
     csv_lint(active_doc, false);
-    console.log('editor switch ' + dbg_counter);
     refresh_status_bar_buttons(active_doc);
 }
 
@@ -1012,7 +1006,6 @@ function handle_doc_open(active_doc) {
     dbg_counter += 1;
     autoenable_rainbow_csv(active_doc);
     csv_lint(active_doc, false);
-    console.log('doc switch ' + dbg_counter);
     refresh_status_bar_buttons(active_doc);
 }
 
