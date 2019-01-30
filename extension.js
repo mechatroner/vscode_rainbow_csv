@@ -9,7 +9,6 @@ const rbql = require('./rbql_core/rbql-js/rbql');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
 
-// FIXME Add copy to source file button in RBQL result set file tab.
 // FIXME whitespace-tolerant CSV syntax: improve existing
 // FIXME Add More CSV dialects including whitespace-separated
 // FIXME Implement RBQL settings: encoding, output separator
@@ -22,11 +21,9 @@ var dbg_counter = 0;
 var lint_results = new Map();
 var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
-var result_set_parent_map = new Map();
 
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
-var copy_back_button = null;
 var rainbow_off_status_bar_button = null;
 
 let last_hover_doc = null;
@@ -222,21 +219,6 @@ function get_active_doc(active_editor=null) {
 }
 
 
-function copy_back() {
-    let active_doc = get_active_doc();
-    if (!active_doc)
-        return;
-    let file_path = active_doc.fileName;
-    let parent_table_path = result_set_parent_map.get(file_path);
-    if (!parent_table_path)
-        return;
-    fs.copyFileSync(file_path, parent_table_path);
-    let uri = vscode.Uri.file(parent_table_path);
-    vscode.commands.executeCommand('vscode.open', uri);
-    vscode.window.showInformationMessage('Press Undo and then Save to restore the original data');
-}
-
-
 function show_lint_status_bar_button(file_path, language_id) {
     let lint_cache_key = `${file_path}.${language_id}`;
     if (!lint_results.has(lint_cache_key))
@@ -281,23 +263,8 @@ function show_rbql_status_bar_button() {
 }
 
 
-function show_rbql_copy_to_source_button(file_path) {
-    let parent_table_path = result_set_parent_map.get(file_path);
-    if (!parent_table_path)
-        return;
-    console.log('showing copy back for ' + file_path);
-    let parent_basename = path.basename(parent_table_path);
-    if (!copy_back_button)
-        copy_back_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    copy_back_button.text = 'Copy Back';
-    copy_back_button.tooltip = `Copy to parent table: ${parent_basename}`;
-    copy_back_button.command = 'extension.CopyBack';
-    copy_back_button.show();
-}
-
-
 function refresh_status_bar_buttons(active_doc=null) {
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button];
+    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -315,7 +282,6 @@ function refresh_status_bar_buttons(active_doc=null) {
     show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
     show_rainbow_off_status_bar_button();
-    show_rbql_copy_to_source_button(file_path);
     console.log('done showing buttons for ' + file_path);
 }
 
@@ -1158,7 +1124,6 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
-    var copy_back_cmd = vscode.commands.registerCommand('extension.CopyBack', copy_back);
     var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
@@ -1179,7 +1144,6 @@ function activate(context) {
     context.subscriptions.push(pipe_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
-    context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(quick_rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(column_edit_before_cmd);

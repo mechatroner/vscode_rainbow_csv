@@ -155,10 +155,6 @@
             "title": "QueryHere"
         },
         {
-            "command": "extension.CopyBack",
-            "title": "CopyBack"
-        },
-        {
             "command": "extension.SampleHead",
             "title": "Preview big CSV: head"
         },
