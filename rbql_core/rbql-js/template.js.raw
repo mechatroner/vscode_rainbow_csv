@@ -2,6 +2,13 @@ const fs = require('fs');
 const readline = require('readline');
 const rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js');
 
+try {
+__RBQLMP__user_init_code
+} catch (e) {
+    throw new Error('Exception while executing user-provided init code: ' + e);
+}
+
+
 var csv_encoding = '__RBQLMP__csv_encoding';
 
 var input_delim = '__RBQLMP__input_delim';
@@ -52,12 +59,18 @@ var null_record = null;
 
 var finished_with_error = false;
 
+var unfold_list = null;
+
 function finish_processing_error(error_msg) {
     finished_with_error = true;
     if (line_reader)
-        line_reader.close(); // Sometimes linereader still calls "line" callback even after "close()" method has been called.
+        line_reader.close();
     external_error_handler(error_msg);
 }
+
+// TODO utf8 (improvements) and tests
+
+// TODO get rid of '_py' and '_js' suffixes in rbql.py/rbql.js (except for interface functions)
 
 
 function assert(condition, message) {
@@ -123,14 +136,6 @@ function simple_join(fields, delim) {
 }
 
 
-function strip_cr(line) {
-    if (line.charAt(line.length - 1) === '\r') {
-        return line.substring(0, line.length - 1);
-    }
-    return line;
-}
-
-
 function Marker(marker_id, value) {
     this.marker_id = marker_id;
     this.value = value;
@@ -139,11 +144,26 @@ function Marker(marker_id, value) {
     }
 }
 
+function UnfoldMarker() {}
 
-function init_aggregator(generator_name, val) {
+function UNFOLD(vals) {
+    if (unfold_list !== null) {
+        // Technically we can support multiple UNFOLD's but the implementation/algorithm is more complex and just doesn't worth it
+        throw new RbqlError('Only one UNFOLD is allowed per query');
+    }
+    unfold_list = vals;
+    return new UnfoldMarker();
+}
+
+
+function init_aggregator(generator_name, val, post_proc=null) {
     aggregation_stage = 1;
     assert(aggr_init_counter == functional_aggregators.length, 'Unable to process aggregation expression');
-    functional_aggregators.push(new generator_name());
+    if (post_proc === null) {
+        functional_aggregators.push(new generator_name());
+    } else {
+        functional_aggregators.push(new generator_name(post_proc));
+    }
     var res = new Marker(aggr_init_counter, val);
     aggr_init_counter += 1;
     return res;
@@ -177,6 +197,10 @@ function VARIANCE(val) {
 
 function MEDIAN(val) {
     return aggregation_stage < 2 ? init_aggregator(rbql_utils.MedianAggregator, val) : val;
+}
+
+function FOLD(val, post_proc = v => v.join('|')) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.FoldAggregator, val, post_proc) : val;
 }
 
 
@@ -300,7 +324,7 @@ function AggregateWriter(subwriter) {
 }
 
 
-function safe_get(record, idx) {
+function safe_join_get(record, idx) {
     if (idx - 1 < record.length) {
         return record[idx - 1];
     }
@@ -320,7 +344,7 @@ function safe_set(record, idx, value) {
 function read_join_table(table_path) {
     var fields_max_len = 0;
     var content = fs.readFileSync(table_path, {encoding: csv_encoding});
-    var lines = content.split('\n');
+    var lines = content.split(/(?:\r\n)|\r|\n/);
     var result = new Map();
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
@@ -331,7 +355,6 @@ function read_join_table(table_path) {
                 utf8_bom_removed = true;
             }
         }
-        line = strip_cr(line);
         if (i + 1 == lines.length && line.length == 0)
             break;
         var split_result = join_split(line);
@@ -359,6 +382,16 @@ function read_join_table(table_path) {
         }
     }
     return [result, fields_max_len];
+}
+
+
+function select_except(src, except_fields) {
+    let result = [];
+    for (let i = 0; i < src.length; i++) {
+        if (except_fields.indexOf(i) == -1)
+            result.push(src[i]);
+    }
+    return result;
 }
 
 
@@ -431,14 +464,14 @@ function process_update(NF, afields, rhs_records) {
     var bfields = null;
     if (rhs_records != null && rhs_records.length == 1)
         bfields = rhs_records[0];
-    __RBQLMP__init_column_vars
+    var up_fields = afields;
+    __RBQLMP__init_column_vars_select
     if ((rhs_records == null || rhs_records.length == 1) && (__RBQLMP__where_expression)) {
         NU += 1;
         __RBQLMP__update_statements
     }
-    var out_fields = afields;
-    replace_null_values(out_fields);
-    var out_record = output_join(out_fields, output_delim);
+    replace_null_values(up_fields);
+    var out_record = output_join(up_fields, output_delim);
     return writer.write(out_record);
 }
 
@@ -488,15 +521,28 @@ function select_aggregated(key, transparent_values) {
 }
 
 
+function select_unfolded(sort_key, folded_fields) {
+    let out_fields = folded_fields.slice();
+    let unfold_pos = folded_fields.findIndex(val => val instanceof UnfoldMarker);
+    for (var i = 0; i < unfold_list.length; i++) {
+        out_fields[unfold_pos] = unfold_list[i];
+        if (!select_simple(sort_key, out_fields))
+            return false;
+    }
+    return true;
+}
+
+
 function process_select(NF, afields, rhs_records) {
     if (rhs_records == null)
         rhs_records = [null];
     for (var i = 0; i < rhs_records.length; i++) {
+        unfold_list = null;
         var bfields = rhs_records[i];
         var star_fields = afields;
         if (bfields != null)
             star_fields = afields.concat(bfields);
-        __RBQLMP__init_column_vars
+        __RBQLMP__init_column_vars_update
         if (!(__RBQLMP__where_expression))
             continue;
         // TODO wrap all user expression in try/catch block to improve error reporting
@@ -506,8 +552,13 @@ function process_select(NF, afields, rhs_records) {
             select_aggregated(key, out_fields);
         } else {
             var sort_key = [__RBQLMP__sort_key_expression];
-            if (!select_simple(sort_key, out_fields))
-                return false;
+            if (unfold_list !== null) {
+                if (!select_unfolded(sort_key, out_fields))
+                    return false;
+            } else {
+                if (!select_simple(sort_key, out_fields))
+                    return false;
+            }
         }
     }
     return true;
@@ -527,7 +578,7 @@ function remove_utf8_bom(line, assumed_source_encoding) {
 
 function process_line(line) {
     if (finished_with_error)
-        return;
+        return; // Sometimes linereader still calls "line" callback even after "close()" method has been called.
     try {
         do_process_line(line);
     } catch (e) {
@@ -551,7 +602,6 @@ function do_process_line(line) {
         }
     }
     NR += 1;
-    // readline strips last '\r'
     var split_result = input_split(line);
     var afields = split_result[0];
     var warning = split_result[1];
@@ -604,6 +654,8 @@ function do_run_encapsulated(input_reader, output_stream) {
         output_join = quoted_join;
     } else if ('__RBQLMP__output_policy' == 'monocolumn') {
         output_join = mono_join;
+    } else if ('__RBQLMP__output_policy' == 'whitespace') {
+        output_join = simple_join;
     } else {
         throw new RbqlError('unknown output csv policy');
     }
@@ -615,6 +667,8 @@ function do_run_encapsulated(input_reader, output_stream) {
         input_split = function(line) { return rbql_utils.split_quoted_str(line, input_delim); }
     } else if ('__RBQLMP__input_policy' == 'monocolumn') {
         input_split = function(line) { return [[line], false]; }
+    } else if ('__RBQLMP__input_policy' == 'whitespace') {
+        input_split = function(line) { return [rbql_utils.split_whitespace_separated_str(line), false]; }
     } else {
         throw new RbqlError('unknown input csv policy');
     }
@@ -627,6 +681,8 @@ function do_run_encapsulated(input_reader, output_stream) {
         join_split = function(line) { return rbql_utils.split_quoted_str(line, join_delim); }
     } else if ('__RBQLMP__join_policy' == 'monocolumn') {
         join_split = function(line) { return [[line], false]; }
+    } else if ('__RBQLMP__input_policy' == 'whitespace') {
+        input_split = function(line) { return [rbql_utils.split_whitespace_separated_str(line), false]; }
     } else {
         throw new RbqlError('unknown join csv policy');
     }

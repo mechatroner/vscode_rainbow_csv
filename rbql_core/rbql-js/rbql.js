@@ -2,7 +2,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-const version = '0.2.0';
+const version = '0.4.0';
 
 const GROUP_BY = 'GROUP BY';
 const UPDATE = 'UPDATE';
@@ -14,11 +14,14 @@ const STRICT_LEFT_JOIN = 'STRICT LEFT JOIN';
 const ORDER_BY = 'ORDER BY';
 const WHERE = 'WHERE';
 const LIMIT = 'LIMIT';
+const EXCEPT = 'EXCEPT';
 
 const rbql_home_dir = __dirname;
 const user_home_dir = os.homedir();
 const table_names_settings_path = path.join(user_home_dir, '.rbql_table_names');
 const table_index_path = path.join(user_home_dir, '.rbql_table_index');
+const default_init_source_path = path.join(user_home_dir, '.rbql_init_source.js');
+
 const default_csv_encoding = 'latin-1';
 
 
@@ -122,7 +125,6 @@ function get_all_matches(regexp, text) {
 
 
 function locate_statements(rbql_expression) {
-    // TODO rewrite this function
     let statement_groups = [];
     statement_groups.push([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN]);
     statement_groups.push([SELECT]);
@@ -131,11 +133,12 @@ function locate_statements(rbql_expression) {
     statement_groups.push([UPDATE]);
     statement_groups.push([GROUP_BY]);
     statement_groups.push([LIMIT]);
+    statement_groups.push([EXCEPT]);
     var result = [];
     for (var ig = 0; ig < statement_groups.length; ig++) {
         for (var is = 0; is < statement_groups[ig].length; is++) {
             var statement = statement_groups[ig][is];
-            var rgxp = new RegExp('(?:^| )' + replace_all(statement, ' ', ' *') + ' ', 'ig');
+            var rgxp = new RegExp('(?:^| )' + replace_all(statement, ' ', ' *') + '(?= )', 'ig');
             var matches = get_all_matches(rgxp, rbql_expression);
             if (!matches.length)
                 continue;
@@ -145,7 +148,7 @@ function locate_statements(rbql_expression) {
             var match = matches[0];
             var match_str = match[0];
             result.push([match.index, match.index + match_str.length, statement]);
-            break; // There must be only one statement maximum in each group
+            break; // Break to avoid matching a sub-statement from the same group e.g. "INNER JOIN" -> "JOIN"
         }
     }
     result.sort(function(a, b) { return a[0] - b[0]; });
@@ -157,7 +160,7 @@ function parse_join_expression(src) {
     var rgx = /^ *([^ ]+) +on +([ab][0-9]+) *== *([ab][0-9]+) *$/i;
     var match = rgx.exec(src);
     if (match === null) {
-        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
+        throw new RBParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
     }
     var table_id = match[1];
     var avar = match[2];
@@ -166,12 +169,12 @@ function parse_join_expression(src) {
         [avar, bvar] = [bvar, avar];
     }
     if (avar.charAt(0) != 'a' || bvar.charAt(0) != 'b') {
-        throw new RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
+        throw new RBParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"');
     }
     avar = avar.substr(1);
     bvar = bvar.substr(1);
-    var lhs_join_var = `safe_get(afields, ${avar})`;
-    var rhs_join_var = `safe_get(bfields, ${bvar})`;
+    var lhs_join_var = `safe_join_get(afields, ${avar})`;
+    var rhs_join_var = `safe_join_get(bfields, ${bvar})`;
     return [table_id, lhs_join_var, rhs_join_var];
 }
 
@@ -299,7 +302,7 @@ function normalize_delim(delim) {
 
 function translate_update_expression(update_expression, indent) {
     var rgx = /(?:^|,) *a([1-9][0-9]*) *=(?=[^=])/g;
-    var translated = update_expression.replace(rgx, '\nsafe_set(afields, $1,');
+    var translated = update_expression.replace(rgx, '\nsafe_set(up_fields, $1,');
     var update_statements = translated.split('\n');
     update_statements = update_statements.map(str_strip);
     if (update_statements.length < 2 || update_statements[0] != '') {
@@ -391,7 +394,33 @@ function generate_init_statements(column_vars, indent) {
 }
 
 
-function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding) {
+function make_user_init_code(rbql_init_source_path) {
+    let content = fs.readFileSync(rbql_init_source_path, 'utf-8');
+    let source_lines = content.split(/(?:\r\n)|\r|\n/);
+    source_lines = source_lines.map(line => '    ' + line);
+    return source_lines.join('\n');
+}
+
+
+function translate_except_expression(except_expression) {
+    let skip_vars = except_expression.split(',');
+    let skip_indices = [];
+    let rgx = /^a[1-9][0-9]*$/;
+    for (let i = 0; i < skip_vars.length; i++) {
+        let skip_var = str_strip(skip_vars[i]);
+        let match = rgx.exec(skip_var);
+        if (match === null) {
+            throw new RBParsingError('Invalid EXCEPT syntax');
+        }
+        skip_indices.push(parseInt(skip_var.substring(1)) - 1);
+    }
+    skip_indices = skip_indices.sort((a, b) => a - b);
+    let indices_str = skip_indices.join(',');
+    return `select_except(afields, [${indices_str}])`;
+}
+
+
+function parse_to_js_almost_web(src_table_path, dst_table_path, rbql_lines, js_template_text, input_delim, input_policy, out_delim, out_policy, csv_encoding, custom_init_path=null) {
     if (input_delim == '"' && input_policy == 'quoted')
         throw new RBParsingError('Double quote delimiter is incompatible with "quoted" policy');
     rbql_lines = rbql_lines.map(strip_js_comments);
@@ -401,7 +430,15 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
     var [format_expression, string_literals] = separate_string_literals_js(full_rbql_expression);
     var rb_actions = separate_actions(format_expression);
 
+    let user_init_code = '';
+    if (custom_init_path !== null) {
+        user_init_code = make_user_init_code(custom_init_path);
+    } else if (fs.existsSync(default_init_source_path)) {
+        user_init_code = make_user_init_code(default_init_source_path);
+    }
+
     var js_meta_params = {};
+    js_meta_params['__RBQLMP__user_init_code'] = user_init_code;
     js_meta_params['__RBQLMP__rbql_home_dir'] = escape_string_literal(rbql_home_dir);
     js_meta_params['__RBQLMP__input_delim'] = escape_string_literal(input_delim);
     js_meta_params['__RBQLMP__input_policy'] = input_policy;
@@ -465,10 +502,10 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
         js_meta_params['__RBQLMP__update_statements'] = combine_string_literals(update_expression, string_literals);
         js_meta_params['__RBQLMP__is_select_query'] = 'false';
         js_meta_params['__RBQLMP__top_count'] = 'null';
-        js_meta_params['__RBQLMP__init_column_vars'] = generate_init_statements(column_vars, ' '.repeat(4));
-    } else {
-        js_meta_params['__RBQLMP__init_column_vars'] = generate_init_statements(column_vars, ' '.repeat(8));
     }
+
+    js_meta_params['__RBQLMP__init_column_vars_update'] = generate_init_statements(column_vars, ' '.repeat(4));
+    js_meta_params['__RBQLMP__init_column_vars_select'] = generate_init_statements(column_vars, ' '.repeat(8));
 
     if (rb_actions.hasOwnProperty(SELECT)) {
         var top_count = find_top(rb_actions);
@@ -480,8 +517,12 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
         } else {
             js_meta_params['__RBQLMP__writer_type'] = 'simple';
         }
-        var select_expression = translate_select_expression_js(rb_actions[SELECT]['text']);
-        js_meta_params['__RBQLMP__select_expression'] = combine_string_literals(select_expression, string_literals);
+        if (rb_actions.hasOwnProperty(EXCEPT)) {
+            js_meta_params['__RBQLMP__select_expression'] = translate_except_expression(rb_actions[EXCEPT]['text']);
+        } else {
+            let select_expression = translate_select_expression_js(rb_actions[SELECT]['text']);
+            js_meta_params['__RBQLMP__select_expression'] = combine_string_literals(select_expression, string_literals);
+        }
         js_meta_params['__RBQLMP__update_statements'] = '';
         js_meta_params['__RBQLMP__is_select_query'] = 'true';
     }
@@ -496,8 +537,15 @@ function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_d
         js_meta_params['__RBQLMP__reverse_flag'] = 'false';
         js_meta_params['__RBQLMP__sort_flag'] = 'false';
     }
-    var js_script_body = fs.readFileSync(path.join(rbql_home_dir, 'template.js.raw'), 'utf-8');
-    fs.writeFileSync(js_dst, rbql_meta_format(js_script_body, js_meta_params));
+    var result_script = rbql_meta_format(js_template_text, js_meta_params);
+    return result_script;
+}
+
+
+function parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding, custom_init_path=null) {
+    var js_template_text = fs.readFileSync(path.join(rbql_home_dir, 'template.js.raw'), 'utf-8');
+    var result_script = parse_to_js_almost_web(src_table_path, dst_table_path, rbql_lines, js_template_text, input_delim, input_policy, out_delim, out_policy, csv_encoding, custom_init_path);
+    fs.writeFileSync(js_dst, result_script);
 }
 
 
@@ -527,7 +575,7 @@ function make_warnings_human_readable(warnings) {
         let warning_type = keys[i];
         let warning_value = warnings[warning_type];
         if (warning_type == 'null_value_in_output') {
-            result.push('None/null values in output were replaced by empty strings.');
+            result.push('undefined/null values in output were replaced by empty strings.');
         } else if (warning_type == 'delim_in_simple_output') {
             result.push('Some result set fields contain output separator.');
         } else if (warning_type == 'output_switch_to_csv') {
@@ -558,7 +606,9 @@ module.exports.version = version;
 module.exports.assert = assert;
 module.exports.default_csv_encoding = default_csv_encoding;
 module.exports.parse_to_js = parse_to_js;
+module.exports.parse_to_js_almost_web = parse_to_js_almost_web;
 module.exports.make_warnings_human_readable = make_warnings_human_readable;
 module.exports.strip_js_comments = strip_js_comments;
 module.exports.separate_string_literals_js = separate_string_literals_js;
 module.exports.translate_select_expression_js = translate_select_expression_js;
+module.exports.translate_except_expression = translate_except_expression;

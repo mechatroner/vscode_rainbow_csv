@@ -25,7 +25,7 @@ import time
 # This module must be both python2 and python3 compatible
 
 
-__version__ = '0.2.0'
+__version__ = '0.4.0'
 
 
 GROUP_BY = 'GROUP BY'
@@ -38,6 +38,7 @@ STRICT_LEFT_JOIN = 'STRICT LEFT JOIN'
 ORDER_BY = 'ORDER BY'
 WHERE = 'WHERE'
 LIMIT = 'LIMIT'
+EXCEPT = 'EXCEPT'
 
 
 default_csv_encoding = 'latin-1'
@@ -48,6 +49,7 @@ rbql_home_dir = os.path.dirname(os.path.abspath(__file__))
 user_home_dir = os.path.expanduser('~')
 table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
 table_index_path = os.path.join(user_home_dir, '.rbql_table_index')
+default_init_source_path = os.path.join(user_home_dir, '.rbql_init_source.py')
 
 py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
 
@@ -105,7 +107,7 @@ def xrange6(x):
 
 def rbql_meta_format(template_src, meta_params):
     for key, value in meta_params.items():
-        # TODO make special replace for multiple statements, like in update, it should be indent-aware
+        # TODO make special replace for multiple statements, like in update, it should be indent-aware. values should be a list in this case to avoid join/split
         template_src_upd = template_src.replace(key, value)
         assert template_src_upd != template_src
         template_src = template_src_upd
@@ -140,16 +142,16 @@ def escape_string_literal(src):
 def parse_join_expression(src):
     match = re.match(r'(?i)^ *([^ ]+) +on +([ab][0-9]+) *== *([ab][0-9]+) *$', src)
     if match is None:
-        raise RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
+        raise RBParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
     table_id = match.group(1)
     avar = match.group(2)
     bvar = match.group(3)
     if avar[0] == 'b':
         avar, bvar = bvar, avar
     if avar[0] != 'a' or bvar[0] != 'b':
-        raise RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
-    lhs_join_var = 'safe_get(afields, {})'.format(int(avar[1:]))
-    rhs_join_var = 'safe_get(bfields, {})'.format(int(bvar[1:]))
+        raise RBParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
+    lhs_join_var = 'safe_join_get(afields, {})'.format(int(avar[1:]))
+    rhs_join_var = 'safe_join_get(bfields, {})'.format(int(bvar[1:]))
     return (table_id, lhs_join_var, rhs_join_var)
 
 
@@ -163,9 +165,20 @@ def find_table_path(table_id):
     return None
 
 
-def replace_column_vars(rbql_expression):
-    translated = re.sub('(?:^|(?<=[^_a-zA-Z0-9]))([ab])([1-9][0-9]*)(?:$|(?=[^_a-zA-Z0-9]))', r'safe_get(\1fields, \2)', rbql_expression)
-    return translated
+def generate_init_statements(column_vars, indent):
+    init_statements = []
+    for var_name in column_vars:
+        var_group = var_name[0]
+        one_based_idx = int(var_name[1:])
+        if var_group == 'a':
+            init_statements.append('{} = safe_get(afields, {})'.format(var_name, one_based_idx))
+        if var_group == 'b':
+            init_statements.append('{} = safe_get(bfields, {}) if bfields is not None else None'.format(var_name, one_based_idx))
+    for i in range(1, len(init_statements)):
+        init_statements[i] = indent + init_statements[i]
+    result = '\n'.join(init_statements)
+    return result
+
 
 
 def replace_star_count(aggregate_expression):
@@ -179,7 +192,7 @@ def replace_star_vars_py(rbql_expression):
 
 
 def translate_update_expression(update_expression, indent):
-    translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(afields, \\1,', update_expression)
+    translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(up_fields, \\1,', update_expression)
     update_statements = translated.split('\n')
     update_statements = [s.strip() for s in update_statements]
     if len(update_statements) < 2 or update_statements[0] != '':
@@ -189,13 +202,11 @@ def translate_update_expression(update_expression, indent):
     for i in range(1, len(update_statements)):
         update_statements[i] = indent + update_statements[i]
     translated = '\n'.join(update_statements)
-    translated = replace_column_vars(translated)
     return translated
 
 
 def translate_select_expression_py(select_expression):
     translated = replace_star_count(select_expression)
-    translated = replace_column_vars(translated)
     translated = replace_star_vars_py(translated)
     translated = translated.strip()
     if not len(translated):
@@ -241,11 +252,12 @@ def locate_statements(rbql_expression):
     statement_groups.append([UPDATE])
     statement_groups.append([GROUP_BY])
     statement_groups.append([LIMIT])
+    statement_groups.append([EXCEPT])
 
     result = list()
     for st_group in statement_groups:
         for statement in st_group:
-            rgxp = r'(?i)(?:^| ){} '.format(statement.replace(' ', ' *'))
+            rgxp = r'(?i)(?:^| ){}(?= )'.format(statement.replace(' ', ' *'))
             matches = list(re.finditer(rgxp, rbql_expression))
             if not len(matches):
                 continue
@@ -254,7 +266,7 @@ def locate_statements(rbql_expression):
             assert len(matches) == 1
             match = matches[0]
             result.append((match.start(), match.end(), statement))
-            break # There must be only one statement maximum in each group
+            break # Break to avoid matching a sub-statement from the same group e.g. "INNER JOIN" -> "JOIN"
     return sorted(result)
 
 
@@ -324,26 +336,57 @@ def find_top(rb_actions):
     return rb_actions[SELECT].get('top', None)
 
 
-def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding, import_modules):
+def make_user_init_code(rbql_init_source_path):
+    source_lines = None
+    with open(rbql_init_source_path) as src:
+        source_lines = src.readlines()
+    source_lines = ['    ' + l.rstrip() for l in source_lines]
+    return '\n'.join(source_lines) + '\n'
+
+
+def extract_column_vars(rbql_expression):
+    rgx = '(?:^|[^_a-zA-Z0-9])([ab][1-9][0-9]*)(?:$|(?=[^_a-zA-Z0-9]))'
+    matches = list(re.finditer(rgx, rbql_expression))
+    return list(set([m.group(1) for m in matches]))
+
+
+def translate_except_expression(except_expression):
+    skip_vars = except_expression.split(',')
+    skip_vars = [v.strip() for v in skip_vars]
+    skip_indices = list()
+    for var_name in skip_vars:
+        if re.match('^a[1-9][0-9]*$', var_name) is None:
+            raise RBParsingError('Invalid EXCEPT syntax')
+        skip_indices.append(int(var_name[1:]) - 1)
+    skip_indices = sorted(skip_indices)
+    skip_indices = [str(v) for v in skip_indices]
+    return 'select_except(afields, [{}])'.format(','.join(skip_indices))
+
+
+def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding, custom_init_path=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
 
     if input_delim == '"' and input_policy == 'quoted':
         raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
+    if input_delim != ' ' and input_policy == 'whitespace':
+        raise RBParsingError('Only whitespace " " delim is supported with "whitespace" policy')
 
     rbql_lines = [strip_py_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
+    column_vars = extract_column_vars(full_rbql_expression)
     format_expression, string_literals = separate_string_literals_py(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
-    import_expression = ''
-    if import_modules is not None:
-        for mdl in import_modules:
-            import_expression += 'import {}\n'.format(mdl)
+    user_init_code = ''
+    if custom_init_path is not None:
+        user_init_code = make_user_init_code(custom_init_path)
+    elif os.path.exists(default_init_source_path):
+        user_init_code = make_user_init_code(default_init_source_path)
 
     py_meta_params = dict()
-    py_meta_params['__RBQLMP__import_expression'] = import_expression
+    py_meta_params['__RBQLMP__user_init_code'] = user_init_code
     py_meta_params['__RBQLMP__input_delim'] = escape_string_literal(input_delim)
     py_meta_params['__RBQLMP__input_policy'] = input_policy
     py_meta_params['__RBQLMP__csv_encoding'] = csv_encoding
@@ -356,8 +399,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
     if GROUP_BY in rb_actions:
         if ORDER_BY in rb_actions or UPDATE in rb_actions:
             raise RBParsingError('"ORDER BY" and "UPDATE" are not allowed in aggregate queries')
-        # TODO use js approach based on extract_column_vars function. Init missing fields with None using safe_get() for compatibility with js version
-        aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text'])
+        aggregation_key_expression = rb_actions[GROUP_BY]['text']
         py_meta_params['__RBQLMP__aggregation_key_expression'] = '[{}]'.format(combine_string_literals(aggregation_key_expression, string_literals))
     else:
         py_meta_params['__RBQLMP__aggregation_key_expression'] = 'None'
@@ -389,7 +431,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
         py_meta_params['__RBQLMP__join_policy'] = ''
 
     if WHERE in rb_actions:
-        where_expression = replace_column_vars(rb_actions[WHERE]['text'])
+        where_expression = rb_actions[WHERE]['text']
         if re.search(r'[^!=]=[^=]', where_expression) is not None:
             raise RBParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="')
         py_meta_params['__RBQLMP__where_expression'] = combine_string_literals(where_expression, string_literals)
@@ -404,6 +446,9 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
         py_meta_params['__RBQLMP__is_select_query'] = 'False'
         py_meta_params['__RBQLMP__top_count'] = 'None'
 
+    py_meta_params['__RBQLMP__init_column_vars_select'] = generate_init_statements(column_vars, ' ' * 8)
+    py_meta_params['__RBQLMP__init_column_vars_update'] = generate_init_statements(column_vars, ' ' * 4)
+
     if SELECT in rb_actions:
         top_count = find_top(rb_actions)
         py_meta_params['__RBQLMP__top_count'] = str(top_count) if top_count is not None else 'None'
@@ -413,13 +458,16 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
             py_meta_params['__RBQLMP__writer_type'] = 'uniq'
         else:
             py_meta_params['__RBQLMP__writer_type'] = 'simple'
-        select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
-        py_meta_params['__RBQLMP__select_expression'] = combine_string_literals(select_expression, string_literals)
+        if EXCEPT in rb_actions:
+            py_meta_params['__RBQLMP__select_expression'] = translate_except_expression(rb_actions[EXCEPT]['text'])
+        else:
+            select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
+            py_meta_params['__RBQLMP__select_expression'] = combine_string_literals(select_expression, string_literals)
         py_meta_params['__RBQLMP__update_statements'] = 'pass'
         py_meta_params['__RBQLMP__is_select_query'] = 'True'
 
     if ORDER_BY in rb_actions:
-        order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
+        order_expression = rb_actions[ORDER_BY]['text']
         py_meta_params['__RBQLMP__sort_key_expression'] = combine_string_literals(order_expression, string_literals)
         py_meta_params['__RBQLMP__reverse_flag'] = 'True' if rb_actions[ORDER_BY]['reverse'] else 'False'
         py_meta_params['__RBQLMP__sort_flag'] = 'True'
@@ -447,7 +495,7 @@ def make_warnings_human_readable(warnings):
     result = list()
     for warning_type, warning_value in warnings.items():
         if warning_type == 'null_value_in_output':
-            result.append('None/null values in output were replaced by empty strings.')
+            result.append('None values in output were replaced by empty strings.')
         elif warning_type == 'delim_in_simple_output':
             result.append('Some result set fields contain output separator.')
         elif warning_type == 'output_switch_to_csv':

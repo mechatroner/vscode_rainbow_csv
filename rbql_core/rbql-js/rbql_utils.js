@@ -1,17 +1,21 @@
-function extract_next_field(src, dlm, preserve_quotes, cidx, result) {
+let field_regular_expression = '"((?:[^"]*"")*[^"]*)"';
+let field_rgx = new RegExp('^' + field_regular_expression);
+let field_rgx_external_whitespaces = new RegExp('^' + ' *'+ field_regular_expression + ' *')
+
+function extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result) {
     var warning = false;
-    if (src.charAt(cidx) === '"') {
-        var uidx = src.indexOf('"', cidx + 1);
-        while (uidx != -1 && uidx + 1 < src.length && src.charAt(uidx + 1) == '"') {
-            uidx = src.indexOf('"', uidx + 2);
-        }
-        if (uidx != -1 && (uidx + 1 == src.length || src.charAt(uidx + 1) == dlm)) {
+    let src_cur = src.substring(cidx);
+    let rgx = allow_external_whitespaces ? field_rgx_external_whitespaces : field_rgx;
+    let match_obj = rgx.exec(src_cur);
+    if (match_obj !== null) {
+        let match_end = match_obj[0].length;
+        if (cidx + match_end == src.length || src[cidx + match_end] == dlm) {
             if (preserve_quotes) {
-                result.push(src.substring(cidx, uidx + 1));
+                result.push(match_obj[0]);
             } else {
-                result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
+                result.push(match_obj[1].replace(/""/g, '"'));
             }
-            return [uidx + 2, false];
+            return [cidx + match_end + 1, false];
         }
         warning = true;
     }
@@ -31,8 +35,9 @@ function split_quoted_str(src, dlm, preserve_quotes=false) {
     var result = [];
     var cidx = 0;
     var warning = false;
+    let allow_external_whitespaces = dlm != ' ';
     while (cidx < src.length) {
-        var extraction_report = extract_next_field(src, dlm, preserve_quotes, cidx, result);
+        var extraction_report = extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result);
         cidx = extraction_report[0];
         warning = warning || extraction_report[1];
     }
@@ -64,21 +69,25 @@ function occurrences(string, subString, allowOverlapping=false) {
 }
 
 
-function unquote_field(field) {
-    if (field.length < 2)
-        return field;
-    if (field.charAt(0) === '"' && field.charAt(field.length - 1) == '"') {
-        var candidate = field.substring(1, field.length - 1);
-        if (occurrences(candidate, '"') == occurrences(candidate, '""') * 2) {
-            return candidate.replace(/""/g, '"');
-        }
+function split_whitespace_separated_str(src, preserve_whitespaces=false) {
+    var rgxp = preserve_whitespaces ? new RegExp(' *[^ ]+ *', 'g') : new RegExp('[^ ]+', 'g');
+    let result = [];
+    let match_obj = null;
+    while((match_obj = rgxp.exec(src)) !== null) {
+        result.push(match_obj[0]);
     }
-    return field;
+    return result;
 }
 
 
-function unquote_fields(fields) {
-    return fields.map(unquote_field);
+function smart_split(src, dlm, policy, preserve_quotes) {
+    if (policy === 'simple')
+        return [src.split(dlm), false];
+    if (policy === 'monocolumn')
+        return [[src], false];
+    if (policy === 'whitespace')
+        return split_whitespace_separated_str(src, preserve_quotes);
+    return split_quoted_str(src, dlm, preserve_quotes);
 }
 
 
@@ -234,7 +243,7 @@ function MedianAggregator() {
             this.stats.set(key, [val]);
         } else {
             cur_aggr.push(val);
-            this.stats.set(key, cur_aggr); // do we really need to do this? mutable cur_aggr already holds a reference to the value
+            this.stats.set(key, cur_aggr); // Do we really need to do this? mutable cur_aggr already holds a reference to the value
         }
     }
 
@@ -247,6 +256,27 @@ function MedianAggregator() {
         } else {
             return (cur_aggr[m - 1] + cur_aggr[m]) / 2.0;
         }
+    }
+}
+
+
+function FoldAggregator(post_proc) {
+    this.post_proc = post_proc;
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        let cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, [val]);
+        } else {
+            cur_aggr.push(val);
+            this.stats.set(key, cur_aggr); // Do we really need to do this? mutable cur_aggr already holds a reference to the value
+        }
+    }
+
+    this.get_final = function(key) {
+        let cur_aggr = this.stats.get(key);
+        return this.post_proc(cur_aggr);
     }
 }
 
@@ -270,7 +300,8 @@ function SubkeyChecker() {
 
 
 module.exports.split_quoted_str = split_quoted_str;
-module.exports.unquote_fields = unquote_fields;
+module.exports.split_whitespace_separated_str = split_whitespace_separated_str;
+module.exports.smart_split = smart_split;
 
 module.exports.MinAggregator = MinAggregator;
 module.exports.MaxAggregator = MaxAggregator;
@@ -279,5 +310,6 @@ module.exports.SumAggregator = SumAggregator;
 module.exports.AvgAggregator = AvgAggregator;
 module.exports.VarianceAggregator = VarianceAggregator;
 module.exports.MedianAggregator = MedianAggregator;
+module.exports.FoldAggregator = FoldAggregator;
 
 module.exports.SubkeyChecker = SubkeyChecker;

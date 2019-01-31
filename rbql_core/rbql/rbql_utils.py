@@ -1,17 +1,25 @@
+import re
 from collections import defaultdict
 
-def extract_next_field(src, dlm, preserve_quotes, cidx, result):
+newline_rgx = re.compile('(?:\r\n)|\r|\n')
+
+field_regular_expression = '"((?:[^"]*"")*[^"]*)"'
+field_rgx = re.compile(field_regular_expression)
+field_rgx_external_whitespaces = re.compile(' *'+ field_regular_expression + ' *')
+
+
+def extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result):
     warning = False
-    if (src[cidx] == '"'):
-        uidx = src.find('"', cidx + 1)
-        while uidx != -1 and uidx + 1 < len(src) and src[uidx + 1] == '"':
-            uidx = src.find('"', uidx + 2)
-        if uidx != -1 and (uidx + 1 == len(src) or src[uidx + 1] == dlm):
+    rgx = field_rgx_external_whitespaces if allow_external_whitespaces else field_rgx
+    match_obj = rgx.match(src, cidx)
+    if match_obj is not None:
+        match_end = match_obj.span()[1]
+        if match_end == len(src) or src[match_end] == dlm:
             if preserve_quotes:
-                result.append(src[cidx:uidx + 1])
+                result.append(match_obj.group(0))
             else:
-                result.append(src[cidx + 1:uidx].replace('""', '"'))
-            return (uidx + 2, False)
+                result.append(match_obj.group(1).replace('""', '"'))
+            return (match_end + 1, False)
         warning = True
     uidx = src.find(dlm, cidx)
     if uidx == -1:
@@ -22,6 +30,7 @@ def extract_next_field(src, dlm, preserve_quotes, cidx, result):
     return (uidx + 1, warning)
 
 
+
 def split_quoted_str(src, dlm, preserve_quotes=False):
     assert dlm != '"'
     if src.find('"') == -1: # Optimization for most common case
@@ -29,8 +38,9 @@ def split_quoted_str(src, dlm, preserve_quotes=False):
     result = list()
     cidx = 0
     warning = False
+    allow_external_whitespaces = dlm != ' '
     while cidx < len(src):
-        extraction_report = extract_next_field(src, dlm, preserve_quotes, cidx, result)
+        extraction_report = extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result)
         cidx = extraction_report[0]
         warning = warning or extraction_report[1]
 
@@ -39,42 +49,90 @@ def split_quoted_str(src, dlm, preserve_quotes=False):
     return (result, warning)
 
 
-def unquote_field(field):
-    if len(field) < 2:
-        return field
-    if field[0] == '"' and field[-1] == '"':
-        candidate = field[1:-1]
-        if candidate.count('"') == candidate.count('""') * 2:
-            return candidate.replace('""', '"')
-    return field
+def split_whitespace_separated_str(src, preserve_whitespaces=False):
+    rgxp = re.compile(" *[^ ]+ *") if preserve_whitespaces else re.compile("[^ ]+")
+    result = []
+    for m in rgxp.finditer(src):
+        result.append(m.group())
+    return result
 
 
-def unquote_fields(fields):
-    return [unquote_field(f) for f in fields]
+def smart_split(src, dlm, policy, preserve_quotes):
+    if policy == 'simple':
+        return (src.split(dlm), False)
+    if policy == 'whitespace':
+        return split_whitespace_separated_str(src, preserve_quotes)
+    if policy == 'monocolumn':
+        return ([src], False)
+    return split_quoted_str(src, dlm, preserve_quotes)
 
 
-def rows(f, chunksize=1024, sep='\n'):
-    incomplete_row = None
-    while True:
-        chunk = f.read(chunksize)
-        if not chunk:
-            if incomplete_row is not None and len(incomplete_row):
-                yield incomplete_row
-            return
-        while True:
-            i = chunk.find(sep)
-            if i == -1:
-                break
-            if incomplete_row is not None:
-                yield incomplete_row + chunk[:i]
-                incomplete_row = None
+def extract_line_from_data(data):
+    mobj = newline_rgx.search(data)
+    if mobj is None:
+        return (None, None, data)
+    pos_start, pos_end = mobj.span()
+    str_before = data[:pos_start]
+    str_after = data[pos_end:]
+    return (str_before, mobj.group(0), str_after)
+
+
+class LineIterator:
+    # TODO treat src as binary input (bytes in python3) and explicitly decode to encoding. Add encoding param.
+    # Use this hack for Windows: https://stackoverflow.com/a/38939320/2898283
+
+    def __init__(self, src, chunk_size=1024):
+        self.src = src
+        self.buffer = ''
+        self.chunk_size = chunk_size
+        self.detected_line_separator = '\n'
+        self.exhausted = False
+
+
+    def _get_row_from_buffer(self):
+        str_before, separator, str_after = extract_line_from_data(self.buffer)
+        if separator is None:
+            return None
+        if separator == '\r' and str_after == '':
+            one_more = self.src.read(1)
+            if one_more == '\n':
+                separator = '\r\n'
             else:
-                yield chunk[:i]
-            chunk = chunk[i+1:]
-        if incomplete_row is not None:
-            incomplete_row += chunk
-        else:
-            incomplete_row = chunk
+                str_after = one_more
+        self.detected_line_separator = separator
+        self.buffer = str_after
+        return str_before
+
+
+    def _read_until_found(self):
+        if self.exhausted:
+            return
+        chunks = []
+        while True:
+            chunk = self.src.read(self.chunk_size)
+            if not chunk:
+                self.exhausted = True
+                break
+            chunks.append(chunk)
+            if newline_rgx.search(chunk) is not None:
+                break
+        self.buffer += ''.join(chunks)
+            
+
+    def get_row(self):
+        row = self._get_row_from_buffer()
+        if row is not None:
+            return row
+        self._read_until_found()
+        row = self._get_row_from_buffer()
+        if row is None:
+            assert self.exhausted
+            if self.buffer:
+                tmp = self.buffer
+                self.buffer = ''
+                return tmp
+            return None
+        return row
 
 
 class NumHandler:
@@ -199,6 +257,18 @@ class VarianceAggregator:
         variance = float(final_sum_of_squares) / final_cnt - (float(final_sum) / final_cnt) ** 2
         return pretty_format(variance)
 
+
+class FoldAggregator:
+    def __init__(self, post_proc):
+        self.stats = defaultdict(list)
+        self.post_proc = post_proc
+
+    def increment(self, key, val):
+        self.stats[key].append(val)
+
+    def get_final(self, key):
+        res = self.stats[key]
+        return self.post_proc(res)
 
 
 class MedianAggregator:

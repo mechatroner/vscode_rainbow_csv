@@ -4,18 +4,24 @@ from __future__ import unicode_literals
 from __future__ import print_function
 import sys
 import os
-import random #for random sort
-import datetime #for date manipulations
-import re #for regexes
+import random # For random sort
+import datetime # For date manipulations
+import re # For regexes
 import codecs
 from collections import OrderedDict, defaultdict
 
 import rbql_utils
 
-__RBQLMP__import_expression
+try:
+    pass
+__RBQLMP__user_init_code
+except Exception as e:
+    raise RuntimeError('Exception while executing user-provided init code: {}'.format(e))
 
 
 PY3 = sys.version_info[0] == 3
+
+unfold_list = None
 
 
 def iteritems6(x):
@@ -25,7 +31,7 @@ def iteritems6(x):
 
 
 def str6(obj):
-    #we have to use this function because str() for python2.7 tries to ascii-encode unicode strings
+    # We have to use this function because str() for python2.7 tries to ascii-encode unicode strings
     if PY3 and isinstance(obj, str):
         return obj
     if not PY3 and isinstance(obj, basestring):
@@ -51,6 +57,11 @@ class RbqlRuntimeError(Exception):
 
 
 def safe_get(record, idx):
+    zero_based_idx = idx - 1
+    return record[zero_based_idx] if zero_based_idx < len(record) else None
+
+
+def safe_join_get(record, idx):
     try:
         return record[idx - 1]
     except IndexError as e:
@@ -96,12 +107,27 @@ class Marker(object):
         raise TypeError('Marker')
 
 
-def init_aggregator(generator_name, val):
+class UNFOLD:
+    def __init__(self, vals):
+        global unfold_list
+        if unfold_list is not None:
+            # Technically we can support multiple UNFOLD's but the implementation/algorithm is more complex and just doesn't worth it
+            raise RbqlRuntimeError('Only one UNFOLD is allowed per query')
+        unfold_list = vals
+
+    def __str__(self):
+        raise TypeError('UNFOLD')
+
+
+def init_aggregator(generator_name, val, post_proc=None):
     global aggregation_stage
     global aggr_init_counter
     aggregation_stage = 1
     assert aggr_init_counter == len(functional_aggregators)
-    functional_aggregators.append(generator_name())
+    if post_proc is not None:
+        functional_aggregators.append(generator_name(post_proc))
+    else:
+        functional_aggregators.append(generator_name())
     res = Marker(aggr_init_counter, val)
     aggr_init_counter += 1
     return res
@@ -133,6 +159,10 @@ def VARIANCE(val):
 
 def MEDIAN(val):
     return init_aggregator(rbql_utils.MedianAggregator, val) if aggregation_stage < 2 else val
+
+
+def FOLD(val, post_proc=lambda v: '|'.join(v)):
+    return init_aggregator(rbql_utils.FoldAggregator, val, post_proc) if aggregation_stage < 2 else val
 
 
 def quote_field(src, delim):
@@ -177,6 +207,8 @@ elif '__RBQLMP__output_policy' == 'quoted':
     output_join = quoted_join
 elif '__RBQLMP__output_policy' == 'monocolumn':
     output_join = mono_join
+elif '__RBQLMP__output_policy' == 'whitespace':
+    output_join = simple_join
 else:
     raise RuntimeError('unknown output csv policy')
 
@@ -187,6 +219,8 @@ elif '__RBQLMP__input_policy' == 'quoted':
     input_split = lambda line: rbql_utils.split_quoted_str(line, input_delim)
 elif '__RBQLMP__input_policy' == 'monocolumn':
     input_split = lambda line: ([line], 0)
+elif '__RBQLMP__input_policy' == 'whitespace':
+    input_split = lambda line: (rbql_utils.split_whitespace_separated_str(line), 0)
 else:
     raise RuntimeError('unknown input csv policy')
 
@@ -199,6 +233,8 @@ elif '__RBQLMP__join_policy' == 'quoted':
     join_split = lambda line: rbql_utils.split_quoted_str(line, join_delim)
 elif '__RBQLMP__join_policy' == 'monocolumn':
     join_split = lambda line: ([line], 0)
+elif '__RBQLMP__input_policy' == 'whitespace':
+    input_split = lambda line: (rbql_utils.split_whitespace_separated_str(line), 0)
 else:
     raise RuntimeError('unknown join csv policy')
 
@@ -207,6 +243,13 @@ def add_to_set(dst_set, value):
     len_before = len(dst_set)
     dst_set.add(value)
     return len_before != len(dst_set)
+
+
+def try_flush(dst_stream):
+    try:
+        dst_stream.flush()
+    except Exception:
+        pass
 
 
 class SimpleWriter(object):
@@ -223,7 +266,7 @@ class SimpleWriter(object):
         return True
 
     def finish(self):
-        pass
+        try_flush(self.dst)
 
 
 class UniqWriter(object):
@@ -243,7 +286,7 @@ class UniqWriter(object):
         return True
 
     def finish(self):
-        pass
+        try_flush(self.dst)
 
 
 class UniqCountWriter(object):
@@ -268,6 +311,7 @@ class UniqCountWriter(object):
             new_record = '{}{}{}\n'.format(count, output_delim, record)
             self.dst.write(new_record)
             NW += 1
+        try_flush(self.dst)
 
 
 class SortedWriter(object):
@@ -321,8 +365,14 @@ def read_join_table(join_table_path):
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = defaultdict(list)
-    with codecs.open(join_table_path, encoding=csv_encoding) as src_text:
-        for il, line in enumerate(rbql_utils.rows(src_text), 1):
+    with codecs.open(join_table_path, encoding=csv_encoding) as src:
+        line_iterator = rbql_utils.LineIterator(src)
+        il = 0
+        while True:
+            line = line_iterator.get_row()
+            if line is None:
+                break
+            il += 1
             if il == 1:
                 clean_line = remove_utf8_bom(line, csv_encoding)
                 if clean_line != line:
@@ -391,6 +441,14 @@ def replace_none_values(fields):
         i += 1
 
 
+def select_except(src, except_fields):
+    result = list()
+    for i, v in enumerate(src):
+        if i not in except_fields:
+            result.append(v)
+    return result
+
+
 def create_warnings_report():
     warnings = dict()
     if defective_csv_line_in_join != 0:
@@ -414,8 +472,24 @@ def create_warnings_report():
     return warnings
 
 
+def get_encoded_stdin(encoding_name):
+    if PY3:
+        import io
+        return io.TextIOWrapper(sys.stdin.buffer, encoding=encoding_name)
+    else:
+        return codecs.getreader(encoding_name)(sys.stdin)
+
+
+def get_encoded_stdout(encoding_name):
+    if PY3:
+        import io
+        return io.TextIOWrapper(sys.stdout.buffer, encoding=encoding_name)
+    else:
+        return codecs.getwriter(encoding_name)(sys.stdout)
+
+
 def main():
-    warnings = rb_transform(sys.stdin, sys.stdout)
+    warnings = rb_transform(get_encoded_stdin(csv_encoding), get_encoded_stdout(csv_encoding))
     if warnings is not None:
         for k, v in warnings.items():
             eprint(k, v)
@@ -427,22 +501,22 @@ def process_update(NR, NF, afields, rhs_records):
     bfields = None
     if rhs_records is not None and len(rhs_records) == 1:
         bfields = rhs_records[0]
+    up_fields = afields[:]
+    __RBQLMP__init_column_vars_update
     if (rhs_records is None or len(rhs_records) == 1) and (__RBQLMP__where_expression):
         global NU
         NU += 1
         __RBQLMP__update_statements
-    out_fields = afields
-    replace_none_values(out_fields)
-    out_record = output_join(out_fields, output_delim)
+    replace_none_values(up_fields)
+    out_record = output_join(up_fields, output_delim)
     return writer.write(out_record)
 
 
-def select_simple(NR, NF, afields, bfields, out_fields):
+def select_simple(sort_key, out_fields):
     replace_none_values(out_fields)
     out_record = output_join(out_fields, output_delim)
     if __RBQLMP__sort_flag:
-        sort_key_value = (__RBQLMP__sort_key_expression)
-        if not writer.write(sort_key_value, out_record):
+        if not writer.write(sort_key, out_record):
             return False
     else:
         if not writer.write(out_record):
@@ -450,9 +524,8 @@ def select_simple(NR, NF, afields, bfields, out_fields):
     return True
 
 
-def select_aggregated(NR, NF, afields, bfields, transparent_values):
+def select_aggregated(key, transparent_values):
     global aggregation_stage
-    key = __RBQLMP__aggregation_key_expression
     if key is not None:
         key = output_join(key, output_delim)
     if aggregation_stage == 1:
@@ -474,22 +547,46 @@ def select_aggregated(NR, NF, afields, bfields, transparent_values):
     writer.aggregation_keys.add(key)
 
 
+def select_unfolded(sort_key, folded_fields):
+    out_fields = folded_fields[:]
+    unfold_pos = None
+    for i, trans_value in enumerate(folded_fields):
+        if isinstance(trans_value, UNFOLD):
+            unfold_pos = i
+            break
+    assert unfold_pos is not None
+    for v in unfold_list:
+        out_fields[unfold_pos] = v
+        if not select_simple(sort_key, out_fields):
+            return False
+    return True
+
+
 def process_select(NR, NF, afields, rhs_records):
+    global unfold_list
     if rhs_records is None:
         rhs_records = [None]
     for bfields in rhs_records:
+        unfold_list = None
         if bfields is None:
             star_fields = afields
         else:
             star_fields = afields + bfields
+        __RBQLMP__init_column_vars_select
         if not (__RBQLMP__where_expression):
             continue
         out_fields = __RBQLMP__select_expression
         if aggregation_stage > 0:
-            select_aggregated(NR, NF, afields, bfields, out_fields)
+            key = __RBQLMP__aggregation_key_expression
+            select_aggregated(key, out_fields)
         else:
-            if not select_simple(NR, NF, afields, bfields, out_fields):
-                return False
+            sort_key = (__RBQLMP__sort_key_expression)
+            if unfold_list is not None:
+                if not select_unfolded(sort_key, out_fields):
+                    return False
+            else:
+                if not select_simple(sort_key, out_fields):
+                    return False
     return True
 
 
@@ -511,13 +608,19 @@ def rb_transform(source, destination):
     if __RBQLMP__sort_flag:
         writer = SortedWriter(writer)
     joiner = joiner_type('__RBQLMP__rhs_table_path')
-    for NR, line in enumerate(rbql_utils.rows(source), 1):
+    line_iterator = rbql_utils.LineIterator(source)
+    NR = 0
+    while True:
+        line = line_iterator.get_row()
+        if line is None:
+            break
+        NR += 1
         if NR == 1:
             clean_line = remove_utf8_bom(line, csv_encoding)
             if clean_line != line:
                 line = clean_line
                 utf8_bom_removed = True
-        line = line.rstrip('\r\n')
+        #line = line.rstrip('\r\n')
         afields, warning = input_split(line)
         if warning and not defective_csv_line_in_input:
             defective_csv_line_in_input = NR
