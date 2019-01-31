@@ -4,10 +4,12 @@ const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
 
-const rainbow_utils = require('./rainbow_utils');
-const rbql = require('./rbql_core/rbql-js/rbql');
+const rainbow_utils = require('./rbql_core/rbql-js/rbql_utils.js');
+const rbql = require('./rbql_core/rbql-js/rbql.js');
 
 var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
+
+// TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
 
 // FIXME whitespace-tolerant CSV syntax: improve existing
 // FIXME Add More CSV dialects including whitespace-separated
@@ -123,6 +125,19 @@ function get_header(document, delim, policy) {
 }
 
 
+function get_field_by_line_position(fields, query_pos) {
+    if (!fields.length)
+        return null;
+    var col_num = 0;
+    var cpos = fields[col_num].length + 1;
+    while (query_pos > cpos && col_num + 1 < fields.length) {
+        col_num += 1;
+        cpos = cpos + fields[col_num].length + 1;
+    }
+    return col_num;
+}
+
+
 function make_hover_text(document, position, language_id) {
     var delim = dialect_map[language_id][0];
     var policy = dialect_map[language_id][1];
@@ -134,7 +149,7 @@ function make_hover_text(document, position, language_id) {
 
     var entries = report[0];
     var warning = report[1];
-    var col_num = rainbow_utils.get_field_by_line_position(entries, cnum + 1);
+    var col_num = get_field_by_line_position(entries, cnum + 1);
 
     if (col_num == null)
         return null;
@@ -771,7 +786,7 @@ function column_edit(edit_mode) {
 
     let entries = report[0];
     let quoting_warning = report[1];
-    let col_num = rainbow_utils.get_field_by_line_position(entries, cnum + 1);
+    let col_num = get_field_by_line_position(entries, cnum + 1);
 
     let selections = [];
     let num_lines = active_doc.lineCount;

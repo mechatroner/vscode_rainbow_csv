@@ -1,4 +1,4 @@
-rainbow_utils = require('./rainbow_utils.js')
+const rainbow_utils = require('./rbql_core/rbql-js/rbql_utils.js');
 
 function exit_with_error_msg(error_msg) {
     process.stderr.write('Error:\n' + error_msg + '\n');
