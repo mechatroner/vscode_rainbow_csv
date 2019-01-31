@@ -54,32 +54,6 @@ def run_with_python(input_path, delim, policy, csv_encoding, query, output_delim
             report_error_and_exit('Wrapper', error_msg)
 
 
-def run_with_js(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path):
-    if not rbql.system_has_node_js():
-        report_error_and_exit('User', 'Node.js is not found, test command: "node --version"')
-
-    tmp_dir = tempfile.gettempdir()
-    script_filename = 'rbconvert_{}'.format(time.time()).replace('.', '_') + '.js'
-    tmp_path = os.path.join(tmp_dir, script_filename)
-    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, policy, output_delim, output_policy, csv_encoding, None)
-    cmd = ['node', tmp_path]
-    pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
-    err_data = pobj.communicate()[1]
-    exit_code = pobj.returncode
-
-    report = {'result_path': output_path}
-    operation_report = rbql.parse_json_report(exit_code, err_data)
-    operation_error = operation_report.get('error')
-    if operation_error is not None:
-        report_error_and_exit('RBQL_backend', operation_error)
-    warnings = operation_report.get('warnings')
-    if warnings is not None:
-        warnings = rbql.make_warnings_human_readable(warnings)
-        report['warnings'] = warnings
-    rbql.remove_if_possible(tmp_path)
-    report_success_and_exit(report)
-
-
 def get_file_extension(file_name):
     p = file_name.rfind('.')
     if p == -1:
@@ -107,7 +81,6 @@ def get_dst_table_path(src_table_path, output_delim):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('backend_language', metavar='LANG', help='script language to use in query', choices=['python', 'js'])
     parser.add_argument('delim', help='Delimiter')
     parser.add_argument('policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
     parser.add_argument('query', help='Query string in rbql')
@@ -123,10 +96,7 @@ def main():
 
     output_path = get_dst_table_path(input_path, output_delim)
     
-    if args.backend_language == 'python':
-        run_with_python(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
-    else:
-        run_with_js(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
+    run_with_python(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
 
 
 

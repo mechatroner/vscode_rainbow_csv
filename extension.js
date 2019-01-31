@@ -537,7 +537,7 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
     if (backend_language == 'js') {
         run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
     } else {
-        let args = [rbql_exec_path, backend_language, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
     }
 }
