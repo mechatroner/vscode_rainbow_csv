@@ -27,8 +27,6 @@ var dialect_map = {
 // TODO add allign / unalign commands
 // TODO add special whitespace-separated dialect
 
-// FIXME remove unneeded character class pipe escaping from pipe syntax definition file.
-
 var dev_log = null;
 var err_log = null;
 
