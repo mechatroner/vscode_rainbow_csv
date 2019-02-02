@@ -21,7 +21,7 @@ Another way to do this: select one separator character with mouse cursor -> righ
 |CSV           | , (comma) | YES                                              | .csv       |
 |TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
 |CSV (semicolon) | ; (semicolon)  | YES                                              | |
-|CSV (pipe)    | &#124; (pipe)  | NO                                              | |
+|             | &#124; ~ ^ : " = . -  | NO                                              | |
 
 
 #### Content-based separator autodetection
