@@ -7,13 +7,27 @@ const child_process = require('child_process');
 const rainbow_utils = require('./rbql_core/rbql-js/rbql_utils.js');
 const rbql = require('./rbql_core/rbql-js/rbql.js');
 
-var dialect_map = {'csv': [',', 'quoted'], 'tsv': ['\t', 'simple'], 'csv (semicolon)': [';', 'quoted'], 'csv (pipe)': ['|', 'simple']};
+var dialect_map = {
+    'csv': [',', 'quoted'],
+    'tsv': ['\t', 'simple'],
+    'csv (semicolon)': [';', 'quoted'],
+    'csv (pipe)': ['|', 'simple'],
+    'csv (tilda)': ['~', 'simple'],
+    'csv (caret)': ['^', 'simple'],
+    'csv (colon)': [':', 'simple'],
+    'csv (double quote)': ['"', 'simple'],
+    'csv (equals)': ['=', 'simple'],
+    'csv (dot)': ['.', 'simple'],
+    'csv (hyphen)': ['-', 'simple']
+};
+
 
 // TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
+// TODO Implement RBQL settings: encoding, output separator
+// TODO add allign / unalign commands
+// TODO add special whitespace-separated dialect
 
-// FIXME whitespace-tolerant CSV syntax: improve existing
-// FIXME Add More CSV dialects including whitespace-separated
-// FIXME Implement RBQL settings: encoding, output separator
+// FIXME remove unneeded character class pipe escaping from pipe syntax definition file.
 
 var dev_log = null;
 var err_log = null;
@@ -1073,7 +1087,7 @@ function make_preview(uri, preview_mode) {
             }
 
             const buffer_str = buffer.toString();
-            // TODO handle old mac '\r' line endings
+            // TODO handle old mac '\r' line endings - still used by Mac version of Excel
             let content = null;
             if (preview_mode == 'head') {
                 content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
@@ -1085,6 +1099,17 @@ function make_preview(uri, preview_mode) {
         });
     });
 }
+
+
+function register_csv_hover_info_provider(language_id, context) {
+    let hover_provider = vscode.languages.registerHoverProvider(language_id, {
+        provideHover(document, position, token) {
+            return make_hover(document, position, language_id, token);
+        }
+    });
+    context.subscriptions.push(hover_provider);
+}
+
 
 function activate(context) {
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -1106,29 +1131,11 @@ function activate(context) {
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
 
-    var csv_provider = vscode.languages.registerHoverProvider('csv', {
-        provideHover(document, position, token) {
-            return make_hover(document, position, 'csv', token);
+    for (let dialect_name in dialect_map) {
+        if (dialect_map.hasOwnProperty(dialect_name)) {
+            register_csv_hover_info_provider(dialect_name, context);
         }
-    });
-
-    var tsv_provider = vscode.languages.registerHoverProvider('tsv', {
-        provideHover(document, position, token) {
-            return make_hover(document, position, 'tsv', token);
-        }
-    });
-
-    var scsv_provider = vscode.languages.registerHoverProvider('csv (semicolon)', {
-        provideHover(document, position, token) {
-            return make_hover(document, position, 'csv (semicolon)', token);
-        }
-    });
-
-    var pipe_provider = vscode.languages.registerHoverProvider('csv (pipe)', {
-        provideHover(document, position, token) {
-            return make_hover(document, position, 'csv (pipe)', token);
-        }
-    });
+    }
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
@@ -1146,10 +1153,6 @@ function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    context.subscriptions.push(csv_provider);
-    context.subscriptions.push(tsv_provider);
-    context.subscriptions.push(scsv_provider);
-    context.subscriptions.push(pipe_provider);
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(quick_rbql_cmd);

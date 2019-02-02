@@ -22,6 +22,13 @@
         "onLanguage:tsv",
         "onLanguage:csv (semicolon)",
         "onLanguage:csv (pipe)",
+        "onLanguage:csv (tilda)",
+        "onLanguage:csv (caret)",
+        "onLanguage:csv (colon)",
+        "onLanguage:csv (double quote)",
+        "onLanguage:csv (equals)",
+        "onLanguage:csv (dot)",
+        "onLanguage:csv (hyphen)",
         "onLanguage:plaintext",
         "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
@@ -104,6 +111,41 @@
             "extensions": []
         },
         {
+            "id": "csv (tilda)",
+            "aliases": ["CSV (tilda)", "csv (tilda)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (caret)",
+            "aliases": ["CSV (caret)", "csv (caret)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (colon)",
+            "aliases": ["CSV (colon)", "csv (colon)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (double quote)",
+            "aliases": ["CSV (double quote)", "csv (double quote)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (equals)",
+            "aliases": ["CSV (equals)", "csv (equals)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (dot)",
+            "aliases": ["CSV (dot)", "csv (dot)"],
+            "extensions": []
+        },
+        {
+            "id": "csv (hyphen)",
+            "aliases": ["CSV (hyphen)", "csv (hyphen)"],
+            "extensions": []
+        },
+        {
             "id": "csv (semicolon)",
             "aliases": ["CSV (semicolon)", "csv (semicolon)"],
             "extensions": []
@@ -176,6 +218,41 @@
             "language": "csv (pipe)",
             "scopeName": "text.psv",
             "path": "./syntaxes/pipe_simple.tmLanguage.json"
+        },
+        {
+            "language": "csv (tilda)",
+            "scopeName": "text.tldsv",
+            "path": "./syntaxes/tldsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (caret)",
+            "scopeName": "text.crtsv",
+            "path": "./syntaxes/crtsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (colon)",
+            "scopeName": "text.clnsv",
+            "path": "./syntaxes/clnsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (double quote)",
+            "scopeName": "text.dbqsv",
+            "path": "./syntaxes/dbqsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (equals)",
+            "scopeName": "text.eqlsv",
+            "path": "./syntaxes/eqlsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (dot)",
+            "scopeName": "text.dotsv",
+            "path": "./syntaxes/dotsv.tmLanguage.json"
+        },
+        {
+            "language": "csv (hyphen)",
+            "scopeName": "text.hypsv",
+            "path": "./syntaxes/hypsv.tmLanguage.json"
         },
         {
             "language": "csv (semicolon)",
