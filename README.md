@@ -77,7 +77,7 @@ RBQL is a very simple and powerful tool which would allow you to quickly and eas
 It is very easy to start using RBQL even if you don't know SQL. For example to cut out third and first columns use `SELECT a3, a1`  
 You can use RBQL command for all possible types of files (e.g. .js, .xml, .html), but for non-table files only two variables: _NR_ and _a1_ would be available.
 
-[Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/RBQL.md#rbql)  
+[Full Documentation](https://github.com/mechatroner/vscode_rainbow_csv/blob/master/rbql_core/README.md#rbql-rainbow-query-language-description)  
 
 
 Screenshot of RBQL Console:  
