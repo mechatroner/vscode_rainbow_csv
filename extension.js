@@ -185,8 +185,7 @@ function make_hover_text(document, position, language_id) {
 
 function make_hover(document, position, language_id, cancellation_token) {
     if (last_hover_doc != document) {
-        refresh_status_bar_buttons(document);
-        last_hover_doc = document;
+        refresh_status_bar_buttons(document); // Being paranoid and making shure that the buttons are visible
     }
     if (!enable_tooltip)
         return;
@@ -290,17 +289,28 @@ function show_rbql_status_bar_button() {
 }
 
 
-function refresh_status_bar_buttons(active_doc=null) {
+function hide_status_bar_buttons() {
     let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
     }
+}
+
+
+function refresh_status_bar_buttons(active_doc=null) {
     if (!active_doc)
         active_doc = get_active_doc();
-    if (!active_doc)
+    last_hover_doc = active_doc;
+    var file_path = active_doc ? active_doc.fileName : null;
+    if (!active_doc || !file_path) {
+        hide_status_bar_buttons();
         return;
-    var file_path = active_doc.fileName;
+    }
+    if (file_path.endsWith('.git')) {
+        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons
+    }
+    hide_status_bar_buttons();
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
