@@ -79,6 +79,11 @@
                         "type": "string",
                         "description": "Separator"
                     }
+                },
+                "rainbow_csv.rbql_encoding": {
+                    "type": "string",
+                    "default": "utf-8",
+                    "description": "Manually set csv table encoding"
                 }
             }
         },
