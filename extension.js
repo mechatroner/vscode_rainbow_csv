@@ -527,14 +527,13 @@ function get_error_message(error) {
 }
 
 
-function run_rbql_native(input_path, query, delim, policy, report_handler) {
+function run_rbql_native(input_path, query, delim, policy, report_handler, csv_encoding) {
     var rbql_lines = [query];
     var tmp_dir = os.tmpdir();
     var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
     var tmp_worker_module_path = path.join(tmp_dir, script_filename);
     var output_delim = delim;
     var output_policy = policy;
-    var csv_encoding = rbql.default_csv_encoding;
 
     var output_file_name = get_dst_table_name(input_path, output_delim);
     var output_path = path.join(tmp_dir, output_file_name);
@@ -564,6 +563,8 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    var csv_encoding = config && config.get('rbql_encoding') || rbql.default_csv_encoding;
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
@@ -573,9 +574,9 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
         return;
     }
     if (backend_language == 'js') {
-        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler);
+        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler, csv_encoding);
     } else {
-        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, rbql_query, active_file_path];
+        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, Buffer.from(rbql_query, "utf-8").toString("base64"), active_file_path, csv_encoding];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
     }
 }

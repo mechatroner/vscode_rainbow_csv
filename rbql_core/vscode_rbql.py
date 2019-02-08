@@ -10,6 +10,7 @@ import tempfile
 import subprocess
 import argparse
 import json
+import base64
 
 import rbql
 
@@ -85,13 +86,14 @@ def main():
     parser.add_argument('policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
     parser.add_argument('query', help='Query string in rbql')
     parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
+    parser.add_argument('encoding', help='Manually set csv table encoding')
     args = parser.parse_args()
 
     delim = rbql.normalize_delim(args.delim)
     policy = args.policy
-    query = args.query
+    query = base64.standard_b64decode(args.query).decode("utf-8")
     input_path = args.input_table_path
-    csv_encoding = rbql.default_csv_encoding
+    csv_encoding = args.encoding
     output_delim, output_policy = delim, policy
 
     output_path = get_dst_table_path(input_path, output_delim)
