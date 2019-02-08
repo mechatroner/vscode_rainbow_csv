@@ -10,6 +10,7 @@ import tempfile
 import subprocess
 import argparse
 import json
+import base64
 
 import rbql
 
@@ -90,7 +91,7 @@ def main():
 
     delim = rbql.normalize_delim(args.delim)
     policy = args.policy
-    query = args.query
+    query = base64.standard_b64decode(args.query).decode("utf-8")
     input_path = args.input_table_path
     csv_encoding = args.encoding
     output_delim, output_policy = delim, policy
