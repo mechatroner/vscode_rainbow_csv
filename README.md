@@ -1,8 +1,8 @@
 ## Rainbow CSV: Main features
 
-* Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
-* Provide info about column on mouse hover.
-* Automatic consistency check for csv files (CSVLint).
+* Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors
+* Provide info about column on hover
+* Automatic consistency check for csv files (CSVLint)
 * Multi-cursor column edit
 * Run queries in SQL-like language
 * Lightweight and dependency-free
