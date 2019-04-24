@@ -84,6 +84,11 @@
                     "type": "string",
                     "default": "utf-8",
                     "description": "Manually set csv table encoding"
+                },
+                "rainbow_csv.comment_symbol": {
+                    "type": "string",
+                    "default": "#",
+                    "description": "Comment symbol (none means no comments allowed)"
                 }
             }
         },
