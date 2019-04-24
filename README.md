@@ -39,6 +39,9 @@ The linter will check the following:
 To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
 To recheck a csv file click on "CSVLint" button.
 
+If `"rainbow_csv.comment_prefix"` in "Rainbow CSV" section of VS Code settings is set to some string, the linter will ignore all lines that start with it.
+This is useful, e.g., if you have engineering CSVs that often start with multiple comment lines containing meta-data before the actual header.
+
 
 #### Working with large files
 To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.  

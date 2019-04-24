@@ -66,7 +66,7 @@ var global_state = null;
 
 var preview_panel = null;
 
-var comment_symbol ='#';
+var comment_prefix = '#';
 
 
 function dbg_log(msg) {
@@ -128,12 +128,12 @@ function sample_preview_records_from_context(rbql_context) {
 }
 
 function get_header_line(document) {
-    if (!comment_symbol)
+    if (!comment_prefix)
         return document.lineAt(0).text;
     const num_lines = document.lineCount;
-    for(let lnum = 0; lnum < num_lines; ++lnum) {
+    for (let lnum = 0; lnum < num_lines; ++lnum) {
         const line_text = document.lineAt(lnum).text;
-        if (line_text[0] !== comment_symbol) {
+        if (!line_text.startsWith(comment_prefix)) {
             return line_text;
         }
     }
@@ -172,7 +172,7 @@ function make_hover_text(document, position, language_id) {
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
 
-    if (line[0] === comment_symbol)
+    if (comment_prefix && line.startsWith(comment_prefix))
         return 'Comment';
 
     var report = rainbow_utils.smart_split(line, delim, policy, true);
@@ -223,7 +223,7 @@ function produce_lint_report(active_doc, delim, policy, max_check_size) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        if (line_text[0] === comment_symbol)
+        if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         var split_result = rainbow_utils.smart_split(line_text, delim, policy, false);
         if (split_result[1]) {
@@ -842,7 +842,7 @@ function column_edit(edit_mode) {
         let line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        if (line_text[0] === comment_symbol)
+        if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         let report = rainbow_utils.smart_split(line_text, delim, policy, true);
         let entries = report[0];
@@ -988,7 +988,7 @@ function is_delimited_table(active_doc, delim, policy) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        if (line_text[0] === comment_symbol)
+        if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
         if (warning)
@@ -1156,7 +1156,7 @@ function activate(context) {
             enable_tooltip_column_names = false;
         if (config.get('enable_tooltip_warnings') === false)
             enable_tooltip_warnings = false;
-        comment_symbol = config.get('comment_symbol');
+        comment_prefix = config.get('comment_prefix');
     }
 
     global_state = context.globalState;
