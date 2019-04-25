@@ -68,7 +68,6 @@ var preview_panel = null;
 
 var comment_prefix = '#';
 
-
 function dbg_log(msg) {
     if (!enable_dev_mode)
         return;
