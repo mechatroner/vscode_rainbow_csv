@@ -84,6 +84,11 @@
                     "type": "string",
                     "default": "utf-8",
                     "description": "Manually set csv table encoding"
+                },
+                "rainbow_csv.comment_prefix": {
+                    "type": "string",
+                    "default": "#",
+                    "description": "Comment prefix to denote lines that should be ignored when linting"
                 }
             }
         },

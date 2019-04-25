@@ -66,6 +66,7 @@ var global_state = null;
 
 var preview_panel = null;
 
+var comment_prefix = '#';
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -125,6 +126,18 @@ function sample_preview_records_from_context(rbql_context) {
     return preview_records;
 }
 
+function get_header_line(document) {
+    if (!comment_prefix)
+        return document.lineAt(0).text;
+    const num_lines = document.lineCount;
+    for (let lnum = 0; lnum < num_lines; ++lnum) {
+        const line_text = document.lineAt(lnum).text;
+        if (!line_text.startsWith(comment_prefix)) {
+            return line_text;
+        }
+    }
+    return null;
+}
 
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
@@ -134,7 +147,7 @@ function get_header(document, delim, policy) {
             return rainbow_utils.smart_split(header, ',', 'quoted', false)[0];
         }
     }
-    return rainbow_utils.smart_split(document.lineAt(0).text, delim, policy, false)[0];
+    return rainbow_utils.smart_split(get_header_line(document), delim, policy, false)[0];
 }
 
 
@@ -157,6 +170,9 @@ function make_hover_text(document, position, language_id) {
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
+
+    if (comment_prefix && line.startsWith(comment_prefix))
+        return 'Comment';
 
     var report = rainbow_utils.smart_split(line, delim, policy, true);
 
@@ -206,12 +222,15 @@ function produce_lint_report(active_doc, delim, policy, max_check_size) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
         var split_result = rainbow_utils.smart_split(line_text, delim, policy, false);
         if (split_result[1]) {
             return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
         }
-        if (lnum === 0)
+        if (!num_fields) {
             num_fields = split_result[0].length;
+        }
         if (num_fields != split_result[0].length) {
             return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
         }
@@ -822,6 +841,8 @@ function column_edit(edit_mode) {
         let line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
         let report = rainbow_utils.smart_split(line_text, delim, policy, true);
         let entries = report[0];
         quoting_warning = quoting_warning || report[1];
@@ -966,6 +987,8 @@ function is_delimited_table(active_doc, delim, policy) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
         let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
         if (warning)
             return false; // TODO don't fail on warnings in future versions
@@ -1132,6 +1155,7 @@ function activate(context) {
             enable_tooltip_column_names = false;
         if (config.get('enable_tooltip_warnings') === false)
             enable_tooltip_warnings = false;
+        comment_prefix = config.get('comment_prefix');
     }
 
     global_state = context.globalState;

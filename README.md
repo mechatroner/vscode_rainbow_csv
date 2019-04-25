@@ -39,6 +39,9 @@ The linter will check the following:
 To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
 To recheck a csv file click on "CSVLint" button.
 
+If `"rainbow_csv.comment_prefix"` in "Rainbow CSV" section of VS Code settings is set to some string, the linter will ignore all lines that start with it.
+This is useful, e.g., if you have engineering CSVs that often start with multiple comment lines containing meta-data before the actual header.
+
 
 #### Working with large files
 To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.  
@@ -60,7 +63,7 @@ To remove cursor/selection from the header line use "Alt+Click" on it.
 
 #### SetVirtualHeader
 Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
-Rainbow CSV always assumes the first row as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
+Rainbow CSV always assumes the first row that is not a comment (if comments are enabled) as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
 
 ### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
