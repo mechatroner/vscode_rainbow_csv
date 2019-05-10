@@ -21,8 +21,6 @@ var dialect_map = {
     'csv (hyphen)': ['-', 'simple']
 };
 
-// FIXME get rid of RBQL.md file: up-to-date docs are in rbql_core/README.md
-
 // TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
 // TODO Implement RBQL settings: encoding, output separator
 // TODO add allign / unalign commands

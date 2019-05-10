@@ -23,6 +23,7 @@
         "onLanguage:csv (semicolon)",
         "onLanguage:csv (pipe)",
         "onLanguage:csv (tilda)",
+        "onLanguage:csv (whitespace)",
         "onLanguage:csv (caret)",
         "onLanguage:csv (colon)",
         "onLanguage:csv (double quote)",
@@ -146,6 +147,14 @@
                 "aliases": [
                     "CSV (tilda)",
                     "csv (tilda)"
+                ],
+                "extensions": []
+            },
+            {
+                "id": "csv (whitespace)",
+                "aliases": [
+                    "CSV (whitespace)",
+                    "csv (whitespace)"
                 ],
                 "extensions": []
             },
@@ -282,6 +291,11 @@
                 "language": "csv (tilda)",
                 "scopeName": "text.tldsv",
                 "path": "./syntaxes/tldsv.tmLanguage.json"
+            },
+            {
+                "language": "csv (whitespace)",
+                "scopeName": "text.wspcsv",
+                "path": "./syntaxes/wspcsv.tmLanguage.json"
             },
             {
                 "language": "csv (caret)",
