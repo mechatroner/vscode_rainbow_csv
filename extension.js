@@ -126,18 +126,18 @@ function sample_preview_records_from_context(rbql_context) {
     return preview_records;
 }
 
+
 function get_header_line(document) {
-    if (!comment_prefix)
-        return document.lineAt(0).text;
     const num_lines = document.lineCount;
     for (let lnum = 0; lnum < num_lines; ++lnum) {
         const line_text = document.lineAt(lnum).text;
-        if (!line_text.startsWith(comment_prefix)) {
+        if (!comment_prefix || !line_text.startsWith(comment_prefix)) {
             return line_text;
         }
     }
     return null;
 }
+
 
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
@@ -287,7 +287,7 @@ function show_lint_status_bar_button(file_path, language_id) {
 
 
 function show_rainbow_off_status_bar_button() {
-    if (typeof vscode.languages.setTextDocumentLanguage == "undefined") { 
+    if (typeof vscode.languages.setTextDocumentLanguage == "undefined") {
         return;
     }
     if (!rainbow_off_status_bar_button)
@@ -406,12 +406,12 @@ function handle_rbql_result_file(text_doc, warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return;
-    var handle_success = function(editor) { 
+    var handle_success = function(editor) {
         if (language_id && text_doc.language_id != language_id) {
             console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
             try_change_document_language(text_doc, language_id, false);
         }
-        show_warnings(warnings); 
+        show_warnings(warnings);
     };
     var handle_failure = function(reason) { show_single_line_error('Unable to open document'); };
     active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
@@ -524,7 +524,7 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
     let report = {'result_path': output_path};
     if (warnings) {
         hr_warnings = rbql.make_warnings_human_readable(warnings);
-        report['warnings'] = hr_warnings; 
+        report['warnings'] = hr_warnings;
     }
     report_handler(report);
     autodetection_stoplist.add(output_path);
