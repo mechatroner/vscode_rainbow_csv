@@ -86,7 +86,7 @@ function smart_split(src, dlm, policy, preserve_quotes) {
     if (policy === 'monocolumn')
         return [[src], false];
     if (policy === 'whitespace')
-        return split_whitespace_separated_str(src, preserve_quotes);
+        return [split_whitespace_separated_str(src, preserve_quotes), false];
     return split_quoted_str(src, dlm, preserve_quotes);
 }
 

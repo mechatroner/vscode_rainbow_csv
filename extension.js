@@ -18,8 +18,12 @@ var dialect_map = {
     'csv (double quote)': ['"', 'simple'],
     'csv (equals)': ['=', 'simple'],
     'csv (dot)': ['.', 'simple'],
+    'csv (whitespace)': [' ', 'whitespace'],
     'csv (hyphen)': ['-', 'simple']
 };
+
+
+// FIXME autodetection order: sort candidates by number of fields
 
 // TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
 // TODO Implement RBQL settings: encoding, output separator
