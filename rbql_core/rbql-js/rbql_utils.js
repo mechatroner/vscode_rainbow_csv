@@ -76,6 +76,11 @@ function split_whitespace_separated_str(src, preserve_whitespaces=false) {
     while((match_obj = rgxp.exec(src)) !== null) {
         result.push(match_obj[0]);
     }
+    if (preserve_whitespaces) {
+        for (let i = 0; i < result.length - 1; i++) {
+            result[i] = result[i].slice(0, -1);
+        }
+    }
     return result;
 }
 
