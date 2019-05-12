@@ -1034,21 +1034,8 @@ function autoenable_rainbow_csv(active_doc) {
     if (autodetection_stoplist.has(file_path)) {
         return;
     }
-    let rainbow_csv_language_id = null;
-    if (original_language_id == 'csv') {
-        let alternative_candidates = candidate_separators.slice(0);
-        let comma_idx = alternative_candidates.indexOf(',');
-        if (comma_idx != -1) {
-            alternative_candidates.splice(comma_idx, 1);
-        }
-        rainbow_csv_language_id = autodetect_dialect(active_doc, alternative_candidates);
-        if (rainbow_csv_language_id && is_delimited_table(active_doc, ',', 'quoted')) {
-            rainbow_csv_language_id = null;
-        }
-    } else {
-        rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
-    }
-    if (!rainbow_csv_language_id)
+    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
+    if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return;
     if (try_change_document_language(active_doc, rainbow_csv_language_id, false)) {
         original_language_ids.set(file_path, original_language_id);
