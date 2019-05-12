@@ -23,8 +23,6 @@ var dialect_map = {
 };
 
 
-// FIXME autodetection order: sort candidates by number of fields
-
 // TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
 // TODO Implement RBQL settings: encoding, output separator
 // TODO add allign / unalign commands
@@ -70,6 +68,7 @@ var preview_panel = null;
 
 var comment_prefix = '#';
 
+
 function dbg_log(msg) {
     if (!enable_dev_mode)
         return;
@@ -91,11 +90,11 @@ function log_error(msg) {
 
 
 function map_separator_to_language_id(separator) {
-    for (let dialect_name in dialect_map) {
-        if (!dialect_map.hasOwnProperty(dialect_name))
+    for (let language_id in dialect_map) {
+        if (!dialect_map.hasOwnProperty(language_id))
             continue;
-        if (dialect_map[dialect_name][0] == separator)
-            return dialect_name;
+        if (dialect_map[language_id][0] == separator)
+            return language_id;
     }
     return null;
 }
@@ -420,7 +419,6 @@ function handle_rbql_result_file(text_doc, warnings) {
 }
 
 
-
 function run_command(cmd, args, close_and_error_guard, callback_func) {
     var command = child_process.spawn(cmd, args, {'windowsHide': true});
     var stdout = '';
@@ -658,6 +656,7 @@ function get_dialect(document) {
 function save_new_header(file_path, new_header) {
     global_state.update(file_path, new_header);
 }
+
 
 function try_change_document_language(active_doc, language_id, is_manual_op) {
     try {
@@ -980,11 +979,9 @@ function get_rbql_backend_language() {
 }
 
 
-function is_delimited_table(active_doc, delim, policy) {
+function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns) {
     var num_lines = active_doc.lineCount;
-    if (num_lines < 10)
-        return false;
-    let num_fields = null;
+    let num_fields = 0;
     for (var lnum = 0; lnum < num_lines; lnum++) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
@@ -993,30 +990,35 @@ function is_delimited_table(active_doc, delim, policy) {
             continue;
         let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
         if (warning)
-            return false; // TODO don't fail on warnings in future versions
-        if (num_fields === null) {
+            return 0; // TODO don't fail on warnings?
+        if (!num_fields)
             num_fields = fields.length;
-            if (num_fields < 2)
-                return false;
-        }
-        if (num_fields != fields.length)
-            return false;
+        if (num_fields < min_num_columns || num_fields != fields.length)
+            return 0;
     }
-    return true;
+    return num_fields;
 }
 
 
 function autodetect_dialect(active_doc, candidate_separators) {
-    for (var i = 0; i < candidate_separators.length; i++) {
-        var dialect_id = map_separator_to_language_id(candidate_separators[i]);
-        if (!dialect_id || !dialect_map.hasOwnProperty(dialect_id)) {
+    // FIXME test
+    if (active_doc.lineCount < 10)
+        return null;
+
+    let best_dialect = null;
+    let best_dialect_num_columns = 1;
+    for (let i = 0; i < candidate_separators.length; i++) {
+        let dialect_id = map_separator_to_language_id(candidate_separators[i]);
+        if (!dialect_id)
             continue;
+        let [delim, policy] = dialect_map[dialect_id];
+        let cur_dialect_num_columns = get_num_columns_if_delimited(active_doc, delim, policy, best_dialect_num_columns + 1);
+        if (cur_dialect_num_columns > best_dialect_num_columns) {
+            best_dialect_num_columns = cur_dialect_num_columns;
+            best_dialect = dialect_id;
         }
-        var [delim, policy] = dialect_map[dialect_id];
-        if (is_delimited_table(active_doc, delim, policy))
-            return dialect_id;
     }
-    return null;
+    return best_dialect;
 }
 
 
@@ -1073,6 +1075,7 @@ function quoted_join(fields, delim) {
     var quoted_fields = fields.map(function(val) { return quote_field(val, delim); });
     return quoted_fields.join(delim);
 }
+
 
 function make_preview(uri, preview_mode) {
     var file_path = uri.fsPath;
@@ -1154,9 +1157,9 @@ function activate(context) {
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
 
-    for (let dialect_name in dialect_map) {
-        if (dialect_map.hasOwnProperty(dialect_name)) {
-            register_csv_hover_info_provider(dialect_name, context);
+    for (let language_id in dialect_map) {
+        if (dialect_map.hasOwnProperty(language_id)) {
+            register_csv_hover_info_provider(language_id, context);
         }
     }
 
