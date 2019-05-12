@@ -90,6 +90,16 @@
                     "type": "string",
                     "default": "#",
                     "description": "Comment prefix to denote lines that should be ignored when linting"
+                },
+                "rainbow_csv.enable_context_menu_head": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable \"Preview CSV head\" option in File Explorer context menu"
+                },
+                "rainbow_csv.enable_context_menu_tail": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable \"Preview CSV tail\" option in File Explorer context menu"
                 }
             }
         },
@@ -104,10 +114,12 @@
             "explorer/context": [
                 {
                     "command": "extension.SampleHead",
+                    "when": "config.rainbow_csv.enable_context_menu_head",
                     "group": "rainbow_csv"
                 },
                 {
                     "command": "extension.SampleTail",
+                    "when": "config.rainbow_csv.enable_context_menu_tail",
                     "group": "rainbow_csv"
                 }
             ]
