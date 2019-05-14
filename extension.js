@@ -172,8 +172,7 @@ function get_field_by_line_position(fields, query_pos) {
 
 
 function make_hover_text(document, position, language_id) {
-    var delim = dialect_map[language_id][0];
-    var policy = dialect_map[language_id][1];
+    let [delim, policy] = dialect_map[language_id];
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -222,7 +221,7 @@ function make_hover(document, position, language_id, cancellation_token) {
 }
 
 
-function produce_lint_report(active_doc, delim, policy, max_check_size) {
+function produce_lint_report(active_doc, delim, policy) {
     var num_lines = active_doc.lineCount;
     var num_fields = null;
     for (var lnum = 0; lnum < num_lines; lnum++) {
@@ -240,9 +239,6 @@ function produce_lint_report(active_doc, delim, policy, max_check_size) {
         }
         if (num_fields != split_result[0].length) {
             return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
-        }
-        if (max_check_size && lnum > max_check_size) {
-            return 'File is too big: autocheck was cancelled';
         }
     }
     return 'OK';
@@ -368,10 +364,8 @@ function csv_lint(active_doc, is_manual_op) {
     }
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
-    var delim = dialect_map[language_id][0];
-    var policy = dialect_map[language_id][1];
-    var max_check_size = is_manual_op ? null : 50000;
-    var lint_report = produce_lint_report(active_doc, delim, policy, max_check_size);
+    let [delim, policy] = dialect_map[dialect_id];
+    var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
     return true;
 }
@@ -638,8 +632,7 @@ function init_rbql_context() {
     var delim = 'monocolumn';
     var policy = 'monocolumn';
     if (dialect_map.hasOwnProperty(language_id)) {
-        delim = dialect_map[language_id][0];
-        policy = dialect_map[language_id][1];
+        [delim, policy] = dialect_map[dialect_id];
     }
     rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
     return true;
@@ -895,8 +888,13 @@ function align_table(active_editor, edit_builder) {
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
-    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /*intentionally missing the '-1' */, 0);
+    let language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    let [delim, policy] = dialect_map[dialect_id];
+    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
+    // see produce_lint_report impl
     edit_builder.replace(full_range, 'hello world\nGoodbye!\n\nHaha\n\n');
 }
 
