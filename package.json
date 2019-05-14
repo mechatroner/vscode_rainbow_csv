@@ -275,6 +275,11 @@
                 "title": "QueryHere"
             },
             {
+                "command": "extension.Align",
+                "category": "Rainbow CSV",
+                "title": "Align CSV Columns"
+            },
+            {
                 "command": "extension.SampleHead",
                 "title": "Preview big CSV: head"
             },

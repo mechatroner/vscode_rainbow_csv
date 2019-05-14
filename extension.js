@@ -24,6 +24,12 @@ var dialect_map = {
 
 
 // TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
+// Example for copy-back: https://github.com/M-Porter/evenup/blob/7401035070c3297c0ed15b64b77e07412faa2856/src/commands/align.ts
+// Example for align/shrink: https://github.com/Zarel/vscode-sublime-commands/blob/9ad6714029d14b5b0cabdf8a8f5cd8ab40474045/src/extension.ts
+// another edit example: https://stackoverflow.com/a/50875520/2898283
+//
+// FIXME implement copy-back first to check possibility of a massive file edit. Use your test code somewhere in an old experimental branch
+//
 // TODO Implement RBQL settings: encoding, output separator
 // TODO add allign / unalign commands
 // TODO add special whitespace-separated dialect
@@ -401,6 +407,20 @@ function show_single_line_error(error_msg) {
 }
 
 
+function try_change_document_language(active_doc, language_id, is_manual_op) {
+    try {
+        // FIXME use "then" method
+        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+    } catch (error) {
+        dbg_log('Unable to change language: ' + error);
+        if (is_manual_op)
+            show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
+        return false;
+    }
+    return true;
+}
+
+
 function handle_rbql_result_file(text_doc, warnings) {
     var out_delim = rbql_context.delim;
     let language_id = map_separator_to_language_id(out_delim);
@@ -658,19 +678,6 @@ function save_new_header(file_path, new_header) {
 }
 
 
-function try_change_document_language(active_doc, language_id, is_manual_op) {
-    try {
-        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
-    } catch (error) {
-        dbg_log('Unable to change language: ' + error);
-        if (is_manual_op)
-            show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
-        return false;
-    }
-    return true;
-}
-
-
 function set_rainbow_separator() {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -881,6 +888,16 @@ function column_edit(edit_mode) {
     if (quoting_warning) {
         vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
     }
+}
+
+
+function align_table(active_editor, edit_builder) {
+    let active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /*intentionally missing the '-1' */, 0);
+    let full_range = active_doc.validateRange(invalid_range);
+    edit_builder.replace(full_range, 'hello world\nGoodbye!\n\nHaha\n\n');
 }
 
 
@@ -1175,6 +1192,7 @@ function activate(context) {
     var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('extension.SampleHead', uri => make_preview(uri, 'head'));
     var sample_tail_cmd = vscode.commands.registerCommand('extension.SampleTail', uri => make_preview(uri, 'tail'));
+    var align_cmd = vscode.commands.registerTextEditorCommand('extension.Align', align_table);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1193,6 +1211,7 @@ function activate(context) {
     context.subscriptions.push(sample_head_cmd);
     context.subscriptions.push(sample_tail_cmd);
     context.subscriptions.push(set_join_table_name_cmd);
+    context.subscriptions.push(align_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
