@@ -74,6 +74,7 @@ var preview_panel = null;
 
 var comment_prefix = '#';
 
+const trailing_spaces_rgx = new RegExp(" +$");
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -245,6 +246,47 @@ function produce_lint_report(active_doc, delim, policy) {
 }
 
 
+function calc_column_sizes(active_doc, delim, policy) {
+    let result = [];
+    let num_lines = active_doc.lineCount;
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
+        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        for (let i = 0; i < fields.length; i++) {
+            if (result.length <= i)
+                result.push(0);
+            result[i] = Math.max(result[i], (fields[i].replace(trailing_spaces_rgx, '')).length);
+        }
+    }
+    return result;
+}
+
+
+function align_columns(active_doc, delim, policy, column_sizes) {
+    let result_lines = [];
+    let num_lines = active_doc.lineCount;
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            result_lines.push(line_text);
+            continue;
+        }
+        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        for (let i = 0; i < fields.length && i < column_sizes.length; i++) {
+            fields[i] = fields[i].replace(trailing_spaces_rgx, '');
+            let delta_len = column_sizes[i].length - fields[i].length;
+            if (delta_len > 0) {
+                fields[i] += ' '.repeat(delta_len);
+            }
+            result_lines.push(fields.join(delim));
+        }
+    }
+    return result_lines.join('\n');
+}
+
+
 function get_active_editor() {
     var active_window = vscode.window;
     if (!active_window)
@@ -364,7 +406,7 @@ function csv_lint(active_doc, is_manual_op) {
     }
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
-    let [delim, policy] = dialect_map[dialect_id];
+    let [delim, policy] = dialect_map[language_id];
     var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
     return true;
@@ -632,7 +674,7 @@ function init_rbql_context() {
     var delim = 'monocolumn';
     var policy = 'monocolumn';
     if (dialect_map.hasOwnProperty(language_id)) {
-        [delim, policy] = dialect_map[dialect_id];
+        [delim, policy] = dialect_map[language_id];
     }
     rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
     return true;
@@ -763,6 +805,7 @@ function write_index(records, index_path) {
 
 
 function do_set_table_name(table_path, table_name) {
+    // FIXME use VSCode storage instead
     let home_dir = os.homedir();
     let index_path = path.join(home_dir, '.rbql_table_names');
     let records = try_read_index(index_path);
@@ -891,11 +934,13 @@ function align_table(active_editor, edit_builder) {
     let language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    let [delim, policy] = dialect_map[dialect_id];
+    let [delim, policy] = dialect_map[language_id];
+    let column_sizes = calc_column_sizes(active_doc, delim, policy);
+    let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
+
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
-    // see produce_lint_report impl
-    edit_builder.replace(full_range, 'hello world\nGoodbye!\n\nHaha\n\n');
+    edit_builder.replace(full_range, aligned_doc_text);
 }
 
 

@@ -2,7 +2,7 @@ let field_regular_expression = '"((?:[^"]*"")*[^"]*)"';
 let field_rgx = new RegExp('^' + field_regular_expression);
 let field_rgx_external_whitespaces = new RegExp('^' + ' *'+ field_regular_expression + ' *')
 
-function extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result) {
+function extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_external_whitespaces, cidx, result) {
     var warning = false;
     let src_cur = src.substring(cidx);
     let rgx = allow_external_whitespaces ? field_rgx_external_whitespaces : field_rgx;
@@ -10,7 +10,7 @@ function extract_next_field(src, dlm, preserve_quotes, allow_external_whitespace
     if (match_obj !== null) {
         let match_end = match_obj[0].length;
         if (cidx + match_end == src.length || src[cidx + match_end] == dlm) {
-            if (preserve_quotes) {
+            if (preserve_quotes_and_whitespaces) {
                 result.push(match_obj[0]);
             } else {
                 result.push(match_obj[1].replace(/""/g, '"'));
@@ -29,7 +29,7 @@ function extract_next_field(src, dlm, preserve_quotes, allow_external_whitespace
 }
 
 
-function split_quoted_str(src, dlm, preserve_quotes=false) {
+function split_quoted_str(src, dlm, preserve_quotes_and_whitespaces=false) {
     if (src.indexOf('"') == -1) // Optimization for most common case
         return [src.split(dlm), false];
     var result = [];
@@ -37,7 +37,7 @@ function split_quoted_str(src, dlm, preserve_quotes=false) {
     var warning = false;
     let allow_external_whitespaces = dlm != ' ';
     while (cidx < src.length) {
-        var extraction_report = extract_next_field(src, dlm, preserve_quotes, allow_external_whitespaces, cidx, result);
+        var extraction_report = extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_external_whitespaces, cidx, result);
         cidx = extraction_report[0];
         warning = warning || extraction_report[1];
     }
@@ -85,14 +85,14 @@ function split_whitespace_separated_str(src, preserve_whitespaces=false) {
 }
 
 
-function smart_split(src, dlm, policy, preserve_quotes) {
+function smart_split(src, dlm, policy, preserve_quotes_and_whitespaces) {
     if (policy === 'simple')
         return [src.split(dlm), false];
     if (policy === 'monocolumn')
         return [[src], false];
     if (policy === 'whitespace')
-        return [split_whitespace_separated_str(src, preserve_quotes), false];
-    return split_quoted_str(src, dlm, preserve_quotes);
+        return [split_whitespace_separated_str(src, preserve_quotes_and_whitespaces), false];
+    return split_quoted_str(src, dlm, preserve_quotes_and_whitespaces);
 }
 
 
