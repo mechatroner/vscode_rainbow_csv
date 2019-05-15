@@ -624,10 +624,10 @@ function run_rbql_native(input_path, query, delim, policy, report_handler, csv_e
     }
     var handle_success = function(warnings) {
         handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
-    }
+    };
     var handle_failure = function(error_msg) {
         handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
-    }
+    };
     worker_module.run_on_node(handle_success, handle_failure);
 }
 
@@ -695,7 +695,7 @@ function process_rbql_quick(active_file_path, backend_language, query) {
             log_error('Error Type: ' + error_type);
             log_error('Error Details: ' + error_details);
         }
-    }
+    };
     run_rbql_query(active_file_path, backend_language, query, report_handler);
 }
 
@@ -847,7 +847,7 @@ function edit_column_names() {
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = quoted_join(old_header, ',');
     var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function(new_header) { save_new_header(file_path, new_header); }
+    var handle_success = function(new_header) { save_new_header(file_path, new_header); };
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
@@ -950,7 +950,7 @@ function edit_rbql_quick() {
     var active_file_path = rbql_context['document'].fileName;
     var backend_language = get_rbql_backend_language();
     var title = "Input SQL-like RBQL query [in " + backend_language + "]  ";
-    var handle_success = function(query) { process_rbql_quick(active_file_path, backend_language, query); }
+    var handle_success = function(query) { process_rbql_quick(active_file_path, backend_language, query); };
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     var input_box_props = {"ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..."};
     if (last_rbql_queries.has(active_file_path)) {
@@ -999,7 +999,7 @@ function handle_rbql_client_message(webview, message) {
         var report_handler = function(report) {
             var report_msg = {'msg_type': 'rbql_report', 'report': report};
             webview.postMessage(report_msg);
-        }
+        };
         var active_file_path = rbql_context['document'].fileName;
         run_rbql_query(active_file_path, backend_language, rbql_query, report_handler);
     }
@@ -1087,7 +1087,7 @@ function autoenable_rainbow_csv(active_doc) {
         return;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (!config || !config.get('enable_separator_autodetection'))
-        return
+        return;
     let candidate_separators = config.get('autodetect_separators');
     var original_language_id = active_doc.languageId;
     if (['plaintext', 'csv'].indexOf(original_language_id) == -1)
