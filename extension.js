@@ -274,14 +274,16 @@ function align_columns(active_doc, delim, policy, column_sizes) {
             continue;
         }
         let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
-        for (let i = 0; i < fields.length && i < column_sizes.length; i++) {
+        for (let i = 0; i < fields.length - 1; i++) {
+            if (i >= column_sizes.length) // Safeguard against async doc edit
+                break;
             fields[i] = fields[i].replace(trailing_spaces_rgx, '');
-            let delta_len = column_sizes[i].length - fields[i].length;
+            let delta_len = column_sizes[i] - fields[i].length;
             if (delta_len > 0) {
                 fields[i] += ' '.repeat(delta_len);
             }
-            result_lines.push(fields.join(delim));
         }
+        result_lines.push(fields.join(delim));
     }
     return result_lines.join('\n');
 }
