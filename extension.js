@@ -264,6 +264,32 @@ function calc_column_sizes(active_doc, delim, policy) {
 }
 
 
+function shrink_columns(active_doc, delim, policy) {
+    let result_lines = [];
+    let num_lines = active_doc.lineCount;
+    let has_edit = false;
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            result_lines.push(line_text);
+            continue;
+        }
+        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        for (let i = 0; i < fields.length; i++) {
+            let trimmed = fields[i].trim();
+            if (trimmed.length != fields[i].length) {
+                fields[i] = trimmed;
+                has_edit = true;
+            }
+        }
+        result_lines.push(fields.join(delim));
+    }
+    if (!has_edit)
+        return null;
+    return result_lines.join('\n');
+}
+
+
 function align_columns(active_doc, delim, policy, column_sizes) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
@@ -929,6 +955,25 @@ function column_edit(edit_mode) {
 }
 
 
+function shrink_table(active_editor, edit_builder) {
+    let active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+    let language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    let [delim, policy] = dialect_map[language_id];
+    let shrinked_doc_text = shrink_columns(active_doc, delim, policy);
+    if (shrinked_doc_text === null) {
+        vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
+        return;
+    }
+    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
+    let full_range = active_doc.validateRange(invalid_range);
+    edit_builder.replace(full_range, shrinked_doc_text);
+}
+
+
 function align_table(active_editor, edit_builder) {
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
@@ -1238,6 +1283,7 @@ function activate(context) {
     var sample_head_cmd = vscode.commands.registerCommand('extension.SampleHead', uri => make_preview(uri, 'head'));
     var sample_tail_cmd = vscode.commands.registerCommand('extension.SampleTail', uri => make_preview(uri, 'tail'));
     var align_cmd = vscode.commands.registerTextEditorCommand('extension.Align', align_table);
+    var shrink_cmd = vscode.commands.registerTextEditorCommand('extension.Shrink', shrink_table);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1257,6 +1303,7 @@ function activate(context) {
     context.subscriptions.push(sample_tail_cmd);
     context.subscriptions.push(set_join_table_name_cmd);
     context.subscriptions.push(align_cmd);
+    context.subscriptions.push(shrink_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document

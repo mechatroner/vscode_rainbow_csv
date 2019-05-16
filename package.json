@@ -280,6 +280,11 @@
                 "title": "Align CSV Columns"
             },
             {
+                "command": "extension.Shrink",
+                "category": "Rainbow CSV",
+                "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
+            },
+            {
                 "command": "extension.SampleHead",
                 "title": "Preview big CSV: head"
             },
