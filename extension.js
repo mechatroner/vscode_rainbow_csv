@@ -42,6 +42,7 @@ var dbg_counter = 0;
 var lint_results = new Map();
 var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
+var result_set_parent_map = new Map();
 
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
@@ -75,6 +76,7 @@ var preview_panel = null;
 var comment_prefix = '#';
 
 const trailing_spaces_rgx = new RegExp(" +$");
+
 
 function dbg_log(msg) {
     if (!enable_dev_mode)
@@ -194,10 +196,11 @@ function make_hover_text(document, position, language_id) {
     var header = get_header(document, delim, policy);
     if (enable_tooltip_column_names && col_num < header.length) {
         const max_label_len = 50;
-        var column_label = header[col_num].substr(0, max_label_len);
-        if (column_label != header[col_num])
-            column_label = column_label + '...';
-        result += ', Header: "' + column_label + '"';
+        let column_label = header[col_num].trim();
+        var short_column_label = column_label.substr(0, max_label_len);
+        if (short_column_label != column_label)
+            short_column_label = short_column_label + '...';
+        result += ', Header: "' + short_column_label + '"';
     }
     if (enable_tooltip_warnings && header.length != entries.length)
         result += "; WARN: num of fields in Header and this line differs";
@@ -566,6 +569,7 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     var dst_table_path = report['result_path'];
     dbg_log('dst_table_path: ' + dst_table_path);
     autodetection_stoplist.add(dst_table_path);
+    result_set_parent_map.set(dst_table_path, src_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
@@ -651,6 +655,7 @@ function run_rbql_native(input_path, query, delim, policy, report_handler, csv_e
         return;
     }
     var handle_success = function(warnings) {
+        result_set_parent_map.set(output_path, input_path);
         handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
     };
     var handle_failure = function(error_msg) {
@@ -991,6 +996,21 @@ function align_table(active_editor, edit_builder) {
 }
 
 
+function copy_back() {
+    //let active_doc = get_active_doc();
+    //if (!active_doc)
+    //    return;
+    //let file_path = active_doc.fileName;
+    //let parent_table_path = result_set_parent_map.get(file_path);
+    //if (!parent_table_path)
+    //    return;
+    //fs.copyFileSync(file_path, parent_table_path);
+    //let uri = vscode.Uri.file(parent_table_path);
+    //vscode.commands.executeCommand('vscode.open', uri);
+    //vscode.window.showInformationMessage('Press Undo and then Save to restore the original data');
+}
+
+
 function edit_rbql_quick() {
     if (!init_rbql_context())
         return;
@@ -1284,6 +1304,7 @@ function activate(context) {
     var sample_tail_cmd = vscode.commands.registerCommand('extension.SampleTail', uri => make_preview(uri, 'tail'));
     var align_cmd = vscode.commands.registerTextEditorCommand('extension.Align', align_table);
     var shrink_cmd = vscode.commands.registerTextEditorCommand('extension.Shrink', shrink_table);
+    var copy_back_cmd = vscode.commands.registerCommand('extension.CopyBack', copy_back);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1304,6 +1325,7 @@ function activate(context) {
     context.subscriptions.push(set_join_table_name_cmd);
     context.subscriptions.push(align_cmd);
     context.subscriptions.push(shrink_cmd);
+    context.subscriptions.push(copy_back_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document

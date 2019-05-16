@@ -285,6 +285,10 @@
                 "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
             },
             {
+                "command": "extension.CopyBack",
+                "title": "CopyBack"
+            },
+            {
                 "command": "extension.SampleHead",
                 "title": "Preview big CSV: head"
             },
