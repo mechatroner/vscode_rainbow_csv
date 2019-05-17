@@ -488,10 +488,12 @@ function show_single_line_error(error_msg) {
 }
 
 
-function try_change_document_language(active_doc, language_id, is_manual_op) {
+function try_change_document_language(active_doc, language_id, is_manual_op, callback_func) {
     try {
-        // FIXME use "then" method
-        vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+        vscode.languages.setTextDocumentLanguage(active_doc, language_id).then((doc) => {
+            if (callback_func !== null)
+                callback_func(doc)
+        });
     } catch (error) {
         dbg_log('Unable to change language: ' + error);
         if (is_manual_op)
@@ -511,7 +513,7 @@ function handle_rbql_result_file(text_doc, warnings) {
     var handle_success = function(editor) {
         if (language_id && text_doc.language_id != language_id) {
             console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
-            try_change_document_language(text_doc, language_id, false);
+            try_change_document_language(text_doc, language_id, false, null);
         }
         show_warnings(warnings);
     };
@@ -783,11 +785,11 @@ function set_rainbow_separator() {
         show_single_line_error("Selected separator is not supported");
         return;
     }
-    if (try_change_document_language(active_doc, language_id, true)) {
-        original_language_ids.set(active_doc.fileName, original_language_id);
-        csv_lint(active_doc, false);
-        refresh_status_bar_buttons(active_doc);
-    }
+    try_change_document_language(active_doc, language_id, true, (doc) => {
+        original_language_ids.set(doc.fileName, original_language_id);
+        csv_lint(doc, false);
+        refresh_status_bar_buttons(doc);
+    });
 }
 
 
@@ -805,10 +807,10 @@ function restore_original_language() {
         show_single_line_error("Unable to restore original language");
         return;
     }
-    if (try_change_document_language(active_doc, original_language_id, true)) {
+    try_change_document_language(active_doc, original_language_id, true, (doc) => {
         original_language_ids.delete(file_path);
-        refresh_status_bar_buttons(active_doc);
-    }
+        refresh_status_bar_buttons(doc);
+    });
 }
 
 
@@ -1188,11 +1190,11 @@ function autoenable_rainbow_csv(active_doc) {
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return;
-    if (try_change_document_language(active_doc, rainbow_csv_language_id, false)) {
+    try_change_document_language(active_doc, rainbow_csv_language_id, false, (doc) => {
         original_language_ids.set(file_path, original_language_id);
-        csv_lint(active_doc, false);
-        refresh_status_bar_buttons(active_doc);
-    }
+        csv_lint(doc, false);
+        refresh_status_bar_buttons(doc);
+    });
 }
 
 
