@@ -28,8 +28,6 @@ var dialect_map = {
 // Example for align/shrink: https://github.com/Zarel/vscode-sublime-commands/blob/9ad6714029d14b5b0cabdf8a8f5cd8ab40474045/src/extension.ts
 // another edit example: https://stackoverflow.com/a/50875520/2898283
 //
-// FIXME implement copy-back first to check possibility of a massive file edit. Use your test code somewhere in an old experimental branch
-//
 // TODO Implement RBQL settings: encoding, output separator
 // TODO add allign / unalign commands
 // TODO add special whitespace-separated dialect
@@ -47,8 +45,9 @@ var result_set_parent_map = new Map();
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
 var rainbow_off_status_bar_button = null;
+var copy_back_button = null;
 
-let last_hover_doc = null;
+let last_statusbar_doc = null;
 
 const preview_window_size = 12;
 
@@ -211,7 +210,7 @@ function make_hover_text(document, position, language_id) {
 
 
 function make_hover(document, position, language_id, cancellation_token) {
-    if (last_hover_doc != document) {
+    if (last_statusbar_doc != document) {
         refresh_status_bar_buttons(document); // Being paranoid and making shure that the buttons are visible
     }
     if (!enable_tooltip)
@@ -386,7 +385,7 @@ function show_rbql_status_bar_button() {
 
 
 function hide_status_bar_buttons() {
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button];
+    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -394,10 +393,24 @@ function hide_status_bar_buttons() {
 }
 
 
+function show_rbql_copy_to_source_button(file_path) {
+    let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
+    if (!parent_table_path)
+        return;
+    let parent_basename = path.basename(parent_table_path);
+    if (!copy_back_button)
+        copy_back_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    copy_back_button.text = 'Copy Back';
+    copy_back_button.tooltip = `Copy to parent table: ${parent_basename}`;
+    copy_back_button.command = 'extension.CopyBack';
+    copy_back_button.show();
+}
+
+
 function refresh_status_bar_buttons(active_doc=null) {
     if (!active_doc)
         active_doc = get_active_doc();
-    last_hover_doc = active_doc;
+    last_statusbar_doc = active_doc;
     var file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc || !file_path) {
         hide_status_bar_buttons();
@@ -413,6 +426,7 @@ function refresh_status_bar_buttons(active_doc=null) {
     show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
     show_rainbow_off_status_bar_button();
+    show_rbql_copy_to_source_button(file_path);
 }
 
 
@@ -997,7 +1011,6 @@ function align_table(active_editor, edit_builder) {
 
 
 function do_copy_back(query_result_doc, active_editor) {
-    // FIXME remove "Rainbow CSV" category from copy back command in package.json
     let data = query_result_doc.getText();
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
@@ -1017,7 +1030,6 @@ function copy_back() {
     if (!parent_table_path)
         return;
     vscode.workspace.openTextDocument(parent_table_path).then(doc => vscode.window.showTextDocument(doc).then(active_editor => do_copy_back(result_doc, active_editor)));
-    // TODO close the result document?
 }
 
 

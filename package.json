@@ -286,7 +286,6 @@
             },
             {
                 "command": "extension.CopyBack",
-                "category": "Rainbow CSV",
                 "title": "CopyBack"
             },
             {
