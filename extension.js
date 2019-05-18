@@ -32,18 +32,22 @@ var dialect_map = {
 // TODO add allign / unalign commands
 // TODO add special whitespace-separated dialect
 
+// FIXME test whitespace dialect
+
 var dev_log = null;
 var err_log = null;
 
 var dbg_counter = 0;
 
 var lint_results = new Map();
+var aligned_files = new Set();
 var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
 var result_set_parent_map = new Map();
 
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
+var align_shrink_button = null;
 var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
 
@@ -307,8 +311,8 @@ function align_columns(active_doc, delim, policy, column_sizes) {
                 break;
             fields[i] = fields[i].replace(trailing_spaces_rgx, '');
             let delta_len = column_sizes[i] - fields[i].length;
-            if (delta_len > 0) {
-                fields[i] += ' '.repeat(delta_len);
+            if (delta_len >= 0) { // Safeguard against async doc edit
+                fields[i] += ' '.repeat(delta_len + 1);
             }
         }
         result_lines.push(fields.join(delim));
@@ -358,6 +362,22 @@ function show_lint_status_bar_button(file_path, language_id) {
     lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
     lint_status_bar_button.command = 'extension.CSVLint';
     lint_status_bar_button.show();
+}
+
+
+function show_align_shrink_button(file_path) {
+    if (!align_shrink_button)
+        align_shrink_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    if (aligned_files.has(file_path)) {
+        align_shrink_button.text = 'Shrink';
+        align_shrink_button.tooltip = 'Click to shrink table (Then you can click again to align)';
+        align_shrink_button.command = 'extension.Shrink';
+    } else {
+        align_shrink_button.text = 'Align';
+        align_shrink_button.tooltip = 'Click to align table (Then you can click again to shrink)';
+        align_shrink_button.command = 'extension.Align';
+    }
+    align_shrink_button.show();
 }
 
 
@@ -425,6 +445,7 @@ function refresh_status_bar_buttons(active_doc=null) {
         return;
     show_lint_status_bar_button(file_path, language_id);
     show_rbql_status_bar_button();
+    show_align_shrink_button(file_path);
     show_rainbow_off_status_bar_button();
     show_rbql_copy_to_source_button(file_path);
 }
@@ -983,6 +1004,7 @@ function shrink_table(active_editor, edit_builder) {
     let language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
+    aligned_files.delete(active_doc.fileName);
     let [delim, policy] = dialect_map[language_id];
     let shrinked_doc_text = shrink_columns(active_doc, delim, policy);
     if (shrinked_doc_text === null) {
@@ -992,6 +1014,7 @@ function shrink_table(active_editor, edit_builder) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     edit_builder.replace(full_range, shrinked_doc_text);
+    refresh_status_bar_buttons(active_doc);
 }
 
 
@@ -1009,6 +1032,8 @@ function align_table(active_editor, edit_builder) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     edit_builder.replace(full_range, aligned_doc_text);
+    aligned_files.add(active_doc.fileName);
+    refresh_status_bar_buttons(active_doc);
 }
 
 
