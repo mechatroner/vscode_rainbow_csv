@@ -43,20 +43,28 @@
             "type": "object",
             "title": "Rainbow CSV",
             "properties": {
-                "rainbow_csv.enable_auto_csv_lint": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enables automatic linting/checking of opened csv files"
-                },
                 "rainbow_csv.enable_separator_autodetection": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Enables automatic content based separator autodetection"
+                    "description": "Enable automatic content based separator autodetection"
+                },
+                "rainbow_csv.autodetect_separators": {
+                    "type": "array",
+                    "default": [
+                        "\t",
+                        ",",
+                        ";"
+                    ],
+                    "description": "Enable automatic content-based separator autodetection for specified list of separators.",
+                    "items": {
+                        "type": "string",
+                        "description": "Separator"
+                    }
                 },
                 "rainbow_csv.enable_tooltip": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Enables column-info tooltip on hover"
+                    "description": "Enable column-info tooltip on hover"
                 },
                 "rainbow_csv.enable_tooltip_column_names": {
                     "type": "boolean",
@@ -68,18 +76,15 @@
                     "default": true,
                     "description": "Show warnings in tooltip"
                 },
-                "rainbow_csv.autodetect_separators": {
-                    "type": "array",
-                    "default": [
-                        "\t",
-                        ",",
-                        ";"
-                    ],
-                    "description": "Enables automatic content-based separator autodetection for specified list of separators.",
-                    "items": {
-                        "type": "string",
-                        "description": "Separator"
-                    }
+                "rainbow_csv.enable_auto_csv_lint": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable automatic linting/checking of opened csv files"
+                },
+                "rainbow_csv.csv_lint_detect_trailing_spaces": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "CSV Lint: detect leading and trailing whitespaces in fields"
                 },
                 "rainbow_csv.rbql_encoding": {
                     "type": "string",
@@ -89,7 +94,7 @@
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
                     "default": "#",
-                    "description": "Comment prefix to denote lines that should be ignored when linting"
+                    "description": "Comment lines prefix. Set to empty string to disable"
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",

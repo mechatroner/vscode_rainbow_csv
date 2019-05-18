@@ -229,6 +229,11 @@ function make_hover(document, position, language_id, cancellation_token) {
 
 
 function produce_lint_report(active_doc, delim, policy) {
+    let detect_trailing_spaces = false;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (config)
+        detect_trailing_spaces = config.get('csv_lint_detect_trailing_spaces');
+    let first_trailing_space_line = null;
     var num_lines = active_doc.lineCount;
     var num_fields = null;
     for (var lnum = 0; lnum < num_lines; lnum++) {
@@ -237,9 +242,17 @@ function produce_lint_report(active_doc, delim, policy) {
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
-        var split_result = rainbow_utils.smart_split(line_text, delim, policy, false);
+        var split_result = rainbow_utils.smart_split(line_text, delim, policy, true);
         if (split_result[1]) {
             return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+        }
+        if (detect_trailing_spaces && first_trailing_space_line === null) {
+            let fields = split_result[0];
+            for (let i = 0; i < fields.length; i++) {
+                if (fields[i].length && (fields[i].charAt(0) == ' ' || fields[i].slice(-1) == ' ')) {
+                    first_trailing_space_line = lnum;
+                }
+            }
         }
         if (!num_fields) {
             num_fields = split_result[0].length;
@@ -247,6 +260,9 @@ function produce_lint_report(active_doc, delim, policy) {
         if (num_fields != split_result[0].length) {
             return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
         }
+    }
+    if (first_trailing_space_line !== null) {
+        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove';
     }
     return 'OK';
 }
@@ -354,7 +370,9 @@ function show_lint_status_bar_button(file_path, language_id) {
     lint_status_bar_button.text = 'CSVLint';
     if (lint_report === 'OK') {
         lint_status_bar_button.color = '#62f442';
-    } else if (lint_report.indexOf('File is too big') != -1 || lint_report == 'Processing...') {
+    } else if (lint_report == 'Processing...') {
+        lint_status_bar_button.color = '#A0A0A0';
+    } else if (lint_report.indexOf('spaces detected')) {
         lint_status_bar_button.color = '#ffff28';
     } else {
         lint_status_bar_button.color = '#f44242';
@@ -875,7 +893,7 @@ function write_index(records, index_path) {
 
 
 function do_set_table_name(table_path, table_name) {
-    // FIXME use VSCode storage instead
+    // TODO use VSCode "globalState" persistent storage instead
     let home_dir = os.homedir();
     let index_path = path.join(home_dir, '.rbql_table_names');
     let records = try_read_index(index_path);
