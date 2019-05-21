@@ -30,6 +30,9 @@ var dialect_map = {
 
 // FIXME test whitespace dialect
 
+// FIXME use popup window with "Running" status instead of label status
+
+
 var dev_log = null;
 var err_log = null;
 

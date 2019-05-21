@@ -2,48 +2,14 @@
 
 var rbql_running = false;
 
-var backend_lang_presentations = [{'key': 'python', 'name': 'Python', 'color': '#3572A5'}, {'key': 'js', 'name': 'JavaScript', 'color': '#F1E05A'}];
-
 var handshake_completed = false;
 
 const vscode = acquireVsCodeApi();
 
 
-function display_backend_language(backend_language) {
-    var language_info = null;
-    for (var i = 0; i < backend_lang_presentations.length; i++) {
-        if (backend_lang_presentations[i]['key'] == backend_language) {
-            language_info = backend_lang_presentations[i];
-            break;
-        }
-    }
-    if (backend_language == 'python') {
-        document.getElementById('python_warning').textContent = ' (Requires python installed and added to PATH) ';
-    } else {
-        document.getElementById('python_warning').textContent = '';
-    }
-    document.getElementById('backend_language_change').style.backgroundColor = language_info['color'];
-    document.getElementById('backend_language_change').textContent = language_info['name'];
-}
-
-
-function get_current_lang_idx() {
-    var current_lang_name = document.getElementById('backend_language_change').textContent;
-    for (var i = 0; i < backend_lang_presentations.length; i++) {
-        if (backend_lang_presentations[i]['name'] == current_lang_name) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-
-function switch_backend_language() {
-    var lang_idx = get_current_lang_idx();
-    var next_idx = (lang_idx + 1) % backend_lang_presentations.length;
-    let backend_language = backend_lang_presentations[next_idx]['key'];
+function report_backend_language_change() {
+    let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'backend_language_change', 'backend_language': backend_language});
-    display_backend_language(backend_language);
 }
 
 
@@ -129,7 +95,7 @@ function start_rbql() {
         return;
     rbql_running = true;
     document.getElementById('status_label').textContent = "Running...";
-    let backend_language = backend_lang_presentations[get_current_lang_idx()]['key'];
+    let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language});
 }
 
@@ -148,7 +114,7 @@ function handle_message(msg_event) {
         }
         var window_records = message['window_records'];
         make_preview_table(window_records);
-        display_backend_language(message['backend_language']);
+        document.getElementById("select_backend_language").value = message['backend_language'];
     }
 
     if (message_type == 'navigate') {
@@ -174,7 +140,7 @@ function main() {
     vscode.postMessage({'msg_type': 'handshake'});
 
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
-    document.getElementById("backend_language_change").addEventListener("click", switch_backend_language);
+    document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
