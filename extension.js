@@ -22,15 +22,11 @@ var dialect_map = {
     'csv (hyphen)': ['-', 'simple']
 };
 
+// TODO implement skip header option in RBQL? - Should also update preview table.
 
-// TODO try to implement copy-back using the following APIs: https://code.visualstudio.com/api/references/vscode-api#TextEditorEdit and showTextDocument() and document.getText()
-// Example for copy-back: https://github.com/M-Porter/evenup/blob/7401035070c3297c0ed15b64b77e07412faa2856/src/commands/align.ts
-// Example for align/shrink: https://github.com/Zarel/vscode-sublime-commands/blob/9ad6714029d14b5b0cabdf8a8f5cd8ab40474045/src/extension.ts
-// another edit example: https://stackoverflow.com/a/50875520/2898283
-//
-// TODO Implement RBQL settings: encoding, output separator
-// TODO add allign / unalign commands
-// TODO add special whitespace-separated dialect
+// TODO Implement RBQL settings: encoding, output separator, language
+
+// TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // FIXME test whitespace dialect
 
@@ -1130,6 +1126,7 @@ function handle_rbql_client_message(webview, message) {
     if (message_type == 'run') {
         let rbql_query = message['query'];
         let backend_language = message['backend_language'];
+        // FIXME get encoding, output_policy using the same mechanism as backend_language. Mark "binary" as Recommended
         var report_handler = function(report) {
             var report_msg = {'msg_type': 'rbql_report', 'report': report};
             webview.postMessage(report_msg);
