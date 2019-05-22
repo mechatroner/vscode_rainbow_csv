@@ -96,7 +96,9 @@ function start_rbql() {
     rbql_running = true;
     document.getElementById('status_label').textContent = "Running...";
     let backend_language = document.getElementById('select_backend_language').value;
-    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language});
+    let output_format = document.getElementById('select_output_format').value;
+    let encoding = document.getElementById('select_encoding').value;
+    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding});
 }
 
 

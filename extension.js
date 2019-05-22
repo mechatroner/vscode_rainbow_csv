@@ -24,13 +24,9 @@ var dialect_map = {
 
 // TODO implement skip header option in RBQL? - Should also update preview table.
 
-// TODO Implement RBQL settings: encoding, output separator, language
-
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // FIXME test whitespace dialect
-
-// FIXME use popup window with "Running" status instead of label status
 
 
 var dev_log = null;
@@ -688,13 +684,11 @@ function get_error_message(error) {
 }
 
 
-function run_rbql_native(input_path, query, delim, policy, report_handler, csv_encoding) {
+function run_rbql_native(input_path, query, delim, policy, report_handler, csv_encoding, output_delim, output_policy) {
     var rbql_lines = [query];
     var tmp_dir = os.tmpdir();
     var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
     var tmp_worker_module_path = path.join(tmp_dir, script_filename);
-    var output_delim = delim;
-    var output_policy = policy;
 
     var output_file_name = get_dst_table_name(input_path, output_delim);
     var output_path = path.join(tmp_dir, output_file_name);
@@ -719,14 +713,20 @@ function run_rbql_native(input_path, query, delim, policy, report_handler, csv_e
 }
 
 
-function run_rbql_query(active_file_path, backend_language, rbql_query, report_handler) {
+function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_query, output_dialect, report_handler) {
+    // FIXME test output_dialect
     dbg_log('running query: ' + rbql_query);
     last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    var csv_encoding = config && config.get('rbql_encoding') || rbql.default_csv_encoding;
+
+    let [output_delim, output_policy] = [rbql_context.delim, rbql_context.policy];
+    if (output_dialect == 'csv')
+        [output_delim, output_policy] = [',', 'quoted'];
+    if (output_dialect == 'tsv')
+        [output_delim, output_policy] = ['\t', 'simple'];
+        
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
@@ -736,9 +736,9 @@ function run_rbql_query(active_file_path, backend_language, rbql_query, report_h
         return;
     }
     if (backend_language == 'js') {
-        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler, csv_encoding);
+        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler, csv_encoding, output_delim, output_policy);
     } else {
-        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, Buffer.from(rbql_query, "utf-8").toString("base64"), active_file_path, csv_encoding];
+        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, Buffer.from(rbql_query, "utf-8").toString("base64"), active_file_path, csv_encoding, output_delim, output_policy];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
     }
 }
@@ -783,7 +783,8 @@ function process_rbql_quick(active_file_path, backend_language, query) {
             log_error('Error Details: ' + error_details);
         }
     };
-    run_rbql_query(active_file_path, backend_language, query, report_handler);
+    // FIXME get encoding from globalState
+    run_rbql_query(active_file_path, encoding, backend_language, query, 'input', report_handler);
 }
 
 
@@ -1129,13 +1130,14 @@ function handle_rbql_client_message(webview, message) {
     if (message_type == 'run') {
         let rbql_query = message['query'];
         let backend_language = message['backend_language'];
-        // FIXME get encoding, output_policy using the same mechanism as backend_language. Mark "binary" as Recommended
+        let encoding = message['encoding'];
+        let output_dialect = message['output_dialect'];
         var report_handler = function(report) {
             var report_msg = {'msg_type': 'rbql_report', 'report': report};
             webview.postMessage(report_msg);
         };
         var active_file_path = rbql_context['document'].fileName;
-        run_rbql_query(active_file_path, backend_language, rbql_query, report_handler);
+        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, report_handler);
     }
 
     if (message_type == 'backend_language_change') {

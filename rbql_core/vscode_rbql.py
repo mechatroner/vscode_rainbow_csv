@@ -83,18 +83,21 @@ def get_dst_table_path(src_table_path, output_delim):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('delim', help='Delimiter')
-    parser.add_argument('policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
+    parser.add_argument('policy', help='csv split policy')
     parser.add_argument('query', help='Query string in rbql')
     parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
     parser.add_argument('encoding', help='Manually set csv table encoding')
+    parser.add_argument('output_delim', help='Out Delimiter')
+    parser.add_argument('output_policy', help='Out csv policy')
     args = parser.parse_args()
 
     delim = rbql.normalize_delim(args.delim)
     policy = args.policy
+    output_delim = rbql.normalize_delim(args.output_delim)
+    output_policy = args.output_policy
     query = base64.standard_b64decode(args.query).decode("utf-8")
     input_path = args.input_table_path
     csv_encoding = args.encoding
-    output_delim, output_policy = delim, policy
 
     output_path = get_dst_table_path(input_path, output_delim)
     

@@ -86,11 +86,6 @@
                     "default": false,
                     "description": "CSV Lint: detect leading and trailing whitespaces in fields"
                 },
-                "rainbow_csv.rbql_encoding": {
-                    "type": "string",
-                    "default": "utf-8",
-                    "description": "Manually set csv table encoding"
-                },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
                     "default": "#",
