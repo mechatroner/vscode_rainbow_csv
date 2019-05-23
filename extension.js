@@ -714,7 +714,6 @@ function run_rbql_native(input_path, query, delim, policy, report_handler, csv_e
 
 
 function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_query, output_dialect, report_handler) {
-    // FIXME test output_dialect
     dbg_log('running query: ' + rbql_query);
     last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
@@ -738,7 +737,8 @@ function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_q
     if (backend_language == 'js') {
         run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler, csv_encoding, output_delim, output_policy);
     } else {
-        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, Buffer.from(rbql_query, "utf-8").toString("base64"), active_file_path, csv_encoding, output_delim, output_policy];
+        let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
+        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, cmd_safe_query, active_file_path, csv_encoding, output_delim, output_policy];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
     }
 }
@@ -765,26 +765,6 @@ function init_rbql_context() {
     }
     rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
     return true;
-}
-
-
-function process_rbql_quick(active_file_path, backend_language, query) {
-    if (!query)
-        return;
-    var report_handler = function(report) {
-        if (!report)
-            return;
-        var error_type = report['error_type'];
-        var error_details = report['error_details'];
-        if (error_type || error_details) {
-            show_single_line_error('RBQL error, check OUTPUT.rainbow_csv_errors VS Code log at the bottom for details.');
-            log_error('=====\nRBQL Error while executing query: ' + query);
-            log_error('Error Type: ' + error_type);
-            log_error('Error Details: ' + error_details);
-        }
-    };
-    // FIXME get encoding from globalState
-    run_rbql_query(active_file_path, encoding, backend_language, query, 'input', report_handler);
 }
 
 
@@ -1078,22 +1058,14 @@ function copy_back() {
 }
 
 
-function edit_rbql_quick() {
-    if (!init_rbql_context())
-        return;
-    var active_file_path = rbql_context['document'].fileName;
-    var backend_language = get_rbql_backend_language();
-    var title = "Input SQL-like RBQL query [in " + backend_language + "]  ";
-    var handle_success = function(query) { process_rbql_quick(active_file_path, backend_language, query); };
-    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
-    var input_box_props = {"ignoreFocusOut": true, "prompt": title, "placeHolder": "select ... where ... order by ... limit ..."};
-    if (last_rbql_queries.has(active_file_path)) {
-        var last_query_info = last_rbql_queries.get(active_file_path);
-        input_box_props['value'] = last_query_info['query'];
+function get_from_global_state(key, default_value) {
+    if (global_state) {
+        var value = global_state.get(key);
+        if (value)
+            return value;
     }
-    vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
+    return default_value;
 }
-
 
 
 function handle_rbql_client_message(webview, message) {
@@ -1102,7 +1074,9 @@ function handle_rbql_client_message(webview, message) {
 
     if (message_type == 'handshake') {
         var active_file_path = rbql_context['document'].fileName;
-        var init_msg = {'msg_type': 'handshake', 'backend_language': get_rbql_backend_language()};
+        var backend_language = get_from_global_state('rbql_backend_language', 'js');
+        var encoding = get_from_global_state('rbql_encoding', 'latin-1');
+        var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
         if (last_rbql_queries.has(active_file_path)) {
             var last_query_info = last_rbql_queries.get(active_file_path);
@@ -1140,10 +1114,11 @@ function handle_rbql_client_message(webview, message) {
         run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, report_handler);
     }
 
-    if (message_type == 'backend_language_change') {
-        let backend_language = message['backend_language'];
+    if (message_type == 'global_param_change') {
+        let param_key = message['key'];
+        let param_value = message['value'];
         if (global_state) {
-            global_state.update('rbql_backend_language', backend_language);
+            global_state.update(param_key, param_value);
         }
     }
 }
@@ -1162,16 +1137,6 @@ function edit_rbql() {
     }
     preview_panel.webview.html = client_html_template.replace('//__TEMPLATE_JS_CLIENT__', client_js_template);
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
-}
-
-
-function get_rbql_backend_language() {
-    if (global_state) {
-        var backend_language = global_state.get('rbql_backend_language');
-        if (backend_language)
-            return backend_language;
-    }
-    return 'js';
 }
 
 
@@ -1361,7 +1326,6 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
-    var quick_rbql_cmd = vscode.commands.registerCommand('extension.QueryHere', edit_rbql_quick);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
     var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
@@ -1380,7 +1344,6 @@ function activate(context) {
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
-    context.subscriptions.push(quick_rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
     context.subscriptions.push(column_edit_before_cmd);
     context.subscriptions.push(column_edit_after_cmd);

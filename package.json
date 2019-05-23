@@ -31,7 +31,6 @@
         "onLanguage:csv (dot)",
         "onLanguage:csv (hyphen)",
         "onLanguage:plaintext",
-        "onCommand:extension.QueryHere",
         "onCommand:extension.RBQL",
         "onCommand:extension.RainbowSeparator",
         "onCommand:extension.SampleHead",
@@ -269,10 +268,6 @@
             {
                 "command": "extension.RainbowSeparatorOff",
                 "title": "RainbowSeparatorOff"
-            },
-            {
-                "command": "extension.QueryHere",
-                "title": "QueryHere"
             },
             {
                 "command": "extension.Align",

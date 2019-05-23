@@ -9,7 +9,13 @@ const vscode = acquireVsCodeApi();
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
-    vscode.postMessage({'msg_type': 'backend_language_change', 'backend_language': backend_language});
+    vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
+}
+
+
+function report_encoding_change() {
+    let encoding = document.getElementById('select_encoding').value;
+    vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_encoding', 'value': encoding});
 }
 
 
@@ -117,6 +123,7 @@ function handle_message(msg_event) {
         var window_records = message['window_records'];
         make_preview_table(window_records);
         document.getElementById("select_backend_language").value = message['backend_language'];
+        document.getElementById("select_encoding").value = message['encoding'];
     }
 
     if (message_type == 'navigate') {
@@ -143,6 +150,7 @@ function main() {
 
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
+    document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
