@@ -16,12 +16,13 @@ Another way to do this: select one separator character with mouse cursor -> righ
 
 #### Supported separators
 
-|language name | separator | separator can be escaped in double-quoted field | file extensions |
-|--------------|-----------|--------------------------------------------------|------------|
-|CSV           | , (comma) | YES                                              | .csv       |
-|TSV           | \t (TAB)  | NO                                              | .tsv, .tab  |
-|CSV (semicolon) | ; (semicolon)  | YES                                              | |
-|             | &#124; ~ ^ : " = . -  | NO                                              | |
+|Language name    | Separator            | Extension | Properties                          |
+|-----------------|----------------------|-----------|-------------------------------------|
+|CSV              | , (comma)            | .csv      | Ignored inside double-quoted fields |
+|TSV              | \t (TAB)             | .tsv .tab |                                     |
+|CSV (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
+|CSV (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
+|CSV (...)        | &#124; ~ ^ : " = . - |           |                                     |
 
 
 #### Content-based separator autodetection
