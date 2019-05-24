@@ -26,8 +26,6 @@ var dialect_map = {
 
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
-// FIXME test whitespace dialect
-
 
 var dev_log = null;
 var err_log = null;
@@ -257,7 +255,7 @@ function produce_lint_report(active_doc, delim, policy) {
         }
     }
     if (first_trailing_space_line !== null) {
-        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove';
+        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
     }
     return 'OK';
 }
@@ -873,7 +871,7 @@ function write_index(records, index_path) {
 
 
 function do_set_table_name(table_path, table_name) {
-    // TODO use VSCode "globalState" persistent storage instead
+    // TODO use VSCode "globalState" persistent storage instead with new RBQL version
     let home_dir = os.homedir();
     let index_path = path.join(home_dir, '.rbql_table_names');
     let records = try_read_index(index_path);
@@ -1125,7 +1123,6 @@ function handle_rbql_client_message(webview, message) {
 
 
 function edit_rbql() {
-    // TODO add encoding and output format parameters
     if (!init_rbql_context())
         return null;
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
@@ -1162,7 +1159,6 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
 
 
 function autodetect_dialect(active_doc, candidate_separators) {
-    // FIXME test
     if (active_doc.lineCount < 10)
         return null;
 
