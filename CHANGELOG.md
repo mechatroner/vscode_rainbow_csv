@@ -12,3 +12,14 @@
 * Fix: Added safety check to RBQL that would prevent accidental usage of assignment operator "=" instead of comparison "==" or "===" in JS (In Python this was not possible before the fix due to Python's own syntatic checker).  
 * Added "Rainbow CSV" category to all extension commands by [@yozlet](https://github.com/yozlet) request, see [#22](https://github.com/mechatroner/vscode_rainbow_csv/issues/22)  
 
+
+## 1.1.0
+* Special treatment of comment lines by @larsonmars
+* RBQL encoding customization by @mandel59
+* Implemented Whitespace-separated dialect
+* Linter: detect trailing whitespaces in fields [#15](https://github.com/mechatroner/vscode_rainbow_csv/issues/15)
+* Added commands: remove trailing whitespaces from all fields and allign columns with trailing whitespaces
+* Implemented RBQL result set copy-back command
+* Improved RBQL console UI
+* Customizable "Preview big CSV: head/tail" context menu options [#32](https://github.com/mechatroner/vscode_rainbow_csv/issues/32)
+* Improved autodetection algorithm for files with multiple candidate separators
