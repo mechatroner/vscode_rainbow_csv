@@ -71,7 +71,6 @@ var preview_panel = null;
 
 var comment_prefix = '#';
 
-const trailing_spaces_rgx = new RegExp(" +$");
 
 
 function dbg_log(msg) {
@@ -272,7 +271,7 @@ function calc_column_sizes(active_doc, delim, policy) {
         for (let i = 0; i < fields.length; i++) {
             if (result.length <= i)
                 result.push(0);
-            result[i] = Math.max(result[i], (fields[i].replace(trailing_spaces_rgx, '')).length);
+            result[i] = Math.max(result[i], (fields[i].trim()).length);
         }
     }
     return result;
@@ -291,9 +290,9 @@ function shrink_columns(active_doc, delim, policy) {
         }
         let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length; i++) {
-            let trimmed = fields[i].trim();
-            if (trimmed.length != fields[i].length) {
-                fields[i] = trimmed;
+            let adjusted = fields[i].trim();
+            if (fields[i].length != adjusted.length) {
+                fields[i] = adjusted;
                 has_edit = true;
             }
         }
@@ -308,6 +307,7 @@ function shrink_columns(active_doc, delim, policy) {
 function align_columns(active_doc, delim, policy, column_sizes) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
+    let has_edit = false;
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
@@ -318,14 +318,20 @@ function align_columns(active_doc, delim, policy, column_sizes) {
         for (let i = 0; i < fields.length - 1; i++) {
             if (i >= column_sizes.length) // Safeguard against async doc edit
                 break;
-            fields[i] = fields[i].replace(trailing_spaces_rgx, '');
-            let delta_len = column_sizes[i] - fields[i].length;
+            let adjusted = fields[i].trim();
+            let delta_len = column_sizes[i] - adjusted.length;
             if (delta_len >= 0) { // Safeguard against async doc edit
-                fields[i] += ' '.repeat(delta_len + 1);
+                adjusted += ' '.repeat(delta_len + 1);
+            }
+            if (fields[i] != adjusted) {
+                fields[i] = adjusted;
+                has_edit = true;
             }
         }
         result_lines.push(fields.join(delim));
     }
+    if (!has_edit)
+        return null;
     return result_lines.join('\n');
 }
 
@@ -1024,7 +1030,10 @@ function align_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let column_sizes = calc_column_sizes(active_doc, delim, policy);
     let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
-
+    if (aligned_doc_text === null) {
+        vscode.window.showWarningMessage('Table is already aligned, skipping');
+        return;
+    }
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     edit_builder.replace(full_range, aligned_doc_text);
