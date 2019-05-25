@@ -27,6 +27,7 @@ var dialect_map = {
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
+// FIXME make sure no one uses RBQL.md file, then delete it (rbql_core/README.md should be used instead)
 
 var dev_log = null;
 var err_log = null;
