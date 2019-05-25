@@ -69,7 +69,7 @@ var global_state = null;
 
 var preview_panel = null;
 
-var comment_prefix = '#';
+var comment_prefix = '';
 
 
 
