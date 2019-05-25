@@ -87,8 +87,8 @@
                 },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
-                    "default": "#",
-                    "description": "Comment lines prefix. Set to empty string to disable"
+                    "default": "",
+                    "description": "Comment lines prefix, e.g. \"#\". Set to empty string to disable"
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",

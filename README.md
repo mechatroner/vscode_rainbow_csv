@@ -48,9 +48,8 @@ All Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB
 
 
 #### Working with CSV files with comments
-Some CSV files can contain comment lines e.g. meta-data before the header line  
-By default Rainbow CSV will consider all lines starting with "#" as comments.  
-You can change comment prefix or disable it by adjusting `"rainbow_csv.comment_prefix"` setting, which allows CSVLint and content-based autodetection algorithms to work properly for CSV files with comments.  
+Some CSV files can contain comment lines e.g. metadata before the header line.  
+To allow CSVLint, content-based autodetection algorithms and _Align_, _Shrink_, _ColumnEdit_ commands work properly with such files you need to adjust `"rainbow_csv.comment_prefix"` setting.  
 
 
 #### Aligning/Shrinking table
