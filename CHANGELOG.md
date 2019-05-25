@@ -14,8 +14,8 @@
 
 
 ## 1.1.0
-* Special treatment of comment lines by @larsonmars
-* RBQL encoding customization by @mandel59
+* Special treatment of comment lines by [@larsonmars](https://github.com/larsonmars)
+* RBQL encoding customization by [@mandel59](https://github.com/mandel59)
 * Implemented Whitespace-separated dialect
 * Linter: detect trailing whitespaces in fields [#15](https://github.com/mechatroner/vscode_rainbow_csv/issues/15)
 * Added commands: remove trailing whitespaces from all fields and allign columns with trailing whitespaces
