@@ -530,7 +530,7 @@ function try_change_document_language(active_doc, language_id, is_manual_op, cal
     try {
         vscode.languages.setTextDocumentLanguage(active_doc, language_id).then((doc) => {
             if (callback_func !== null)
-                callback_func(doc)
+                callback_func(doc);
         });
     } catch (error) {
         dbg_log('Unable to change language: ' + error);
@@ -729,7 +729,7 @@ function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_q
         [output_delim, output_policy] = [',', 'quoted'];
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', 'simple'];
-        
+
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
