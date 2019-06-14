@@ -102,7 +102,7 @@ Screenshot of RBQL Console:
 #### Gotchas:
 * Unlike Rainbow CSV, which always treats first line as header, RBQL is header-agnostic i.e. it never treats first line as header, so to skip over header line add `WHERE NR > 1` to your query.  
 * RBQL uses JavaScript or Python backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
-* If you want to use RBQL with Python backend language instead of JavaScript, make sure you have Python interpreter insatalled and added to PATH variable of your OS.  
+* If you want to use RBQL with Python backend language instead of JavaScript, make sure you have Python interpreter installed and added to PATH variable of your OS.  
 
 ## Other
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment
