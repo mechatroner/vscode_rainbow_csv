@@ -65,7 +65,7 @@ Enter RBQL - SQL-like language query editing mode.
 
 
 #### Align, Shrink
-Align columns with whitepaces or shrink them (remove leading/trailing whitespaces)
+Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
 
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
