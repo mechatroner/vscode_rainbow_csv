@@ -28,7 +28,6 @@ Another way to do this: select one separator character with mouse cursor -> righ
 #### Content-based separator autodetection
 Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
 To disable autodetection for the current file press "Rainbow OFF" button inside the status line.  
-You can adjust autodetection parameters or disable it in Rainbow CSV extension settings section.  
 
 
 #### CSVLint consistency check
@@ -37,7 +36,6 @@ The linter will check the following:
 * consistency of double quotes usage in CSV rows  
 * consistency of number of fields per CSV row  
 
-To disable automatic CSV Linting set `"rainbow_csv.enable_auto_csv_lint": false` in "Rainbow CSV" section of VS Code settings.  
 To recheck a csv file click on "CSVLint" button.
 
 
@@ -49,7 +47,7 @@ All Rainbow CSV features would be disabled by VSCode if file is bigger than 50MB
 
 #### Working with CSV files with comments
 Some CSV files can contain comment lines e.g. metadata before the header line.  
-To allow CSVLint, content-based autodetection algorithms and _Align_, _Shrink_, _ColumnEdit_ commands work properly with such files you need to adjust `"rainbow_csv.comment_prefix"` setting.  
+To allow CSVLint, content-based autodetection algorithms and _Align_, _Shrink_, _ColumnEdit_ commands work properly with such files you need to adjust your settings.
 
 
 #### Aligning/Shrinking table
