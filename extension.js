@@ -29,6 +29,9 @@ var dialect_map = {
 // FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
 // FIXME make sure no one uses RBQL.md file, then delete it (rbql_core/README.md should be used instead)
 // FIXME try to create language alias TSV -> CSV(tab). Some users are now aware of "TSV" plus CSV(tab) would allow nice listing/grouping of all rainbow dialects in language selection list. See issue #1
+// FIXME improve query placeholder in RBQL window: show random query example
+// FIXME add pipe '|' to the list of autodetection dialects
+// FIXME update the docs: add extension -> language mapping instructions
 
 var dev_log = null;
 var err_log = null;
@@ -1009,9 +1012,11 @@ function shrink_table(active_editor, edit_builder) {
     let language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    aligned_files.delete(active_doc.fileName);
     let [delim, policy] = dialect_map[language_id];
     let shrinked_doc_text = shrink_columns(active_doc, delim, policy);
+    // FIXME test new aligned file logic for #38
+    aligned_files.delete(active_doc.fileName);
+    refresh_status_bar_buttons(active_doc);
     if (shrinked_doc_text === null) {
         vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
         return;
@@ -1019,7 +1024,6 @@ function shrink_table(active_editor, edit_builder) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     edit_builder.replace(full_range, shrinked_doc_text);
-    refresh_status_bar_buttons(active_doc);
 }
 
 
@@ -1033,6 +1037,8 @@ function align_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let column_sizes = calc_column_sizes(active_doc, delim, policy);
     let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
+    aligned_files.add(active_doc.fileName);
+    refresh_status_bar_buttons(active_doc);
     if (aligned_doc_text === null) {
         vscode.window.showWarningMessage('Table is already aligned, skipping');
         return;
@@ -1040,8 +1046,6 @@ function align_table(active_editor, edit_builder) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     edit_builder.replace(full_range, aligned_doc_text);
-    aligned_files.add(active_doc.fileName);
-    refresh_status_bar_buttons(active_doc);
 }
 
 
@@ -1156,6 +1160,7 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
+        // FIXME consider using comment_prefix = "#" even if it was not set for autodetection purposes and count the number of meaningful (non-comment) lines, both percentage and count
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
