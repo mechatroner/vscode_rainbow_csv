@@ -32,6 +32,7 @@ var dialect_map = {
 // FIXME improve query placeholder in RBQL window: show random query example
 // FIXME add pipe '|' to the list of autodetection dialects
 // FIXME update the docs: add extension -> language mapping instructions
+// FIXME update the docs: document "autodetect_separators" setting
 
 var dev_log = null;
 var err_log = null;

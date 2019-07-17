@@ -18,11 +18,11 @@ Another way to do this: select one separator character with mouse cursor -> righ
 
 |Language name    | Separator            | Extension | Properties                          |
 |-----------------|----------------------|-----------|-------------------------------------|
-|CSV              | , (comma)            | .csv      | Ignored inside double-quoted fields |
-|TSV              | \t (TAB)             | .tsv .tab |                                     |
-|CSV (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
-|CSV (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
-|CSV (...)        | &#124; ~ ^ : " = . - |           |                                     |
+|csv              | , (comma)            | .csv      | Ignored inside double-quoted fields |
+|tsv              | \t (TAB)             | .tsv .tab |                                     |
+|csv (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
+|csv (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
+|csv (...)        | &#124; ~ ^ : " = . - |           |                                     |
 
 
 #### Content-based separator autodetection
