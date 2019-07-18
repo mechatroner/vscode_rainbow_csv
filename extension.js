@@ -27,7 +27,6 @@ var dialect_map = {
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
-// FIXME make sure no one uses RBQL.md file, then delete it (rbql_core/README.md should be used instead)
 // FIXME try to create language alias TSV -> CSV(tab). Some users are now aware of "TSV" plus CSV(tab) would allow nice listing/grouping of all rainbow dialects in language selection list. See issue #1
 // FIXME improve query placeholder in RBQL window: show random query example
 // FIXME add pipe '|' to the list of autodetection dialects
