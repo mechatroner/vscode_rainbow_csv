@@ -27,7 +27,6 @@ var dialect_map = {
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
-// FIXME try to create language alias TSV -> CSV(tab). Some users are now aware of "TSV" plus CSV(tab) would allow nice listing/grouping of all rainbow dialects in language selection list. See issue #1
 // FIXME improve query placeholder in RBQL window: show random query example
 // FIXME add pipe '|' to the list of autodetection dialects
 // FIXME update the docs: add extension -> language mapping instructions
@@ -1014,7 +1013,6 @@ function shrink_table(active_editor, edit_builder) {
         return;
     let [delim, policy] = dialect_map[language_id];
     let shrinked_doc_text = shrink_columns(active_doc, delim, policy);
-    // FIXME test new aligned file logic for #38
     aligned_files.delete(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (shrinked_doc_text === null) {
@@ -1156,12 +1154,15 @@ function edit_rbql() {
 function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns) {
     var num_lines = active_doc.lineCount;
     let num_fields = 0;
+    let num_lines_checked = 0;
+    let comment_prefix_for_autodetection = comment_prefix;
+    if (!comment_prefix_for_autodetection)
+        comment_prefix_for_autodetection = '#';
     for (var lnum = 0; lnum < num_lines; lnum++) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        // FIXME consider using comment_prefix = "#" even if it was not set for autodetection purposes and count the number of meaningful (non-comment) lines, both percentage and count
-        if (comment_prefix && line_text.startsWith(comment_prefix))
+        if (line_text.startsWith(comment_prefix_for_autodetection))
             continue;
         let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
         if (warning)
@@ -1170,8 +1171,9 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
             num_fields = fields.length;
         if (num_fields < min_num_columns || num_fields != fields.length)
             return 0;
+        num_lines_checked += 1;
     }
-    return num_fields;
+    return num_lines_checked >= 10 ? num_fields : 0;
 }
 
 
