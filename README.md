@@ -28,6 +28,25 @@ Another way to do this: select one separator character with mouse cursor -> righ
 #### Content-based separator autodetection
 Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
 To disable autodetection for the current file press "Rainbow OFF" button inside the status line.  
+You can also adjust the list of separators for autodetection algorithm: add the following line to your VSCode config and edit it there:  
+```
+"rainbow_csv.autodetect_separators": ["\t", ",", ";", "|"],
+```
+
+
+#### Customizing file extension - separator association
+If you often work with spreadsheet files with one specific extension, you can associate that extension with one of the supported separators.  
+For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code config:  
+
+```
+"files.associations": {
+    "*.dat": "csv (pipe)",
+    "*.csv": "csv (semicolon)"
+},
+```
+
+Important: language identifiers in config must be specified in **lower case**! e.g. `csv (semicolon)`, but not `CSV (semicolon)`.  
+List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilda)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
 
 
 #### CSVLint consistency check

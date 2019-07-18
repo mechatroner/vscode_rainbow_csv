@@ -26,11 +26,9 @@ var dialect_map = {
 
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
+// TODO improve query placeholder in RBQL window: show random query example
+
 // FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
-// FIXME improve query placeholder in RBQL window: show random query example
-// FIXME add pipe '|' to the list of autodetection dialects
-// FIXME update the docs: add extension -> language mapping instructions
-// FIXME update the docs: document "autodetect_separators" setting
 
 var dev_log = null;
 var err_log = null;

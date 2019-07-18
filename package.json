@@ -52,7 +52,8 @@
                     "default": [
                         "\t",
                         ",",
-                        ";"
+                        ";",
+                        "|"
                     ],
                     "description": "Enable automatic content-based separator autodetection for specified list of separators.",
                     "items": {
