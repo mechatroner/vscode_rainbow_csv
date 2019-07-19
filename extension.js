@@ -28,6 +28,7 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
+// FIXME reread value from config when possible to make config changes get into effect immideately. Document which settings require restart to work 
 
 var dev_log = null;
 var err_log = null;
@@ -1149,7 +1150,7 @@ function edit_rbql() {
 }
 
 
-function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns) {
+function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns, min_num_lines) {
     var num_lines = active_doc.lineCount;
     let num_fields = 0;
     let num_lines_checked = 0;
@@ -1171,12 +1172,14 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
             return 0;
         num_lines_checked += 1;
     }
-    return num_lines_checked >= 10 ? num_fields : 0;
+    return num_lines_checked >= min_num_lines ? num_fields : 0;
 }
 
 
 function autodetect_dialect(active_doc, candidate_separators) {
-    if (active_doc.lineCount < 10)
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let min_num_lines = config ? config.get('autodetection_min_line_count') : 10;
+    if (active_doc.lineCount < min_num_lines)
         return null;
 
     let best_dialect = null;
@@ -1186,7 +1189,7 @@ function autodetect_dialect(active_doc, candidate_separators) {
         if (!dialect_id)
             continue;
         let [delim, policy] = dialect_map[dialect_id];
-        let cur_dialect_num_columns = get_num_columns_if_delimited(active_doc, delim, policy, best_dialect_num_columns + 1);
+        let cur_dialect_num_columns = get_num_columns_if_delimited(active_doc, delim, policy, best_dialect_num_columns + 1, min_num_lines);
         if (cur_dialect_num_columns > best_dialect_num_columns) {
             best_dialect_num_columns = cur_dialect_num_columns;
             best_dialect = dialect_id;

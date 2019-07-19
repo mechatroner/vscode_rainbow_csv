@@ -47,6 +47,11 @@
                     "default": true,
                     "description": "Enable automatic content based separator autodetection"
                 },
+                "rainbow_csv.autodetection_min_line_count": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Minimum number of non-comment lines in file for content-based autodetection."
+                },
                 "rainbow_csv.autodetect_separators": {
                     "type": "array",
                     "default": [
