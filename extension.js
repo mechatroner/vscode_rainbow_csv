@@ -28,7 +28,6 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
-// FIXME fix RBQL result set CSV language id when output format is different from "input". E.g. input: tsv, output: csv, but highlighted as tsv
 
 var dev_log = null;
 var err_log = null;
@@ -546,7 +545,7 @@ function try_change_document_language(active_doc, language_id, is_manual_op, cal
 
 
 function handle_rbql_result_file(text_doc, warnings) {
-    var out_delim = rbql_context.delim;
+    var out_delim = rbql_context.output_delim;
     let language_id = map_separator_to_language_id(out_delim);
     var active_window = vscode.window;
     if (!active_window)
@@ -732,6 +731,7 @@ function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_q
         [output_delim, output_policy] = [',', 'quoted'];
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', 'simple'];
+    rbql_context.output_delim = output_delim;
 
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
