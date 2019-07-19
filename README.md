@@ -22,20 +22,22 @@ Another way to do this: select one separator character with mouse cursor -> righ
 |tsv              | \t (TAB)             | .tsv .tab |                                     |
 |csv (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
 |csv (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
-|csv (...)        | &#124; ~ ^ : " = . - |           |                                     |
+|csv (pipe)       | &#124; (pipe)        |           |                                     |
+|csv (...)        | ~ ^ : " = . -        |           |                                     |
 
 
 #### Content-based separator autodetection
-Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
+Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
 To disable autodetection for the current file press "Rainbow OFF" button inside the status line.  
-You can also adjust the list of separators for autodetection algorithm: add the following line to your VSCode config and edit it there:  
+You can also adjust the list of candidate separators for autodetection algorithm, add the following line to your VSCode config and edit it by removing or including supported separators:  
 ```
 "rainbow_csv.autodetect_separators": ["\t", ",", ";", "|"],
 ```
+Autodetection can also be disabled entirely at the extension settings page.  
 
 
 #### Customizing file extension - separator association
-If you often work with spreadsheet files with one specific extension, you can associate that extension with one of the supported separators.  
+If you often work with spreadsheet files with one specific extension (e.g. ".dat") and you don't want to rely on the autodetection algorithm, you can associate that extension with one of the supported separators.  
 For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code config:  
 
 ```
@@ -73,6 +75,10 @@ To allow CSVLint, content-based autodetection algorithms and _Align_, _Shrink_, 
 You can align columns in CSV files by clicking "Align" statusline button or use _Align_ command  
 To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink" statusline button or use _Shrink_ command  
 
+
+### Settings
+You can customize Rainbow CSV at the extension settings section of VSCode settings.  
+There you can find the list of available options and their description.  
 
 
 ### Commands:
