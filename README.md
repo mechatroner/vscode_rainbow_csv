@@ -27,9 +27,9 @@ Another way to do this: select one separator character with mouse cursor -> righ
 
 
 #### Content-based separator autodetection
-Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases this is a very cheap operation because autodetection would stop after checking only 1-2 topmost lines.  
+Rainbow CSV will run spreadsheet autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases this is a very cheap operation because autodetection usually stops after checking only 1-2 topmost lines.  
 To disable autodetection for the current file press "Rainbow OFF" button inside the status line.  
-You can also adjust the list of candidate separators for autodetection algorithm, add the following line to your VSCode config and edit it by removing or including supported separators:  
+You can also adjust the list of candidate separators for autodetection algorithm, add the following line to your VSCode config and edit it by removing or including any of the supported separators:  
 ```
 "rainbow_csv.autodetect_separators": ["\t", ",", ";", "|"],
 ```
@@ -38,7 +38,7 @@ Autodetection can also be disabled entirely at the extension settings page.
 
 #### Customizing file extension - separator association
 If you often work with spreadsheet files with one specific extension (e.g. ".dat") and you don't want to rely on the autodetection algorithm, you can associate that extension with one of the supported separators.  
-For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code config:  
+For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code json config:  
 
 ```
 "files.associations": {
@@ -47,13 +47,13 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 },
 ```
 
-Important: language identifiers in config must be specified in **lower case**! e.g. `csv (semicolon)`, but not `CSV (semicolon)`.  
+Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
 List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilda)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
 
 
 #### CSVLint consistency check
 
-The linter will check the following:  
+The linter checks the following:  
 * consistency of double quotes usage in CSV rows  
 * consistency of number of fields per CSV row  
 
