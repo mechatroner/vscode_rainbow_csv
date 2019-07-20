@@ -28,12 +28,6 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
-// FIXME reread value from config when possible to make config changes get into effect immideately. Document which settings require restart to work 
-
-var dev_log = null;
-var err_log = null;
-
-var dbg_counter = 0;
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -60,11 +54,6 @@ var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
-var enable_dev_mode = false;
-var enable_tooltip = true;
-var enable_tooltip_column_names = true;
-var enable_tooltip_warnings = true;
-
 var client_js_template = null;
 var client_html_template = null;
 
@@ -72,28 +61,7 @@ var global_state = null;
 
 var preview_panel = null;
 
-var comment_prefix = '';
-
-
-
-function dbg_log(msg) {
-    if (!enable_dev_mode)
-        return;
-    if (!dev_log) {
-        dev_log = vscode.window.createOutputChannel("rainbow_csv_dev");
-    }
-    dev_log.show();
-    dev_log.appendLine(msg);
-}
-
-
-function log_error(msg) {
-    if (!err_log) {
-        err_log = vscode.window.createOutputChannel("rainbow_csv_errors");
-    }
-    err_log.show();
-    err_log.appendLine(msg);
-}
+const enable_dev_mode = false;
 
 
 function map_separator_to_language_id(separator) {
@@ -136,6 +104,8 @@ function sample_preview_records_from_context(rbql_context) {
 
 
 function get_header_line(document) {
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
     const num_lines = document.lineCount;
     for (let lnum = 0; lnum < num_lines; ++lnum) {
         const line_text = document.lineAt(lnum).text;
@@ -172,12 +142,14 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
-function make_hover_text(document, position, language_id) {
+function make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
     let [delim, policy] = dialect_map[language_id];
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
 
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
     if (comment_prefix && line.startsWith(comment_prefix))
         return 'Comment';
 
@@ -212,9 +184,14 @@ function make_hover(document, position, language_id, cancellation_token) {
     if (last_statusbar_doc != document) {
         refresh_status_bar_buttons(document); // Being paranoid and making shure that the buttons are visible
     }
-    if (!enable_tooltip)
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config)
         return;
-    var hover_text = make_hover_text(document, position, language_id);
+    if (!config.get('enable_tooltip'))
+        return;
+    let enable_tooltip_column_names = config.get('enable_tooltip_column_names');
+    let enable_tooltip_warnings = config.get('enable_tooltip_warnings');
+    var hover_text = make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings);
     if (hover_text && !cancellation_token.isCancellationRequested) {
         return new vscode.Hover(hover_text);
     } else {
@@ -223,11 +200,9 @@ function make_hover(document, position, language_id, cancellation_token) {
 }
 
 
-function produce_lint_report(active_doc, delim, policy) {
-    let detect_trailing_spaces = false;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config)
-        detect_trailing_spaces = config.get('csv_lint_detect_trailing_spaces');
+function produce_lint_report(active_doc, delim, policy, config) {
+    let comment_prefix = config.get('comment_prefix');
+    let detect_trailing_spaces = config.get('csv_lint_detect_trailing_spaces');
     let first_trailing_space_line = null;
     var num_lines = active_doc.lineCount;
     var num_fields = null;
@@ -266,6 +241,8 @@ function produce_lint_report(active_doc, delim, policy) {
 function calc_column_sizes(active_doc, delim, policy) {
     let result = [];
     let num_lines = active_doc.lineCount;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix))
@@ -285,6 +262,8 @@ function shrink_columns(active_doc, delim, policy) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
     let has_edit = false;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
@@ -311,6 +290,8 @@ function align_columns(active_doc, delim, policy, column_sizes) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
     let has_edit = false;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
@@ -490,10 +471,13 @@ function csv_lint(active_doc, is_manual_op) {
         if (config && config.get('enable_auto_csv_lint') === false)
             return false;
     }
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config)
+        return false;
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
     let [delim, policy] = dialect_map[language_id];
-    var lint_report = produce_lint_report(active_doc, delim, policy);
+    var lint_report = produce_lint_report(active_doc, delim, policy, config);
     lint_results.set(lint_cache_key, lint_report);
     return true;
 }
@@ -536,7 +520,6 @@ function try_change_document_language(active_doc, language_id, is_manual_op, cal
                 callback_func(doc);
         });
     } catch (error) {
-        dbg_log('Unable to change language: ' + error);
         if (is_manual_op)
             show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
         return false;
@@ -551,14 +534,14 @@ function handle_rbql_result_file(text_doc, warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return;
-    var handle_success = function(editor) {
+    var handle_success = function(_editor) {
         if (language_id && text_doc.language_id != language_id) {
             console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
             try_change_document_language(text_doc, language_id, false, null);
         }
         show_warnings(warnings);
     };
-    var handle_failure = function(reason) { show_single_line_error('Unable to open document'); };
+    var handle_failure = function(_reason) { show_single_line_error('Unable to open document'); };
     active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
 }
 
@@ -574,14 +557,12 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
         stderr += data.toString();
     });
     command.on('close', function(code) {
-        dbg_log('child_process got "close" event');
         if (!close_and_error_guard['process_reported']) {
             close_and_error_guard['process_reported'] = true;
             callback_func(code, stdout, stderr);
         }
     });
     command.on('error', function(error) {
-        dbg_log('child_process got "error" event');
         var error_msg = error ? error.name + ': ' + error.message : '';
         if (!close_and_error_guard['process_reported']) {
             close_and_error_guard['process_reported'] = true;
@@ -592,10 +573,6 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 
 
 function handle_command_result(src_table_path, error_code, stdout, stderr, report_handler) {
-    dbg_log('error_code: ' + String(error_code));
-    dbg_log('stdout: ' + String(stdout));
-    dbg_log('stderr: ' + String(stderr));
-
     var report = null;
     var json_report = stdout;
     if (error_code || !json_report.length || stderr.length) {
@@ -624,7 +601,6 @@ function handle_command_result(src_table_path, error_code, stdout, stderr, repor
         return;
     }
     var dst_table_path = report['result_path'];
-    dbg_log('dst_table_path: ' + dst_table_path);
     autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
@@ -663,7 +639,6 @@ function remove_if_exists(file_path) {
 
 
 function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
-    dbg_log('Worker success');
     remove_if_exists(tmp_worker_module_path);
     let hr_warnings = [];
     let report = {'result_path': output_path};
@@ -678,7 +653,6 @@ function handle_worker_success(output_path, warnings, tmp_worker_module_path, re
 
 
 function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
-    dbg_log('Worker failure: ' + error_msg);
     var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
     report_handler(report);
 }
@@ -721,7 +695,6 @@ function run_rbql_native(input_path, query, delim, policy, report_handler, csv_e
 
 
 function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_query, output_dialect, report_handler) {
-    dbg_log('running query: ' + rbql_query);
     last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
@@ -939,6 +912,10 @@ function column_edit(edit_mode) {
     let dialect = get_dialect(active_doc);
     let delim = dialect[0];
     let policy = dialect[1];
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config)
+        return;
+    let comment_prefix = config.get('comment_prefix');
 
     let position = active_editor.selection.active;
     let lnum = position.line;
@@ -1080,7 +1057,6 @@ function get_from_global_state(key, default_value) {
 
 
 function handle_rbql_client_message(webview, message) {
-    dbg_log('got message from rbql client: ' + JSON.stringify(message));
     let message_type = message['msg_type'];
 
     if (message_type == 'handshake') {
@@ -1154,7 +1130,8 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
     var num_lines = active_doc.lineCount;
     let num_fields = 0;
     let num_lines_checked = 0;
-    let comment_prefix_for_autodetection = comment_prefix;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix_for_autodetection = config ? config.get('comment_prefix') : '';
     if (!comment_prefix_for_autodetection)
         comment_prefix_for_autodetection = '#';
     for (var lnum = 0; lnum < num_lines; lnum++) {
@@ -1225,7 +1202,6 @@ function autoenable_rainbow_csv(active_doc) {
 
 
 function handle_editor_switch(editor) {
-    dbg_counter += 1;
     let active_doc = get_active_doc(editor);
     csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
@@ -1233,7 +1209,6 @@ function handle_editor_switch(editor) {
 
 
 function handle_doc_open(active_doc) {
-    dbg_counter += 1;
     autoenable_rainbow_csv(active_doc);
     csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
@@ -1281,7 +1256,7 @@ function make_preview(uri, preview_mode) {
 
         var buffer = Buffer.alloc(size_limit);
         let read_begin_pos = preview_mode == 'head' ? 0 : Math.max(file_size_in_bytes - size_limit, 0);
-        fs.read(fd, buffer, 0, size_limit, read_begin_pos, function(err, num) {
+        fs.read(fd, buffer, 0, size_limit, read_begin_pos, function(err, _num) {
             if (err) {
                 console.log(err.message);
                 vscode.window.showErrorMessage('Unable to preview file');
@@ -1314,19 +1289,6 @@ function register_csv_hover_info_provider(language_id, context) {
 
 
 function activate(context) {
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    if (config) {
-        if (config.get('enable_dev_mode') === true)
-            enable_dev_mode = true;
-        if (config.get('enable_tooltip') === false)
-            enable_tooltip = false;
-        if (config.get('enable_tooltip_column_names') === false)
-            enable_tooltip_column_names = false;
-        if (config.get('enable_tooltip_warnings') === false)
-            enable_tooltip_warnings = false;
-        comment_prefix = config.get('comment_prefix');
-    }
-
     global_state = context.globalState;
 
     client_js_template_path = context.asAbsolutePath('rbql_client.js');
