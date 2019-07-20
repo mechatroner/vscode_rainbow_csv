@@ -1176,6 +1176,30 @@ function autodetect_dialect(active_doc, candidate_separators) {
 }
 
 
+function autodetect_dialect_frequency_based(active_doc, candidate_separators) {
+    let best_dialect = 'csv';
+    let best_dialect_frequency = 0;
+    let data = active_doc.getText();
+    if (!data)
+        return best_dialect;
+    for (let i = 0; i < candidate_separators.length; i++) {
+        if (candidate_separators[i] == ' ' || candidate_separators[i] == '.')
+            continue; // Whitespace and dot have advantage over other separators in this algorithm, so we just skip them
+        let dialect_id = map_separator_to_language_id(candidate_separators[i]);
+        let frequency = 0;
+        for (let j = 0; j < 10000 && j < data.length; j++) {
+            if (data[j] == candidate_separators[i])
+                frequency += 1;
+        }
+        if (frequency > best_dialect_frequency) {
+            best_dialect = dialect_id;
+            best_dialect_frequency = frequency;
+        }
+    }
+    return best_dialect;
+}
+
+
 function autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return;
@@ -1184,13 +1208,18 @@ function autoenable_rainbow_csv(active_doc) {
         return;
     let candidate_separators = config.get('autodetect_separators');
     var original_language_id = active_doc.languageId;
-    if (['plaintext', 'csv'].indexOf(original_language_id) == -1)
-        return;
     var file_path = active_doc.fileName;
-    if (autodetection_stoplist.has(file_path)) {
+    if (!file_path || autodetection_stoplist.has(file_path)) {
         return;
     }
+    let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
+    if (original_language_id != 'plaintext' && !is_default_csv)
+        return;
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
+    if (!rainbow_csv_language_id && is_default_csv) {
+        // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one.
+        rainbow_csv_language_id = autodetect_dialect_frequency_based(active_doc, candidate_separators);
+    }
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return;
     try_change_document_language(active_doc, rainbow_csv_language_id, false, (doc) => {
