@@ -28,6 +28,7 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
+// FIXME add "references" section to the readme file.
 
 var lint_results = new Map();
 var aligned_files = new Set();
