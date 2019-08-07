@@ -248,6 +248,7 @@ function calc_column_sizes(active_doc, delim, policy) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
+        // FIXME do not align if table has quoting issues
         let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length; i++) {
             if (result.length <= i)
@@ -271,6 +272,7 @@ function shrink_columns(active_doc, delim, policy) {
             result_lines.push(line_text);
             continue;
         }
+        // FIXME do not shrink if table has quoting issues
         let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length; i++) {
             let adjusted = fields[i].trim();
