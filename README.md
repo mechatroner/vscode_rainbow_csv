@@ -49,7 +49,7 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 ```
 
 Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
-List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilda)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
+List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilde)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
 
 
 #### CSVLint consistency check

@@ -22,7 +22,7 @@
         "onLanguage:tsv",
         "onLanguage:csv (semicolon)",
         "onLanguage:csv (pipe)",
-        "onLanguage:csv (tilda)",
+        "onLanguage:csv (tilde)",
         "onLanguage:csv (whitespace)",
         "onLanguage:csv (caret)",
         "onLanguage:csv (colon)",
@@ -160,10 +160,10 @@
                 "extensions": []
             },
             {
-                "id": "csv (tilda)",
+                "id": "csv (tilde)",
                 "aliases": [
-                    "CSV (tilda)",
-                    "csv (tilda)"
+                    "CSV (tilde)",
+                    "csv (tilde)"
                 ],
                 "extensions": []
             },
@@ -315,7 +315,7 @@
                 "path": "./syntaxes/pipe_simple.tmLanguage.json"
             },
             {
-                "language": "csv (tilda)",
+                "language": "csv (tilde)",
                 "scopeName": "text.tldsv",
                 "path": "./syntaxes/tldsv.tmLanguage.json"
             },

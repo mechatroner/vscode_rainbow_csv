@@ -12,7 +12,7 @@ var dialect_map = {
     'tsv': ['\t', 'simple'],
     'csv (semicolon)': [';', 'quoted'],
     'csv (pipe)': ['|', 'simple'],
-    'csv (tilda)': ['~', 'simple'],
+    'csv (tilde)': ['~', 'simple'],
     'csv (caret)': ['^', 'simple'],
     'csv (colon)': [':', 'simple'],
     'csv (double quote)': ['"', 'simple'],
