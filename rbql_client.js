@@ -75,10 +75,10 @@ function preview_end() {
 }
 
 
-function show_error(error_type, error_details) {
-    error_details = error_details.replace('\r?\n', '\r\n');
+function show_error(error_type, error_msg) {
+    error_msg = error_msg.replace('\r?\n', '\r\n');
     document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
-    document.getElementById('error_message_details').textContent = error_details;
+    document.getElementById('error_message_details').textContent = error_msg;
     document.getElementById('rbql_error_message').style.display = 'block';
 }
 
@@ -132,12 +132,11 @@ function handle_message(msg_event) {
     }
 
     if (message_type == 'rbql_report') {
-        let report = message['report'];
         rbql_running = false;
-        if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
-            let error_type = report.hasOwnProperty('error_type') ? report['error_type'] : 'Unknown Error';
-            let error_details = report.hasOwnProperty('error_details') ? report['error_details'] : 'Unknown Error';
-            show_error(error_type, error_details);
+        if (message.hasOwnProperty('error_type') || message.hasOwnProperty('error_msg')) {
+            let error_type = message.hasOwnProperty('error_type') ? message['error_type'] : 'Unexpected';
+            let error_msg = message.hasOwnProperty('error_msg') ? message['error_msg'] : 'Unknown Error';
+            show_error(error_type, error_msg);
         }
         document.getElementById('status_label').textContent = "";
     }

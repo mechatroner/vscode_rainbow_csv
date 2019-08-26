@@ -4,8 +4,8 @@ const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
 
-const rainbow_utils = require('./rbql_core/rbql-js/rbql_utils.js');
-const rbql = require('./rbql_core/rbql-js/rbql.js');
+const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
+const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
 
 var dialect_map = {
     'csv': [',', 'quoted'],
@@ -28,7 +28,10 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
-// FIXME add "references" section to the readme file.
+// FIXME do not align/shrink if table has quoting issues
+
+// FIXME make sure python RBQL correctly handles (error_type, error_msg) pair
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -90,7 +93,7 @@ function sample_preview_records_from_context(rbql_context) {
         var line_text = document.lineAt(nr).text;
         if (nr + 1 >= total_lines && total_lines > 1 && line_text == '')
             break;
-        var cur_record = rainbow_utils.smart_split(line_text, delim, policy, false)[0];
+        var cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
         max_cols = Math.max(max_cols, cur_record.length);
         cur_record.splice(0, 0, nr + 1);
         preview_records.push(cur_record);
@@ -123,10 +126,10 @@ function get_header(document, delim, policy) {
     if (file_path && global_state) {
         var header = global_state.get(file_path);
         if (header) {
-            return rainbow_utils.smart_split(header, ',', 'quoted', false)[0];
+            return csv_utils.smart_split(header, ',', 'quoted', false)[0];
         }
     }
-    return rainbow_utils.smart_split(get_header_line(document), delim, policy, false)[0];
+    return csv_utils.smart_split(get_header_line(document), delim, policy, false)[0];
 }
 
 
@@ -154,7 +157,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
     if (comment_prefix && line.startsWith(comment_prefix))
         return 'Comment';
 
-    var report = rainbow_utils.smart_split(line, delim, policy, true);
+    var report = csv_utils.smart_split(line, delim, policy, true);
 
     var entries = report[0];
     var warning = report[1];
@@ -213,7 +216,7 @@ function produce_lint_report(active_doc, delim, policy, config) {
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
-        var split_result = rainbow_utils.smart_split(line_text, delim, policy, true);
+        var split_result = csv_utils.smart_split(line_text, delim, policy, true);
         if (split_result[1]) {
             return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
         }
@@ -249,7 +252,7 @@ function calc_column_sizes(active_doc, delim, policy) {
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         // FIXME do not align if table has quoting issues
-        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length; i++) {
             if (result.length <= i)
                 result.push(0);
@@ -273,7 +276,7 @@ function shrink_columns(active_doc, delim, policy) {
             continue;
         }
         // FIXME do not shrink if table has quoting issues
-        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length; i++) {
             let adjusted = fields[i].trim();
             if (fields[i].length != adjusted.length) {
@@ -301,7 +304,7 @@ function align_columns(active_doc, delim, policy, column_sizes) {
             result_lines.push(line_text);
             continue;
         }
-        let fields = rainbow_utils.smart_split(line_text, delim, policy, true)[0];
+        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length - 1; i++) {
             if (i >= column_sizes.length) // Safeguard against async doc edit
                 break;
@@ -575,39 +578,38 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 }
 
 
-function handle_command_result(src_table_path, error_code, stdout, stderr, report_handler) {
-    var report = null;
-    var json_report = stdout;
-    if (error_code || !json_report.length || stderr.length) {
-        var error_details = "Unknown Integration Error";
-        if (stderr.length) {
-            error_details += '\nstderr: ' + stderr;
-        }
-        report = {"error_type": "Integration", "error_details": error_details};
+function handle_command_result(src_table_path, dst_table_path, error_code, stdout, stderr, webview_report_handler) {
+    let json_report = stdout;
+    let error_type = null;
+    let error_msg = null;
+    if (error_code || !json_report || stderr) {
+        error_type = 'Integration';
+        error_msg = stderr ? stderr : 'empty error';
     } else {
         try {
-            report = JSON.parse(json_report);
+            let report = JSON.parse(json_report);
+            if (report.hasOwnProperty('error_type'))
+                error_type = report['error_type'];
+            if (report.hasOwnProperty('error_msg'))
+                error_msg = report['error_msg'];
         } catch (e) {
-            report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
+            error_type = 'Integration';
+            error_msg = 'Unable to parse JSON report';
         }
     }
-    report_handler(report);
-    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+    webview_report_handler(error_type, error_msg);
+    if (error_type || error_msg) {
         return; // Just exit: error would be shown in the preview window.
     }
     var warnings = [];
     if (report.hasOwnProperty('warnings')) {
         warnings = report['warnings'];
     }
-    if (!report.hasOwnProperty('result_path')) {
-        show_single_line_error('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
-        return;
-    }
-    var dst_table_path = report['result_path'];
     autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
+
 
 
 function get_last_start_line(document) {
@@ -641,23 +643,10 @@ function remove_if_exists(file_path) {
 }
 
 
-function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
-    remove_if_exists(tmp_worker_module_path);
-    let hr_warnings = [];
-    let report = {'result_path': output_path};
-    if (warnings) {
-        hr_warnings = rbql.make_warnings_human_readable(warnings);
-        report['warnings'] = hr_warnings;
-    }
-    report_handler(report);
+function handle_worker_success(output_path, warnings, webview_report_handler) {
+    webview_report_handler(null, null);
     autodetection_stoplist.add(output_path);
-    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, hr_warnings));
-}
-
-
-function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
-    var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
-    report_handler(report);
+    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
 
@@ -668,37 +657,8 @@ function get_error_message(error) {
 }
 
 
-function run_rbql_native(input_path, query, delim, policy, report_handler, csv_encoding, output_delim, output_policy) {
-    var rbql_lines = [query];
-    var tmp_dir = os.tmpdir();
-    var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
-    var tmp_worker_module_path = path.join(tmp_dir, script_filename);
-
-    var output_file_name = get_dst_table_name(input_path, output_delim);
-    var output_path = path.join(tmp_dir, output_file_name);
-    var worker_module = null;
-
-    try {
-        rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
-        worker_module = require(tmp_worker_module_path);
-    } catch (e) {
-        let report = {'error_type': 'RBQL_parsing', 'error_details': get_error_message(e)};
-        report_handler(report);
-        return;
-    }
-    var handle_success = function(warnings) {
-        result_set_parent_map.set(output_path.toLowerCase(), input_path);
-        handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
-    };
-    var handle_failure = function(error_msg) {
-        handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
-    };
-    worker_module.run_on_node(handle_success, handle_failure);
-}
-
-
-function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_query, output_dialect, report_handler) {
-    last_rbql_queries.set(active_file_path, {'query': rbql_query});
+function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, webview_report_handler) {
+    last_rbql_queries.set(input_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
@@ -710,20 +670,27 @@ function run_rbql_query(active_file_path, csv_encoding, backend_language, rbql_q
         [output_delim, output_policy] = ['\t', 'simple'];
     rbql_context.output_delim = output_delim;
 
+    let output_file_name = get_dst_table_name(input_path, output_delim);
+    let output_path = path.join(tmp_dir, output_file_name);
+
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
         }
         let args = [mock_script_path, rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
         return;
     }
     if (backend_language == 'js') {
-        run_rbql_native(active_file_path, rbql_query, rbql_context.delim, rbql_context.policy, report_handler, csv_encoding, output_delim, output_policy);
+        var handle_success = function(warnings) {
+            result_set_parent_map.set(output_path.toLowerCase(), input_path);
+            handle_worker_success(output_path, warnings, webview_report_handler);
+        };
+        rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, webview_report_handler);
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
-        let args = [rbql_exec_path, rbql_context.delim, rbql_context.policy, cmd_safe_query, active_file_path, csv_encoding, output_delim, output_policy];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(active_file_path, error_code, stdout, stderr, report_handler); });
+        let args = [rbql_exec_path, cmd_safe_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding];
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
     }
 }
 
@@ -925,7 +892,7 @@ function column_edit(edit_mode) {
     let cnum = position.character;
     let line = active_doc.lineAt(lnum).text;
 
-    let report = rainbow_utils.smart_split(line, delim, policy, true);
+    let report = csv_utils.smart_split(line, delim, policy, true);
 
     let entries = report[0];
     let quoting_warning = report[1];
@@ -943,7 +910,7 @@ function column_edit(edit_mode) {
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
-        let report = rainbow_utils.smart_split(line_text, delim, policy, true);
+        let report = csv_utils.smart_split(line_text, delim, policy, true);
         let entries = report[0];
         quoting_warning = quoting_warning || report[1];
         if (col_num >= entries.length) {
@@ -1096,12 +1063,16 @@ function handle_rbql_client_message(webview, message) {
         let backend_language = message['backend_language'];
         let encoding = message['encoding'];
         let output_dialect = message['output_dialect'];
-        var report_handler = function(report) {
-            var report_msg = {'msg_type': 'rbql_report', 'report': report};
+        var webview_report_handler = function(error_type, error_msg) {
+            let report_msg = {'msg_type': 'rbql_report'};
+            if (error_type)
+                report_msg["error_type"] = error_type;
+            if (error_msg)
+                report_msg["error_msg"] = error_msg;
             webview.postMessage(report_msg);
         };
         var active_file_path = rbql_context['document'].fileName;
-        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, report_handler);
+        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, webview_report_handler);
     }
 
     if (message_type == 'global_param_change') {
@@ -1143,7 +1114,7 @@ function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns
             break;
         if (line_text.startsWith(comment_prefix_for_autodetection))
             continue;
-        let [fields, warning] = rainbow_utils.smart_split(line_text, delim, policy, true);
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
         if (warning)
             return 0; // TODO don't fail on warnings?
         if (!num_fields)

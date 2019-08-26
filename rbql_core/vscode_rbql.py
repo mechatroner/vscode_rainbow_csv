@@ -15,8 +15,8 @@ import base64
 import rbql
 
 
-def report_error_and_exit(error_type, error_details):
-    sys.stdout.write(json.dumps({'error_type': error_type, 'error_details': error_details}))
+def report_error_and_exit(error_type, error_msg):
+    sys.stdout.write(json.dumps({'error_type': error_type, 'error_msg': error_msg}))
     sys.exit()
 
 
@@ -33,7 +33,7 @@ def run_with_python(input_path, delim, policy, csv_encoding, query, output_delim
         except rbql.RBParsingError as e:
             report_error_and_exit('RBQL_Parsing', str(e))
         try:
-            report = {'result_path': output_path}
+            report = {'result': 'OK'}
             rbconvert = worker_env.import_worker()
             src = None
             if input_path:
@@ -55,40 +55,17 @@ def run_with_python(input_path, delim, policy, csv_encoding, query, output_delim
             report_error_and_exit('Wrapper', error_msg)
 
 
-def get_file_extension(file_name):
-    p = file_name.rfind('.')
-    if p == -1:
-        return None
-    result = file_name[p + 1:]
-    if len(result):
-        return result
-    return None
-
-
-def get_dst_table_path(src_table_path, output_delim):
-    tmp_dir = tempfile.gettempdir()
-    table_name = os.path.basename(src_table_path)
-    orig_extension = get_file_extension(table_name)
-    delim_ext_map = {'\t': 'tsv', ',': 'csv'}
-    if output_delim in delim_ext_map:
-        dst_extension = delim_ext_map[output_delim]
-    elif orig_extension is not None:
-        dst_extension = orig_extension
-    else:
-        dst_extension = 'txt'
-    dst_table_name = '{}.{}'.format(table_name, dst_extension)
-    return os.path.join(tmp_dir, dst_table_name)
-
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('query', help='Query string in rbql')
+    parser.add_argument('input_table_path', metavar='FILE', help='input path')
     parser.add_argument('delim', help='Delimiter')
     parser.add_argument('policy', help='csv split policy')
-    parser.add_argument('query', help='Query string in rbql')
-    parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
-    parser.add_argument('encoding', help='Manually set csv table encoding')
+    parser.add_argument('output_table_path', metavar='FILE', help='output path')
     parser.add_argument('output_delim', help='Out Delimiter')
     parser.add_argument('output_policy', help='Out csv policy')
+    parser.add_argument('encoding', help='Manually set csv table encoding')
     args = parser.parse_args()
 
     delim = rbql.normalize_delim(args.delim)
@@ -98,8 +75,7 @@ def main():
     query = base64.standard_b64decode(args.query).decode("utf-8")
     input_path = args.input_table_path
     csv_encoding = args.encoding
-
-    output_path = get_dst_table_path(input_path, output_delim)
+    output_path = args.output_table_path
     
     run_with_python(input_path, delim, policy, csv_encoding, query, output_delim, output_policy, output_path)
 
