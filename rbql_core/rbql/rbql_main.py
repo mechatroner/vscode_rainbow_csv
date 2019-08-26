@@ -2,35 +2,41 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import os
 import sys
-import codecs
-import time
-import tempfile
-import subprocess
+import os
 import argparse
+import readline
 
-from . import rbql
-from . import rbql_utils
+from . import csv_utils
+from . import rbql_csv
+from . import _version
+
+
+PY3 = sys.version_info[0] == 3
+
+# TODO add demo gif to python package README.md, pypi supports image rendering
+
+# FIXME check readline in Windows both with py2 and py3
+
+
+history_path = os.path.join(os.path.expanduser("~"), ".rbql_py_query_history")
+
+
+polymorphic_input = input if PY3 else raw_input
 
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-policy_names = ['csv', 'tsv', 'monocolumn']
-out_policy_names = policy_names + ['input']
+policy_names = ['quoted', 'simple', 'whitespace', 'quoted_rfc', 'monocolumn']
+out_format_names = ['csv', 'tsv', 'input']
 
 
-def interpret_format(format_name, input_delim, input_policy):
-    assert format_name in out_policy_names
-    if format_name == 'input':
-        return (input_delim, input_policy)
-    if format_name == 'monocolumn':
-        return ('', 'monocolumn')
-    if format_name == 'csv':
-        return (',', 'quoted')
-    return ('\t', 'simple')
+def xrange6(x):
+    if PY3:
+        return range(x)
+    return xrange(x)
 
 
 def get_default_policy(delim):
@@ -42,12 +48,12 @@ def get_default_policy(delim):
         return 'simple'
 
 
-def show_error(msg, is_interactive):
+def show_error(error_type, error_msg, is_interactive):
     if is_interactive:
-        full_msg = '{}Error:{} {}'.format(u'\u001b[31;1m', u'\u001b[0m', msg)
+        full_msg = '{}Error [{}]:{} {}'.format(u'\u001b[31;1m', error_type, u'\u001b[0m', error_msg)
         print(full_msg)
     else:
-        eprint('Error: ' + msg)
+        eprint('Error [{}]: {}'.format(error_type, error_msg))
 
 
 def show_warning(msg, is_interactive):
@@ -59,55 +65,33 @@ def show_warning(msg, is_interactive):
 
 
 def run_with_python(args, is_interactive):
-    delim = rbql.normalize_delim(args.delim) if args.delim is not None else '\t'
+    delim = rbql_csv.normalize_delim(args.delim)
     policy = args.policy if args.policy is not None else get_default_policy(delim)
     query = args.query
-    convert_only = args.convert_only
     input_path = args.input
     output_path = args.output
     init_source_file = args.init_source_file
     csv_encoding = args.encoding
-    args.output_delim, args.output_policy = interpret_format(args.out_format, delim, policy)
+    args.output_delim, args.output_policy = (delim, policy) if args.out_format == 'input' else rbql_csv.interpret_named_csv_format(args.out_format)
+    out_delim, out_policy = args.output_delim, args.output_policy
 
-    assert args.query
-    rbql_lines = [query]
+    user_init_code = ''
+    if init_source_file is not None:
+        user_init_code = rbql_csv.read_user_init_code(init_source_file)
+    error_info, warnings = rbql_csv.csv_run(query, input_path, delim, policy, output_path, out_delim, out_policy, csv_encoding, user_init_code)
 
-    with rbql.RbqlPyEnv() as worker_env:
-        tmp_path = worker_env.module_path
-        try:
-            rbql.parse_to_py(rbql_lines, tmp_path, delim, policy, args.output_delim, args.output_policy, csv_encoding, init_source_file)
-        except rbql.RBParsingError as e:
-            show_error('RBQL Parsing Failure: {}'.format(e), is_interactive)
-            return False
-        if convert_only:
-            print(tmp_path)
-            return True
-        try:
-            rbconvert = worker_env.import_worker()
-            src = None
-            if input_path:
-                src = codecs.open(input_path, encoding=csv_encoding)
-            else:
-                src = rbql.get_encoded_stdin(csv_encoding)
-            warnings = None
-            if output_path:
-                with codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
-                    warnings = rbconvert.rb_transform(src, dst)
-            else:
-                dst = rbql.get_encoded_stdout(csv_encoding)
-                warnings = rbconvert.rb_transform(src, dst)
-            if warnings is not None:
-                hr_warnings = rbql.make_warnings_human_readable(warnings)
-                for warning in hr_warnings:
-                    show_warning(warning, is_interactive)
-            worker_env.remove_env_dir()
-        except Exception as e:
-            error_msg = 'Unable to use generated python module.\n'
-            error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
-            error_msg += 'Original python exception:\n{}\n'.format(str(e))
-            show_error(error_msg, is_interactive)
-            return False
-        return True
+    if error_info is None:
+        success = True
+        for warning in warnings:
+            show_warning(warning, is_interactive)
+    else:
+        success = False
+        error_type = error_info['type']
+        error_msg = error_info['message']
+        show_error(error_type, error_msg, is_interactive)
+
+    return success
+
 
 
 def is_delimited_table(sampled_lines, delim, policy):
@@ -115,7 +99,7 @@ def is_delimited_table(sampled_lines, delim, policy):
         return False
     num_fields = None
     for sl in sampled_lines:
-        fields, warning = rbql_utils.smart_split(sl, delim, policy, True)
+        fields, warning = csv_utils.smart_split(sl, delim, policy, True)
         if warning or len(fields) < 2:
             return False
         if num_fields is None:
@@ -125,20 +109,20 @@ def is_delimited_table(sampled_lines, delim, policy):
     return True
 
 
-def sample_lines(src_path, encoding):
+def sample_lines(src_path, encoding, delim, policy):
     result = []
-    with codecs.open(src_path, encoding=encoding) as source:
-        line_iterator = rbql_utils.LineIterator(source)
-        for i in rbql.xrange6(10):
-            line = line_iterator.get_row()
-            if line is None:
-                break
-            result.append(line)
+    source = open(src_path, 'rb')
+    line_iterator = rbql_csv.CSVRecordIterator(source, True, encoding, delim=delim, policy=policy)
+    for _i in xrange6(10):
+        line = line_iterator.polymorphic_get_row()
+        if line is None:
+            break
+        result.append(line)
     return result
 
 
 def autodetect_delim_policy(input_path, encoding):
-    sampled_lines = sample_lines(input_path, encoding)
+    sampled_lines = sample_lines(input_path, encoding, None, None)
     autodetection_dialects = [('\t', 'simple'), (',', 'quoted'), (';', 'quoted')]
     for delim, policy in autodetection_dialects:
         if is_delimited_table(sampled_lines, delim, policy):
@@ -151,11 +135,11 @@ def autodetect_delim_policy(input_path, encoding):
 
 
 def sample_records(input_path, delim, policy, encoding):
-    sampled_lines = sample_lines(input_path, encoding)
+    sampled_lines = sample_lines(input_path, encoding, delim, policy)
     bad_lines = []
     result = []
     for il, line in enumerate(sampled_lines):
-        fields, warning = rbql_utils.smart_split(line, delim, policy, True)
+        fields, warning = csv_utils.smart_split(line, delim, policy, True)
         if warning:
             bad_lines.append(il + 1)
         result.append(fields)
@@ -176,7 +160,12 @@ def print_colorized(records, delim, encoding, show_column_names):
                 colored_field = '{}{}'.format(color_code, field)
             out_fields.append(colored_field)
         out_line = delim.join(out_fields) + reset_color_code
-        print(out_line.encode(encoding, 'replace'))
+        if PY3:
+            sys.stdout.buffer.write(out_line.encode(encoding))
+        else:
+            sys.stdout.write(out_line.encode(encoding))
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
 def get_default_output_path(input_path, delim):
@@ -187,15 +176,19 @@ def get_default_output_path(input_path, delim):
 
 
 def run_interactive_loop(args):
+    if os.path.exists(history_path):
+        readline.read_history_file(history_path)
+    readline.set_history_length(100)
     while True:
-        print('\nInput SQL-like RBQL query and press Enter:')
-        sys.stdout.write('> ')
-        sys.stdout.flush()
-        query = sys.stdin.readline()
-        if not len(query):
+        try:
+            query = polymorphic_input('Input SQL-like RBQL query and press Enter:\n> ')
+            query = query.strip()
+        except EOFError:
             print()
             break # Ctrl-D
-        query = query.strip()
+        if not len(query):
+            break
+        readline.write_history_file(history_path)
         args.query = query
         success = run_with_python(args, is_interactive=True)
         if success:
@@ -211,15 +204,15 @@ def run_interactive_loop(args):
 def start_preview_mode(args):
     input_path = args.input
     if not input_path:
-        show_error('Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode', is_interactive=True)
+        show_error('generic', 'Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode', is_interactive=True)
         return
     if args.delim is not None:
-        delim = rbql.normalize_delim(args.delim)
+        delim = rbql_csv.normalize_delim(args.delim)
         policy = args.policy if args.policy is not None else get_default_policy(delim)
     else:
         delim, policy = autodetect_delim_policy(input_path, args.encoding)
         if delim is None:
-            show_error('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option', is_interactive=True)
+            show_error('generic', 'Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option', is_interactive=True)
             return
         args.delim = delim
         args.policy = policy
@@ -239,25 +232,57 @@ def start_preview_mode(args):
         print()
 
 
+tool_description = '''
+Run RBQL queries against CSV files and data streams
+
+rbql-py supports two modes: non-interactive (with "--query" option) and interactive (without "--query" option)
+Interactive mode shows source table preview which makes query editing much easier. Usage example:
+  $ rbql-py --input input.csv
+Non-interactive mode supports source tables in stdin. Usage example:
+  $ rbql-py --query "select a1, a2 order by a1" --delim , < input.csv
+'''
+
+epilog = '''
+Description of the available CSV split policies:
+  * "simple" - RBQL uses simple split() function and doesn't perform special handling of double quote characters
+  * "quoted" - Separator can be escaped inside double-quoted fields. Double quotes inside double-quoted fields must be doubled
+  * "quoted_rfc" - Same as "quoted", but also allows newlines inside double-quoted fields, see RFC-4180: https://tools.ietf.org/html/rfc4180
+  * "whitespace" - Works only with whitespace separator, multiple consecutive whitespaces are treated as a single whitespace
+  * "monocolumn" - RBQL doesn't perform any split at all, each line is a single-element record, i.e. only "a1" and "NR" are available
+'''
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--delim', help='Delimiter')
-    parser.add_argument('--policy', help='csv split policy', choices=policy_names)
-    parser.add_argument('--out-format', help='output format', default='input', choices=out_policy_names)
-    parser.add_argument('--query', help='Query string in rbql. Run in interactive mode if not provided')
-    parser.add_argument('--input', metavar='FILE', help='Read csv table from FILE instead of stdin. Must always be provided in interactive mode')
-    parser.add_argument('--output', metavar='FILE', help='Write output table to FILE instead of stdout. Must always be provided in interactive mode')
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=tool_description, epilog=epilog)
+    parser.add_argument('--delim', help='Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode')
+    parser.add_argument('--policy', help='CSV split policy, see the explanation below. Can be autodetected in interactive mode', choices=policy_names)
+    parser.add_argument('--out-format', help='Output format', default='input', choices=out_format_names)
+    parser.add_argument('--query', help='Query string in rbql. Run in interactive mode if empty')
+    parser.add_argument('--input', metavar='FILE', help='Read csv table from FILE instead of stdin. Required in interactive mode')
+    parser.add_argument('--output', metavar='FILE', help='Write output table to FILE instead of stdout')
     parser.add_argument('--version', action='store_true', help='Print RBQL version and exit')
-    parser.add_argument('--convert-only', action='store_true', help='Only generate script do not run query on csv table')
-    parser.add_argument('--encoding', help='Manually set csv table encoding', default=rbql.default_csv_encoding, choices=['latin-1', 'utf-8'])
-    parser.add_argument('--init-source-file', metavar='FILE', help='path to init source file to use instead of ~/.rbql_init_source.py')
+    parser.add_argument('--encoding', help='Manually set csv encoding', default=rbql_csv.default_csv_encoding, choices=['latin-1', 'utf-8'])
+    parser.add_argument('--init-source-file', metavar='FILE', help=argparse.SUPPRESS) # Path to init source file to use instead of ~/.rbql_init_source.py
     args = parser.parse_args()
 
     if args.version:
-        print(rbql.__version__)
+        print(_version.__version__)
         return
 
+    if args.delim is None and args.policy is not None:
+        show_error('generic', 'Using "--policy" without "--delim" is not allowed', is_interactive=False)
+        sys.exit(1)
+
+    if args.encoding != 'latin-1' and not PY3:
+        if args.delim is not None:
+            args.delim = args.delim.decode(args.encoding)
+        if args.query is not None:
+            args.query = args.query.decode(args.encoding)
+
     if args.query:
+        if args.delim is None:
+            show_error('generic', 'Separator must be provided with "--delim" option in non-interactive mode', is_interactive=False)
+            sys.exit(1)
         success = run_with_python(args, is_interactive=False)
         if not success:
             sys.exit(1)

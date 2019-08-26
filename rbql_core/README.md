@@ -1,6 +1,7 @@
-# RBQL (RainBow Query Language) Description
+# RBQL (Rainbow Query Language) Description
 
 RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.  
+RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  
 
 [Official Site](https://rbql.org/)
 
@@ -12,6 +13,7 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 * Output records appear in the same order as in input unless _ORDER BY_ is provided
 * Each record has a unique NR (line number) identifier
 * Supports all main SQL keywords
+* Supports aggregate functions and GROUP BY queries
 * Provides some new useful query modes which traditional SQL engines do not have
 * Supports both _TOP_ and _LIMIT_ keywords
 * Supports user-defined functions (UDF)
@@ -19,7 +21,8 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 
 #### Limitations:
 
-* RBQL doesn't support nested queries, but they can be emulated with 2 or more consecutive queries.
+* RBQL doesn't support nested queries, but they can be emulated with consecutive queries
+* Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 
@@ -55,16 +58,11 @@ _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify
 ### Aggregate functions and queries
 
 RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:  
-_COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_, _FOLD()_  
-
-Additionally RBQL supports _DISTINCT COUNT_ keyword which is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurrences of the entry, similar to _uniq -c_ unix command.  
-`SELECT DISTINCT COUNT a1` is equivalent to `SELECT a1, COUNT(a1) GROUP BY a1`  
+_COUNT()_, _ARRAY_AGG()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 
 #### Limitations
-
-* Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
-* Aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.
-  E.g. `MAX(float(a1) / 1000)` - valid; `MAX(a1) / 1000` - invalid
+Aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.
+E.g. `MAX(float(a1) / 1000)` - valid; `MAX(a1) / 1000` - invalid
 
 
 ### JOIN statements
@@ -83,20 +81,15 @@ SELECT EXCEPT can be used to select everything except specific columns. E.g. to 
 Traditional SQL engines do not support this query mode.
 
 
-### FOLD() and UNFOLD()
+### SELECT DISTINCT COUNT statement
 
-#### FOLD() 
-FOLD is an aggregate function which accumulates all values into a list.  
-By default it would return the list joined by pipe `|` character, but you can provide a callback function to change this behavior.  
-FOLD is very similar to "GROUP_CONCAT" function in MySQL and "array_agg" in PostgreSQL  
-Example (Python): `select a2, FOLD(a1, lambda v: ';'.join(sorted(v))) group by a2`  
-Example (JavaScript):  `select a2, FOLD(a1, v => v.sort().join(';')) group by a2`  
+RBQL supports _DISTINCT COUNT_ keyword which is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurrences of the entry, similar to _uniq -c_ unix command.  
+`SELECT DISTINCT COUNT a1` is equivalent to `SELECT a1, COUNT(a1) GROUP BY a1`  
 
-#### UNFOLD() 
-UNFOLD() is a function-like query mode which will do the opposite to FOLD().  
-UNFOLD() accepts a list as an argument and will repeat the output record multiple times - one time for each value from the list argument.  
-Equivalent in PostgreSQL: "unnest"  
-Example: `SELECT a1, UNFOLD(a2.split(';'))`  
+
+### UNNEST() operator
+UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.  
+Example: `SELECT a1, UNNEST(a2.split(';'))`  
 
 
 ### User Defined Functions (UDF)
@@ -145,7 +138,7 @@ You can define custom functions and/or import libraries in two special files:
 
 #### How does RBQL work?
 
-RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.
+RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.  
 
 Explanation of simplified Python version of RBQL algorithm by example.
 1. User enters the following query, which is stored as a string _Q_:
@@ -185,8 +178,8 @@ Explanation of simplified Python version of RBQL algorithm by example.
 ```
     ./tmp_script.py < data.tsv > result.tsv
 ```
-Result set of the original query (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) is in the "result.tsv" file.
-It is clear that this simplified version can only work with tab-separated files.
+Result set of the original query (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) is in the "result.tsv" file.  
+Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can introduce an intermediate array.  
 
 
 #### Is this technology reliable?
@@ -199,12 +192,5 @@ There is no complex logic, even query parsing functions are very simple. If some
 
 * [RBQL: Official Site](https://rbql.org/)
 RBQL is integrated with Rainbow CSV extensions in [Vim](https://github.com/mechatroner/rainbow_csv), [VSCode](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv), [Sublime Text](https://packagecontrol.io/packages/rainbow_csv) editors.
-* [RBQL in npm](https://www.npmjs.com/package/rbql): `$ npm install rbql`
+* [RBQL in npm](https://www.npmjs.com/package/rbql): `$ npm install -g rbql`
 * [RBQL in PyPI](https://pypi.org/project/rbql/): `$ pip install rbql`
-
-
-#### Related projects
-* [bigbash](https://github.com/Borisvl/bigbash) - SQL queries as bash one-liners
-* [q](https://github.com/harelba/q) - uses sqlite3
-* [TextQL](http://dinedal.github.io/textql/) - uses sqlite3
-
