@@ -582,6 +582,7 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
     let json_report = stdout;
     let error_type = null;
     let error_msg = null;
+    let warnings = [];
     if (error_code || !json_report || stderr) {
         error_type = 'Integration';
         error_msg = stderr ? stderr : 'empty error';
@@ -592,6 +593,8 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
                 error_type = report['error_type'];
             if (report.hasOwnProperty('error_msg'))
                 error_msg = report['error_msg'];
+            if (report.hasOwnProperty('warnings'))
+                warnings = report['warnings'];
         } catch (e) {
             error_type = 'Integration';
             error_msg = 'Unable to parse JSON report';
@@ -600,10 +603,6 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
     webview_report_handler(error_type, error_msg);
     if (error_type || error_msg) {
         return; // Just exit: error would be shown in the preview window.
-    }
-    var warnings = [];
-    if (report.hasOwnProperty('warnings')) {
-        warnings = report['warnings'];
     }
     autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
@@ -636,24 +635,10 @@ function get_dst_table_name(input_path, output_delim) {
 }
 
 
-function remove_if_exists(file_path) {
-    if (fs.existsSync(file_path)) {
-        fs.unlinkSync(file_path);
-    }
-}
-
-
 function handle_worker_success(output_path, warnings, webview_report_handler) {
     webview_report_handler(null, null);
     autodetection_stoplist.add(output_path);
     vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, warnings));
-}
-
-
-function get_error_message(error) {
-    if (error && error.message)
-        return error.message;
-    return String(error);
 }
 
 
@@ -670,6 +655,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         [output_delim, output_policy] = ['\t', 'simple'];
     rbql_context.output_delim = output_delim;
 
+    let tmp_dir = os.tmpdir();
     let output_file_name = get_dst_table_name(input_path, output_delim);
     let output_path = path.join(tmp_dir, output_file_name);
 
@@ -686,7 +672,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
-        rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, webview_report_handler);
+        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding, handle_success, webview_report_handler);
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [rbql_exec_path, cmd_safe_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding];
