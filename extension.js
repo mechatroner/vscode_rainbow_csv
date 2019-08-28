@@ -504,7 +504,7 @@ function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
-    active_window.showWarningMessage('RBQL query succeed with warnings!');
+    active_window.showWarningMessage('RBQL query completed with warnings!');
     for (var i = 0; i < warnings.length; i++) {
         active_window.showWarningMessage(warnings[i]);
     }
