@@ -28,8 +28,6 @@ var dialect_map = {
 
 // TODO improve query placeholder in RBQL window: show random query example
 
-// FIXME do not align/shrink if table has quoting issues
-
 // FIXME show error when attempting to run rbql for non-saved file
 
 var lint_results = new Map();
@@ -684,30 +682,6 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
 }
 
 
-function init_rbql_context() {
-    var active_window = vscode.window;
-    if (!active_window)
-        return false;
-    var active_editor = active_window.activeTextEditor;
-    if (!active_editor)
-        return false;
-    var active_doc = active_editor.document;
-    if (!active_doc)
-        return false;
-    var orig_uri = active_doc.uri;
-    if (!orig_uri || orig_uri.scheme != 'file')
-        return false;
-    var language_id = active_doc.languageId;
-    var delim = 'monocolumn';
-    var policy = 'monocolumn';
-    if (dialect_map.hasOwnProperty(language_id)) {
-        [delim, policy] = dialect_map[language_id];
-    }
-    rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
-    return true;
-}
-
-
 function get_dialect(document) {
     var language_id = document.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
@@ -1083,8 +1057,28 @@ function handle_rbql_client_message(webview, message) {
 
 
 function edit_rbql() {
-    if (!init_rbql_context())
-        return null;
+    let active_window = vscode.window;
+    if (!active_window)
+        return;
+    let active_editor = active_window.activeTextEditor;
+    if (!active_editor)
+        return;
+    let active_doc = active_editor.document;
+    if (!active_doc)
+        return;
+    let orig_uri = active_doc.uri;
+    if (!orig_uri || orig_uri.scheme != 'file' || active_doc.isDirty) {
+        show_single_line_error("Unable to run RBQL: file has unsaved changes");
+        return;
+    }
+    let language_id = active_doc.languageId;
+    let delim = 'monocolumn';
+    let policy = 'monocolumn';
+    if (dialect_map.hasOwnProperty(language_id)) {
+        [delim, policy] = dialect_map[language_id];
+    }
+    rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
+
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
         client_js_template = fs.readFileSync(client_js_template_path, "utf8");
