@@ -30,8 +30,7 @@ var dialect_map = {
 
 // FIXME do not align/shrink if table has quoting issues
 
-// FIXME make sure python RBQL correctly handles (error_type, error_msg) pair
-
+// FIXME show error when attempting to run rbql for non-saved file
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -251,15 +250,17 @@ function calc_column_sizes(active_doc, delim, policy) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
-        // FIXME do not align if table has quoting issues
-        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
+        if (warning) {
+            return [null, lnum + 1];
+        }
         for (let i = 0; i < fields.length; i++) {
             if (result.length <= i)
                 result.push(0);
             result[i] = Math.max(result[i], (fields[i].trim()).length);
         }
     }
-    return result;
+    return [result, null];
 }
 
 
@@ -275,8 +276,10 @@ function shrink_columns(active_doc, delim, policy) {
             result_lines.push(line_text);
             continue;
         }
-        // FIXME do not shrink if table has quoting issues
-        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
+        if (warning) {
+            return [null, lnum + 1];
+        }
         for (let i = 0; i < fields.length; i++) {
             let adjusted = fields[i].trim();
             if (fields[i].length != adjusted.length) {
@@ -287,8 +290,8 @@ function shrink_columns(active_doc, delim, policy) {
         result_lines.push(fields.join(delim));
     }
     if (!has_edit)
-        return null;
-    return result_lines.join('\n');
+        return [null, null];
+    return [result_lines.join('\n'), null];
 }
 
 
@@ -944,7 +947,11 @@ function shrink_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let shrinked_doc_text = shrink_columns(active_doc, delim, policy);
+    let [shrinked_doc_text, first_failed_line] = shrink_columns(active_doc, delim, policy);
+    if (first_failed_line) {
+        show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
+        return;
+    }
     aligned_files.delete(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (shrinked_doc_text === null) {
@@ -965,7 +972,11 @@ function align_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let column_sizes = calc_column_sizes(active_doc, delim, policy);
+    let [column_sizes, first_failed_line] = calc_column_sizes(active_doc, delim, policy);
+    if (first_failed_line) {
+        show_single_line_error(`Unable to allign: Inconsistent double quotes at line ${first_failed_line}`);
+        return;
+    }
     let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
     aligned_files.add(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
