@@ -364,7 +364,7 @@ function show_lint_status_bar_button(file_path, language_id) {
         lint_status_bar_button.color = '#62f442';
     } else if (lint_report == 'Processing...') {
         lint_status_bar_button.color = '#A0A0A0';
-    } else if (lint_report.indexOf('spaces detected')) {
+    } else if (lint_report.indexOf('spaces detected') != -1) {
         lint_status_bar_button.color = '#ffff28';
     } else {
         lint_status_bar_button.color = '#f44242';
