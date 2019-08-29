@@ -89,7 +89,7 @@
                 "rainbow_csv.csv_lint_detect_trailing_spaces": {
                     "type": "boolean",
                     "default": false,
-                    "description": "CSV Lint: detect leading and trailing whitespaces in fields"
+                    "description": "CSV Lint: detect leading and trailing whitespaces in fields and show warning"
                 },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
