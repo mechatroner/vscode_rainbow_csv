@@ -26,9 +26,10 @@ var dialect_map = {
 
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
-// TODO improve query placeholder in RBQL window: show random query example
+// TODO built-in RBQL docs with md -> html convertion
 
-// FIXME show error when attempting to run rbql for non-saved file
+// TODO allow RBQL to run on non-file VSCode buffers: just copy the buffer content to a fixed tmp file, e.g. /tmp/vscode_rbql_mirror_buf.txt
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
