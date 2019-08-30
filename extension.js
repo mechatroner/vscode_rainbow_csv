@@ -30,6 +30,8 @@ var dialect_map = {
 
 // TODO allow RBQL to run on non-file VSCode buffers: just copy the buffer content to a fixed tmp file, e.g. /tmp/vscode_rbql_mirror_buf.txt
 
+// TODO autodetect rainbow content on copy in a new empty buffer.
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
