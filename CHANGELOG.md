@@ -1,6 +1,12 @@
 # Rainbow CSV for Visual Studio Code Change Log
+## 1.3.0
+* Updated RBQL to version 0.9.0
+* Restricted usage of Align/Shrink commands in files with unbalanced double quotes
+* Fixed incorrect dialect name: "tilda" -> "tilde", see [#40](https://github.com/mechatroner/vscode_rainbow_csv/issues/40)
+* Added an eror message when RBQL console is used with unsaved file [#41](https://github.com/mechatroner/vscode_rainbow_csv/issues/41)
 
-## 1.2.1
+
+## 1.2.0
 * Added frequency-based fallback content-based autodetection algorithm for .csv files
 * Adjusted default parameters: added '|' to the list of autodetected separators
 * Fixed "Align/Shrink" button logic [#38](https://github.com/mechatroner/vscode_rainbow_csv/issues/38)
