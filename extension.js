@@ -32,6 +32,8 @@ var dialect_map = {
 
 // TODO autodetect rainbow content on copy in a new empty buffer.
 
+// TODO CLI tool that will open piped data in a new VSCode tab.
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -66,6 +68,8 @@ var global_state = null;
 var preview_panel = null;
 
 const enable_dev_mode = false;
+
+var doc_edit_subscription = null;
 
 
 function map_separator_to_language_id(separator) {
@@ -1198,6 +1202,36 @@ function autoenable_rainbow_csv(active_doc) {
 }
 
 
+function handle_doc_edit(change_event) {
+    if (!change_event)
+        return;
+    if (doc_edit_subscription) {
+        doc_edit_subscription.dispose();
+        doc_edit_subscription = null;
+    }
+    let active_doc = change_event.document;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let candidate_separators = config.get('autodetect_separators');
+    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
+    if (!rainbow_csv_language_id)
+        return;
+    try_change_document_language(active_doc, rainbow_csv_language_id, false, (doc) => {
+        csv_lint(doc, false);
+        refresh_status_bar_buttons(doc);
+    });
+}
+
+
+function register_csv_copy_paste(active_doc) {
+    if (!active_doc || doc_edit_subscription)
+        return;
+    if (!active_doc.isUntitled && active_doc.lineCount != 0)
+        return;
+    doc_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_doc_edit);
+    return;
+}
+
+
 function handle_editor_switch(editor) {
     let active_doc = get_active_doc(editor);
     csv_lint(active_doc, false);
@@ -1207,6 +1241,7 @@ function handle_editor_switch(editor) {
 
 function handle_doc_open(active_doc) {
     autoenable_rainbow_csv(active_doc);
+    register_csv_copy_paste(active_doc);
     csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
 }
