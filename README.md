@@ -4,6 +4,7 @@
 * Provide info about column on hover
 * Automatic consistency check for csv files (CSVLint)
 * Multi-cursor column edit
+* Align columns with spaces and Shrink (trim spaces from fields)
 * Run queries in SQL-like language
 * Lightweight and dependency-free
 

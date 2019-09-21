@@ -34,6 +34,10 @@ var dialect_map = {
 
 // TODO CLI tool that will open piped data in a new VSCode tab.
 
+// TODO prevent deletion of entered query text when user switches between preview window and another tab and back
+
+// TODO support newlines in fields for RBQL console
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
