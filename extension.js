@@ -36,7 +36,9 @@ var dialect_map = {
 
 // TODO prevent deletion of entered query text when user switches between preview window and another tab and back
 
-// TODO support newlines in fields for RBQL console
+// TODO special color for comments
+
+// FIXME support newlines in fields for RBQL console - implement checkbox logic
 
 
 var lint_results = new Map();
@@ -88,6 +90,7 @@ function map_separator_to_language_id(separator) {
 
 
 function sample_preview_records_from_context(rbql_context) {
+    // FIXME if we have "allow_newlines_in_fields" flag set and line_begin != 0 we must reindex the whole doc and create a map: record_num -> line_num
     var document = rbql_context.document;
     var total_lines = document.lineCount;
     var line_begin = rbql_context.line;
