@@ -40,6 +40,7 @@ var dialect_map = {
 
 // FIXME support newlines in fields for RBQL console - implement checkbox logic
 
+// FIXME re-generate comment decorations on hover if a new comment line was discovered or removed
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -76,6 +77,8 @@ var preview_panel = null;
 const enable_dev_mode = false;
 
 var doc_edit_subscription = null;
+
+var comment_decoration_type = null;
 
 
 function map_separator_to_language_id(separator) {
@@ -221,15 +224,22 @@ function produce_lint_report(active_doc, delim, policy, config) {
     let first_trailing_space_line = null;
     var num_lines = active_doc.lineCount;
     var num_fields = null;
+    let comment_lines = [];
+    let error_msg = null;
     for (var lnum = 0; lnum < num_lines; lnum++) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            comment_lines.push(new vscode.Range(new vscode.Position(lnum, 0), new vscode.Position(lnum, line_text.length)));
             continue;
+        }
         var split_result = csv_utils.smart_split(line_text, delim, policy, true);
         if (split_result[1]) {
-            return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+            if (!error_msg)
+                error_msg = 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+            if (!comment_prefix)
+                return [error_msg, []];
         }
         if (detect_trailing_spaces && first_trailing_space_line === null) {
             let fields = split_result[0];
@@ -243,13 +253,17 @@ function produce_lint_report(active_doc, delim, policy, config) {
             num_fields = split_result[0].length;
         }
         if (num_fields != split_result[0].length) {
-            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+            if (!error_msg)
+                error_msg = 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+            if (!comment_prefix)
+                return [error_msg, []];
         }
     }
-    if (first_trailing_space_line !== null) {
-        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
-    }
-    return 'OK';
+    if (error_msg)
+        return [error_msg, comment_lines];
+    if (first_trailing_space_line !== null)
+        return ['Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.', comment_lines];
+    return ['OK', comment_lines];
 }
 
 
@@ -498,7 +512,13 @@ function csv_lint(active_doc, is_manual_op) {
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
     let [delim, policy] = dialect_map[language_id];
-    var lint_report = produce_lint_report(active_doc, delim, policy, config);
+    var [lint_report, comment_lines] = produce_lint_report(active_doc, delim, policy, config);
+    if (comment_lines && comment_lines.length) {
+        let active_editor = get_active_editor();
+        if (active_editor && active_editor.document == active_doc) { // Being paranoid
+            active_editor.setDecorations(comment_decoration_type, comment_lines);
+        }
+    }
     lint_results.set(lint_cache_key, lint_report);
     return true;
 }
@@ -1249,6 +1269,7 @@ function handle_editor_switch(editor) {
 function handle_doc_open(active_doc) {
     autoenable_rainbow_csv(active_doc);
     register_csv_copy_paste(active_doc);
+    // FIXME use createTextEditorDecorationType() to create a decoration descriptor and setDecorations() function to set decoration
     csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
 }
@@ -1358,6 +1379,8 @@ function activate(context) {
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
+
+    comment_decoration_type = vscode.window.createTextEditorDecorationType({ color: '#00FF00' });
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
