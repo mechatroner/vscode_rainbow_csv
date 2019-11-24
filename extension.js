@@ -30,8 +30,6 @@ var dialect_map = {
 
 // TODO allow RBQL to run on non-file VSCode buffers: just copy the buffer content to a fixed tmp file, e.g. /tmp/vscode_rbql_mirror_buf.txt
 
-// TODO autodetect rainbow content on copy in a new empty buffer.
-
 // TODO CLI tool that will open piped data in a new VSCode tab.
 
 // TODO prevent deletion of entered query text when user switches between preview window and another tab and back
@@ -77,6 +75,7 @@ const enable_dev_mode = false;
 
 var doc_edit_subscription = null;
 
+const scratch_buf_marker = 'vscode_rbql_scratch';
 
 function map_separator_to_language_id(separator) {
     for (let language_id in dialect_map) {
@@ -91,7 +90,7 @@ function map_separator_to_language_id(separator) {
 
 function sample_preview_records_from_context(rbql_context) {
     // FIXME if we have "allow_newlines_in_fields" flag set and line_begin != 0 we must reindex the whole doc and create a map: record_num -> line_num
-    var document = rbql_context.document;
+    var document = rbql_context.input_document;
     var total_lines = document.lineCount;
     var line_begin = rbql_context.line;
     var delim = rbql_context.delim;
@@ -437,7 +436,7 @@ function hide_status_bar_buttons() {
 
 function show_rbql_copy_to_source_button(file_path) {
     let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
-    if (!parent_table_path)
+    if (!parent_table_path || parent_table_path.indexOf(scratch_buf_marker) != -1)
         return;
     let parent_basename = path.basename(parent_table_path);
     if (!copy_back_button)
@@ -474,6 +473,7 @@ function refresh_status_bar_buttons(active_doc=null) {
 
 
 function csv_lint(active_doc, is_manual_op) {
+    // FIXME allow csv_lint for non-file buffers
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
@@ -632,7 +632,7 @@ function get_last_start_line(document) {
     if (num_lines > 1 && document.lineAt(num_lines - 1).text == '') {
         skip_last = 1;
     }
-    return Math.max(0, rbql_context.document.lineCount - preview_window_size - skip_last);
+    return Math.max(0, rbql_context.input_document.lineCount - preview_window_size - skip_last);
 }
 
 
@@ -819,8 +819,10 @@ function set_join_table_name() {
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
-    if (!file_path)
+    if (!file_path) {
+        show_single_line_error('Unable to use this document as join table');
         return;
+    }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
     var input_box_props = {"prompt": title};
     vscode.window.showInputBox(input_box_props).then(table_name => do_set_table_name(file_path, table_name));
@@ -1015,7 +1017,7 @@ function handle_rbql_client_message(webview, message) {
     let message_type = message['msg_type'];
 
     if (message_type == 'handshake') {
-        var active_file_path = rbql_context['document'].fileName;
+        var active_file_path = rbql_context.input_document.fileName;
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'latin-1');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
@@ -1029,7 +1031,7 @@ function handle_rbql_client_message(webview, message) {
 
     if (message_type == 'navigate') {
         var navig_direction = message['direction'];
-        var last_start_line = get_last_start_line(rbql_context.document);
+        var last_start_line = get_last_start_line(rbql_context.input_document);
         if (navig_direction == 'up') {
             rbql_context.line = Math.max(rbql_context.line - 1, 0);
         } else if (navig_direction == 'down') {
@@ -1056,7 +1058,7 @@ function handle_rbql_client_message(webview, message) {
                 report_msg["error_msg"] = error_msg;
             webview.postMessage(report_msg);
         };
-        var active_file_path = rbql_context['document'].fileName;
+        var active_file_path = rbql_context.input_document.fileName;
         run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, webview_report_handler);
     }
 
@@ -1081,17 +1083,37 @@ function edit_rbql() {
     if (!active_doc)
         return;
     let orig_uri = active_doc.uri;
-    if (!orig_uri || orig_uri.scheme != 'file' || active_doc.isDirty) {
+    if (!orig_uri)
+        return;
+    if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled')
+        return;
+    if (orig_uri.scheme == 'file' && active_doc.isDirty) {
         show_single_line_error("Unable to run RBQL: file has unsaved changes");
         return;
     }
+    let input_path = null;
+    if (orig_uri.scheme == 'untitled') {
+        // Scheme 'untitled' means that the document is a scratch buffer that hasn't been saved yet, see https://code.visualstudio.com/api/references/document-selector
+        let data = active_doc.getText();
+        let rnd_suffix = String(Math.floor(Math.random() * 1000000));
+        input_path = path.join(os.tmpdir(), `${scratch_buf_marker}_${rnd_suffix}.txt`);
+        // TODO consider adding username to the input_path and using chmod 600 on it.
+        fs.writeFileSync(input_path, data);
+    } else {
+        input_path = active_doc.fileName;
+    }
+    if (!input_path) {
+        show_single_line_error("Unable to run RBQL for this file");
+        return;
+    }
+
     let language_id = active_doc.languageId;
     let delim = 'monocolumn';
     let policy = 'monocolumn';
     if (dialect_map.hasOwnProperty(language_id)) {
         [delim, policy] = dialect_map[language_id];
     }
-    rbql_context = {"document": active_doc, "line": 0, "delim": delim, "policy": policy};
+    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "line": 0, "delim": delim, "policy": policy};
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
