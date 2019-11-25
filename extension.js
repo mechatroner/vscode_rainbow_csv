@@ -39,6 +39,7 @@ var dialect_map = {
 
 // FIXME swith to rbql version 0.10
 
+// FIXME consider making rbql_csv require dynamic
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -658,6 +659,21 @@ function handle_worker_success(output_path, warnings, webview_report_handler) {
 }
 
 
+function exception_to_error_info(e) {
+    let exceptions_type_map = {
+        'RbqlRuntimeError': 'query execution',
+        'RbqlParsingError': 'query parsing',
+        'RbqlIOHandlingError': 'IO handling'
+    };
+    let error_type = 'unexpected';
+    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
+        error_type = exceptions_type_map[e.constructor.name];
+    }
+    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
+    return [error_type, error_msg];
+}
+
+
 function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, webview_report_handler) {
     let path_key = (input_path && input_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : input_path;
     last_rbql_queries.set(path_key, rbql_query);
@@ -689,7 +705,10 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
-        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding, handle_success, webview_report_handler);
+        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding).then(handle_success).catch(e => {
+            let [error_type, error_msg] = exception_to_error_info(e);
+            webview_report_handler(error_type, error_msg);
+        });
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [rbql_exec_path, cmd_safe_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding];
