@@ -28,15 +28,16 @@ var dialect_map = {
 
 // TODO built-in RBQL docs with md -> html convertion
 
-// TODO allow RBQL to run on non-file VSCode buffers: just copy the buffer content to a fixed tmp file, e.g. /tmp/vscode_rbql_mirror_buf.txt
 
-// TODO CLI tool that will open piped data in a new VSCode tab.
 
-// TODO prevent deletion of entered query text when user switches between preview window and another tab and back
 
-// TODO special color for comments
+// FIXME prevent deletion of entered query text when user switches between preview window and another tab and back
 
 // FIXME support newlines in fields for RBQL console - implement checkbox logic
+
+// FIXME support query history list - implement a drop down list
+
+// FIXME swith to rbql version 0.10
 
 
 var lint_results = new Map();
@@ -658,7 +659,8 @@ function handle_worker_success(output_path, warnings, webview_report_handler) {
 
 
 function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, webview_report_handler) {
-    last_rbql_queries.set(input_path, {'query': rbql_query});
+    let path_key = (input_path && input_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : input_path;
+    last_rbql_queries.set(path_key, rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
@@ -1017,15 +1019,14 @@ function handle_rbql_client_message(webview, message) {
     let message_type = message['msg_type'];
 
     if (message_type == 'handshake') {
-        var active_file_path = rbql_context.input_document.fileName;
+        var active_file_path = rbql_context.input_document_path;
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'latin-1');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
-        if (last_rbql_queries.has(active_file_path)) {
-            var last_query_info = last_rbql_queries.get(active_file_path);
-            init_msg['last_query'] = last_query_info['query'];
-        }
+        let path_key = (active_file_path && active_file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : active_file_path;
+        if (last_rbql_queries.has(path_key))
+            init_msg['last_query'] = last_rbql_queries.get(path_key);
         webview.postMessage(init_msg);
     }
 
@@ -1058,7 +1059,7 @@ function handle_rbql_client_message(webview, message) {
                 report_msg["error_msg"] = error_msg;
             webview.postMessage(report_msg);
         };
-        var active_file_path = rbql_context.input_document.fileName;
+        var active_file_path = rbql_context.input_document_path;
         run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, webview_report_handler);
     }
 
