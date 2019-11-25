@@ -5,7 +5,7 @@ const os = require('os');
 const child_process = require('child_process');
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
-const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
+var rbql_csv = null;
 
 var dialect_map = {
     'csv': [',', 'quoted'],
@@ -37,9 +37,8 @@ var dialect_map = {
 
 // FIXME support query history list - implement a drop down list
 
-// FIXME swith to rbql version 0.10
+// FIXME update README
 
-// FIXME consider making rbql_csv require dynamic
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -705,6 +704,8 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
+        if (rbql_csv == null)
+            rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
         rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding).then(handle_success).catch(e => {
             let [error_type, error_msg] = exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
