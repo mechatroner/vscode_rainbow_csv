@@ -29,7 +29,6 @@ unnest_list = None
 
 module_was_used_failsafe = False
 
-# Aggregators:
 aggregation_stage = 0
 functional_aggregators = list()
 
@@ -40,6 +39,9 @@ NU = 0 # NU - Num Updated. Alternative variables: NW (Num Where) - Not Practical
 
 wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside Python expressions is not allowed, see the docs'
 numeric_conversion_error = 'Unable to convert value "{}" to int or float. MIN, MAX, SUM, AVG, MEDIAN and VARIANCE aggregate functions convert their string arguments to numeric values'
+
+
+debug_mode = False
 
 
 def iteritems6(x):
@@ -53,12 +55,31 @@ class InternalBadFieldError(Exception):
         self.bad_idx = bad_idx
 
 
+class InternalBadKeyError(Exception):
+    def __init__(self, bad_key):
+        self.bad_key = bad_key
+
+
 class RbqlRuntimeError(Exception):
     pass
 
 
 class RbqlParsingError(Exception):
     pass
+
+
+class RBQLRecord:
+    def __init__(self):
+        self.storage = dict()
+
+    def __getitem__(self, key):
+        try:
+            return self.storage[key]
+        except KeyError:
+            raise InternalBadKeyError(key)
+
+    def __setitem__(self, key, value):
+        self.storage[key] = value
 
 
 def safe_get(record, idx):
@@ -74,9 +95,9 @@ def safe_join_get(record, idx):
 
 def safe_set(record, idx, value):
     try:
-        record[idx - 1] = value
+        record[idx] = value
     except IndexError as e:
-        raise InternalBadFieldError(idx - 1)
+        raise InternalBadFieldError(idx)
 
 
 class RBQLAggregationToken(object):
@@ -93,7 +114,7 @@ class UNNEST:
         global unnest_list
         if unnest_list is not None:
             # Technically we can support multiple UNNEST's but the implementation/algorithm is more complex and just doesn't worth it
-            raise RbqlParsingError('Only one UNNEST is allowed per query')
+            raise RbqlParsingError('Only one UNNEST is allowed per query') # UT JSON
         unnest_list = vals
 
     def __str__(self):
@@ -127,7 +148,7 @@ class NumHandler:
         try:
             return float(val)
         except ValueError:
-            raise RbqlRuntimeError(numeric_conversion_error.format(val))
+            raise RbqlRuntimeError(numeric_conversion_error.format(val)) # UT JSON
 
 
 class MinAggregator:
@@ -248,7 +269,7 @@ class CountAggregator:
 
 
 class ArrayAggAggregator:
-    def __init__(self, post_proc):
+    def __init__(self, post_proc=None):
         self.stats = defaultdict(list)
         self.post_proc = post_proc
 
@@ -257,7 +278,9 @@ class ArrayAggAggregator:
 
     def get_final(self, key):
         res = self.stats[key]
-        return self.post_proc(res)
+        if self.post_proc is not None:
+            return self.post_proc(res)
+        return res
 
 
 class ConstGroupVerifier:
@@ -270,7 +293,7 @@ class ConstGroupVerifier:
         if old_value is None:
             self.const_values[key] = value
         elif old_value != value:
-            raise RbqlRuntimeError('Invalid aggregate expression: non-constant values in output column {}. E.g. "{}" and "{}"'.format(self.output_index + 1, old_value, value))
+            raise RbqlRuntimeError('Invalid aggregate expression: non-constant values in output column {}. E.g. "{}" and "{}"'.format(self.output_index + 1, old_value, value)) # UT JSON
 
     def get_final(self, key):
         return self.const_values[key]
@@ -336,7 +359,7 @@ median = MEDIAN
 Median = MEDIAN
 
 
-def ARRAY_AGG(val, post_proc=lambda v: '|'.join(v)):
+def ARRAY_AGG(val, post_proc=None):
     # TODO consider passing array to output writer
     return init_aggregator(ArrayAggAggregator, val, post_proc) if aggregation_stage < 2 else val
 
@@ -498,14 +521,6 @@ class AggregateWriter(object):
         self.subwriter.finish()
 
 
-class FakeJoiner(object):
-    def __init__(self, join_map):
-        pass
-
-    def get_rhs(self, lhs_key):
-        return [None]
-
-
 class InnerJoiner(object):
     def __init__(self, join_map):
         self.join_map = join_map
@@ -517,7 +532,7 @@ class InnerJoiner(object):
 class LeftJoiner(object):
     def __init__(self, join_map):
         self.join_map = join_map
-        self.null_record = [[None] * join_map.max_record_len]
+        self.null_record = [(None, join_map.max_record_len, [None] * join_map.max_record_len)]
 
     def get_rhs(self, lhs_key):
         result = self.join_map.get_join_records(lhs_key)
@@ -533,7 +548,7 @@ class StrictLeftJoiner(object):
     def get_rhs(self, lhs_key):
         result = self.join_map.get_join_records(lhs_key)
         if len(result) != 1:
-            raise RbqlRuntimeError('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"')
+            raise RbqlRuntimeError('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"') # UT JSON
         return result
 
 
@@ -545,15 +560,27 @@ def select_except(src, except_fields):
     return result
 
 
-def process_update(NR, NF, afields, rhs_records):
-    if len(rhs_records) > 1:
-        raise RbqlRuntimeError('More than one record in UPDATE query matched A-key in join table B')
-    bfields = None
-    if len(rhs_records) == 1:
-        bfields = rhs_records[0]
-    up_fields = afields[:]
+def process_update_join(NR, NF, record_a, join_matches):
+    if len(join_matches) > 1:
+        raise RbqlRuntimeError('More than one record in UPDATE query matched a key from the input table in the join table') # UT JSON # TODO output the failed key
+    if len(join_matches) == 1:
+        bNR, bNF, record_b = join_matches[0]
+    else:
+        bNR, bNF, record_b = None, None, None
+    up_fields = record_a[:]
     __RBQLMP__init_column_vars_update
-    if len(rhs_records) == 1 and (__RBQLMP__where_expression):
+    if len(join_matches) == 1 and (__RBQLMP__where_expression):
+        global NU
+        NU += 1
+        __RBQLMP__update_statements
+    return writer.write(up_fields)
+
+
+def process_update_simple(NR, NF, record_a, _join_matches):
+    # TODO refactoring, do not pass _join_matches at all
+    up_fields = record_a[:]
+    __RBQLMP__init_column_vars_update
+    if __RBQLMP__where_expression:
         global NU
         NU += 1
         __RBQLMP__update_statements
@@ -575,7 +602,7 @@ def select_aggregated(key, transparent_values):
     if aggregation_stage == 1:
         global writer
         if type(writer) is not TopWriter:
-            raise RbqlParsingError('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query')
+            raise RbqlParsingError('"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries') # UT JSON (the same error can be triggered statically, see builder.py)
         writer = AggregateWriter(writer)
         num_aggregators_found = 0
         for i, trans_value in enumerate(transparent_values):
@@ -587,7 +614,7 @@ def select_aggregated(key, transparent_values):
                 writer.aggregators.append(ConstGroupVerifier(len(writer.aggregators)))
                 writer.aggregators[-1].increment(key, trans_value)
         if num_aggregators_found != len(functional_aggregators):
-            raise RbqlParsingError(wrong_aggregation_usage_error)
+            raise RbqlParsingError(wrong_aggregation_usage_error) # UT JSON
         aggregation_stage = 2
     else:
         for i, trans_value in enumerate(transparent_values):
@@ -610,29 +637,36 @@ def select_unnested(sort_key, folded_fields):
     return True
 
 
-def process_select(NR, NF, afields, rhs_records):
+def process_select_simple(NR, NF, record_a, join_match):
     global unnest_list
-    for bfields in rhs_records:
-        unnest_list = None
-        if bfields is None:
-            star_fields = afields
+    unnest_list = None
+    if join_match is None:
+        star_fields = record_a
+    else:
+        bNR, bNF, record_b = join_match
+        star_fields = record_a + record_b
+    __RBQLMP__init_column_vars_select
+    if not (__RBQLMP__where_expression):
+        return True
+    out_fields = __RBQLMP__select_expression
+    if aggregation_stage > 0:
+        key = __RBQLMP__aggregation_key_expression
+        select_aggregated(key, out_fields)
+    else:
+        sort_key = (__RBQLMP__sort_key_expression)
+        if unnest_list is not None:
+            if not select_unnested(sort_key, out_fields):
+                return False
         else:
-            star_fields = afields + bfields
-        __RBQLMP__init_column_vars_select
-        if not (__RBQLMP__where_expression):
-            continue
-        out_fields = __RBQLMP__select_expression
-        if aggregation_stage > 0:
-            key = __RBQLMP__aggregation_key_expression
-            select_aggregated(key, out_fields)
-        else:
-            sort_key = (__RBQLMP__sort_key_expression)
-            if unnest_list is not None:
-                if not select_unnested(sort_key, out_fields):
-                    return False
-            else:
-                if not select_simple(sort_key, out_fields):
-                    return False
+            if not select_simple(sort_key, out_fields):
+                return False
+    return True
+
+
+def process_select_join(NR, NF, record_a, join_matches):
+    for join_match in join_matches:
+        if not process_select_simple(NR, NF, record_a, join_match):
+            return False
     return True
 
 
@@ -642,45 +676,50 @@ def rb_transform(input_iterator, join_map_impl, output_writer):
     module_was_used_failsafe = True
 
     global writer
-
-    polymorphic_process = process_select if __RBQLMP__is_select_query else process_update
-    sql_join_type = {'VOID': FakeJoiner, 'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}['__RBQLMP__join_operation']
-
-    if join_map_impl is not None:
-        join_map_impl.build()
-    join_map = sql_join_type(join_map_impl)
-
     writer = TopWriter(output_writer)
-
-    if '__RBQLMP__writer_type' == 'uniq':
+    if __RBQLMP__writer_type == 'uniq':
         writer = UniqWriter(writer)
-    elif '__RBQLMP__writer_type' == 'uniq_count':
+    elif __RBQLMP__writer_type == 'uniq_count':
         writer = UniqCountWriter(writer)
-
     if __RBQLMP__sort_flag:
         writer = SortedWriter(writer)
 
+    polymorphic_process = [[process_update_simple, process_update_join], [process_select_simple, process_select_join]][__RBQLMP__is_select_query][join_map_impl is not None];
+
+    assert (join_map_impl is None) == (__RBQLMP__join_operation is None)
+    join_map = None
+    if join_map_impl is not None:
+        join_map_impl.build()
+        sql_join_type = {'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}[__RBQLMP__join_operation]
+        join_map = sql_join_type(join_map_impl)
+
     NR = 0
     while True:
-        afields = input_iterator.get_record()
-        if afields is None:
+        record_a = input_iterator.get_record()
+        if record_a is None:
             break
         NR += 1
-        NF = len(afields)
+        NF = len(record_a)
         try:
-            rhs_records = join_map.get_rhs(__RBQLMP__lhs_join_var)
-            if not polymorphic_process(NR, NF, afields, rhs_records):
+            join_matches = None if join_map is None else join_map.get_rhs(__RBQLMP__lhs_join_var)
+            if not polymorphic_process(NR, NF, record_a, join_matches):
                 break
+        except InternalBadKeyError as e:
+            raise RbqlRuntimeError('No "{}" field at record {}'.format(e.bad_key, NR)) # UT JSON
         except InternalBadFieldError as e:
-            bad_idx = e.bad_idx
-            raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" field at record: ' + str(NR))
+            raise RbqlRuntimeError('No "a{}" field at record {}'.format(e.bad_idx + 1, NR)) # UT JSON
         except RbqlParsingError:
             raise
         except Exception as e:
+            if debug_mode:
+                raise
             if str(e).find('RBQLAggregationToken') != -1:
-                raise RbqlParsingError(wrong_aggregation_usage_error)
-            raise RbqlRuntimeError('At record: ' + str(NR) + ', Details: ' + str(e))
+                raise RbqlParsingError(wrong_aggregation_usage_error) # UT JSON
+            raise RbqlRuntimeError('At record ' + str(NR) + ', Details: ' + str(e)) # UT JSON
     writer.finish()
-    return True
 
+
+def set_debug_mode():
+    global debug_mode
+    debug_mode = True
 

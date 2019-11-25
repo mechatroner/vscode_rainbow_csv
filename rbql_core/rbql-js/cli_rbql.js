@@ -10,31 +10,57 @@ const cli_parser = require('./cli_parser.js');
 
 let out_format_names = ['csv', 'tsv', 'monocolumn', 'input'];
 
-var tmp_worker_module_path = null;
 var error_format = 'hr';
 var interactive_mode = false;
-var user_input_reader = null;
-var args = null;
 
+
+// FIXME test readline on Win: disable interactive mode?
 
 // TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
 
 
-function die(error_msg) {
-    console.error('Error: ' + error_msg);
-    process.exit(1);
-}
+class RbqlParsingError extends Error {}
+class GenericError extends Error {}
 
 
-function show_error(error_type, error_msg) {
+function show_error_plain_text(error_type, error_msg) {
     if (interactive_mode) {
         console.log(`\x1b[31;1mError [${error_type}]:\x1b[0m ${error_msg}`);
     } else {
         console.error(`Error [${error_type}]: ${error_msg}`);
     }
-    if (fs.existsSync(tmp_worker_module_path)) {
-        let output_func = interactive_mode ? console.log : console.error;
-        output_func('Generated module was saved here: ' + tmp_worker_module_path);
+}
+
+
+function report_error_json(error_type, error_msg) {
+    let report = new Object();
+    report.error_type = error_type;
+    report.error = error_msg;
+    process.stderr.write(JSON.stringify(report));
+}
+
+
+function exception_to_error_info(e) {
+    let exceptions_type_map = {
+        'RbqlRuntimeError': 'query execution',
+        'RbqlParsingError': 'query parsing',
+        'RbqlIOHandlingError': 'IO handling'
+    };
+    let error_type = 'unexpected';
+    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
+        error_type = exceptions_type_map[e.constructor.name];
+    }
+    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
+    return [error_type, error_msg];
+}
+
+
+function show_exception(e) {
+    let [error_type, error_msg] = exception_to_error_info(e);
+    if (error_format == 'hr') {
+        show_error_plain_text(error_type, error_msg);
+    } else {
+        report_error_json(error_type, error_msg);
     }
 }
 
@@ -62,35 +88,14 @@ function get_default(src, key, default_val) {
 }
 
 
-function cleanup_tmp() {
-    if (fs.existsSync(tmp_worker_module_path)) {
-        fs.unlinkSync(tmp_worker_module_path);
-    }
-}
-
-
-function report_error_json(error_type, error_msg) {
-    let report = new Object();
-    report.error_type = error_type;
-    report.error = error_msg;
-    process.stderr.write(JSON.stringify(report));
-    if (fs.existsSync(tmp_worker_module_path)) {
-        console.log('\nGenerated module was saved here: ' + tmp_worker_module_path);
-    }
-}
-
-
-function finish_query_with_error(error_type, error_msg) {
-    if (error_format == 'hr') {
-        show_error(error_type, error_msg);
-    } else {
-        report_error_json(error_type, error_msg);
-    }
-    if (!interactive_mode) {
-        process.exit(1);
-    } else {
-        show_query_prompt();
-    }
+async function read_user_query(user_input_reader) {
+    let finish_promise = new Promise(function(resolve, reject) {
+        user_input_reader.question('Input SQL-like RBQL query and press Enter:\n> ', (query) => {
+            resolve(query);
+        });
+    });
+    let query = await finish_promise;
+    return query;
 }
 
 
@@ -122,36 +127,36 @@ function is_delimited_table(sampled_lines, delim, policy) {
 }
 
 
-function sample_lines(table_path, callback_func) {
-    let input_reader = readline.createInterface({ input: fs.createReadStream(table_path) });
-    let sampled_lines = [];
-    input_reader.on('line', line => {
-        sampled_lines.push(line);
-        if (sampled_lines.length >= 10)
-            input_reader.close();
+async function sample_lines(table_path) {
+    let finish_promise = new Promise(function(resolve, reject) {
+        let input_reader = readline.createInterface({ input: fs.createReadStream(table_path) });
+        let sampled_lines = [];
+        input_reader.on('line', line => {
+            if (sampled_lines.length < 10) {
+                sampled_lines.push(line);
+            } else {
+                input_reader.close();
+            }
+        });
+        input_reader.on('close', () => { resolve(sampled_lines); });
     });
-    input_reader.on('close', () => { callback_func(sampled_lines); });
+    let sampled_lines = await finish_promise;
+    return sampled_lines;
 }
 
 
-function sample_records(table_path, delim, policy, callback_func) {
-    // TODO rewrite with record iterator to support newlines in fields
-    sample_lines(table_path, (sampled_lines) => {
-        let records = [];
-        let bad_lines = [];
-        for (var i = 0; i < sampled_lines.length; i++) {
-            let [fields, warning] = csv_utils.smart_split(sampled_lines[i], delim, policy, true);
-            if (warning)
-                bad_lines.push(i + 1);
-            records.push(fields);
-        }
-        callback_func(records, bad_lines);
-    });
+async function sample_records(table_path, encoding, delim, policy) {
+    let table_stream = fs.createReadStream(table_path);
+    let sampling_iterator = new rbql_csv.CSVRecordIterator(table_stream, encoding, delim, policy);
+    let sampled_records = await sampling_iterator.get_all_records(10);
+    let warnings = sampling_iterator.get_warnings();
+    return [sampled_records, warnings];
 }
 
 
-function autodetect_delim_policy(table_path, sampled_lines) {
-    let autodetection_dialects = [['\t', 'simple'], [',', 'quoted'], [';', 'quoted']];
+async function autodetect_delim_policy(table_path) {
+    let sampled_lines = await sample_lines(table_path);
+    let autodetection_dialects = [['\t', 'simple'], [',', 'quoted'], [';', 'quoted'], ['|', 'simple']];
     for (var i = 0; i < autodetection_dialects.length; i++) {
         let [delim, policy] = autodetection_dialects[i];
         if (is_delimited_table(sampled_lines, delim, policy))
@@ -182,8 +187,7 @@ function print_colorized(records, delim, show_column_names) {
 }
 
 
-function handle_query_success(warnings, output_path, delim, policy) {
-    cleanup_tmp();
+async function handle_query_success(warnings, output_path, encoding, delim, policy) {
     if (error_format == 'hr') {
         if (warnings !== null) {
             for (let i = 0; i < warnings.length; i++) {
@@ -191,14 +195,12 @@ function handle_query_success(warnings, output_path, delim, policy) {
             }
         }
         if (interactive_mode) {
-            user_input_reader.close();
-            sample_records(output_path, delim, policy, (records, _bad_lines) => {
-                console.log('\nOutput table preview:');
-                console.log('====================================');
-                print_colorized(records, delim, false);
-                console.log('====================================');
-                console.log('Success! Result table was saved to: ' + output_path);
-            });
+            let [records, _warnings] = await sample_records(output_path, encoding, delim, policy);
+            console.log('\nOutput table preview:');
+            console.log('====================================');
+            print_colorized(records, delim, false);
+            console.log('====================================');
+            console.log('Success! Result table was saved to: ' + output_path);
         }
     } else {
         if (warnings !== null && warnings.length) {
@@ -209,14 +211,12 @@ function handle_query_success(warnings, output_path, delim, policy) {
 }
 
 
-function run_with_js() {
+async function run_with_js(args) {
     var delim = normalize_delim(args['delim']);
     var policy = args['policy'] ? args['policy'] : get_default_policy(delim);
     var query = args['query'];
-    if (!query) {
-        finish_query_with_error('Parsing Error', 'RBQL query is empty');
-        return;
-    }
+    if (!query)
+        throw new RbqlParsingError('RBQL query is empty');
     var input_path = get_default(args, 'input', null);
     var output_path = get_default(args, 'output', null);
     var csv_encoding = args['encoding'];
@@ -228,16 +228,19 @@ function run_with_js() {
         [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : rbql_csv.interpret_named_csv_format(output_format);
     }
 
-    let handle_success = function(warnings) {
-        handle_query_success(warnings, output_path, delim, policy);
-    };
-
     if (args['debug-mode'])
         rbql_csv.set_debug_mode();
     let user_init_code = '';
     if (init_source_file !== null)
         user_init_code = rbql_csv.read_user_init_code(init_source_file);
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, finish_query_with_error, user_init_code);
+    try {
+        let warnings = await rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, user_init_code);
+        await handle_query_success(warnings, output_path, csv_encoding, output_delim, output_policy);
+        return true;
+    } catch (e) {
+        show_exception(e);
+        return false;
+    }
 }
 
 
@@ -249,58 +252,55 @@ function get_default_output_path(input_path, delim) {
 }
 
 
-function show_query_prompt() {
-    user_input_reader.question('Input SQL-like RBQL query and press Enter:\n> ', (query) => {
-        args.query = query.trim();
-        run_with_js();
-    });
-}
-
-
-function show_preview(input_path, delim, policy) {
-    if (!delim) {
-        die('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option');
+async function show_preview(input_path, encoding, delim, policy) {
+    let [records, warnings] = await sample_records(input_path, encoding, delim, policy);
+    console.log('Input table preview:');
+    console.log('====================================');
+    print_colorized(records, delim, true);
+    console.log('====================================\n');
+    for (let warning of warnings) {
+        show_warning(warning);
     }
-    args.delim = delim;
-    args.policy = policy;
-    sample_records(input_path, delim, policy, (records, bad_lines) => {
-        console.log('Input table preview:');
-        console.log('====================================');
-        print_colorized(records, delim, true);
-        console.log('====================================\n');
-        if (bad_lines.length)
-            show_warning('Some input lines have quoting errors. Line numbers: ' + bad_lines.join(','));
-        if (!args.output) {
-            args.output = get_default_output_path(input_path, delim);
-            show_warning('Output path was not provided. Result set will be saved as: ' + args.output);
-        }
-        user_input_reader = readline.createInterface({ input: process.stdin, output: process.stdout });
-        show_query_prompt();
-    });
 }
 
 
-function start_preview_mode(args) {
+async function run_interactive_loop(args) {
     let input_path = get_default(args, 'input', null);
-    if (!input_path) {
-        show_error('generic', 'Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode');
-        process.exit(1);
-    }
-    if (error_format != 'hr') {
-        show_error('generic', 'Only default "hr" error format is supported in interactive mode');
-        process.exit(1);
-    }
+    if (!input_path)
+        throw new GenericError('Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode');
+    if (error_format != 'hr')
+        throw new GenericError('Only default "hr" error format is supported in interactive mode');
+
+
     let delim = get_default(args, 'delim', null);
     let policy = null;
     if (delim !== null) {
         delim = normalize_delim(delim);
         policy = args['policy'] ? args['policy'] : get_default_policy(delim);
-        show_preview(input_path, delim, policy);
     } else {
-        sample_lines(input_path, (sampled_lines) => {
-            let [delim, policy] = autodetect_delim_policy(input_path, sampled_lines);
-            show_preview(input_path, delim, policy);
-        });
+        [delim, policy] = await autodetect_delim_policy(input_path);
+        if (!delim)
+            throw new GenericError('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option');
+    }
+    await show_preview(input_path, args['encoding'], delim, policy);
+    args.delim = delim;
+    args.policy = policy;
+    if (!args.output) {
+        args.output = get_default_output_path(input_path, delim);
+        show_warning('Output path was not provided. Result set will be saved as: ' + args.output);
+    }
+
+    let user_input_reader = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        while (true) {
+            let query = await read_user_query(user_input_reader);
+            args.query = query;
+            let success = await run_with_js(args);
+            if (success)
+                break;
+        }
+    } finally {
+        user_input_reader.close();
     }
 }
 
@@ -326,25 +326,7 @@ Description of the available CSV split policies:
 `;
 
 
-function main() {
-    var scheme = {
-        '--query': {'help': 'Query string in rbql. Run in interactive mode if empty', 'metavar': 'QUERY'},
-        '--input': {'help': 'Read csv table from FILE instead of stdin. Required in interactive mode', 'metavar': 'FILE'},
-        '--output': {'help': 'Write output table to FILE instead of stdout', 'metavar': 'FILE'},
-        '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
-        '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
-        '--encoding': {'default': 'latin-1', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
-        '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},
-        '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format', 'metavar': 'DELIM'},
-        '--out-policy': {'help': 'Output policy. Use with "out-delim". Overrides out-format', 'metavar': 'POLICY'},
-        '--error-format': {'default': 'hr', 'help': 'Errors and warnings format. [hr|json]', 'hidden': true},
-        '--version': {'boolean': true, 'help': 'Print RBQL version and exit'},
-        '--auto-rebuild-engine': {'boolean': true, 'help': 'Auto rebuild engine', 'hidden': true},
-        '--debug-mode': {'boolean': true, 'help': 'Run in debug mode', 'hidden': true},
-        '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js', 'hidden': true}
-    };
-    args = cli_parser.parse_cmd_args(process.argv, scheme, tool_description, epilog);
-
+async function do_main(args) {
     if (args['auto-rebuild-engine']) {
         let build_engine = require('./build_engine.js');
         build_engine.build_engine();
@@ -358,9 +340,11 @@ function main() {
         process.exit(0);
     }
 
-    if (args.hasOwnProperty('policy') && !args.hasOwnProperty('delim')) {
-        die('Using "--policy" without "--delim" is not allowed');
-    }
+    if (args.hasOwnProperty('policy') && args['policy'] === 'monocolumn')
+        args['delim'] = '';
+
+    if (args.hasOwnProperty('policy') && !args.hasOwnProperty('delim'))
+        throw new GenericError('Using "--policy" without "--delim" is not allowed');
 
     if (args.encoding == 'latin-1')
         args.encoding = 'binary';
@@ -369,14 +353,39 @@ function main() {
 
     if (args.hasOwnProperty('query')) {
         interactive_mode = false;
-        if (!args.delim) {
-            die('Separator must be provided with "--delim" option in non-interactive mode');
+        if (!args.hasOwnProperty('delim')) {
+            throw new GenericError('Separator must be provided with "--delim" option in non-interactive mode');
         }
-        run_with_js();
+        await run_with_js(args);
     } else {
         interactive_mode = true;
-        start_preview_mode(args);
+        if (error_format == 'json') {
+            throw new GenericError('json error format is not compatible with interactive mode');
+        }
+        await run_interactive_loop(args);
     }
+}
+
+
+function main() {
+    var scheme = {
+        '--query': {'help': 'Query string in rbql. Run in interactive mode if empty', 'metavar': 'QUERY'},
+        '--input': {'help': 'Read csv table from FILE instead of stdin. Required in interactive mode', 'metavar': 'FILE'},
+        '--output': {'help': 'Write output table to FILE instead of stdout', 'metavar': 'FILE'},
+        '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
+        '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
+        '--encoding': {'default': 'utf-8', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
+        '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},
+        '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format', 'metavar': 'DELIM'},
+        '--out-policy': {'help': 'Output policy. Use with "out-delim". Overrides out-format', 'metavar': 'POLICY'},
+        '--error-format': {'default': 'hr', 'help': 'Errors and warnings format. [hr|json]', 'hidden': true},
+        '--version': {'boolean': true, 'help': 'Print RBQL version and exit'},
+        '--auto-rebuild-engine': {'boolean': true, 'help': 'Auto rebuild engine', 'hidden': true},
+        '--debug-mode': {'boolean': true, 'help': 'Run in debug mode', 'hidden': true},
+        '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js', 'hidden': true}
+    };
+    let args = cli_parser.parse_cmd_args(process.argv, scheme, tool_description, epilog);
+    do_main(args).then(() => {}).catch(error_info => { show_exception(error_info); });
 }
 
 

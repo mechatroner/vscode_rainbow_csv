@@ -6,6 +6,7 @@ import sys
 import os
 import codecs
 import io
+import re
 
 from . import engine
 from . import csv_utils
@@ -13,7 +14,7 @@ from . import csv_utils
 
 PY3 = sys.version_info[0] == 3
 
-default_csv_encoding = 'latin-1'
+default_csv_encoding = 'utf-8'
 
 user_home_dir = os.path.expanduser('~')
 table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
@@ -22,7 +23,16 @@ table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
 # TODO performance improvement: replace smart_split() with polymorphic_split()
 
 
+polymorphic_xrange = range if PY3 else xrange
+
+
+debug_mode = False
+
+
 class RbqlIOHandlingError(Exception):
+    pass
+
+class RbqlParsingError(Exception):
     pass
 
 
@@ -157,6 +167,7 @@ class CSVWriter:
         self.stream = encode_output_stream(stream, encoding)
         self.line_separator = line_separator
         self.delim = delim
+        self.sub_array_delim = '|' if delim != '|' else ';'
         self.close_stream_on_finish = close_stream_on_finish
         if policy == 'simple':
             self.polymorphic_join = self.simple_join
@@ -197,18 +208,20 @@ class CSVWriter:
         return res
 
 
-    def replace_none_values(self, fields):
-        i = 0
-        while i < len(fields):
+    def normalize_fields(self, fields):
+        for i in polymorphic_xrange(len(fields)):
             if fields[i] is None:
                 fields[i] = ''
                 self.none_in_output = True
-            i += 1
+            elif isinstance(fields[i], list):
+                self.normalize_fields(fields[i])
+                fields[i] = self.sub_array_delim.join(fields[i])
+            else:
+                fields[i] = polymorphic_str(fields[i])
 
 
     def write(self, fields):
-        self.replace_none_values(fields)
-        fields = [polymorphic_str(f) for f in fields]
+        self.normalize_fields(fields)
         self.stream.write(self.polymorphic_join(fields))
         self.stream.write(self.line_separator)
 
@@ -238,9 +251,56 @@ class CSVWriter:
         return result
 
 
+def python_string_escape_column_name(column_name, quote_char):
+    assert quote_char in ['"', "'"]
+    column_name = column_name.replace('\\', '\\\\')
+    if quote_char == '"':
+        return column_name.replace('"', '\\"')
+    return column_name.replace("'", "\\'")
+
+
+def parse_dictionary_variables(query, prefix, header_columns_names, dst_variables_map):
+    # The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+    # TODO implement algorithm for honest python f-string parsing
+    assert prefix in ['a', 'b']
+    if re.search(r'(?:^|[^_a-zA-Z0-9]){}\['.format(prefix), query) is None:
+        return
+    for i in polymorphic_xrange(len(header_columns_names)):
+        column_name = header_columns_names[i]
+        continuous_name_segments = re.findall('[-a-zA-Z0-9_:;+=!.,()%^#@&* ]+', column_name)
+        add_column_name = True
+        for continuous_segment in continuous_name_segments:
+            if query.find(continuous_segment) == -1:
+                add_column_name = False
+                break
+        if add_column_name:
+            dst_variables_map['{}["{}"]'.format(prefix, python_string_escape_column_name(column_name, '"'))] = engine.VariableInfo(initialize=True, index=i)
+            dst_variables_map["{}['{}']".format(prefix, python_string_escape_column_name(column_name, "'"))] = engine.VariableInfo(initialize=False, index=i)
+
+
+def parse_attribute_variables(query, prefix, header_columns_names, dst_variables_map):
+    # The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+
+    # TODO ideally we should either:
+    # * not search inside string literals (excluding brackets in f-strings) OR
+    # * check if column_name is not among reserved python keywords like "None", "if", "else", etc
+
+    assert prefix in ['a', 'b']
+    header_columns_names = {v: i for i, v in enumerate(header_columns_names)}
+    rgx = r'(?:^|[^_a-zA-Z0-9]){}\.([_a-zA-Z][_a-zA-Z0-9]*)'.format(prefix)
+    matches = list(re.finditer(rgx, query))
+    column_names = list(set([m.group(1) for m in matches]))
+    for column_name in column_names:
+        zero_based_idx = header_columns_names.get(column_name)
+        if zero_based_idx is not None:
+            dst_variables_map['{}.{}'.format(prefix, column_name)] = engine.VariableInfo(initialize=True, index=zero_based_idx)
+        else:
+            raise RbqlParsingError('Unable to find column "{}" in {} CSV header line'.format(column_name, {'a': 'input', 'b': 'join'}[prefix]))
+
+
 
 class CSVRecordIterator:
-    def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, table_name='input', chunk_size=1024):
+    def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.encoding = encoding
         self.stream = encode_input_stream(stream, encoding)
@@ -248,6 +308,7 @@ class CSVRecordIterator:
         self.delim = delim
         self.policy = 'quoted' if policy == 'quoted_rfc' else policy
         self.table_name = table_name
+        self.variable_prefix = variable_prefix
 
         self.buffer = ''
         self.detected_line_separator = '\n'
@@ -259,6 +320,22 @@ class CSVRecordIterator:
         self.utf8_bom_removed = False
         self.first_defective_line = None # TODO use line # instead of record # when "\n" in fields parsing is implemented
         self.polymorphic_get_row = self.get_row_rfc if policy == 'quoted_rfc' else self.get_row_simple
+
+        if not line_mode:
+            self.header_record = None
+            self.header_record_emitted = False
+            self.header_record = self.get_record()
+            assert not self.header_record_emitted
+
+
+    def get_variables_map(self, query):
+        variable_map = dict()
+        engine.parse_basic_variables(query, self.variable_prefix, variable_map)
+        engine.parse_array_variables(query, self.variable_prefix, variable_map)
+        if self.header_record is not None:
+            parse_attribute_variables(query, self.variable_prefix, self.header_record, variable_map)
+            parse_dictionary_variables(query, self.variable_prefix, self.header_record, variable_map)
+        return variable_map
 
 
     def finish(self):
@@ -312,7 +389,7 @@ class CSVRecordIterator:
                 return None
             return row
         except UnicodeDecodeError:
-            raise RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead.')
+            raise RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead')
 
     
     def get_row_rfc(self):
@@ -332,6 +409,9 @@ class CSVRecordIterator:
 
 
     def get_record(self):
+        if not self.header_record_emitted and self.header_record is not None:
+            self.header_record_emitted = True
+            return self.header_record
         line = self.polymorphic_get_row()
         if line is None:
             return None
@@ -360,13 +440,16 @@ class CSVRecordIterator:
         return result
 
 
-    def _get_all_records(self):
+    def get_all_records(self, num_rows=None):
         result = []
         while True:
             record = self.get_record()
             if record is None:
                 break
             result.append(record)
+            if num_rows is not None and len(result) >= num_rows:
+                break
+        self.finish()
         return result
 
 
@@ -392,7 +475,7 @@ class FileSystemCSVRegistry:
         table_path = find_table_path(table_id)
         if table_path is None:
             raise RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
-        self.record_iterator = CSVRecordIterator(open(table_path, 'rb'), True, self.encoding, self.delim, self.policy, table_name=table_id)
+        self.record_iterator = CSVRecordIterator(open(table_path, 'rb'), True, self.encoding, self.delim, self.policy, table_name=table_id, variable_prefix='b')
         return self.record_iterator
 
     def finish(self):
@@ -425,10 +508,14 @@ def csv_run(user_query, input_path, input_delim, input_policy, output_path, outp
         join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding)
         input_iterator = CSVRecordIterator(input_stream, close_input_on_finish, csv_encoding, input_delim, input_policy)
         output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy)
+        if debug_mode:
+            engine.set_debug_mode()
         error_info, warnings = engine.generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code)
         join_tables_registry.finish()
         return (error_info, warnings)
     except Exception as e:
+        if debug_mode:
+            raise
         error_info = engine.exception_to_error_info(e)
         return (error_info, [])
     finally:
@@ -438,3 +525,6 @@ def csv_run(user_query, input_path, input_delim, input_policy, output_path, outp
             output_stream.close()
 
 
+def set_debug_mode():
+    global debug_mode
+    debug_mode = True

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const readline = require('readline');
+const util = require('util');
 
 const rbql = require('./rbql.js');
 const csv_utils = require('./csv_utils.js');
@@ -9,10 +9,10 @@ const csv_utils = require('./csv_utils.js');
 var debug_mode = false;
 
 class RbqlIOHandlingError extends Error {}
+class RbqlParsingError extends Error {}
 class AssertionError extends Error {}
 
 
-// FIXME try to detect faulty utf-8 situation: search for special "question mark" character in decoded string and show a warning (at least).
 // TODO performance improvement: replace smart_split() with polymorphic_split()
 
 
@@ -130,25 +130,118 @@ function find_table_path(table_id) {
 }
 
 
+class RecordQueue {
+    constructor() {
+        this.push_stack = [];
+        this.pull_stack = [];
+    }
 
-function CSVRecordIterator(stream, encoding, delim, policy, table_name='input') {
+    enqueue(record) {
+        this.push_stack.push(record);
+    }
+
+    dequeue() {
+        if (!this.pull_stack.length) {
+            if (!this.push_stack.length)
+                return null;
+            this.pull_stack = this.push_stack;
+            this.pull_stack.reverse();
+            this.push_stack = [];
+        }
+        return this.pull_stack.pop();
+    }
+
+    return_to_pull_stack(record) {
+        this.pull_stack.push(record);
+    }
+}
+
+
+function js_string_escape_column_name(column_name, quote_char) {
+    column_name = column_name.replace(/\\/g, '\\\\');
+    if (quote_char === "'")
+        return column_name.replace(/'/g, "\\'");
+    if (quote_char === '"')
+        return column_name.replace(/"/g, '\\"');
+    assert(quote_char === "`");
+    return column_name.replace(/`/g, "\\`");
+}
+
+
+function parse_dictionary_variables(query, prefix, header_columns_names, dst_variables_map) {
+    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+
+    // FIXME to prevent typos in attribute names either use query-based variable parsing which can properly handle back-tick strings or wrap "a" and "b" variables with ES6 Proxies https://stackoverflow.com/a/25658975/2898283
+    assert(prefix === 'a' || prefix === 'b');
+    let dict_test_rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\[`);
+    if (query.search(dict_test_rgx) == -1)
+        return;
+    let rgx = new RegExp('[-a-zA-Z0-9_:;+=!.,()%^#@&* ]+', 'g');
+    for (let i = 0; i < header_columns_names.length; i++) {
+        let column_name = header_columns_names[i];
+        let continuous_name_segments = rbql.get_all_matches(rgx, column_name);
+        let add_column_name = true;
+        for (let continuous_segment of continuous_name_segments) {
+            if (query.indexOf(continuous_segment) == -1) {
+                add_column_name = false;
+                break;
+            }
+        }
+        if (add_column_name) {
+            let escaped_column_name = js_string_escape_column_name(column_name, '"');
+            dst_variables_map[`${prefix}["${escaped_column_name}"]`] = {initialize: true, index: i};
+            escaped_column_name = js_string_escape_column_name(column_name, "'");
+            dst_variables_map[`${prefix}['${escaped_column_name}']`] = {initialize: false, index: i};
+            escaped_column_name = js_string_escape_column_name(column_name, "`");
+            dst_variables_map[`${prefix}[\`${escaped_column_name}\`]`] = {initialize: false, index: i};
+        }
+    }
+}
+
+
+function parse_attribute_variables(query, prefix, header_columns_names, dst_variables_map) {
+    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+
+    assert(prefix === 'a' || prefix === 'b');
+    let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\.([_a-zA-Z][_a-zA-Z0-9]*)`, 'g');
+    let matches = rbql.get_all_matches(rgx, query);
+    let column_names = matches.map(v => v[1]);
+    for (let column_name of column_names) {
+        let zero_based_idx = header_columns_names.indexOf(column_name);
+        if (zero_based_idx != -1) {
+            dst_variables_map[`${prefix}.${column_name}`] = {initialize: true, index: zero_based_idx};
+        } else {
+            throw new RbqlParsingError(`Unable to find column "${column_name}" in ${prefix == 'a' ? 'input' : 'join'} CSV header line`);
+        }
+    }
+}
+
+
+
+function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', variable_prefix='a') {
+    // CSVRecordIterator implements typical async producer-consumer model with an internal buffer:
+    // get_record() - consumer
+    // stream.on('data') - producer
+
     this.stream = stream;
     this.encoding = encoding;
-    if (this.encoding) {
-        this.stream.setEncoding(this.encoding);
-    }
     this.delim = delim;
     this.policy = policy;
     this.table_name = table_name;
-    this.line_reader = null;
+    this.variable_prefix = variable_prefix;
 
-    this.external_record_callback = null;
-    this.external_finish_callback = null;
-    this.external_line_callback = null;
-    this.line_reader_closed = true;
-    this.finished = false;
+    this.collect_debug_stats = false;
+    this.dbg_stats_num_chunks_got = 0;
+    this.dbg_stats_max_records = 0;
 
-    this.utf8_bom_removed = false;
+    this.decoder = null;
+    if (encoding == 'utf-8')
+        this.decoder = new util.TextDecoder(encoding, {fatal: true, stream: true});
+
+    this.input_exhausted = false;
+    this.started = false;
+
+    this.utf8_bom_removed = false; // BOM doesn't get automatically removed by decoder when utf-8 file is treated as latin-1
     this.first_defective_line = null;
 
     this.fields_info = new Object();
@@ -157,19 +250,96 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input') 
 
     this.rfc_line_buffer = [];
 
+    this.partially_decoded_line = '';
 
-    this.set_record_callback = function(external_record_callback) {
-        this.external_record_callback = external_record_callback;
+    this.resolve_current_record = null;
+    this.reject_current_record = null;
+    this.current_exception = null;
+
+    this.produced_records_queue = new RecordQueue();
+
+    this.handle_exception = function(exception) {
+        if (this.reject_current_record) {
+            let reject = this.reject_current_record;
+            this.reject_current_record = null;
+            this.resolve_current_record = null;
+            reject(exception);
+        } else {
+            this.current_exception = exception;
+        }
+
+    }
+
+    this.preread_header = async function() {
+        let header_record = await this.get_record();
+        if (header_record === null)
+            return null;
+        this.produced_records_queue.return_to_pull_stack(header_record);
+        this.stream.pause();
+        return header_record.slice();
     };
 
 
-    this.set_finish_callback = function(external_finish_callback) {
-        this.external_finish_callback = external_finish_callback;
+    this.get_variables_map = async function(query) {
+        let variable_map = new Object();
+        rbql.parse_basic_variables(query, this.variable_prefix, variable_map);
+        rbql.parse_array_variables(query, this.variable_prefix, variable_map);
+
+        let header_record = await this.preread_header(); // TODO optimize: do not start the stream if query doesn't seem to have dictionary or attribute -looking patterns
+        if (header_record) {
+            parse_attribute_variables(query, this.variable_prefix, header_record, variable_map);
+            parse_dictionary_variables(query, this.variable_prefix, header_record, variable_map);
+        }
+        return variable_map;
     };
 
 
-    this._set_line_callback = function(external_line_callback) {
-        this.external_line_callback = external_line_callback;
+    this.try_resolve_next_record = function() {
+        if (this.resolve_current_record === null)
+            return;
+        let record = this.produced_records_queue.dequeue();
+        if (record === null && !this.input_exhausted)
+            return;
+        let resolve = this.resolve_current_record;
+        this.resolve_current_record = null;
+        this.reject_current_record = null;
+        resolve(record);
+    };
+
+
+    this.get_record = async function() {
+        if (!this.started)
+            this.start();
+        if (this.stream.isPaused())
+            this.stream.resume();
+
+        let parent_iterator = this;
+        let current_record_promise = new Promise(function(resolve, reject) {
+            parent_iterator.resolve_current_record = resolve;
+            parent_iterator.reject_current_record = reject;
+        });
+        if (this.current_exception) {
+            this.reject_current_record(this.current_exception);
+            return;
+        }
+        this.try_resolve_next_record();
+        return current_record_promise;
+    };
+
+
+    this.get_all_records = async function(num_records=null) {
+        let records = [];
+        while (true) {
+            let record = await this.get_record();
+            if (record === null)
+                break;
+            records.push(record);
+            if (num_records && records.length >= num_records) {
+                this.stop();
+                break;
+            }
+        }
+        return records;
     };
 
 
@@ -181,7 +351,8 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input') 
         let num_fields = record.length;
         if (!this.fields_info.hasOwnProperty(num_fields))
             this.fields_info[num_fields] = this.NR;
-        this.external_record_callback(record);
+        this.produced_records_queue.enqueue(record);
+        this.try_resolve_next_record();
     };
 
 
@@ -207,9 +378,6 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input') 
 
 
     this.process_line = function(line) {
-        if (this.finished) {
-            return;
-        }
         if (this.NL === 0) {
             var clean_line = remove_utf8_bom(line, this.encoding);
             if (clean_line != line) {
@@ -222,55 +390,59 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input') 
     };
 
 
-    this._get_all_records = function(external_records_callback) {
-        let records = [];
-        let record_callback = function(record) {
-            records.push(record);
-        };
-        let finish_callback = function() {
-            external_records_callback(records);
-        };
-        this.set_record_callback(record_callback);
-        this.set_finish_callback(finish_callback);
-        this.start();
+    this.process_data_chunk = function(data_chunk) {
+        let decoded_string = null;
+        if (this.decoder) {
+            try {
+                decoded_string = this.decoder.decode(data_chunk);
+            } catch (e) {
+                if (e instanceof TypeError) {
+                    this.handle_exception(new RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead'));
+                } else {
+                    this.handle_exception(e);
+                }
+                return;
+            }
+        } else {
+            decoded_string = data_chunk.toString(this.encoding);
+        }
+        let lines = csv_utils.split_lines(decoded_string);
+        lines[0] = this.partially_decoded_line + lines[0];
+        this.partially_decoded_line = lines.pop();
+        for (let i = 0; i < lines.length; i++) {
+            this.process_line(lines[i]);
+        }
+
+        if (this.collect_debug_stats) {
+            this.dbg_stats_num_chunks_got += 1;
+            this.dbg_stats_max_records = Math.max(this.dbg_stats_max_records, this.produced_records_queue.push_stack.length + this.produced_records_queue.pull_stack.length);
+        }
     };
 
 
-    this._get_all_lines = function(external_lines_callback) {
-        let lines = [];
-        let line_callback = function(line) {
-            lines.push(line);
-        };
-        let finish_callback = function() {
-            external_lines_callback(lines);
-        };
-        this._set_line_callback(line_callback);
-        this.set_finish_callback(finish_callback);
-        this.start();
+    this.process_data_end = function() {
+        this.input_exhausted = true;
+        if (this.partially_decoded_line.length) {
+            let last_line = this.partially_decoded_line;
+            this.partially_decoded_line = '';
+            this.process_line(last_line);
+        } else {
+            this.try_resolve_next_record();
+        }
+    };
+
+
+    this.stop = function() {
+        this.stream.destroy(); // TODO consider using pause() instead
     };
 
 
     this.start = function() {
-        this.line_reader = readline.createInterface({ input: this.stream });
-        this.line_reader_closed = false;
-        if (!this.external_line_callback) {
-            this.line_reader.on('line', (line) => { this.process_line(line); });
-        } else {
-            this.line_reader.on('line', (line) => { this.external_line_callback(line); });
-        }
-        this.line_reader.on('close', () => { this.line_reader_closed = true; this.finish(); });
-    };
-
-
-    this.finish = function() {
-        if (!this.line_reader_closed) {
-            this.line_reader_closed = true;
-            this.line_reader.close();
-        }
-        if (!this.finished) {
-            this.finished = true;
-            this.external_finish_callback();
-        }
+        if (this.started)
+            return;
+        this.started = true;
+        this.stream.on('data', (data_chunk) => { this.process_data_chunk(data_chunk); });
+        this.stream.on('end', () => { this.process_data_end(); });
     };
 
 
@@ -295,6 +467,8 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
     this.delim = delim;
     this.policy = policy;
     this.line_separator = line_separator;
+    this.sub_array_delim = delim == '|' ? ';' : '|';
+
     this.close_stream_on_finish = close_stream_on_finish;
 
     this.null_in_output = false;
@@ -347,18 +521,21 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
     }
 
 
-    this.replace_null_values = function(out_fields) {
+    this.normalize_fields = function(out_fields) {
         for (var i = 0; i < out_fields.length; i++) {
             if (out_fields[i] == null) {
                 this.null_in_output = true;
                 out_fields[i] = '';
+            } else if (Array.isArray(out_fields[i])) {
+                this.normalize_fields(out_fields[i]);
+                out_fields[i] = out_fields[i].join(this.sub_array_delim);
             }
         }
     };
 
 
     this.write = function(fields) {
-        this.replace_null_values(fields);
+        this.normalize_fields(fields);
         this.stream.write(this.polymorphic_join(fields));
         this.stream.write(this.line_separator);
     };
@@ -371,12 +548,18 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
     };
 
 
-    this.finish = function(after_finish_callback) {
-        if (this.close_stream_on_finish) {
-            this.stream.end('', this.encoding, after_finish_callback);
-        } else {
-            setTimeout(after_finish_callback, 0);
-        }
+    this.finish = async function() {
+        let close_stream_on_finish = this.close_stream_on_finish;
+        let output_stream = this.stream;
+        let output_encoding = this.encoding;
+        let finish_promise = new Promise(function(resolve, reject) {
+            if (close_stream_on_finish) {
+                output_stream.end('', output_encoding, () => { resolve(); });
+            } else {
+                setTimeout(() => { resolve(); }, 0);
+            }
+        });
+        return finish_promise;
     };
 
 
@@ -392,7 +575,6 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
 }
 
 
-
 function FileSystemCSVRegistry(delim, policy, encoding) {
     this.delim = delim;
     this.policy = policy;
@@ -406,57 +588,37 @@ function FileSystemCSVRegistry(delim, policy, encoding) {
             throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
         }
         this.stream = fs.createReadStream(table_path);
-        this.record_iterator = new CSVRecordIterator(this.stream, this.encoding, this.delim, this.policy, table_id);
+        this.record_iterator = new CSVRecordIterator(this.stream, this.encoding, this.delim, this.policy, table_id, 'b');
         return this.record_iterator;
-    };
-
-
-    this.finish = function() {
-        // TODO call this function from somewhere, like we do in Python
-        if (this.record_iterator !== null)
-            this.record_iterator.finish();
     };
 }
 
 
-function csv_run(user_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, success_handler, error_handler, user_init_code='') {
-    try {
-        let input_stream = input_path === null ? process.stdin : fs.createReadStream(input_path);
-        let [output_stream, close_output_on_finish] = output_path === null ? [process.stdout, false] : [fs.createWriteStream(output_path), true];
-        if (input_delim == '"' && input_policy == 'quoted') {
-            error_handler('IO handling', 'Double quote delimiter is incompatible with "quoted" policy');
-            return;
-        }
-        if (csv_encoding == 'latin-1')
-            csv_encoding = 'binary';
-        if (!is_ascii(user_query) && csv_encoding == 'binary') {
-            error_handler('IO handling', 'To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
-            return;
-        }
-        if ((!is_ascii(input_delim) || !is_ascii(output_delim)) && csv_encoding == 'binary') {
-            error_handler('IO handling', 'To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
-            return;
-        }
+async function csv_run(user_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, user_init_code='') {
+    let input_stream = input_path === null ? process.stdin : fs.createReadStream(input_path);
+    let [output_stream, close_output_on_finish] = output_path === null ? [process.stdout, false] : [fs.createWriteStream(output_path), true];
+    if (input_delim == '"' && input_policy == 'quoted')
+        throw new RbqlIOHandlingError('Double quote delimiter is incompatible with "quoted" policy');
+    if (csv_encoding == 'latin-1')
+        csv_encoding = 'binary';
+    if (!is_ascii(user_query) && csv_encoding == 'binary')
+        throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
+    if ((!is_ascii(input_delim) || !is_ascii(output_delim)) && csv_encoding == 'binary')
+        throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
 
-        let default_init_source_path = path.join(os.homedir(), '.rbql_init_source.js');
-        if (user_init_code == '' && fs.existsSync(default_init_source_path)) {
-            user_init_code = read_user_init_code(default_init_source_path);
-        }
-
-        let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding);
-        let input_iterator = new CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy);
-        let output_writer = new CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
-
-        if (debug_mode)
-            rbql.set_debug_mode();
-        rbql.generic_run(user_query, input_iterator, output_writer, success_handler, error_handler, join_tables_registry, user_init_code);
-    } catch (e) {
-        if (debug_mode) {
-            console.log('Unexpected exception, dumping stack trace:');
-            console.log(e.stack);
-        }
-        error_handler('unexpected', String(e));
+    let default_init_source_path = path.join(os.homedir(), '.rbql_init_source.js');
+    if (user_init_code == '' && fs.existsSync(default_init_source_path)) {
+        user_init_code = read_user_init_code(default_init_source_path);
     }
+
+    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding);
+    let input_iterator = new CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy);
+    let output_writer = new CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
+
+    if (debug_mode)
+        rbql.set_debug_mode();
+    let warnings = await rbql.generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code);
+    return warnings;
 }
 
 
@@ -473,3 +635,6 @@ module.exports.interpret_named_csv_format = interpret_named_csv_format;
 module.exports.read_user_init_code = read_user_init_code;
 module.exports.csv_run = csv_run;
 module.exports.set_debug_mode = set_debug_mode;
+module.exports.RecordQueue = RecordQueue;
+module.exports.parse_dictionary_variables = parse_dictionary_variables;
+module.exports.parse_attribute_variables = parse_attribute_variables;

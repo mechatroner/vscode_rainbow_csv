@@ -5,7 +5,6 @@ from __future__ import print_function
 import sys
 import os
 import argparse
-import readline
 
 from . import csv_utils
 from . import rbql_csv
@@ -14,9 +13,7 @@ from . import _version
 
 PY3 = sys.version_info[0] == 3
 
-# TODO add demo gif to python package README.md, pypi supports image rendering
-
-# FIXME check readline in Windows both with py2 and py3
+# TODO add demo gif to python package README.md for pypi website
 
 
 history_path = os.path.join(os.path.expanduser("~"), ".rbql_py_query_history")
@@ -33,10 +30,7 @@ policy_names = ['quoted', 'simple', 'whitespace', 'quoted_rfc', 'monocolumn']
 out_format_names = ['csv', 'tsv', 'input']
 
 
-def xrange6(x):
-    if PY3:
-        return range(x)
-    return xrange(x)
+polymorphic_xrange = range if PY3 else xrange
 
 
 def get_default_policy(delim):
@@ -110,20 +104,21 @@ def is_delimited_table(sampled_lines, delim, policy):
 
 
 def sample_lines(src_path, encoding, delim, policy):
+    # FIXME this should be an independent function, remove sample line functionality from record iterator
     result = []
-    source = open(src_path, 'rb')
-    line_iterator = rbql_csv.CSVRecordIterator(source, True, encoding, delim=delim, policy=policy)
-    for _i in xrange6(10):
-        line = line_iterator.polymorphic_get_row()
-        if line is None:
-            break
-        result.append(line)
-    return result
+    with open(src_path, 'rb') as source:
+        line_iterator = rbql_csv.CSVRecordIterator(source, False, encoding, delim=delim, policy=policy, line_mode=True)
+        for _i in polymorphic_xrange(10):
+            line = line_iterator.polymorphic_get_row()
+            if line is None:
+                break
+            result.append(line)
+        return result
 
 
 def autodetect_delim_policy(input_path, encoding):
     sampled_lines = sample_lines(input_path, encoding, None, None)
-    autodetection_dialects = [('\t', 'simple'), (',', 'quoted'), (';', 'quoted')]
+    autodetection_dialects = [('\t', 'simple'), (',', 'quoted'), (';', 'quoted'), ('|', 'simple')]
     for delim, policy in autodetection_dialects:
         if is_delimited_table(sampled_lines, delim, policy):
             return (delim, policy)
@@ -135,15 +130,11 @@ def autodetect_delim_policy(input_path, encoding):
 
 
 def sample_records(input_path, delim, policy, encoding):
-    sampled_lines = sample_lines(input_path, encoding, delim, policy)
-    bad_lines = []
-    result = []
-    for il, line in enumerate(sampled_lines):
-        fields, warning = csv_utils.smart_split(line, delim, policy, True)
-        if warning:
-            bad_lines.append(il + 1)
-        result.append(fields)
-    return (bad_lines, result)
+    with open(input_path, 'rb') as source:
+        record_iterator = rbql_csv.CSVRecordIterator(source, False, encoding, delim=delim, policy=policy)
+        sampled_records = record_iterator.get_all_records(num_rows=10);
+        warnings = record_iterator.get_warnings()
+        return (sampled_records, warnings)
 
 
 def print_colorized(records, delim, encoding, show_column_names):
@@ -176,6 +167,7 @@ def get_default_output_path(input_path, delim):
 
 
 def run_interactive_loop(args):
+    import readline
     if os.path.exists(history_path):
         readline.read_history_file(history_path)
     readline.set_history_length(100)
@@ -194,7 +186,7 @@ def run_interactive_loop(args):
         if success:
             print('\nOutput table preview:')
             print('====================================')
-            _bad_lines, records = sample_records(args.output, args.output_delim, args.output_policy, args.encoding)
+            records, _warnings = sample_records(args.output, args.output_delim, args.output_policy, args.encoding)
             print_colorized(records, args.output_delim, args.encoding, show_column_names=False)
             print('====================================')
             print('Success! Result table was saved to: ' + args.output)
@@ -206,6 +198,9 @@ def start_preview_mode(args):
     if not input_path:
         show_error('generic', 'Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode', is_interactive=True)
         return
+    if not os.path.exists(input_path):
+        show_error('generic', 'Input file {} does not exist'.format(input_path), is_interactive=True)
+        return
     if args.delim is not None:
         delim = rbql_csv.normalize_delim(args.delim)
         policy = args.policy if args.policy is not None else get_default_policy(delim)
@@ -216,13 +211,13 @@ def start_preview_mode(args):
             return
         args.delim = delim
         args.policy = policy
-    bad_lines, records = sample_records(input_path, delim, policy, args.encoding)
+    records, warnings = sample_records(input_path, delim, policy, args.encoding)
     print('Input table preview:')
     print('====================================')
     print_colorized(records, delim, args.encoding, show_column_names=True)
     print('====================================\n')
-    if len(bad_lines):
-        show_warning('Some input lines have quoting errors. Line numbers: ' + ', '.join([str(v) for v in bad_lines]), is_interactive=True)
+    for warning in warnings:
+        show_warning(warning, is_interactive=True)
     if args.output is None:
         args.output = get_default_output_path(input_path, delim)
         show_warning('Output path was not provided. Result set will be saved as: ' + args.output, is_interactive=True)
@@ -269,6 +264,9 @@ def main():
         print(_version.__version__)
         return
 
+    if args.policy == 'monocolumn':
+        args.delim = ''
+
     if args.delim is None and args.policy is not None:
         show_error('generic', 'Using "--policy" without "--delim" is not allowed', is_interactive=False)
         sys.exit(1)
@@ -287,6 +285,9 @@ def main():
         if not success:
             sys.exit(1)
     else:
+        if os.name == 'nt':
+            show_error('generic', 'Interactive mode is not available on Windows', is_interactive=False)
+            sys.exit(1)
         start_preview_mode(args)
 
 

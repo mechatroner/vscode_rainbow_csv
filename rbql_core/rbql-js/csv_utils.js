@@ -6,6 +6,11 @@ let field_rgx_external_whitespaces = new RegExp('^ *' + field_regular_expression
 // TODO consider making this file (and rbql.js) both node and browser compatible: https://caolan.org/posts/writing_for_node_and_the_browser.html
 
 
+function split_lines(text) {
+    return text.split(/\r\n|\r|\n/);
+}
+
+
 function extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_external_whitespaces, cidx, result) {
     var warning = false;
     let src_cur = src.substring(cidx);
@@ -119,3 +124,4 @@ module.exports.quote_field = quote_field;
 module.exports.rfc_quote_field = rfc_quote_field;
 module.exports.unquote_field = unquote_field;
 module.exports.unquote_fields = unquote_fields;
+module.exports.split_lines = split_lines;
