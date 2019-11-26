@@ -5,9 +5,26 @@ const os = require('os');
 const child_process = require('child_process');
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
-var rbql_csv = null;
+var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
-var dialect_map = {
+
+// TODO implement skip header option in RBQL? - Should also update preview table.
+
+// TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
+
+// TODO built-in RBQL docs with md -> html convertion
+
+
+
+// FIXME prevent deletion of entered query text when user switches between preview window and another tab and back
+
+// FIXME support newlines in fields for RBQL console - implement checkbox logic
+
+// FIXME support query history list - implement a drop down list
+
+// FIXME revert TextDecoder usage from rbql-js
+
+const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
     'csv (semicolon)': [';', 'quoted'],
@@ -21,23 +38,6 @@ var dialect_map = {
     'csv (whitespace)': [' ', 'whitespace'],
     'csv (hyphen)': ['-', 'simple']
 };
-
-// TODO implement skip header option in RBQL? - Should also update preview table.
-
-// TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
-
-// TODO built-in RBQL docs with md -> html convertion
-
-
-
-
-// FIXME prevent deletion of entered query text when user switches between preview window and another tab and back
-
-// FIXME support newlines in fields for RBQL console - implement checkbox logic
-
-// FIXME support query history list - implement a drop down list
-
-// FIXME update README
 
 
 var lint_results = new Map();
