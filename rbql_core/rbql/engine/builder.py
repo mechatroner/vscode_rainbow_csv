@@ -45,6 +45,9 @@ from collections import defaultdict, namedtuple
 # TODO show warning when csv fields contain trailing spaces
 
 
+
+# FIXME change generic_run/table_run/csv_run interfaces - do not return error object, throw exception instead
+
 # FIXME make sure column name dict variables does not include newlines
 
 

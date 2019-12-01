@@ -147,7 +147,7 @@ async function sample_lines(table_path) {
 
 async function sample_records(table_path, encoding, delim, policy) {
     let table_stream = fs.createReadStream(table_path);
-    let sampling_iterator = new rbql_csv.CSVRecordIterator(table_stream, encoding, delim, policy);
+    let sampling_iterator = new rbql_csv.CSVRecordIterator(table_stream, null, encoding, delim, policy);
     let sampled_records = await sampling_iterator.get_all_records(10);
     let warnings = sampling_iterator.get_warnings();
     return [sampled_records, warnings];
@@ -234,7 +234,7 @@ async function run_with_js(args) {
     if (init_source_file !== null)
         user_init_code = rbql_csv.read_user_init_code(init_source_file);
     try {
-        let warnings = await rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, user_init_code);
+        let warnings = await rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, user_init_code, {'bulk_read': true});
         await handle_query_success(warnings, output_path, csv_encoding, output_delim, output_policy);
         return true;
     } catch (e) {
