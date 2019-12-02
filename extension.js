@@ -22,6 +22,7 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // FIXME add tooltips in RBQL console
 
+
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
@@ -472,12 +473,11 @@ function refresh_status_bar_buttons(active_doc=null) {
 
 
 function csv_lint(active_doc, is_manual_op) {
-    // FIXME allow csv_lint for non-file buffers
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
         return false;
-    var file_path = active_doc.fileName;
+    var file_path = active_doc.fileName; // For new unitled scratch documents this would be "Untitled-1", "Untitled-2", etc...
     if (!file_path)
         return false;
     var language_id = active_doc.languageId;
