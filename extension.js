@@ -1042,7 +1042,7 @@ function handle_rbql_client_message(webview, message) {
     if (message_type == 'handshake') {
         var active_file_path = rbql_context.input_document_path;
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
-        var encoding = get_from_global_state('rbql_encoding', 'latin-1');
+        var encoding = get_from_global_state('rbql_encoding', 'utf-8');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
         let path_key = file_path_to_query_key(active_file_path);
