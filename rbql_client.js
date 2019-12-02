@@ -161,6 +161,9 @@ function main() {
         event.preventDefault();
         if (event.keyCode == 13) {
             start_rbql();
+        } else {
+            let current_query = document.getElementById('rbql_input').value;
+            vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
         }
     });
 }

@@ -16,12 +16,11 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 
 
-// FIXME prevent deletion of entered query text when user switches between preview window and another tab and back
-
 // FIXME support newlines in fields for RBQL console - implement checkbox logic
 
 // FIXME support query history list - implement a drop down list
 
+// FIXME add tooltips in RBQL console
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -671,9 +670,13 @@ function exception_to_error_info(e) {
 }
 
 
+function file_path_to_query_key(file_path) {
+    return (file_path && file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : file_path;
+}
+
+
 function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, webview_report_handler) {
-    let path_key = (input_path && input_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : input_path;
-    last_rbql_queries.set(path_key, rbql_query);
+    last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
@@ -1042,10 +1045,20 @@ function handle_rbql_client_message(webview, message) {
         var encoding = get_from_global_state('rbql_encoding', 'latin-1');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
         init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
-        let path_key = (active_file_path && active_file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : active_file_path;
+        let path_key = file_path_to_query_key(active_file_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
         webview.postMessage(init_msg);
+    }
+
+    if (message_type == 'update_query') {
+        let rbql_query = message['query'];
+        if (!rbql_query)
+            return;
+        let active_file_path = rbql_context.input_document_path;
+        if (!active_file_path)
+            return;
+        last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 
     if (message_type == 'navigate') {
@@ -1258,6 +1271,8 @@ function handle_doc_edit(change_event) {
         doc_edit_subscription = null;
     }
     let active_doc = change_event.document;
+    if (!active_doc)
+        return;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     let candidate_separators = config.get('autodetect_separators');
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
