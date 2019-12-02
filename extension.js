@@ -22,7 +22,6 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // FIXME support query history list - implement a drop down list
 
-// FIXME revert TextDecoder usage from rbql-js
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -520,9 +519,8 @@ function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
-    active_window.showWarningMessage('RBQL query completed with warnings!');
     for (var i = 0; i < warnings.length; i++) {
-        active_window.showWarningMessage(warnings[i]);
+        active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
     }
 }
 
@@ -706,7 +704,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         };
         if (rbql_csv == null)
             rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding).then(handle_success).catch(e => {
+        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(handle_success).catch(e => {
             let [error_type, error_msg] = exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
         });
