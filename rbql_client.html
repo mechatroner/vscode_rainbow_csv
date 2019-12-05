@@ -25,8 +25,20 @@ input {
     font-size: 18px !important;
     vertical-align: bottom;
     font-family: Consolas, Monaco, monospace;
-    height: 22px;
+    height: 100%;
+    border:none;
+    outline:none;
+    display: flex;
+    padding-left: 2px;
+    background-color: #DDDDDD;
+    caret-color: #000000;
 }
+
+input:focus {
+    outline:none;
+    background-color: #FFFFFF;
+}
+
 
 select {
     margin-bottom: 6px;
@@ -51,47 +63,61 @@ select {
 }
 
 #help_btn {
-    margin-left: 0px;
+    margin: 0px;
     width: 28px;
     background-color: #FFFFE6;
     display: inline-block;
     border:none;
-    font-size: 18px !important;
+    outline:none;
+    /*font-size: 18px !important;*/
     color: black;
-    height: 28px;
+    height: 100%;
+    min-height: 100%;
     cursor:pointer;
     font-weight: bold;
+    padding: 0px;
+    display: flex;
+    flex-direction: column;
 }
 
 #rbql_history_btn {
+    margin: 0px;
     width: 28px;
     background-color: #FFFFFF;
     display: inline-block;
     border:none;
-    font-size: 18px !important;
+    outline:none;
+    /*font-size: 18px !important;*/
     color: black;
-    height: 28px;
+    height: 100%;
+    min-height: 100%;
     font-weight: bold;
     margin-left: 0px;
+    padding: 0px;
+    display: flex;
+    flex-direction: column;
 }
-
-
-#rbql_history_btn:hover {
-    background-color: #DDDDDD;
-}
-
 
 #rbql_run_btn {
-    margin-left: 0px;
+    margin: 0px;
     width: 70px;
     background-color: #4CAF50;
     display: inline-block;
     border:none;
-    font-size: 18px !important;
+    outline:none;
+    /*font-size: 18px !important;*/
     color: white;
-    height: 28px;
+    height: 100%;
+    min-height: 100%;
     cursor:pointer;
     font-weight: bold;
+    padding: 0px;
+    display: flex;
+    flex-direction: column;
+}
+
+#rbql_history_btn:hover {
+    background-color: #DDDDDD;
 }
 
 #rbql_run_btn:hover {
@@ -131,6 +157,11 @@ select {
     width: 100%;
     display: flex;
     flex-direction: column-reverse;
+}
+
+#query_group {
+    height: 22px;
+    display: flex; /*equal height for children*/
 }
 
 #rbql_help {
@@ -220,7 +251,7 @@ select {
         </table>
     </div>
     <h3>Input SQL-like RBQL query and press Enter. Use <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span> as column names.</h3>
-    <div>
+    <div id="query_group">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
         <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
         --><button id="rbql_history_btn" title="History">&#9650;</button><!--
