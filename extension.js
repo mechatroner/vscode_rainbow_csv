@@ -14,13 +14,12 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO built-in RBQL docs with md -> html convertion
 
+// TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
 
 // FIXME support newlines in fields for RBQL console - implement checkbox logic
 
 // FIXME support query history list - implement a drop down list
-
-// FIXME add tooltips in RBQL console
 
 
 const dialect_map = {

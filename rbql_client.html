@@ -21,7 +21,7 @@ td {
 }
 
 input {
-    margin-right: 10px;
+    margin-right: 0px;
     font-size: 18px !important;
     vertical-align: bottom;
     font-family: Consolas, Monaco, monospace;
@@ -51,7 +51,7 @@ select {
 }
 
 #help_btn {
-    margin-left: 10px;
+    margin-left: 0px;
     width: 28px;
     background-color: #FFFFE6;
     display: inline-block;
@@ -63,7 +63,26 @@ select {
     font-weight: bold;
 }
 
+#rbql_history_btn {
+    width: 28px;
+    background-color: #FFFFFF;
+    display: inline-block;
+    border:none;
+    font-size: 18px !important;
+    color: black;
+    height: 28px;
+    font-weight: bold;
+    margin-left: 0px;
+}
+
+
+#rbql_history_btn:hover {
+    background-color: #DDDDDD;
+}
+
+
 #rbql_run_btn {
+    margin-left: 0px;
     width: 70px;
     background-color: #4CAF50;
     display: inline-block;
@@ -73,6 +92,10 @@ select {
     height: 28px;
     cursor:pointer;
     font-weight: bold;
+}
+
+#rbql_run_btn:hover {
+    background-color: #2C6B2E;
 }
 
 
@@ -197,12 +220,16 @@ select {
         </table>
     </div>
     <h3>Input SQL-like RBQL query and press Enter. Use <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span> as column names.</h3>
-    <div style="margin-bottom: 40px;">
-        <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus>
-        <button id="rbql_run_btn">Run</button><button id="help_btn">?</button><span style="margin-left: 10px;" id="status_label"></span>
-        <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/rbql_core/README.md#rbql-rainbow-query-language-description">github</a></span></div>
-    </div>
     <div>
+        <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
+        <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
+        --><button id="rbql_history_btn" title="History">&#9650;</button><!--
+        --><button id="rbql_run_btn">Run</button><!--
+        --><button id="help_btn" title="Help">?</button><!--
+        --><span style="margin-left: 10px;" id="status_label"></span>
+    </div>
+    <div id="rbql_help"><br><span>Read RBQL docs online on <a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/rbql_core/README.md#rbql-rainbow-query-language-description">github</a></span></div>
+    <div style="margin-top: 40px;">
         <h3 style="margin-bottom: 10px;">Query settings:</h3>
         <div>
             <select id="select_output_format">
