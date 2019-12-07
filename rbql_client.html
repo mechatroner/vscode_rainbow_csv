@@ -5,6 +5,10 @@
 
 <style>
 
+:root {
+  --inputwidth: 700px;
+}
+
 html * {
     font-size: 16px !important;
 }
@@ -55,7 +59,7 @@ select {
     border-width: 0px;
     outline:none;
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
-    width: 700px;
+    width: var(--inputwidth);
 }
 
 
@@ -179,6 +183,17 @@ select {
     color: black;
 }
 
+#query_history { 
+    width: var(--inputwidth);
+    top: 20%; 
+    left: 25%; 
+    z-index: 1000000; 
+    background-color: #FFFCD3; 
+    position: fixed; 
+    display: none;
+    color: black;
+}
+
 #table_group {
     display: flex; /*equal height for children*/
     width: 95%;
@@ -288,6 +303,13 @@ select {
             <label  style="word-wrap:break-word"><input id="enable_rfc"  type="checkbox"/> &ndash; Enable multiline fields</label>
         </div>
         -->
+    </div>
+</div>
+
+
+<div id="query_history">
+    <div id="rbql_error_message_header">
+        <span class="padded_label">Error while executing RBQL query!</span>
     </div>
 </div>
 

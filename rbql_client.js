@@ -95,6 +95,18 @@ function toggle_help_msg() {
 }
 
 
+function toggle_history() {
+    var style_before = document.getElementById('query_history').style.display;
+    var new_style = style_before == 'block' ? 'none' : 'block';
+    document.getElementById('query_history').style.display = new_style;
+    if (new_style == 'block') {
+        document.getElementById('rbql_history_btn').textContent = '\u25BC';
+    } else {
+        document.getElementById('rbql_history_btn').textContent = '\u25B2';
+    }
+}
+
+
 function start_rbql() {
     var rbql_text = document.getElementById('rbql_input').value;
     if (!rbql_text || rbql_running)
@@ -152,6 +164,7 @@ function main() {
     document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
+    document.getElementById("rbql_history_btn").addEventListener("click", toggle_history);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
     document.getElementById("go_up").addEventListener("click", preview_up);
     document.getElementById("go_down").addEventListener("click", preview_down);
