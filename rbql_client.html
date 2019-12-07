@@ -20,26 +20,6 @@ td {
     padding: 3px 8px;
 }
 
-input {
-    margin-right: 0px;
-    font-size: 18px !important;
-    vertical-align: bottom;
-    font-family: Consolas, Monaco, monospace;
-    height: 100%;
-    border:none;
-    outline:none;
-    display: flex;
-    padding-left: 2px;
-    background-color: #DDDDDD;
-    caret-color: #000000;
-}
-
-input:focus {
-    outline:none;
-    background-color: #FFFFFF;
-}
-
-
 select {
     margin-bottom: 6px;
     width: 300px;
@@ -62,61 +42,64 @@ select {
     margin-top: 20px;
 }
 
+
+
+#rbql_input {
+    margin: 0px;
+    font-size: 18px !important;
+    font-family: Consolas, Monaco, monospace;
+    padding-left: 2px;
+    background-color: #DDDDDD;
+    caret-color: #000000;
+    display: inline-block;
+    border-width: 0px;
+}
+
 #help_btn {
     margin: 0px;
     width: 28px;
-    background-color: #FFFFE6;
-    display: inline-block;
-    border:none;
-    outline:none;
-    /*font-size: 18px !important;*/
+    background-color: #FFFFFF;
+    font-size: 18px !important;
     color: black;
-    height: 100%;
-    min-height: 100%;
-    cursor:pointer;
     font-weight: bold;
     padding: 0px;
-    display: flex;
-    flex-direction: column;
+    display: inline-block;
+    border-width: 0px;
 }
 
 #rbql_history_btn {
     margin: 0px;
     width: 28px;
     background-color: #FFFFFF;
-    display: inline-block;
-    border:none;
-    outline:none;
-    /*font-size: 18px !important;*/
+    font-size: 18px !important;
     color: black;
-    height: 100%;
-    min-height: 100%;
     font-weight: bold;
-    margin-left: 0px;
     padding: 0px;
-    display: flex;
-    flex-direction: column;
+    display: inline-block;
+    border-width: 0px;
 }
 
 #rbql_run_btn {
     margin: 0px;
     width: 70px;
     background-color: #4CAF50;
-    display: inline-block;
-    border:none;
-    outline:none;
-    /*font-size: 18px !important;*/
+    font-size: 18px !important;
     color: white;
-    height: 100%;
-    min-height: 100%;
-    cursor:pointer;
     font-weight: bold;
     padding: 0px;
-    display: flex;
-    flex-direction: column;
+    display: inline-block;
+    border-width: 0px;
+}
+
+#rbql_input:focus {
+    background-color: #FFFFFF;
 }
 
 #rbql_history_btn:hover {
+    background-color: #DDDDDD;
+}
+
+#help_btn:hover {
     background-color: #DDDDDD;
 }
 
@@ -128,13 +111,16 @@ select {
 .navig_button_new {
     font-size: 18px !important;
     width: 28px;
-    background-color: #FFFFE6;
+    background-color: #FFFFFF;
     border:none;
     font-size: 18px !important;
     color: black;
     height: 28px;
-    cursor:pointer;
     font-weight: bold;
+}
+
+.navig_button_new:hover {
+    background-color: #DDDDDD;
 }
 
 #navig_bar {
@@ -157,11 +143,6 @@ select {
     width: 100%;
     display: flex;
     flex-direction: column-reverse;
-}
-
-#query_group {
-    height: 22px;
-    display: flex; /*equal height for children*/
 }
 
 #rbql_help {
@@ -284,9 +265,11 @@ select {
             </select>
             <span class="select_info"> &ndash; Backend language for RBQL</span>
         </div>
+        <!--
         <div>
             <label  style="word-wrap:break-word"><input id="enable_rfc"  type="checkbox"/> &ndash; Enable multiline fields</label>
         </div>
+        -->
     </div>
 </div>
 

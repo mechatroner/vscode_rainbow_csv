@@ -417,7 +417,7 @@ function show_rainbow_off_status_bar_button() {
 function show_rbql_status_bar_button() {
     if (!rbql_status_bar_button)
         rbql_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rbql_status_bar_button.text = 'RBQL';
+    rbql_status_bar_button.text = 'Query';
     rbql_status_bar_button.tooltip = 'Click to run SQL-like RBQL query';
     rbql_status_bar_button.command = 'extension.RBQL';
     rbql_status_bar_button.show();
