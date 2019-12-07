@@ -55,6 +55,7 @@ select {
     border-width: 0px;
     outline:none;
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
+    width: 700px;
 }
 
 
@@ -180,6 +181,7 @@ select {
 
 #table_group {
     display: flex; /*equal height for children*/
+    width: 95%;
 }
 
 #rbql_error_message_header { 
@@ -250,7 +252,7 @@ select {
     <h3>Input SQL-like RBQL query and press Enter. Use <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span> as column names.</h3>
     <div id="query_group">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
-        <input type="text" size="70" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
+        <input type="text" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
         --><button id="rbql_history_btn" title="History">&#9650;</button><!--
         --><button id="rbql_run_btn">Run</button><!--
         --><button id="help_btn" title="Help">?</button><!--
