@@ -185,13 +185,13 @@ select {
 
 #query_history { 
     width: var(--inputwidth);
-    top: 20%; 
-    left: 25%; 
     z-index: 1000000; 
-    background-color: #FFFCD3; 
+    background-color: #FFFFFF; 
     position: fixed; 
     display: none;
     color: black;
+    max-height: 100px;
+    height: 100px;
 }
 
 #table_group {
@@ -308,9 +308,9 @@ select {
 
 
 <div id="query_history">
-    <div id="rbql_error_message_header">
-        <span class="padded_label">Error while executing RBQL query!</span>
-    </div>
+    <!--<div id="rbql_error_message_header">-->
+    <!--    <span class="padded_label">Error while executing RBQL query!</span>-->
+    <!--</div>-->
 </div>
 
 

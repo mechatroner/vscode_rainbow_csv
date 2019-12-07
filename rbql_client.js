@@ -95,15 +95,27 @@ function toggle_help_msg() {
 }
 
 
+function get_coordinates(elem) {
+    // Taken from here: https://javascript.info/coordinates
+    let box = elem.getBoundingClientRect();
+    return {top: box.top + window.pageYOffset, left: box.left + window.pageXOffset};
+}
+
+
 function toggle_history() {
     var style_before = document.getElementById('query_history').style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';
-    document.getElementById('query_history').style.display = new_style;
     if (new_style == 'block') {
         document.getElementById('rbql_history_btn').textContent = '\u25BC';
     } else {
         document.getElementById('rbql_history_btn').textContent = '\u25B2';
     }
+    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
+    let query_history_block = document.getElementById('query_history');
+    let calculated_history_height = 100; //FIXME
+    query_history_block.style.left = text_input_coordinates.left + 'px';
+    query_history_block.style.top = text_input_coordinates.top - calculated_history_height + 'px';
+    query_history_block.style.display = new_style;
 }
 
 
