@@ -130,10 +130,15 @@ function get_header_line(document) {
 }
 
 
+function make_header_key(file_path) {
+    return 'rbql_header:' + file_path;
+}
+
+
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
     if (file_path && global_state) {
-        var header = global_state.get(file_path);
+        var header = global_state.get(make_header_key(file_path));
         if (header) {
             return csv_utils.smart_split(header, ',', 'quoted', false)[0];
         }
@@ -726,11 +731,6 @@ function get_dialect(document) {
 }
 
 
-function save_new_header(file_path, new_header) {
-    global_state.update(file_path, new_header);
-}
-
-
 function set_rainbow_separator() {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -867,7 +867,7 @@ function edit_column_names() {
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = quoted_join(old_header, ',');
     var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function(new_header) { save_new_header(file_path, new_header); };
+    var handle_success = function(new_header) { global_state.update(make_header_key(file_path), new_header); };
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
@@ -1035,6 +1035,19 @@ function get_from_global_state(key, default_value) {
 }
 
 
+function update_query_history(file_path, query) {
+    let file_basename = path.basename(file_path);
+    let history_list = get_from_global_state('query_history', []);
+    while (history_list.length > 20) {
+        history_list.splice(0, 1);
+    }
+    history_list.push([file_basename, query]);
+    if (global_state) {
+        global_state.update('query_history', history_list);
+    }
+}
+
+
 function handle_rbql_client_message(webview, message) {
     let message_type = message['msg_type'];
 
@@ -1047,6 +1060,8 @@ function handle_rbql_client_message(webview, message) {
         let path_key = file_path_to_query_key(active_file_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
+        let history_list = get_from_global_state('query_history', []);
+        init_msg['query_history'] = history_list;
         webview.postMessage(init_msg);
     }
 
@@ -1057,6 +1072,7 @@ function handle_rbql_client_message(webview, message) {
         let active_file_path = rbql_context.input_document_path;
         if (!active_file_path)
             return;
+        update_query_history(active_file_path, rbql_query);
         last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 

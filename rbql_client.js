@@ -4,6 +4,8 @@ var rbql_running = false;
 
 var handshake_completed = false;
 
+var query_history = [];
+
 const vscode = acquireVsCodeApi();
 
 
@@ -106,13 +108,21 @@ function toggle_history() {
     var style_before = document.getElementById('query_history').style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';
     if (new_style == 'block') {
-        document.getElementById('rbql_history_btn').textContent = '\u25BC';
+        document.getElementById('toggle_history_btn').textContent = '\u25BC';
     } else {
-        document.getElementById('rbql_history_btn').textContent = '\u25B2';
+        document.getElementById('toggle_history_btn').textContent = '\u25B2';
     }
     let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
+    let history_entries_block = document.getElementById('history_entries');
+    remove_children(history_entries_block);
+    for (let nr = 0; nr < query_history.length; nr++) {
+        let entry_button = document.createElement('button');
+        entry_button.className = 'history_button';
+        entry_button.textContent = query_history[nr][1];
+        history_entries_block.appendChild(entry_button);
+    }
+    let calculated_history_height = 24 + Math.min(query_history.length * 24, 300); // 24 is the button and header height
     let query_history_block = document.getElementById('query_history');
-    let calculated_history_height = 100; //FIXME
     query_history_block.style.left = text_input_coordinates.left + 'px';
     query_history_block.style.top = text_input_coordinates.top - calculated_history_height + 'px';
     query_history_block.style.display = new_style;
@@ -143,6 +153,9 @@ function handle_message(msg_event) {
         handshake_completed = true;
         if (message.hasOwnProperty('last_query')) {
             document.getElementById('rbql_input').value = message['last_query'];
+        }
+        if (message.hasOwnProperty('query_history')) {
+            query_history = message['query_history'];
         }
         var window_records = message['window_records'];
         make_preview_table(window_records);
@@ -176,7 +189,7 @@ function main() {
     document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
-    document.getElementById("rbql_history_btn").addEventListener("click", toggle_history);
+    document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
     document.getElementById("go_up").addEventListener("click", preview_up);
     document.getElementById("go_down").addEventListener("click", preview_down);
