@@ -136,10 +136,12 @@ select {
     height: 24px !important;
     color: black;
     font-family: Consolas, Monaco, monospace;
-    padding: 0px;
     border-width: 0px;
-    outline:none;
-    display:block;
+    outline: none;
+    display: block;
+    text-align: left;
+    padding-left: 2px;
+    white-space: nowrap;
 }
 
 .history_button:hover {
@@ -212,7 +214,9 @@ select {
 #history_entries {
     max-height: 300px;
     margin: 0px;
+    overflow-x: auto;
     overflow-y: auto;
+    white-space: nowrap;
 }
 
 

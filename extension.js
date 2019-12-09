@@ -56,7 +56,7 @@ const preview_window_size = 12;
 
 var rbql_context = null;
 
-var last_rbql_queries = new Map();
+var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch
 
 var client_js_template_path = null;
 var client_html_template_path = null;
@@ -200,7 +200,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 
 function make_hover(document, position, language_id, cancellation_token) {
     if (last_statusbar_doc != document) {
-        refresh_status_bar_buttons(document); // Being paranoid and making shure that the buttons are visible
+        refresh_status_bar_buttons(document); // Being paranoid and making sure that the buttons are visible
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (!config)
@@ -516,7 +516,6 @@ function csv_lint_cmd() {
 
 
 function show_warnings(warnings) {
-    // VSCode warnings are single-line, so this works only because all current RBQL warnings are also single-line.
     if (!warnings || !warnings.length)
         return;
     var active_window = vscode.window;
@@ -1035,15 +1034,17 @@ function get_from_global_state(key, default_value) {
 }
 
 
-function update_query_history(file_path, query) {
-    let file_basename = path.basename(file_path);
-    let history_list = get_from_global_state('query_history', []);
-    while (history_list.length > 20) {
+function update_query_history(query) {
+    let history_list = get_from_global_state('rbql_query_history', []);
+    let old_index = history_list.indexOf(query);
+    if (old_index != -1) {
+        history_list.splice(old_index, 1);
+    } else if (history_list.length >= 20) {
         history_list.splice(0, 1);
     }
-    history_list.push([file_basename, query]);
+    history_list.push(query);
     if (global_state) {
-        global_state.update('query_history', history_list);
+        global_state.update('rbql_query_history', history_list);
     }
 }
 
@@ -1060,7 +1061,7 @@ function handle_rbql_client_message(webview, message) {
         let path_key = file_path_to_query_key(active_file_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
-        let history_list = get_from_global_state('query_history', []);
+        let history_list = get_from_global_state('rbql_query_history', []);
         init_msg['query_history'] = history_list;
         webview.postMessage(init_msg);
     }
@@ -1072,7 +1073,6 @@ function handle_rbql_client_message(webview, message) {
         let active_file_path = rbql_context.input_document_path;
         if (!active_file_path)
             return;
-        update_query_history(active_file_path, rbql_query);
         last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 
@@ -1106,6 +1106,7 @@ function handle_rbql_client_message(webview, message) {
             webview.postMessage(report_msg);
         };
         var active_file_path = rbql_context.input_document_path;
+        update_query_history(rbql_query);
         run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, webview_report_handler);
     }
 

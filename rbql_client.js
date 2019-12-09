@@ -104,6 +104,11 @@ function get_coordinates(elem) {
 }
 
 
+function register_history_callback(button_element, query) {
+    button_element.addEventListener("click", () => { document.getElementById('rbql_input').value = query; });
+}
+
+
 function toggle_history() {
     var style_before = document.getElementById('query_history').style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';
@@ -118,14 +123,15 @@ function toggle_history() {
     for (let nr = 0; nr < query_history.length; nr++) {
         let entry_button = document.createElement('button');
         entry_button.className = 'history_button';
-        entry_button.textContent = query_history[nr][1];
+        entry_button.textContent = query_history[nr];
+        register_history_callback(entry_button, query_history[nr]);
         history_entries_block.appendChild(entry_button);
     }
-    let calculated_history_height = 24 + Math.min(query_history.length * 24, 300); // 24 is the button and header height
     let query_history_block = document.getElementById('query_history');
+    query_history_block.style.display = new_style;
+    let calculated_history_height = query_history_block.scrollHeight;
     query_history_block.style.left = text_input_coordinates.left + 'px';
     query_history_block.style.top = text_input_coordinates.top - calculated_history_height + 'px';
-    query_history_block.style.display = new_style;
 }
 
 
