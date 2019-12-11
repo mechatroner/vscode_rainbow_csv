@@ -83,6 +83,35 @@ function map_separator_to_language_id(separator) {
 }
 
 
+function create_optimistic_rfc_csv_record_map(document, comment_prefix=null) {
+    // FIXME fix this logic (error reporting) in RBQL before publishing
+    let num_lines = document.lineCount;
+    let records_map = [];
+    let record_begin = null;
+    for (let lnum = 0; lnum < num_lines; ++lnum) {
+        let line_text = document.lineAt(lnum).text;
+        if (!comment_prefix || !line_text.startsWith(comment_prefix)) {
+            let match_list = line.match(/"/g);
+            let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+            if (record_begin === null && !has_unbalanced_double_quote) {
+                records_map.push([lnum, lnum + 1]);
+            } else if (record_begin === null && has_unbalanced_double_quote) {
+                record_begin = lnum;
+            } else if (!has_unbalanced_double_quote) {
+                continue;
+            } else {
+                records_map.push([record_begin, lnum + 1]);
+                record_begin = null;
+            }
+        }
+    }
+    if (record_begin !== null) {
+        records_map.push([record_begin, null]); // FIXME handle externally
+    }
+    return records_map;
+}
+
+
 function sample_preview_records_from_context(rbql_context) {
     // FIXME if we have "allow_newlines_in_fields" flag set and line_begin != 0 we must reindex the whole doc and create a map: record_num -> line_num
     var document = rbql_context.input_document;
