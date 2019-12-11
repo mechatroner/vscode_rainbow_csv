@@ -375,7 +375,7 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
             this._do_process_line_simple(line);
         } else if (this.rfc_line_buffer.length == 0 && has_unbalanced_double_quote) {
             this.rfc_line_buffer.push(line);
-        } else if (this.rfc_line_buffer.length != 0 && !has_unbalanced_double_quote) {
+        } else if (!has_unbalanced_double_quote) {
             this.rfc_line_buffer.push(line);
         } else {
             this.rfc_line_buffer.push(line);
