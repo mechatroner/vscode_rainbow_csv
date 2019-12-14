@@ -117,7 +117,16 @@ function populate_optimistic_rfc_csv_record_map(document, requested_end_record, 
 }
 
 
-function sample_preview_records_from_context(rbql_context) {
+function get_rfc_record_text(document, record_start, record_end) {
+    let result = [];
+    for (let i = record_start; i < record_end && i < document.lineCount; i++) {
+        result.push(document.lineAt(i).text);
+    }
+    return result.join('\n');
+}
+
+
+function sample_preview_records_from_context(rbql_context, dst_message) {
     let document = rbql_context.input_document;
     let delim = rbql_context.delim;
     let policy = rbql_context.policy;
@@ -130,8 +139,14 @@ function sample_preview_records_from_context(rbql_context) {
         populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
         for (let nr = rbql_context.requested_start_record; nr < rbql_context.rfc_record_map.length && preview_records.length < preview_window_size; nr++) {
-            let [cur_record, warning] = csv_utils.smart_split(line_text, delim, policy, false);
-            // FIXME throw exception on warning
+            let [record_start, record_end] = preview_records[nr];
+            let record_text = get_rfc_record_text(document, record_start, record_end);
+            let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
+            if (warning) {
+                dst_message['window_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
+                return;
+            }
+            // FIXME limit fields length here, show elipsis in the UI console
             preview_records.push(cur_record);
         }
     } else {
@@ -154,7 +169,7 @@ function sample_preview_records_from_context(rbql_context) {
         header_record.push('a' + (i + 1));
     }
     preview_records.splice(0, 0, header_record);
-    return preview_records;
+    dst_message['preview_records'] = preview_records;
 }
 
 
@@ -1088,7 +1103,7 @@ function handle_rbql_client_message(webview, message) {
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
-        init_msg['window_records'] = sample_preview_records_from_context(rbql_context);
+        sample_preview_records_from_context(rbql_context, init_msg);
         let path_key = file_path_to_query_key(active_file_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
@@ -1120,10 +1135,11 @@ function handle_rbql_client_message(webview, message) {
         } else if (navig_direction == 'begin') {
             rbql_context.requested_start_record = 0;
         } else if (navig_direction == 'end') {
-            rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is the max possible value: it has to be adjusted in sample_preview_records_from_context func
+            rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is just max possible value which is incorrect and will be adjusted later
         }
-        var window_records = sample_preview_records_from_context(rbql_context);
-        webview.postMessage({'msg_type': 'navigate', 'window_records': window_records});
+        let protocol_message = {'msg_type': 'navigate'};
+        sample_preview_records_from_context(rbql_context, protocol_message);
+        webview.postMessage(protocol_message);
     }
 
     if (message_type == 'run') {
