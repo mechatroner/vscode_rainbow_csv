@@ -355,11 +355,16 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     };
 
 
-    this._do_process_line_simple = function(line) {
+    this.process_record_line = function(line) {
         this.NR += 1;
         var [record, warning] = csv_utils.smart_split(line, this.delim, this.policy, false);
-        if (warning && this.first_defective_line === null)
-            this.first_defective_line = this.NR;
+        if (warning) {
+            if (this.first_defective_line === null) {
+                this.first_defective_line = this.NR;
+                if (this.policy == 'quoted_rfc')
+                    this.handle_exception(new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}`));
+            }
+        }
         let num_fields = record.length;
         if (!this.fields_info.hasOwnProperty(num_fields))
             this.fields_info[num_fields] = this.NR;
@@ -368,11 +373,11 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     };
 
 
-    this._do_process_line_rfc = function(line) {
+    this.process_partial_rfc_record_line = function(line) {
         let match_list = line.match(/"/g);
         let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
         if (this.rfc_line_buffer.length == 0 && !has_unbalanced_double_quote) {
-            this._do_process_line_simple(line);
+            this.process_record_line(line);
         } else if (this.rfc_line_buffer.length == 0 && has_unbalanced_double_quote) {
             this.rfc_line_buffer.push(line);
         } else if (!has_unbalanced_double_quote) {
@@ -381,12 +386,12 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
             this.rfc_line_buffer.push(line);
             let multiline_row = this.rfc_line_buffer.join('\n');
             this.rfc_line_buffer = [];
-            this._do_process_line_simple(multiline_row);
+            this.process_record_line(multiline_row);
         }
     };
 
 
-    this._do_process_line_polymorphic = policy == 'quoted_rfc' ? this._do_process_line_rfc : this._do_process_line_simple;
+    this.process_line_polymorphic = policy == 'quoted_rfc' ? this.process_partial_rfc_record_line : this.process_record_line;
 
 
     this.process_line = function(line) {
@@ -398,7 +403,7 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
             }
         }
         this.NL += 1;
-        this._do_process_line_polymorphic(line);
+        this.process_line_polymorphic(line);
     };
 
 
@@ -444,6 +449,9 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
         for (let i = 0; i < lines.length; i++) {
             this.process_line(lines[i]);
         }
+        if (this.rfc_line_buffer.length > 0) {
+            this.process_record_line(this.rfc_line_buffer.join('\n'));
+        }
         this.input_exhausted = true;
         this.try_resolve_next_record(); // Should be a NOOP here?
     }
@@ -455,9 +463,11 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
             let last_line = this.partially_decoded_line;
             this.partially_decoded_line = '';
             this.process_line(last_line);
-        } else {
-            this.try_resolve_next_record();
         }
+        if (this.rfc_line_buffer.length > 0) {
+            this.process_record_line(this.rfc_line_buffer.join('\n'));
+        }
+        this.try_resolve_next_record();
     };
 
 
@@ -493,7 +503,7 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     this.get_warnings = function() {
         let result = [];
         if (this.first_defective_line !== null)
-            result.push(`Defective double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line}`);
+            result.push(`Inconsistent double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line}`);
         if (this.utf8_bom_removed)
             result.push(`UTF-8 Byte Order Mark (BOM) was found and skipped in ${this.table_name} table`);
         if (Object.keys(this.fields_info).length > 1)
