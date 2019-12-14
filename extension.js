@@ -83,57 +83,74 @@ function map_separator_to_language_id(separator) {
 }
 
 
-function create_optimistic_rfc_csv_record_map(document, comment_prefix=null) {
-    // FIXME fix this logic (error reporting) in RBQL before publishing
+function get_last(arr) {
+    return arr[arr.length - 1];
+}
+
+
+function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
     let num_lines = document.lineCount;
-    let records_map = [];
     let record_begin = null;
-    for (let lnum = 0; lnum < num_lines; ++lnum) {
+    let start_line_idx = dst_record_map.length ? get_last(dst_record_map)[1] : 0;
+    for (let lnum = start_line_idx; lnum < num_lines && dst_record_map.length < requested_end_record; ++lnum) {
         let line_text = document.lineAt(lnum).text;
-        if (!comment_prefix || !line_text.startsWith(comment_prefix)) {
-            let match_list = line.match(/"/g);
-            let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-            if (record_begin === null && !has_unbalanced_double_quote) {
-                records_map.push([lnum, lnum + 1]);
-            } else if (record_begin === null && has_unbalanced_double_quote) {
-                record_begin = lnum;
-            } else if (!has_unbalanced_double_quote) {
-                continue;
-            } else {
-                records_map.push([record_begin, lnum + 1]);
-                record_begin = null;
-            }
+        if (lnum + 1 >= num_lines && line_text == "")
+            break; // Skip the last empty line
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
+        let match_list = line_text.match(/"/g);
+        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        if (record_begin === null && !has_unbalanced_double_quote) {
+            dst_record_map.push([lnum, lnum + 1]);
+        } else if (record_begin === null && has_unbalanced_double_quote) {
+            record_begin = lnum;
+        } else if (!has_unbalanced_double_quote) {
+            continue;
+        } else {
+            dst_record_map.push([record_begin, lnum + 1]);
+            record_begin = null;
         }
     }
     if (record_begin !== null) {
-        records_map.push([record_begin, null]); // FIXME handle externally
+        dst_record_map.push([record_begin, num_lines]);
     }
-    return records_map;
 }
 
 
 function sample_preview_records_from_context(rbql_context) {
-    // FIXME if we have "allow_newlines_in_fields" flag set and line_begin != 0 we must reindex the whole doc and create a map: record_num -> line_num
-    var document = rbql_context.input_document;
-    var total_lines = document.lineCount;
-    var line_begin = rbql_context.line;
-    var delim = rbql_context.delim;
-    var policy = rbql_context.policy;
+    let document = rbql_context.input_document;
+    let delim = rbql_context.delim;
+    let policy = rbql_context.policy;
 
-    var preview_records = [];
-    var max_cols = 0;
-    var line_end = Math.min(total_lines, line_begin + preview_window_size);
-    for (var nr = line_begin; nr < line_end; nr++) {
-        var line_text = document.lineAt(nr).text;
-        if (nr + 1 >= total_lines && total_lines > 1 && line_text == '')
-            break;
-        var cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
-        max_cols = Math.max(max_cols, cur_record.length);
-        cur_record.splice(0, 0, nr + 1);
-        preview_records.push(cur_record);
+    rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
+
+    let preview_records = [];
+    if (rbql_context.allow_newlines_in_fields) {
+        let requested_end_record = rbql_context.requested_start_record + preview_window_size;
+        populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
+        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
+        for (let nr = rbql_context.requested_start_record; nr < rbql_context.rfc_record_map.length && preview_records.length < preview_window_size; nr++) {
+            let [cur_record, warning] = csv_utils.smart_split(line_text, delim, policy, false);
+            // FIXME throw exception on warning
+            preview_records.push(cur_record);
+        }
+    } else {
+        let num_records = document.lineCount;
+        if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
+            num_records -= 1;
+        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
+        for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
+            let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
+            preview_records.push(cur_record);
+        }
     }
-    var header_record = ['NR'];
-    for (var i = 0; i < max_cols; i++) {
+    let max_cols = 0;
+    for (let i = 0; i < preview_records.length; i++) {
+        max_cols = Math.max(max_cols, preview_records[i].length);
+        cur_record.splice(0, 0, i + rbql_context.requested_start_record + 1); // Add record number (NR column)
+    }
+    let header_record = ['NR'];
+    for (let i = 0; i < max_cols; i++) {
         header_record.push('a' + (i + 1));
     }
     preview_records.splice(0, 0, header_record);
@@ -651,17 +668,6 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
 }
 
 
-
-function get_last_start_line(document) {
-    var num_lines = document.lineCount;
-    var skip_last = 0;
-    if (num_lines > 1 && document.lineAt(num_lines - 1).text == '') {
-        skip_last = 1;
-    }
-    return Math.max(0, rbql_context.input_document.lineCount - preview_window_size - skip_last);
-}
-
-
 function get_dst_table_name(input_path, output_delim) {
     var table_name = path.basename(input_path);
     var orig_extension = path.extname(table_name);
@@ -1101,17 +1107,20 @@ function handle_rbql_client_message(webview, message) {
         last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 
+    if (message_type == 'newlines_policy') {
+        rbql_context.allow_newlines_in_fields = message['allow'];
+    }
+
     if (message_type == 'navigate') {
         var navig_direction = message['direction'];
-        var last_start_line = get_last_start_line(rbql_context.input_document);
         if (navig_direction == 'up') {
-            rbql_context.line = Math.max(rbql_context.line - 1, 0);
+            rbql_context.requested_start_record -= 1;
         } else if (navig_direction == 'down') {
-            rbql_context.line = Math.min(rbql_context.line + 1, last_start_line);
+            rbql_context.requested_start_record += 1;
         } else if (navig_direction == 'begin') {
-            rbql_context.line = 0;
+            rbql_context.requested_start_record = 0;
         } else if (navig_direction == 'end') {
-            rbql_context.line = last_start_line;
+            rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is the max possible value: it has to be adjusted in sample_preview_records_from_context func
         }
         var window_records = sample_preview_records_from_context(rbql_context);
         webview.postMessage({'msg_type': 'navigate', 'window_records': window_records});
@@ -1186,7 +1195,7 @@ function edit_rbql() {
     if (dialect_map.hasOwnProperty(language_id)) {
         [delim, policy] = dialect_map[language_id];
     }
-    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "line": 0, "delim": delim, "policy": policy};
+    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": []};
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
