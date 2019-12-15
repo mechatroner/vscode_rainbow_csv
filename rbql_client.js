@@ -67,10 +67,9 @@ function make_preview_table(records) {
                 let ellipsis_span = document.createElement('span');
                 ellipsis_span.style.color = 'yellow';
                 ellipsis_span.textContent = ' ...';
-                ellipsis_span.title = 'too long to show';
+                ellipsis_span.title = 'value too long to display';
                 cell.appendChild(ellipsis_span);
             }
-            //cell.textContent = field_value;
             row.appendChild(cell);
         }
     }
@@ -188,15 +187,15 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
         }
-        var window_records = message['window_records'];
-        make_preview_table(window_records);
+        let preview_records = message['preview_records'];
+        make_preview_table(preview_records);
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
     }
 
     if (message_type == 'navigate') {
-        let window_records = message['window_records'];
-        make_preview_table(window_records);
+        let preview_records = message['preview_records'];
+        make_preview_table(preview_records);
     }
 
     if (message_type == 'rbql_report') {

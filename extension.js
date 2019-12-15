@@ -142,7 +142,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             let record_text = get_rfc_record_text(document, record_start, record_end);
             let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
             if (warning) {
-                dst_message['window_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`; // FIXME handle in the UI
+                dst_message['preview_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`; // FIXME handle in the UI
                 return;
             }
             preview_records.push(cur_record);
@@ -162,7 +162,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     for (let r = 0; r < preview_records.length; r++) {
         let cur_record = preview_records[r];
         max_cols = Math.max(max_cols, cur_record.length);
-        cur_record.splice(0, 0, r + rbql_context.requested_start_record + 1); // Add record number (NR column)
+        cur_record.splice(0, 0, String(r + rbql_context.requested_start_record + 1)); // Add record number (NR column)
         for (let c = 0; c < cur_record.length; c++) {
             if (cur_record[c].length > max_preview_field_length) {
                 cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###'; // FIXME handle in the UI part
