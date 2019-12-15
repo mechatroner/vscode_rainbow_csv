@@ -88,20 +88,21 @@ There you can find the list of available options and their description.
 #### RBQL
 Enter RBQL - SQL-like language query editing mode.
 
-
 #### Align, Shrink
 Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
-
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
 **WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL if you are not sure.  
 To remove cursor/selection from the header line use "Alt+Click" on it.  
 
+#### SetVirtualHeader 
+Input a comma-separated string with column names to adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.
+"Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
 
-#### SetVirtualHeader
-Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.  
-Rainbow CSV always assumes the first row that is not a comment (if comments are enabled) as a header, so when there is no real header in a spreadsheet, you can use this command and provide comma-separated string with column names to create a "virtual" header for more comfortable data viewing. Accepted CSV format doesn't require you to customize all of the columns - this is useful when you want to name only some small subset of available columns. Note that you must provide comma-separated string no matter what separator is actually used in your spreadsheet file. "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
+#### SetJoinTableName
+Set a custom name for the current file so you can use it instead of the file path in RBQL JOIN queries
+
 
 ### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
