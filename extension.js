@@ -15,8 +15,6 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
 
-// FIXME support newlines in fields for RBQL console - implement checkbox logic
-
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -49,6 +47,7 @@ var copy_back_button = null;
 let last_statusbar_doc = null;
 
 const preview_window_size = 12;
+const max_preview_field_length = 20; //FIXME increase this value
 
 var rbql_context = null;
 
@@ -143,10 +142,9 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             let record_text = get_rfc_record_text(document, record_start, record_end);
             let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
             if (warning) {
-                dst_message['window_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
+                dst_message['window_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`; // FIXME handle in the UI
                 return;
             }
-            // FIXME limit fields length here, show elipsis in the UI console
             preview_records.push(cur_record);
         }
     } else {
@@ -155,18 +153,25 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             num_records -= 1;
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
         for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
+            let line_text = document.lineAt(nr).text;
             let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
             preview_records.push(cur_record);
         }
     }
     let max_cols = 0;
-    for (let i = 0; i < preview_records.length; i++) {
-        max_cols = Math.max(max_cols, preview_records[i].length);
-        cur_record.splice(0, 0, i + rbql_context.requested_start_record + 1); // Add record number (NR column)
+    for (let r = 0; r < preview_records.length; r++) {
+        let cur_record = preview_records[r];
+        max_cols = Math.max(max_cols, cur_record.length);
+        cur_record.splice(0, 0, r + rbql_context.requested_start_record + 1); // Add record number (NR column)
+        for (let c = 0; c < cur_record.length; c++) {
+            if (cur_record[c].length > max_preview_field_length) {
+                cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###'; // FIXME handle in the UI part
+            }
+        }
     }
     let header_record = ['NR'];
-    for (let i = 0; i < max_cols; i++) {
-        header_record.push('a' + (i + 1));
+    for (let c = 0; c < max_cols; c++) {
+        header_record.push('a' + (c + 1));
     }
     preview_records.splice(0, 0, header_record);
     dst_message['preview_records'] = preview_records;

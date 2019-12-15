@@ -1,5 +1,3 @@
-// TODO add table naming feature and document it
-
 var rbql_running = false;
 
 var handshake_completed = false;
@@ -45,7 +43,34 @@ function make_preview_table(records) {
                 cell.style.color = '#FF6868';
                 cell.style.fontWeight = 'bold';
             }
-            cell.textContent = records[nr][nf];
+            let field_value = records[nr][nf];
+            const trim_marker = '###UI_STRING_TRIM_MARKER###';
+            let add_ellipsis = false;
+            if (field_value.endsWith(trim_marker)) {
+                field_value = field_value.substr(0, field_value.length - trim_marker.length);
+                add_ellipsis = true;
+            }
+            let field_rfc_lines = field_value.split('\n');
+            for (let i = 0; i < field_rfc_lines.length; i++) {
+                let span = document.createElement('span');
+                span.textContent = field_rfc_lines[i];
+                cell.appendChild(span);
+                if (i + 1 < field_rfc_lines.length) {
+                    let newline_span = document.createElement('span');
+                    newline_span.textContent = '\\n';
+                    newline_span.style.color = 'yellow';
+                    newline_span.title = 'new line';
+                    cell.appendChild(newline_span);
+                }
+            }
+            if (add_ellipsis) {
+                let ellipsis_span = document.createElement('span');
+                ellipsis_span.style.color = 'yellow';
+                ellipsis_span.textContent = ' ...';
+                ellipsis_span.title = 'too long to show';
+                cell.appendChild(ellipsis_span);
+            }
+            //cell.textContent = field_value;
             row.appendChild(cell);
         }
     }
@@ -213,6 +238,6 @@ function main() {
 }
 
 
-document.addEventListener("DOMContentLoaded", function(event) {
+document.addEventListener("DOMContentLoaded", function(_event) {
     main();
 });
