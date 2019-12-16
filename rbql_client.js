@@ -198,6 +198,9 @@ function handle_message(msg_event) {
         make_preview_table(preview_records);
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
+        if (message['policy'] == 'quoted') {
+            document.getElementById('enable_rfc_newlines_section').style.display = 'block';
+        }
     }
 
     if (message_type == 'navigate') {

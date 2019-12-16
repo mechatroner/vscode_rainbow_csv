@@ -15,8 +15,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
 
-// FIXME make enable_rfc_newlines active only for csv and csv-semicolon dialect in the UI
-// FIXME make sure that checkbox state doesn't change on preview switch between windows
+// FIXME make sure that checkbox state doesn't change on preview switch between windows. FIXME - the state is not preserved!
+
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -140,7 +140,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
         populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
         for (let nr = rbql_context.requested_start_record; nr < rbql_context.rfc_record_map.length && preview_records.length < preview_window_size; nr++) {
-            let [record_start, record_end] = preview_records[nr];
+            let [record_start, record_end] = rbql_context.rfc_record_map[nr];
             let record_text = get_rfc_record_text(document, record_start, record_end);
             let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
             if (warning) {
