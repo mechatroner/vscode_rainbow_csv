@@ -15,6 +15,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
 
+// FIXME make enable_rfc_newlines active only for csv and csv-semicolon dialect in the UI
+// FIXME make sure that checkbox state doesn't change on preview switch between windows
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -133,7 +135,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
 
     let preview_records = [];
-    if (rbql_context.allow_newlines_in_fields) {
+    if (rbql_context.enable_rfc_newlines) {
         let requested_end_record = rbql_context.requested_start_record + preview_window_size;
         populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
@@ -729,15 +731,18 @@ function file_path_to_query_key(file_path) {
 }
 
 
-function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, webview_report_handler) {
+function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler) {
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
 
-    let [output_delim, output_policy] = [rbql_context.delim, rbql_context.policy];
+    let [input_delim, input_policy] = [rbql_context.delim, rbql_context.policy];
+    if (input_policy == 'quoted' && enable_rfc_newlines)
+        input_policy = 'quoted_rfc';
+    let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
-        [output_delim, output_policy] = [',', 'quoted'];
+        [output_delim, output_policy] = [',', 'quoted']; // XXX should it be "quoted_rfc" instead?
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', 'simple'];
     rbql_context.output_delim = output_delim;
@@ -759,15 +764,16 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
-        if (rbql_csv == null)
+        if (rbql_csv == null) {
             rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-        rbql_csv.csv_run(rbql_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(handle_success).catch(e => {
+        }
+        rbql_csv.csv_run(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(handle_success).catch(e => {
             let [error_type, error_msg] = exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
         });
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
-        let args = [rbql_exec_path, cmd_safe_query, input_path, rbql_context.delim, rbql_context.policy, output_path, output_delim, output_policy, csv_encoding];
+        let args = [rbql_exec_path, cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
     }
 }
@@ -1114,6 +1120,8 @@ function handle_rbql_client_message(webview, message) {
             init_msg['last_query'] = last_rbql_queries.get(path_key);
         let history_list = get_from_global_state('rbql_query_history', []);
         init_msg['query_history'] = history_list;
+        init_msg['policy'] = rbql_context.policy;
+        // FIXME report if rfc newlines make sense for this file
         webview.postMessage(init_msg);
     }
 
@@ -1127,8 +1135,8 @@ function handle_rbql_client_message(webview, message) {
         last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 
-    if (message_type == 'newlines_policy') {
-        rbql_context.allow_newlines_in_fields = message['allow'];
+    if (message_type == 'local_param_change') {
+        rbql_context.enable_rfc_newlines = message['enable_rfc_newlines'];
     }
 
     if (message_type == 'navigate') {
@@ -1152,6 +1160,7 @@ function handle_rbql_client_message(webview, message) {
         let backend_language = message['backend_language'];
         let encoding = message['encoding'];
         let output_dialect = message['output_dialect'];
+        let enable_rfc_newlines = message['enable_rfc_newlines'];
         var webview_report_handler = function(error_type, error_msg) {
             let report_msg = {'msg_type': 'rbql_report'};
             if (error_type)
@@ -1162,7 +1171,7 @@ function handle_rbql_client_message(webview, message) {
         };
         var active_file_path = rbql_context.input_document_path;
         update_query_history(rbql_query);
-        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, webview_report_handler);
+        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler);
     }
 
     if (message_type == 'global_param_change') {

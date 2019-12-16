@@ -19,6 +19,12 @@ function report_encoding_change() {
 }
 
 
+function report_rfc_fields_policy_change() {
+    let enable_rfc_newlines = document.getElementById('enable_rfc_newlines').checked;
+    vscode.postMessage({'msg_type': 'local_param_change', 'enable_rfc_newlines': enable_rfc_newlines});
+}
+
+
 function remove_children(root_node) {
     while (root_node.firstChild) {
         root_node.removeChild(root_node.firstChild);
@@ -168,7 +174,8 @@ function start_rbql() {
     let backend_language = document.getElementById('select_backend_language').value;
     let output_format = document.getElementById('select_output_format').value;
     let encoding = document.getElementById('select_encoding').value;
-    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding});
+    let enable_rfc_newlines = document.getElementById('enable_rfc_newlines').checked;
+    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding, 'enable_rfc_newlines': enable_rfc_newlines});
 }
 
 
@@ -217,6 +224,7 @@ function main() {
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
     document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
+    document.getElementById("enable_rfc_newlines").addEventListener("click", report_rfc_fields_policy_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);

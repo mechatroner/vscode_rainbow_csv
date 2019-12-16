@@ -193,6 +193,10 @@ select {
     display: none;
 }
 
+#enable_rfc_newlines_section {
+    display: none;
+}
+
 #rbql_error_message { 
     width: 50%; 
     top: 20%; 
@@ -333,11 +337,9 @@ select {
             </select>
             <span class="select_info"> &ndash; Backend language for RBQL</span>
         </div>
-        <!--
-        <div>
-            <label  style="word-wrap:break-word"><input id="enable_rfc"  type="checkbox"/> &ndash; Enable multiline fields</label>
+        <div id="enable_rfc_newlines_section">
+            <label style="word-wrap:break-word"><input id="enable_rfc_newlines" type="checkbox"/> &ndash; Enable multiline fields</label>
         </div>
-        -->
     </div>
     <div id="rbql_help">
         <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
