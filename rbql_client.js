@@ -21,7 +21,7 @@ function report_encoding_change() {
 
 function report_rfc_fields_policy_change() {
     let enable_rfc_newlines = document.getElementById('enable_rfc_newlines').checked;
-    vscode.postMessage({'msg_type': 'local_param_change', 'enable_rfc_newlines': enable_rfc_newlines});
+    vscode.postMessage({'msg_type': 'newlines_policy_change', 'enable_rfc_newlines': enable_rfc_newlines});
 }
 
 
@@ -203,7 +203,7 @@ function handle_message(msg_event) {
         }
     }
 
-    if (message_type == 'navigate') {
+    if (message_type == 'navigate' || message_type == 'resample') {
         let preview_records = message['preview_records'];
         make_preview_table(preview_records);
     }

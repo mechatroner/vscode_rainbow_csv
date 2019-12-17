@@ -167,7 +167,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
         cur_record.splice(0, 0, String(r + rbql_context.requested_start_record + 1)); // Add record number (NR column)
         for (let c = 0; c < cur_record.length; c++) {
             if (cur_record[c].length > max_preview_field_length) {
-                cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###'; // FIXME handle in the UI part
+                cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###';
             }
         }
     }
@@ -1121,7 +1121,6 @@ function handle_rbql_client_message(webview, message) {
         let history_list = get_from_global_state('rbql_query_history', []);
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
-        // FIXME report if rfc newlines make sense for this file
         webview.postMessage(init_msg);
     }
 
@@ -1135,8 +1134,11 @@ function handle_rbql_client_message(webview, message) {
         last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
     }
 
-    if (message_type == 'local_param_change') {
+    if (message_type == 'newlines_policy_change') {
         rbql_context.enable_rfc_newlines = message['enable_rfc_newlines'];
+        let protocol_message = {'msg_type': 'resample'};
+        sample_preview_records_from_context(rbql_context, protocol_message);
+        webview.postMessage(protocol_message);
     }
 
     if (message_type == 'navigate') {
