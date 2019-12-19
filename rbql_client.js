@@ -195,9 +195,11 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let preview_records = message['preview_records'];
+        let enable_rfc_newlines = message['enable_rfc_newlines'];
         make_preview_table(preview_records);
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
+        document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
         if (message['policy'] == 'quoted') {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }

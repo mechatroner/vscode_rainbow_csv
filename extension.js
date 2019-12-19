@@ -1122,6 +1122,7 @@ function handle_rbql_client_message(webview, message) {
         let history_list = get_from_global_state('rbql_query_history', []);
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
+        init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
         webview.postMessage(init_msg);
     }
 
@@ -1228,7 +1229,8 @@ function edit_rbql() {
     if (dialect_map.hasOwnProperty(language_id)) {
         [delim, policy] = dialect_map[language_id];
     }
-    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": []};
+    let enable_rfc_newlines = false; // FIXME save the choice for the document
+    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": [], 'enable_rfc_newlines': enable_rfc_newlines};
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_js_template || enable_dev_mode) {
