@@ -90,6 +90,25 @@ function get_last(arr) {
 }
 
 
+function get_from_global_state(key, default_value) {
+    if (global_state) {
+        var value = global_state.get(key);
+        if (value)
+            return value;
+    }
+    return default_value;
+}
+
+
+function save_to_global_state(key, value) {
+    if (global_state && key) {
+        global_state.update(key, value);
+        return true;
+    }
+    return false;
+}
+
+
 function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
     let num_lines = document.lineCount;
     let record_begin = null;
@@ -202,11 +221,10 @@ function make_header_key(file_path) {
 
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
-    if (file_path && global_state) {
-        var header = global_state.get(make_header_key(file_path));
-        if (header) {
+    if (file_path) {
+        let header = get_from_global_state(make_header_key(file_path), null);
+        if (header)
             return csv_utils.smart_split(header, ',', 'quoted', false)[0];
-        }
     }
     return csv_utils.smart_split(get_header_line(document), delim, policy, false)[0];
 }
@@ -924,7 +942,7 @@ function edit_column_names() {
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = quoted_join(old_header, ',');
     var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function(new_header) { global_state.update(make_header_key(file_path), new_header); };
+    var handle_success = function(new_header) { save_to_global_state(make_header_key(file_path), new_header); };
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
@@ -1082,16 +1100,6 @@ function copy_back() {
 }
 
 
-function get_from_global_state(key, default_value) {
-    if (global_state) {
-        var value = global_state.get(key);
-        if (value)
-            return value;
-    }
-    return default_value;
-}
-
-
 function update_query_history(query) {
     let history_list = get_from_global_state('rbql_query_history', []);
     let old_index = history_list.indexOf(query);
@@ -1101,9 +1109,7 @@ function update_query_history(query) {
         history_list.splice(0, 1);
     }
     history_list.push(query);
-    if (global_state) {
-        global_state.update('rbql_query_history', history_list);
-    }
+    save_to_global_state('rbql_query_history', history_list);
 }
 
 
@@ -1179,11 +1185,7 @@ function handle_rbql_client_message(webview, message) {
     }
 
     if (message_type == 'global_param_change') {
-        let param_key = message['key'];
-        let param_value = message['value'];
-        if (global_state) {
-            global_state.update(param_key, param_value);
-        }
+        save_to_global_state(message['key'], message['value']);
     }
 }
 
