@@ -61,22 +61,9 @@ select {
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
     vertical-align:middle;
     width: var(--inputwidth);
-}
-
-
-#help_btn {
-    margin: 0px;
-    width: 28px;
-    background-color: #FFFFFF;
-    height: 24px !important;
-    color: black;
-    font-weight: bold;
-    padding: 0px;
-    display: inline-block;
-    border-width: 0px;
-    outline:none;
-    vertical-align:middle;
-    box-sizing: border-box;
+    border-top: 1px solid;
+    border-bottom: 1px solid;
+    border-left: 1px solid;
 }
 
 
@@ -93,6 +80,9 @@ select {
     outline:none;
     vertical-align:middle;
     box-sizing: border-box;
+    border-top: 1px solid;
+    border-bottom: 1px solid;
+    border-right: 1px solid;
 }
 
 
@@ -106,6 +96,24 @@ select {
     padding: 0px;
     display: inline-block;
     border-width: 0px;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+    outline:none;
+    vertical-align:middle;
+    box-sizing: border-box;
+}
+
+
+#help_btn {
+    margin: 0px;
+    width: 28px;
+    background-color: #FFFFFF;
+    height: 24px !important;
+    color: black;
+    font-weight: bold;
+    padding: 0px;
+    display: inline-block;
+    border: 1px solid;
     outline:none;
     vertical-align:middle;
     box-sizing: border-box;
@@ -156,7 +164,7 @@ select {
     font-size: 18px !important;
     width: 28px;
     background-color: #FFFFFF;
-    border:none;
+    border: 1px solid;
     font-size: 18px !important;
     color: black;
     height: 28px;
@@ -165,6 +173,14 @@ select {
 
 .navig_button_new:hover {
     background-color: #DDDDDD;
+}
+
+#go_begin {
+    border-bottom: 0px;
+}
+
+#go_end {
+    border-top: 0px;
 }
 
 #navig_bar {
@@ -215,6 +231,9 @@ select {
     position: fixed; 
     display: none;
     color: black;
+    border-top: 1px solid;
+    border-left: 1px solid;
+    border-right: 1px solid;
 }
 
 #history_entries {
