@@ -16,7 +16,6 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 
 // FIXME update CHANGELOG.md
-// FIXME make sure that checkbox state doesn't change on preview switch between windows. FIXME - the state is not preserved!
 
 
 const dialect_map = {
@@ -216,6 +215,11 @@ function get_header_line(document) {
 
 function make_header_key(file_path) {
     return 'rbql_header:' + file_path;
+}
+
+
+function make_rfc_policy_key(file_path) {
+    return 'enable_rfc_newlines:' + file_path;
 }
 
 
@@ -1117,12 +1121,11 @@ function handle_rbql_client_message(webview, message) {
     let message_type = message['msg_type'];
 
     if (message_type == 'handshake') {
-        var active_file_path = rbql_context.input_document_path;
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
         sample_preview_records_from_context(rbql_context, init_msg);
-        let path_key = file_path_to_query_key(active_file_path);
+        let path_key = file_path_to_query_key(rbql_context.input_document_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
         let history_list = get_from_global_state('rbql_query_history', []);
@@ -1136,14 +1139,14 @@ function handle_rbql_client_message(webview, message) {
         let rbql_query = message['query'];
         if (!rbql_query)
             return;
-        let active_file_path = rbql_context.input_document_path;
-        if (!active_file_path)
-            return;
-        last_rbql_queries.set(file_path_to_query_key(active_file_path), rbql_query);
+        if (rbql_context.input_document_path)
+            last_rbql_queries.set(file_path_to_query_key(rbql_context.input_document_path), rbql_query);
     }
 
     if (message_type == 'newlines_policy_change') {
         rbql_context.enable_rfc_newlines = message['enable_rfc_newlines'];
+        if (rbql_context.input_document_path)
+            save_to_global_state(make_rfc_policy_key(rbql_context.input_document_path), rbql_context.enable_rfc_newlines);
         let protocol_message = {'msg_type': 'resample'};
         sample_preview_records_from_context(rbql_context, protocol_message);
         webview.postMessage(protocol_message);
@@ -1179,9 +1182,8 @@ function handle_rbql_client_message(webview, message) {
                 report_msg["error_msg"] = error_msg;
             webview.postMessage(report_msg);
         };
-        var active_file_path = rbql_context.input_document_path;
         update_query_history(rbql_query);
-        run_rbql_query(active_file_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler);
+        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler);
     }
 
     if (message_type == 'global_param_change') {
@@ -1231,7 +1233,7 @@ function edit_rbql() {
     if (dialect_map.hasOwnProperty(language_id)) {
         [delim, policy] = dialect_map[language_id];
     }
-    let enable_rfc_newlines = false; // FIXME save the choice for the document
+    let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": [], 'enable_rfc_newlines': enable_rfc_newlines};
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
