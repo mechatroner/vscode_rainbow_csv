@@ -163,7 +163,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             let record_text = get_rfc_record_text(document, record_start, record_end);
             let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
             if (warning) {
-                dst_message['preview_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`; // FIXME handle in the UI
+                dst_message['preview_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
                 return;
             }
             preview_records.push(cur_record);

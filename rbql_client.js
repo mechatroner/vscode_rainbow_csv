@@ -32,9 +32,24 @@ function remove_children(root_node) {
 }
 
 
-function make_preview_table(records) {
+function make_preview_table(records, preview_error) {
     var table = document.getElementById('preview_table');
     remove_children(table);
+    if (preview_error) {
+        let row = document.createElement('tr');
+        table.appendChild(row);
+        let cell = document.createElement('td');
+        let span = document.createElement('span');
+        span.style.color = '#FF6868';
+        span.textContent = 'Unable to display preview table and run RBQL query:';
+        row.appendChild(span);
+        row.appendChild(document.createElement('br'));
+        span = document.createElement('span');
+        span.style.color = '#FF6868';
+        span.textContent = preview_error;
+        row.appendChild(span);
+        return;
+    }
     for (var nr = 0; nr < records.length; nr++) {
         var row = document.createElement('tr');
         table.appendChild(row);
@@ -194,9 +209,8 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
         }
-        let preview_records = message['preview_records'];
         let enable_rfc_newlines = message['enable_rfc_newlines'];
-        make_preview_table(preview_records);
+        make_preview_table(message['preview_records'], message['preview_sampling_error']);
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
@@ -206,8 +220,7 @@ function handle_message(msg_event) {
     }
 
     if (message_type == 'navigate' || message_type == 'resample') {
-        let preview_records = message['preview_records'];
-        make_preview_table(preview_records);
+        make_preview_table(message['preview_records'], message['preview_sampling_error']);
     }
 
     if (message_type == 'rbql_report') {
