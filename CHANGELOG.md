@@ -1,4 +1,15 @@
 # Rainbow CSV for Visual Studio Code Change Log
+
+## 1.4.0
+* Run CSV autodetection whenever a text chunk is copied into a new untitled buffer
+* Improve startup performance
+* RBQL: Support column names as variables
+* RBQL: Support newlines in double-quoted CSV fields
+* RBQL: Change default encoding to UTF-8
+* RBQL: Enable for untitled buffers
+* RBQL: Improve UI/UX, add history, built-in docs
+
+
 ## 1.3.0
 * Updated RBQL to version 0.9.0
 * Restricted usage of Align/Shrink commands in files with unbalanced double quotes

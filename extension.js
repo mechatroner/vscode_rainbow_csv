@@ -15,8 +15,6 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
 
-// FIXME update CHANGELOG.md
-
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -49,7 +47,7 @@ var copy_back_button = null;
 let last_statusbar_doc = null;
 
 const preview_window_size = 12;
-const max_preview_field_length = 20; //FIXME increase this value
+const max_preview_field_length = 250;
 
 var rbql_context = null;
 
