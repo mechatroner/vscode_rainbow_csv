@@ -14,6 +14,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
 
+// TODO automatically close RBQL console when the query successfully completes
+
 
 
 const dialect_map = {
