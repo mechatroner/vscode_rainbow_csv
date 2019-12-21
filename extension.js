@@ -1375,6 +1375,9 @@ function handle_doc_edit(change_event) {
 
 
 function register_csv_copy_paste(active_doc) {
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config || !config.get('enable_separator_autodetection'))
+        return;
     if (!active_doc || doc_edit_subscription)
         return;
     if (!active_doc.isUntitled && active_doc.lineCount != 0)

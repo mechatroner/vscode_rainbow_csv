@@ -60,7 +60,7 @@
                         ";",
                         "|"
                     ],
-                    "description": "Enable automatic content-based separator autodetection for specified list of separators",
+                    "description": "Enable automatic content-based separator autodetection for the specified list of separators",
                     "items": {
                         "type": "string",
                         "description": "Separator"
