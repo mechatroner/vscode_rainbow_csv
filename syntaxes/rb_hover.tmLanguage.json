@@ -1,0 +1,15 @@
+{   "name": "rbhover syntax",
+    "scopeName": "text.rbhover",
+    "fileTypes": ["rbhover"],
+    "patterns": [
+        { 
+          "match": "^Col #1.*$",
+          "name": "rainbow1"
+        },
+        { 
+          "match": "^Col #2.*$",
+          "name": "keyword.rainbow2"
+        }
+    ],
+    "uuid": "cb14e353-04bf-4319-9a2b-9b99aae1c419"
+}

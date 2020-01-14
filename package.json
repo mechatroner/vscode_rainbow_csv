@@ -230,6 +230,10 @@
                     "csv (semicolon)"
                 ],
                 "extensions": []
+            },
+            {
+                "id": "rainbow hover markup",
+                "extensions": []
             }
         ],
         "commands": [
@@ -358,6 +362,11 @@
                 "language": "csv (semicolon)",
                 "scopeName": "text.scsv",
                 "path": "./syntaxes/scsv.tmLanguage.json"
+            },
+            {
+                "language": "rainbow hover markup",
+                "scopeName": "text.rbhover",
+                "path": "./syntaxes/rb_hover.tmLanguage.json"
             }
         ]
     },
