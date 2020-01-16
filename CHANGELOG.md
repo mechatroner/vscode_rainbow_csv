@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 1.5.0
+* Highlight column info tooltip with the same color as the column itself
+
 ## 1.4.0
 * Run CSV autodetection whenever a text chunk is copied into a new untitled buffer
 * Improve startup performance
