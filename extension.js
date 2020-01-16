@@ -277,10 +277,13 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
             short_column_label = short_column_label + '...';
         result += ', Header: "' + short_column_label + '"';
     }
-    if (enable_tooltip_warnings && header.length != entries.length)
-        result += "; WARN: Inconsistent num of fields in header and this line";
-    if (enable_tooltip_warnings && warning)
-        result += '; ERR: Inconsistent double quotes in line';
+    if (enable_tooltip_warnings) {
+        if (warning) {
+            result += '; ERR: Inconsistent double quotes in line';
+        } else if (header.length != entries.length) {
+            result += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${entries.length}`;
+        }
+    }
     return result;
 }
 
