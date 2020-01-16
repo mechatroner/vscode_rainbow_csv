@@ -278,9 +278,9 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
         result += ', Header: "' + short_column_label + '"';
     }
     if (enable_tooltip_warnings && header.length != entries.length)
-        result += "; WARN: num of fields in Header and this line differs";
+        result += "; WARN: Inconsistent num of fields in header and this line";
     if (enable_tooltip_warnings && warning)
-        result += '; This line has quoting error';
+        result += '; ERR: Inconsistent double quotes in line';
     return result;
 }
 
