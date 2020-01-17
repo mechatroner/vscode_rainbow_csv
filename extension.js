@@ -301,8 +301,13 @@ function make_hover(document, position, language_id, cancellation_token) {
     let enable_tooltip_warnings = config.get('enable_tooltip_warnings');
     var hover_text = make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings);
     if (hover_text && !cancellation_token.isCancellationRequested) {
-        let mds = new vscode.MarkdownString();
-        mds.appendCodeblock(hover_text, 'rainbow hover markup');
+        let mds = null;
+        try {
+            mds = new vscode.MarkdownString();
+            mds.appendCodeblock(hover_text, 'rainbow hover markup');
+        } catch (e) {
+            mds = hover_text; // Older VSCode versions may not have MarkdownString/appendCodeblock functionality
+        }
         return new vscode.Hover(mds);
     } else {
         return null;
