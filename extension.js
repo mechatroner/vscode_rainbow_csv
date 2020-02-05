@@ -55,19 +55,16 @@ var rbql_context = null;
 
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch
 
-var client_js_template_path = null;
+var js_client_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
 
-var client_js_template = null;
 var client_html_template = null;
 
 var global_state = null;
 
 var preview_panel = null;
-
-const enable_dev_mode = false;
 
 var doc_edit_subscription = null;
 
@@ -1247,13 +1244,10 @@ function edit_rbql() {
     rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": [], 'enable_rfc_newlines': enable_rfc_newlines};
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
-    if (!client_js_template || enable_dev_mode) {
-        client_js_template = fs.readFileSync(client_js_template_path, "utf8");
-    }
-    if (!client_html_template || enable_dev_mode) {
+    if (!client_html_template)
         client_html_template = fs.readFileSync(client_html_template_path, "utf8");
-    }
-    preview_panel.webview.html = client_html_template.replace('//__TEMPLATE_JS_CLIENT__', client_js_template);
+    let rbql_client_file_uri_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(js_client_path));
+    preview_panel.webview.html = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
 
@@ -1488,7 +1482,7 @@ function register_csv_hover_info_provider(language_id, context) {
 function activate(context) {
     global_state = context.globalState;
 
-    client_js_template_path = context.asAbsolutePath('rbql_client.js');
+    js_client_path = context.asAbsolutePath('rbql_client.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');

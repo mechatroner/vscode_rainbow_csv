@@ -297,9 +297,7 @@ select {
 </style>
 
 
-<script>
-//__TEMPLATE_JS_CLIENT__
-</script>
+<script src="rbql_client.js"></script>
 
 
 </head>
@@ -334,6 +332,9 @@ select {
     </div>
     <div style="margin-top: 40px;">
         <h3 style="margin-bottom: 10px;">Query settings:</h3>
+        <div id="skip_header_section">
+            <label style="word-wrap:break-word"><input id="skip_header" title="Skip header. You will still be able to use header column names in RBQL expression. Roughly equivalent to ... WHERE NR > 1 ..." type="checkbox"/> &ndash; Skip first (header) record</label>
+        </div>
         <div>
             <select id="select_output_format">
               <option value="input">Same as input (Default)</option>
