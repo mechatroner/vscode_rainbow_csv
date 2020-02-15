@@ -278,7 +278,6 @@ function handle_message(msg_event) {
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_header = message['skip_header'];
         last_preview_message = message;
-        make_preview_table();
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
@@ -286,6 +285,7 @@ function handle_message(msg_event) {
         if (message['policy'] == 'quoted') {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }
+        make_preview_table();
     }
 
     if (message_type == 'navigate' || message_type == 'resample') {

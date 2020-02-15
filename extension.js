@@ -1139,6 +1139,7 @@ function handle_rbql_client_message(webview, message) {
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
         init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
+        init_msg['skip_header'] = rbql_context.skip_header;
         webview.postMessage(init_msg);
     }
 
