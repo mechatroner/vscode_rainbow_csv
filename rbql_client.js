@@ -6,6 +6,10 @@ var query_history = [];
 
 const vscode = acquireVsCodeApi();
 
+const normal_table_border = '1px solid rgb(130, 6, 219)';
+const header_table_border = '1px solid red';
+
+var last_preview_message = null;
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -32,7 +36,88 @@ function remove_children(root_node) {
 }
 
 
-function make_preview_table(records, preview_error) {
+function get_max_num_columns(records) {
+    let max_num_columns = 0;
+    for (let r = 0; r < records.length; r++) {
+        max_num_columns = Math.max(max_num_columns, records[r].length);
+    }
+    return max_num_columns;
+}
+
+
+function make_header_index_row(num_columns) {
+    let result = [];
+    result.push('NR');
+    for (let i = 0; i < num_columns; i++) {
+        result.push(`a${i + 1}`);
+    }
+    return result;
+}
+
+
+function add_header_row(max_num_columns, table) {
+    let header_index_row = make_header_index_row(max_num_columns);
+    let row_elem = document.createElement('tr');
+    for (let value of header_index_row) {
+        let cell = document.createElement('td');
+        cell.style.border = header_table_border;
+        cell.style.color = '#FF6868';
+        cell.style.fontWeight = 'bold';
+        cell.textContent = value;
+        row_elem.appendChild(cell);
+    }
+    table.appendChild(row_elem);
+}
+
+
+function make_data_cell(cell_text, border_style) {
+    let cell = document.createElement('td');
+    cell.style.border = border_style;
+    const trim_marker = '###UI_STRING_TRIM_MARKER###';
+    let add_ellipsis = false;
+    if (cell_text.endsWith(trim_marker)) {
+        cell_text = cell_text.substr(0, cell_text.length - trim_marker.length);
+        add_ellipsis = true;
+    }
+    let field_rfc_lines = cell_text.split('\n');
+    for (let i = 0; i < field_rfc_lines.length; i++) {
+        let span = document.createElement('span');
+        span.textContent = field_rfc_lines[i];
+        cell.appendChild(span);
+        if (i + 1 < field_rfc_lines.length) {
+            let newline_span = document.createElement('span');
+            newline_span.textContent = '\\n';
+            newline_span.style.color = 'yellow';
+            newline_span.title = 'new line';
+            cell.appendChild(newline_span);
+        }
+    }
+    if (add_ellipsis) {
+        let ellipsis_span = document.createElement('span');
+        ellipsis_span.style.color = 'yellow';
+        ellipsis_span.textContent = ' ...';
+        ellipsis_span.title = 'value too long to display';
+        cell.appendChild(ellipsis_span);
+    }
+    return cell;
+}
+
+
+function make_nr_cell(cell_text) {
+    let nr_cell = document.createElement('td');
+    nr_cell.style.border = header_table_border;
+    nr_cell.textContent = cell_text;
+    return nr_cell;
+}
+
+
+function make_preview_table() {
+    if (!last_preview_message)
+        return;
+    let records = last_preview_message.preview_records;
+    let start_record_zero_based = last_preview_message.start_record_zero_based;
+    let preview_error = last_preview_message.preview_sampling_error;
+
     var table = document.getElementById('preview_table');
     remove_children(table);
     if (preview_error) {
@@ -50,49 +135,22 @@ function make_preview_table(records, preview_error) {
         row.appendChild(span);
         return;
     }
-    for (var nr = 0; nr < records.length; nr++) {
-        var row = document.createElement('tr');
-        table.appendChild(row);
-        for (var nf = 0; nf < records[nr].length; nf++) {
-            var cell = document.createElement('td');
-            if (nf == 0 || nr == 0) {
-                cell.style.border = '1px solid red';
-            } else {
-                cell.style.border = '1px solid rgb(130, 6, 219)';
-            }
-            if (nr == 0) {
-                cell.style.color = '#FF6868';
-                cell.style.fontWeight = 'bold';
-            }
-            let field_value = records[nr][nf];
-            const trim_marker = '###UI_STRING_TRIM_MARKER###';
-            let add_ellipsis = false;
-            if (field_value.endsWith(trim_marker)) {
-                field_value = field_value.substr(0, field_value.length - trim_marker.length);
-                add_ellipsis = true;
-            }
-            let field_rfc_lines = field_value.split('\n');
-            for (let i = 0; i < field_rfc_lines.length; i++) {
-                let span = document.createElement('span');
-                span.textContent = field_rfc_lines[i];
-                cell.appendChild(span);
-                if (i + 1 < field_rfc_lines.length) {
-                    let newline_span = document.createElement('span');
-                    newline_span.textContent = '\\n';
-                    newline_span.style.color = 'yellow';
-                    newline_span.title = 'new line';
-                    cell.appendChild(newline_span);
-                }
-            }
-            if (add_ellipsis) {
-                let ellipsis_span = document.createElement('span');
-                ellipsis_span.style.color = 'yellow';
-                ellipsis_span.textContent = ' ...';
-                ellipsis_span.title = 'value too long to display';
-                cell.appendChild(ellipsis_span);
-            }
-            row.appendChild(cell);
+
+    let skip_header = document.getElementById('skip_header').checked;
+    let max_num_columns = get_max_num_columns(records);
+    add_header_row(max_num_columns, table);
+    for (var r = 0; r < records.length; r++) {
+        let row = document.createElement('tr');
+        let NR = r + start_record_zero_based + 1;
+        if (skip_header)
+            NR -= 1;
+        let nr_text = NR > 0 ? String(NR) : '';
+        row.appendChild(make_nr_cell(nr_text));
+        for (var nf = 0; nf < records[r].length; nf++) {
+            let border_style = NR > 0 ? normal_table_border : header_table_border;
+            row.appendChild(make_data_cell(records[r][nf], border_style));
         }
+        table.appendChild(row);
     }
 }
 
@@ -119,6 +177,13 @@ function preview_begin() {
 
 function preview_end() {
     navigate_preview('end');
+}
+
+
+function process_skip_header_change() {
+    let skip_header = document.getElementById('skip_header').checked;
+    vscode.postMessage({'msg_type': 'skip_header_change', 'skip_header': skip_header}); // We need to send it to remember preview state
+    make_preview_table();
 }
 
 
@@ -190,7 +255,8 @@ function start_rbql() {
     let output_format = document.getElementById('select_output_format').value;
     let encoding = document.getElementById('select_encoding').value;
     let enable_rfc_newlines = document.getElementById('enable_rfc_newlines').checked;
-    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding, 'enable_rfc_newlines': enable_rfc_newlines});
+    let skip_header = document.getElementById('skip_header').checked;
+    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding, 'enable_rfc_newlines': enable_rfc_newlines, 'skip_header': skip_header});
 }
 
 
@@ -210,17 +276,21 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let enable_rfc_newlines = message['enable_rfc_newlines'];
-        make_preview_table(message['preview_records'], message['preview_sampling_error']);
+        let skip_header = message['skip_header'];
+        last_preview_message = message;
+        make_preview_table();
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
+        document.getElementById("skip_header").checked = skip_header;
         if (message['policy'] == 'quoted') {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }
     }
 
     if (message_type == 'navigate' || message_type == 'resample') {
-        make_preview_table(message['preview_records'], message['preview_sampling_error']);
+        last_preview_message = message;
+        make_preview_table();
     }
 
     if (message_type == 'rbql_report') {
@@ -243,6 +313,7 @@ function main() {
     document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
     document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
     document.getElementById("enable_rfc_newlines").addEventListener("click", report_rfc_fields_policy_change);
+    document.getElementById("skip_header").addEventListener("click", process_skip_header_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);

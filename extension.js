@@ -160,7 +160,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             let record_text = get_rfc_record_text(document, record_start, record_end);
             let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
             if (warning) {
-                dst_message['preview_sampling_error'] = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
+                dst_message.preview_sampling_error = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
                 return;
             }
             preview_records.push(cur_record);
@@ -176,23 +176,17 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
             preview_records.push(cur_record);
         }
     }
-    let max_cols = 0;
+
     for (let r = 0; r < preview_records.length; r++) {
         let cur_record = preview_records[r];
-        max_cols = Math.max(max_cols, cur_record.length);
-        cur_record.splice(0, 0, String(r + rbql_context.requested_start_record + 1)); // Add record number (NR column)
         for (let c = 0; c < cur_record.length; c++) {
             if (cur_record[c].length > max_preview_field_length) {
                 cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###';
             }
         }
     }
-    let header_record = ['NR'];
-    for (let c = 0; c < max_cols; c++) {
-        header_record.push('a' + (c + 1));
-    }
-    preview_records.splice(0, 0, header_record);
-    dst_message['preview_records'] = preview_records;
+    dst_message.preview_records = preview_records;
+    dst_message.start_record_zero_based = rbql_context.requested_start_record;
 }
 
 
@@ -217,6 +211,11 @@ function make_header_key(file_path) {
 
 function make_rfc_policy_key(file_path) {
     return 'enable_rfc_newlines:' + file_path;
+}
+
+
+function make_skip_header_key(file_path) {
+    return 'rbql_skip_header:' + file_path;
 }
 
 
@@ -761,7 +760,8 @@ function file_path_to_query_key(file_path) {
 }
 
 
-function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler) {
+function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_header, webview_report_handler) {
+    // FIXME handle skip_header
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
@@ -1159,6 +1159,12 @@ function handle_rbql_client_message(webview, message) {
         webview.postMessage(protocol_message);
     }
 
+    if (message_type == 'skip_header_change') {
+        rbql_context.skip_header = message['skip_header'];
+        if (rbql_context.input_document_path)
+            save_to_global_state(make_skip_header_key(rbql_context.input_document_path), rbql_context.skip_header);
+    }
+
     if (message_type == 'navigate') {
         var navig_direction = message['direction'];
         if (navig_direction == 'up') {
@@ -1181,6 +1187,7 @@ function handle_rbql_client_message(webview, message) {
         let encoding = message['encoding'];
         let output_dialect = message['output_dialect'];
         let enable_rfc_newlines = message['enable_rfc_newlines'];
+        let skip_header = message['skip_header'];
         var webview_report_handler = function(error_type, error_msg) {
             let report_msg = {'msg_type': 'rbql_report'};
             if (error_type)
@@ -1190,7 +1197,7 @@ function handle_rbql_client_message(webview, message) {
             webview.postMessage(report_msg);
         };
         update_query_history(rbql_query);
-        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, webview_report_handler);
+        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_header, webview_report_handler);
     }
 
     if (message_type == 'global_param_change') {
@@ -1241,7 +1248,17 @@ function edit_rbql() {
         [delim, policy] = dialect_map[language_id];
     }
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
-    rbql_context = {"input_document": active_doc, "input_document_path": input_path, "requested_start_record": 0, "delim": delim, "policy": policy, "rfc_record_map": [], 'enable_rfc_newlines': enable_rfc_newlines};
+    let skip_header = get_from_global_state(make_skip_header_key(input_path), false);
+    rbql_context = {
+        "input_document": active_doc,
+         "input_document_path": input_path,
+         "requested_start_record": 0,
+         "delim": delim,
+         "policy": policy,
+         "rfc_record_map": [],
+         "enable_rfc_newlines": enable_rfc_newlines,
+         "skip_header": skip_header
+    };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_html_template)
