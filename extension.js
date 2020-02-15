@@ -760,8 +760,7 @@ function file_path_to_query_key(file_path) {
 }
 
 
-function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_header, webview_report_handler) {
-    // FIXME handle skip_header
+function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_headers, webview_report_handler) {
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
@@ -790,20 +789,23 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         return;
     }
     if (backend_language == 'js') {
-        var handle_success = function(warnings) {
+        let warnings = [];
+        var handle_success = function() {
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
         if (rbql_csv == null) {
             rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
         }
-        rbql_csv.csv_run(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(handle_success).catch(e => {
+        rbql_csv.query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers, '', {'bulk_read': true}).then(handle_success).catch(e => {
             let [error_type, error_msg] = exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
         });
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [rbql_exec_path, cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
+        if (skip_headers)
+            args.push('--skip_headers');
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
     }
 }
@@ -1139,7 +1141,7 @@ function handle_rbql_client_message(webview, message) {
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
         init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
-        init_msg['skip_header'] = rbql_context.skip_header;
+        init_msg['skip_headers'] = rbql_context.skip_headers;
         webview.postMessage(init_msg);
     }
 
@@ -1160,10 +1162,10 @@ function handle_rbql_client_message(webview, message) {
         webview.postMessage(protocol_message);
     }
 
-    if (message_type == 'skip_header_change') {
-        rbql_context.skip_header = message['skip_header'];
+    if (message_type == 'skip_headers_change') {
+        rbql_context.skip_headers = message['skip_headers'];
         if (rbql_context.input_document_path)
-            save_to_global_state(make_skip_header_key(rbql_context.input_document_path), rbql_context.skip_header);
+            save_to_global_state(make_skip_header_key(rbql_context.input_document_path), rbql_context.skip_headers);
     }
 
     if (message_type == 'navigate') {
@@ -1188,7 +1190,7 @@ function handle_rbql_client_message(webview, message) {
         let encoding = message['encoding'];
         let output_dialect = message['output_dialect'];
         let enable_rfc_newlines = message['enable_rfc_newlines'];
-        let skip_header = message['skip_header'];
+        let skip_headers = message['skip_headers'];
         var webview_report_handler = function(error_type, error_msg) {
             let report_msg = {'msg_type': 'rbql_report'};
             if (error_type)
@@ -1198,7 +1200,7 @@ function handle_rbql_client_message(webview, message) {
             webview.postMessage(report_msg);
         };
         update_query_history(rbql_query);
-        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_header, webview_report_handler);
+        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, skip_headers, webview_report_handler);
     }
 
     if (message_type == 'global_param_change') {
@@ -1249,7 +1251,7 @@ function edit_rbql() {
         [delim, policy] = dialect_map[language_id];
     }
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
-    let skip_header = get_from_global_state(make_skip_header_key(input_path), false);
+    let skip_headers = get_from_global_state(make_skip_header_key(input_path), false);
     rbql_context = {
         "input_document": active_doc,
          "input_document_path": input_path,
@@ -1258,7 +1260,7 @@ function edit_rbql() {
          "policy": policy,
          "rfc_record_map": [],
          "enable_rfc_newlines": enable_rfc_newlines,
-         "skip_header": skip_header
+         "skip_headers": skip_headers
     };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
