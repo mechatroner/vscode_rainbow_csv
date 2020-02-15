@@ -161,67 +161,7 @@ class RecordQueue {
 }
 
 
-function js_string_escape_column_name(column_name, quote_char) {
-    column_name = column_name.replace(/\\/g, '\\\\');
-    if (quote_char === "'")
-        return column_name.replace(/'/g, "\\'");
-    if (quote_char === '"')
-        return column_name.replace(/"/g, '\\"');
-    assert(quote_char === "`");
-    return column_name.replace(/`/g, "\\`");
-}
-
-
-function parse_dictionary_variables(query, prefix, header_columns_names, dst_variables_map) {
-    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-
-    // FIXME to prevent typos in attribute names either use query-based variable parsing which can properly handle back-tick strings or wrap "a" and "b" variables with ES6 Proxies https://stackoverflow.com/a/25658975/2898283
-    assert(prefix === 'a' || prefix === 'b');
-    let dict_test_rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\[`);
-    if (query.search(dict_test_rgx) == -1)
-        return;
-    let rgx = new RegExp('[-a-zA-Z0-9_:;+=!.,()%^#@&* ]+', 'g');
-    for (let i = 0; i < header_columns_names.length; i++) {
-        let column_name = header_columns_names[i];
-        let continuous_name_segments = rbql.get_all_matches(rgx, column_name);
-        let add_column_name = true;
-        for (let continuous_segment of continuous_name_segments) {
-            if (query.indexOf(continuous_segment) == -1) {
-                add_column_name = false;
-                break;
-            }
-        }
-        if (add_column_name) {
-            let escaped_column_name = js_string_escape_column_name(column_name, '"');
-            dst_variables_map[`${prefix}["${escaped_column_name}"]`] = {initialize: true, index: i};
-            escaped_column_name = js_string_escape_column_name(column_name, "'");
-            dst_variables_map[`${prefix}['${escaped_column_name}']`] = {initialize: false, index: i};
-            escaped_column_name = js_string_escape_column_name(column_name, "`");
-            dst_variables_map[`${prefix}[\`${escaped_column_name}\`]`] = {initialize: false, index: i};
-        }
-    }
-}
-
-
-function parse_attribute_variables(query, prefix, header_columns_names, dst_variables_map) {
-    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-
-    assert(prefix === 'a' || prefix === 'b');
-    let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\.([_a-zA-Z][_a-zA-Z0-9]*)`, 'g');
-    let matches = rbql.get_all_matches(rgx, query);
-    let column_names = matches.map(v => v[1]);
-    for (let column_name of column_names) {
-        let zero_based_idx = header_columns_names.indexOf(column_name);
-        if (zero_based_idx != -1) {
-            dst_variables_map[`${prefix}.${column_name}`] = {initialize: true, index: zero_based_idx};
-        } else {
-            throw new RbqlParsingError(`Unable to find column "${column_name}" in ${prefix == 'a' ? 'input' : 'join'} CSV header line`);
-        }
-    }
-}
-
-
-function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name='input', variable_prefix='a') {
+function CSVRecordIterator(stream, csv_path, encoding, delim, policy, skip_headers=false, table_name='input', variable_prefix='a') {
     // CSVRecordIterator implements typical async producer-consumer model with an internal buffer:
     // get_record() - consumer
     // stream.on('data') - producer
@@ -232,6 +172,7 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     this.encoding = encoding;
     this.delim = delim;
     this.policy = policy;
+    this.skip_headers = skip_headers;
     this.table_name = table_name;
     this.variable_prefix = variable_prefix;
 
@@ -285,22 +226,23 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
         let header_record = await this.get_record();
         if (header_record === null)
             return null;
-        this.produced_records_queue.return_to_pull_stack(header_record);
+        if (!this.skip_headers)
+            this.produced_records_queue.return_to_pull_stack(header_record);
         if (this.stream)
             this.stream.pause();
         return header_record.slice();
     };
 
 
-    this.get_variables_map = async function(query) {
+    this.get_variables_map = async function(query_text) {
         let variable_map = new Object();
-        rbql.parse_basic_variables(query, this.variable_prefix, variable_map);
-        rbql.parse_array_variables(query, this.variable_prefix, variable_map);
+        rbql.parse_basic_variables(query_text, this.variable_prefix, variable_map);
+        rbql.parse_array_variables(query_text, this.variable_prefix, variable_map);
 
-        let header_record = await this.preread_header(); // TODO optimize: do not start the stream if query doesn't seem to have dictionary or attribute -looking patterns
+        let header_record = await this.preread_header(); // TODO optimize: do not start the stream if query_text doesn't seem to have dictionary or attribute -looking patterns
         if (header_record) {
-            parse_attribute_variables(query, this.variable_prefix, header_record, variable_map);
-            parse_dictionary_variables(query, this.variable_prefix, header_record, variable_map);
+            rbql.parse_attribute_variables(query_text, this.variable_prefix, header_record, 'CSV header line', variable_map);
+            rbql.parse_dictionary_variables(query_text, this.variable_prefix, header_record, variable_map);
         }
         return variable_map;
     };
@@ -619,7 +561,7 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
     this.get_warnings = function() {
         let result = [];
         if (this.null_in_output)
-            result.push('None values in output were replaced by empty strings');
+            result.push('null values in output were replaced by empty strings');
         if (this.delim_in_simple_output)
             result.push('Some output fields contain separator');
         return result;
@@ -628,33 +570,41 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
 }
 
 
-function FileSystemCSVRegistry(delim, policy, encoding, options=null) {
+function FileSystemCSVRegistry(delim, policy, encoding, skip_headers=false, options=null) {
     this.delim = delim;
     this.policy = policy;
     this.encoding = encoding;
+    this.skip_headers = skip_headers;
     this.stream = null;
     this.record_iterator = null;
 
     this.options = options;
     this.bulk_input_path = null;
+    this.table_path = null;
 
     this.get_iterator_by_table_id = function(table_id) {
-        let table_path = find_table_path(table_id);
-        if (table_path === null) {
+        this.table_path = find_table_path(table_id);
+        if (this.table_path === null) {
             throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
         }
         if (this.options && this.options['bulk_read']) {
-            this.bulk_input_path = table_path;
+            this.bulk_input_path = this.table_path;
         } else {
-            this.stream = fs.createReadStream(table_path);
+            this.stream = fs.createReadStream(this.table_path);
         }
-        this.record_iterator = new CSVRecordIterator(this.stream, this.bulk_input_path, this.encoding, this.delim, this.policy, table_id, 'b');
+        this.record_iterator = new CSVRecordIterator(this.stream, this.bulk_input_path, this.encoding, this.delim, this.policy, skip_headers, table_id, 'b');
         return this.record_iterator;
     };
+
+    this.get_warnings = function(output_warnings) {
+        if (this.record_iterator && this.skip_headers) {
+            output_warnings.push(`The first (header) record was also skipped in the JOIN file: ${path.basename(this.table_path)}`);
+        }
+    }
 }
 
 
-async function csv_run(user_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, user_init_code='', options=null) {
+async function query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, skip_headers=false, user_init_code='', options=null) {
     let input_stream = null;
     let bulk_input_path = null;
     if (options && options['bulk_read'] && input_path) {
@@ -667,7 +617,7 @@ async function csv_run(user_query, input_path, input_delim, input_policy, output
         throw new RbqlIOHandlingError('Double quote delimiter is incompatible with "quoted" policy');
     if (csv_encoding == 'latin-1')
         csv_encoding = 'binary';
-    if (!is_ascii(user_query) && csv_encoding == 'binary')
+    if (!is_ascii(query_text) && csv_encoding == 'binary')
         throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
     if ((!is_ascii(input_delim) || !is_ascii(output_delim)) && csv_encoding == 'binary')
         throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
@@ -677,14 +627,14 @@ async function csv_run(user_query, input_path, input_delim, input_policy, output
         user_init_code = read_user_init_code(default_init_source_path);
     }
 
-    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, options);
-    let input_iterator = new CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy);
+    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, skip_headers, options);
+    let input_iterator = new CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy, skip_headers);
     let output_writer = new CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
 
     if (debug_mode)
         rbql.set_debug_mode();
-    let warnings = await rbql.generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code);
-    return warnings;
+    await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
+    join_tables_registry.get_warnings(output_warnings);
 }
 
 
@@ -699,8 +649,6 @@ module.exports.CSVWriter = CSVWriter;
 module.exports.FileSystemCSVRegistry = FileSystemCSVRegistry;
 module.exports.interpret_named_csv_format = interpret_named_csv_format;
 module.exports.read_user_init_code = read_user_init_code;
-module.exports.csv_run = csv_run;
+module.exports.query_csv = query_csv;
 module.exports.set_debug_mode = set_debug_mode;
 module.exports.RecordQueue = RecordQueue;
-module.exports.parse_dictionary_variables = parse_dictionary_variables;
-module.exports.parse_attribute_variables = parse_attribute_variables;

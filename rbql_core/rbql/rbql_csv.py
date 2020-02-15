@@ -7,8 +7,9 @@ import os
 import codecs
 import io
 import re
+from errno import EPIPE
 
-from . import engine
+from . import rbql_engine
 from . import csv_utils
 
 
@@ -27,6 +28,15 @@ polymorphic_xrange = range if PY3 else xrange
 
 
 debug_mode = False
+
+
+ansi_reset_color_code = '\u001b[0m'
+
+
+try:
+    broken_pipe_exception = BrokenPipeError
+except NameError: # Python 2
+    broken_pipe_exception = IOError
 
 
 class RbqlIOHandlingError(Exception):
@@ -160,52 +170,124 @@ def make_inconsistent_num_fields_warning(table_name, inconsistent_records_info):
     return warn_msg
 
 
+def init_ansi_terminal_colors():
+    result = [ansi_reset_color_code]
+    foreground_codes = list(range(31, 37 + 1))
+    background_codes = list(range(41, 47 + 1))
+    for fc in foreground_codes:
+        result.append('\u001b[{}m'.format(fc))
+    for fc in foreground_codes:
+        for bc in background_codes:
+            if fc % 10 == bc % 10:
+                continue
+            if fc % 10 in [2, 6] and bc % 10 in [2, 6]: # Skipping green - cyan pair cause they might have low contrast
+                continue
+            result.append('\u001b[{};{}m'.format(fc, bc))
+    return result
+
+
 
 class CSVWriter:
-    def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, line_separator='\n'):
+    def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, line_separator='\n', colorize_output=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.stream = encode_output_stream(stream, encoding)
         self.line_separator = line_separator
         self.delim = delim
         self.sub_array_delim = '|' if delim != '|' else ';'
+        self.broken_pipe = False
         self.close_stream_on_finish = close_stream_on_finish
-        if policy == 'simple':
-            self.polymorphic_join = self.simple_join
+        self.polymorphic_preprocess = None
+        self.polymorphic_join = self.join_by_delim 
+        self.check_separators_after_join = False
+        self.colors = None
+        if policy == 'simple' or policy == 'whitespace':
+            if colorize_output:
+                self.polymorphic_preprocess = self.check_separators_in_fields_before_join
+            else:
+                self.check_separators_after_join = True
         elif policy == 'quoted':
-            self.polymorphic_join = self.quoted_join
+            self.polymorphic_preprocess = self.quote_fields
         elif policy == 'quoted_rfc':
-            self.polymorphic_join = self.rfc_quoted_join
+            self.polymorphic_preprocess = self.quote_fields_rfc
         elif policy == 'monocolumn':
-            self.polymorphic_join = self.mono_join
-        elif policy == 'whitespace':
-            self.polymorphic_join = self.simple_join
+            colorize_output = False
+            self.polymorphic_preprocess = self.ensure_single_field
+            self.polymorphic_join = self.monocolumn_join
         else:
             raise RuntimeError('unknown output csv policy')
+
+        if colorize_output:
+            self.colors = init_ansi_terminal_colors()
 
         self.none_in_output = False
         self.delim_in_simple_output = False
 
 
-    def quoted_join(self, fields):
-        return self.delim.join([csv_utils.quote_field(f, self.delim) for f in fields])
-
-
-    def rfc_quoted_join(self, fields):
-        return self.delim.join([csv_utils.rfc_quote_field(f, self.delim) for f in fields])
-
-
-    def mono_join(self, fields):
-        if len(fields) > 1:
-            raise RbqlIOHandlingError('Unable to use "Monocolumn" output format: some records have more than one field')
+    def monocolumn_join(self, fields):
         return fields[0]
 
 
-    def simple_join(self, fields):
-        res = self.delim.join([f for f in fields])
-        num_fields = res.count(self.delim)
-        if num_fields + 1 != len(fields):
+    def check_separators_in_fields_before_join(self, fields):
+        if ''.join(fields).find(self.delim) != -1:
             self.delim_in_simple_output = True
-        return res
+
+
+    def check_separator_in_fields_after_join(self, output_line, num_fields_expected):
+        num_fields_calculated = output_line.count(self.delim) + 1
+        if num_fields_calculated != num_fields_expected:
+            self.delim_in_simple_output = True
+
+
+    def join_by_delim(self, fields):
+        return self.delim.join(fields)
+
+
+    def write(self, fields):
+        self.normalize_fields(fields)
+
+        if self.polymorphic_preprocess is not None:
+            self.polymorphic_preprocess(fields)
+
+        if self.colors is not None:
+            self.colorize_fields(fields)
+
+        out_line = self.polymorphic_join(fields)
+
+        if self.check_separators_after_join:
+            self.check_separator_in_fields_after_join(out_line, len(fields))
+
+        try:
+            self.stream.write(out_line)
+            if self.colors is not None:
+                self.stream.write(ansi_reset_color_code)
+            self.stream.write(self.line_separator)
+            return True
+        except broken_pipe_exception as exc:
+            if broken_pipe_exception == IOError:
+                if exc.errno != EPIPE:
+                    raise
+            self.broken_pipe = True
+            return False
+
+
+    def colorize_fields(self, fields):
+        for i in polymorphic_xrange(len(fields)):
+            fields[i] = self.colors[i % len(self.colors)] + fields[i]
+
+
+    def quote_fields(self, fields):
+        for i in polymorphic_xrange(len(fields)):
+            fields[i] = csv_utils.quote_field(fields[i], self.delim)
+
+
+    def quote_fields_rfc(self, fields):
+        for i in polymorphic_xrange(len(fields)):
+            fields[i] = csv_utils.rfc_quote_field(fields[i], self.delim)
+
+
+    def ensure_single_field(self, fields):
+        if len(fields) > 1:
+            raise RbqlIOHandlingError('Unable to use "Monocolumn" output format: some records have more than one field')
 
 
     def normalize_fields(self, fields):
@@ -220,26 +302,33 @@ class CSVWriter:
                 fields[i] = polymorphic_str(fields[i])
 
 
-    def write(self, fields):
-        self.normalize_fields(fields)
-        self.stream.write(self.polymorphic_join(fields))
-        self.stream.write(self.line_separator)
-
-
     def _write_all(self, table):
         for record in table:
-            self.write(record)
+            self.write(record[:])
         self.finish()
 
 
     def finish(self):
-        try:
-            if self.close_stream_on_finish:
-                self.stream.close()
-            else:
-                self.stream.flush()
-        except Exception:
-            pass
+        if self.broken_pipe:
+            return
+        if self.close_stream_on_finish:
+            self.stream.close()
+        else:
+            try:
+                self.stream.flush() # This flush still can throw if all flushes before were sucessfull! And the exceptions would be printed anyway, even if it was explicitly catched just couple of lines after.
+                # Basically this fails if output is small and this is the first flush after the pipe was broken e.g. second flush if piped to head -n 1
+                # Here head -n 1 finished after the first flush, and the final explict flush here just killing it
+            except broken_pipe_exception as exc:
+                if broken_pipe_exception == IOError:
+                    if exc.errno != EPIPE:
+                        raise
+                # In order to avoid BrokenPipeError from being printed as a warning to stderr, we need to perform this magic below. See:
+                # Explanation 1: https://stackoverflow.com/a/35761190/2898283
+                # Explanation 2: https://bugs.python.org/issue11380
+                try:
+                    sys.stdout.close()
+                except Exception:
+                    pass
 
 
     def get_warnings(self):
@@ -251,60 +340,11 @@ class CSVWriter:
         return result
 
 
-def python_string_escape_column_name(column_name, quote_char):
-    assert quote_char in ['"', "'"]
-    column_name = column_name.replace('\\', '\\\\')
-    if quote_char == '"':
-        return column_name.replace('"', '\\"')
-    return column_name.replace("'", "\\'")
-
-
-def parse_dictionary_variables(query, prefix, header_columns_names, dst_variables_map):
-    # The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-    # TODO implement algorithm for honest python f-string parsing
-    assert prefix in ['a', 'b']
-    if re.search(r'(?:^|[^_a-zA-Z0-9]){}\['.format(prefix), query) is None:
-        return
-    for i in polymorphic_xrange(len(header_columns_names)):
-        column_name = header_columns_names[i]
-        continuous_name_segments = re.findall('[-a-zA-Z0-9_:;+=!.,()%^#@&* ]+', column_name)
-        add_column_name = True
-        for continuous_segment in continuous_name_segments:
-            if query.find(continuous_segment) == -1:
-                add_column_name = False
-                break
-        if add_column_name:
-            dst_variables_map['{}["{}"]'.format(prefix, python_string_escape_column_name(column_name, '"'))] = engine.VariableInfo(initialize=True, index=i)
-            dst_variables_map["{}['{}']".format(prefix, python_string_escape_column_name(column_name, "'"))] = engine.VariableInfo(initialize=False, index=i)
-
-
-def parse_attribute_variables(query, prefix, header_columns_names, dst_variables_map):
-    # The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-
-    # TODO ideally we should either:
-    # * not search inside string literals (excluding brackets in f-strings) OR
-    # * check if column_name is not among reserved python keywords like "None", "if", "else", etc
-
-    assert prefix in ['a', 'b']
-    header_columns_names = {v: i for i, v in enumerate(header_columns_names)}
-    rgx = r'(?:^|[^_a-zA-Z0-9]){}\.([_a-zA-Z][_a-zA-Z0-9]*)'.format(prefix)
-    matches = list(re.finditer(rgx, query))
-    column_names = list(set([m.group(1) for m in matches]))
-    for column_name in column_names:
-        zero_based_idx = header_columns_names.get(column_name)
-        if zero_based_idx is not None:
-            dst_variables_map['{}.{}'.format(prefix, column_name)] = engine.VariableInfo(initialize=True, index=zero_based_idx)
-        else:
-            raise RbqlParsingError('Unable to find column "{}" in {} CSV header line'.format(column_name, {'a': 'input', 'b': 'join'}[prefix]))
-
-
-
 class CSVRecordIterator:
-    def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
+    def __init__(self, stream, encoding, delim, policy, skip_headers=False, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.encoding = encoding
         self.stream = encode_input_stream(stream, encoding)
-        self.close_stream_on_finish = close_stream_on_finish
         self.delim = delim
         self.policy = policy
         self.table_name = table_name
@@ -323,24 +363,18 @@ class CSVRecordIterator:
 
         if not line_mode:
             self.header_record = None
-            self.header_record_emitted = False
+            self.header_record_emitted = skip_headers
             self.header_record = self.get_record()
-            assert not self.header_record_emitted
 
 
-    def get_variables_map(self, query):
+    def get_variables_map(self, query_text):
         variable_map = dict()
-        engine.parse_basic_variables(query, self.variable_prefix, variable_map)
-        engine.parse_array_variables(query, self.variable_prefix, variable_map)
+        rbql_engine.parse_basic_variables(query_text, self.variable_prefix, variable_map)
+        rbql_engine.parse_array_variables(query_text, self.variable_prefix, variable_map)
         if self.header_record is not None:
-            parse_attribute_variables(query, self.variable_prefix, self.header_record, variable_map)
-            parse_dictionary_variables(query, self.variable_prefix, self.header_record, variable_map)
+            rbql_engine.parse_attribute_variables(query_text, self.variable_prefix, self.header_record, 'CSV header line', variable_map)
+            rbql_engine.parse_dictionary_variables(query_text, self.variable_prefix, self.header_record, variable_map)
         return variable_map
-
-
-    def finish(self):
-        if self.close_stream_on_finish:
-            self.stream.close()
 
 
     def _get_row_from_buffer(self):
@@ -453,7 +487,6 @@ class CSVRecordIterator:
             result.append(record)
             if num_rows is not None and len(result) >= num_rows:
                 break
-        self.finish()
         return result
 
 
@@ -469,27 +502,34 @@ class CSVRecordIterator:
 
 
 class FileSystemCSVRegistry:
-    def __init__(self, delim, policy, encoding):
+    def __init__(self, delim, policy, encoding, skip_headers):
         self.delim = delim
         self.policy = policy
         self.encoding = encoding
         self.record_iterator = None
+        self.input_stream = None
+        self.skip_headers = skip_headers
+        self.table_path = None
 
     def get_iterator_by_table_id(self, table_id):
-        table_path = find_table_path(table_id)
-        if table_path is None:
+        self.table_path = find_table_path(table_id)
+        if self.table_path is None:
             raise RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
-        self.record_iterator = CSVRecordIterator(open(table_path, 'rb'), True, self.encoding, self.delim, self.policy, table_name=table_id, variable_prefix='b')
+        self.input_stream = open(self.table_path, 'rb')
+        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.skip_headers, table_name=table_id, variable_prefix='b')
         return self.record_iterator
 
-    def finish(self):
-        if self.record_iterator is not None:
-            self.record_iterator.finish()
+    def finish(self, output_warnings):
+        if self.input_stream is not None:
+            self.input_stream.close()
+            if self.skip_headers:
+                output_warnings.append('The first (header) record was also skipped in the JOIN file: {}'.format(os.path.basename(self.table_path))) # UT JSON CSV
 
 
-def csv_run(user_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, user_init_code=''):
+def query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, skip_headers=False, user_init_code='', colorize_output=False):
     output_stream, close_output_on_finish = (None, False)
     input_stream, close_input_on_finish = (None, False)
+    join_tables_registry = None
     try:
         output_stream, close_output_on_finish = (sys.stdout, False) if output_path is None else (open(output_path, 'wb'), True)
         input_stream, close_input_on_finish = (sys.stdin, False) if input_path is None else (open(input_path, 'rb'), True)
@@ -499,7 +539,7 @@ def csv_run(user_query, input_path, input_delim, input_policy, output_path, outp
         if input_delim != ' ' and input_policy == 'whitespace':
             raise RbqlIOHandlingError('Only whitespace " " delim is supported with "whitespace" policy')
 
-        if not is_ascii(user_query) and csv_encoding == 'latin-1':
+        if not is_ascii(query_text) and csv_encoding == 'latin-1':
             raise RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary')
 
         if (not is_ascii(input_delim) or not is_ascii(output_delim)) and csv_encoding == 'latin-1':
@@ -509,24 +549,19 @@ def csv_run(user_query, input_path, input_delim, input_policy, output_path, outp
         if user_init_code == '' and os.path.exists(default_init_source_path):
             user_init_code = read_user_init_code(default_init_source_path)
 
-        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding)
-        input_iterator = CSVRecordIterator(input_stream, close_input_on_finish, csv_encoding, input_delim, input_policy)
-        output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy)
+        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, skip_headers)
+        input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, skip_headers)
+        output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy, colorize_output=colorize_output)
         if debug_mode:
-            engine.set_debug_mode()
-        error_info, warnings = engine.generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code)
-        join_tables_registry.finish()
-        return (error_info, warnings)
-    except Exception as e:
-        if debug_mode:
-            raise
-        error_info = engine.exception_to_error_info(e)
-        return (error_info, [])
+            rbql_engine.set_debug_mode()
+        rbql_engine.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code)
     finally:
         if close_input_on_finish:
             input_stream.close()
         if close_output_on_finish:
             output_stream.close()
+        if join_tables_registry:
+            join_tables_registry.finish(output_warnings)
 
 
 def set_debug_mode():

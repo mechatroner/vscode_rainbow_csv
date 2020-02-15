@@ -14,9 +14,12 @@ var error_format = 'hr';
 var interactive_mode = false;
 
 
+// TODO implement colored output like in Python version
+// TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
+
 // FIXME test readline on Win: disable interactive mode?
 
-// TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
+// FIXME handle broken pipe error and add tests. See Python version.
 
 
 class RbqlParsingError extends Error {}
@@ -170,7 +173,7 @@ async function autodetect_delim_policy(table_path) {
 }
 
 
-function print_colorized(records, delim, show_column_names) {
+function print_colorized(records, delim, show_column_names, skip_header) {
     let reset_color_code = '\x1b[0m';
     let color_codes = ['\x1b[0m', '\x1b[31m', '\x1b[32m', '\x1b[33m', '\x1b[34m', '\x1b[35m', '\x1b[36m', '\x1b[31;1m', '\x1b[32;1m', '\x1b[33;1m'];
     for (let r = 0; r < records.length; r++) {
@@ -178,7 +181,7 @@ function print_colorized(records, delim, show_column_names) {
         for (let c = 0; c < records[r].length; c++) {
             let color_code = color_codes[c % color_codes.length];
             let field = records[r][c];
-            let colored_field = show_column_names ? `${color_code}a${c + 1}:${field}` : color_code + field;
+            let colored_field = (!show_column_names || (skip_header && r == 0)) ? color_code + field : `${color_code}a${c + 1}:${field}`;
             out_fields.push(colored_field);
         }
         let out_line = out_fields.join(delim) + reset_color_code;
@@ -198,7 +201,7 @@ async function handle_query_success(warnings, output_path, encoding, delim, poli
             let [records, _warnings] = await sample_records(output_path, encoding, delim, policy);
             console.log('\nOutput table preview:');
             console.log('====================================');
-            print_colorized(records, delim, false);
+            print_colorized(records, delim, false, false);
             console.log('====================================');
             console.log('Success! Result table was saved to: ' + output_path);
         }
@@ -220,6 +223,7 @@ async function run_with_js(args) {
     var input_path = get_default(args, 'input', null);
     var output_path = get_default(args, 'output', null);
     var csv_encoding = args['encoding'];
+    var skip_header = args['skip-header'];
     var output_delim = get_default(args, 'out-delim', null);
     var output_policy = get_default(args, 'out-policy', null);
     let init_source_file = get_default(args, 'init-source-file', null);
@@ -234,10 +238,13 @@ async function run_with_js(args) {
     if (init_source_file !== null)
         user_init_code = rbql_csv.read_user_init_code(init_source_file);
     try {
-        let warnings = await rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, user_init_code, {'bulk_read': true});
+        let warnings = [];
+        await rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_header, user_init_code, {'bulk_read': true});
         await handle_query_success(warnings, output_path, csv_encoding, output_delim, output_policy);
         return true;
     } catch (e) {
+        if (!interactive_mode)
+            throw e;
         show_exception(e);
         return false;
     }
@@ -252,11 +259,11 @@ function get_default_output_path(input_path, delim) {
 }
 
 
-async function show_preview(input_path, encoding, delim, policy) {
+async function show_preview(input_path, encoding, delim, policy, skip_header) {
     let [records, warnings] = await sample_records(input_path, encoding, delim, policy);
     console.log('Input table preview:');
     console.log('====================================');
-    print_colorized(records, delim, true);
+    print_colorized(records, delim, true, skip_header);
     console.log('====================================\n');
     for (let warning of warnings) {
         show_warning(warning);
@@ -282,7 +289,7 @@ async function run_interactive_loop(args) {
         if (!delim)
             throw new GenericError('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option');
     }
-    await show_preview(input_path, args['encoding'], delim, policy);
+    await show_preview(input_path, args['encoding'], delim, policy, args['skip-header']);
     args.delim = delim;
     args.policy = policy;
     if (!args.output) {
@@ -369,11 +376,12 @@ async function do_main(args) {
 
 function main() {
     var scheme = {
-        '--query': {'help': 'Query string in rbql. Run in interactive mode if empty', 'metavar': 'QUERY'},
         '--input': {'help': 'Read csv table from FILE instead of stdin. Required in interactive mode', 'metavar': 'FILE'},
+        '--query': {'help': 'Query string in rbql. Run in interactive mode if empty', 'metavar': 'QUERY'},
         '--output': {'help': 'Write output table to FILE instead of stdout', 'metavar': 'FILE'},
         '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
         '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
+        '--skip-header': {'boolean': true, 'help': 'Skip header line in input and join tables. Roughly equivalent of ... WHERE NR > 1 ... in your Query'},
         '--encoding': {'default': 'utf-8', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
         '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},
         '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format', 'metavar': 'DELIM'},
@@ -385,7 +393,7 @@ function main() {
         '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js', 'hidden': true}
     };
     let args = cli_parser.parse_cmd_args(process.argv, scheme, tool_description, epilog);
-    do_main(args).then(() => {}).catch(error_info => { show_exception(error_info); });
+    do_main(args).then(() => {}).catch(error_info => { show_exception(error_info); process.exit(1); });
 }
 
 

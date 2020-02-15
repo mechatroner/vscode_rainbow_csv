@@ -38,6 +38,7 @@ var NF = 0;
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
+const RBQL_VERSION = '__RBQLMP__version';
 
 
 function stable_compare(a, b) {
@@ -720,7 +721,7 @@ module.exports.rb_transform = rb_transform;
 // TODO replace prototypes with classes: this improves readability
 
 
-const version = '0.10.0';
+const version = '0.15.0';
 
 const GROUP_BY = 'GROUP BY';
 const UPDATE = 'UPDATE';
@@ -754,6 +755,11 @@ function assert(condition, message=null) {
 
 function regexp_escape(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched text
+}
+
+
+function get_ambiguous_error_msg(variable_name) {
+    return `Ambiguous variable name: "${variable_name}" is present both in input and in join tables`;
 }
 
 
@@ -803,10 +809,10 @@ function combine_string_literals(backend_expression, string_literals) {
 }
 
 
-function parse_basic_variables(query, prefix, dst_variables_map) {
+function parse_basic_variables(query_text, prefix, dst_variables_map) {
     assert(prefix == 'a' || prefix == 'b');
     let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}([1-9][0-9]*)(?:$|(?=[^_a-zA-Z0-9]))`, 'g');
-    let matches = get_all_matches(rgx, query);
+    let matches = get_all_matches(rgx, query_text);
     for (let i = 0; i < matches.length; i++) {
         let field_num = parseInt(matches[i][1]);
         dst_variables_map[prefix + String(field_num)] = {initialize: true, index: field_num - 1};
@@ -814,10 +820,10 @@ function parse_basic_variables(query, prefix, dst_variables_map) {
 }
 
 
-function parse_array_variables(query, prefix, dst_variables_map) {
+function parse_array_variables(query_text, prefix, dst_variables_map) {
     assert(prefix == 'a' || prefix == 'b');
     let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\[([1-9][0-9]*)\\]`, 'g');
-    let matches = get_all_matches(rgx, query);
+    let matches = get_all_matches(rgx, query_text);
     for (let i = 0; i < matches.length; i++) {
         let field_num = parseInt(matches[i][1]);
         dst_variables_map[`${prefix}[${field_num}]`] = {initialize: true, index: field_num - 1};
@@ -825,12 +831,96 @@ function parse_array_variables(query, prefix, dst_variables_map) {
 }
 
 
+function js_string_escape_column_name(column_name, quote_char) {
+    column_name = column_name.replace(/\\/g, '\\\\');
+    column_name = column_name.replace(/\n/g, '\\n');
+    column_name = column_name.replace(/\r/g, '\\r');
+    column_name = column_name.replace(/\t/g, '\\t');
+    if (quote_char === "'")
+        return column_name.replace(/'/g, "\\'");
+    if (quote_char === '"')
+        return column_name.replace(/"/g, '\\"');
+    assert(quote_char === "`");
+    return column_name.replace(/`/g, "\\`");
+}
+
+
+function query_probably_has_dictionary_variable(query_text, column_name) {
+    let rgx = new RegExp('[-a-zA-Z0-9_:;+=!.,()%^#@&* ]+', 'g');
+    let continuous_name_segments = get_all_matches(rgx, column_name);
+    for (let continuous_segment of continuous_name_segments) {
+        if (query_text.indexOf(continuous_segment) == -1)
+            return false;
+    }
+    return true;
+}
+
+
+function parse_dictionary_variables(query_text, prefix, column_names, dst_variables_map) {
+    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+
+    // FIXME to prevent typos in attribute names either use query-based variable parsing which can properly handle back-tick strings or wrap "a" and "b" variables with ES6 Proxies https://stackoverflow.com/a/25658975/2898283
+    assert(prefix === 'a' || prefix === 'b');
+    let dict_test_rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\[`);
+    if (query_text.search(dict_test_rgx) == -1)
+        return;
+    for (let i = 0; i < column_names.length; i++) {
+        let column_name = column_names[i];
+        if (query_probably_has_dictionary_variable(query_text, column_name)) {
+            let escaped_column_name = js_string_escape_column_name(column_name, '"');
+            dst_variables_map[`${prefix}["${escaped_column_name}"]`] = {initialize: true, index: i};
+            escaped_column_name = js_string_escape_column_name(column_name, "'");
+            dst_variables_map[`${prefix}['${escaped_column_name}']`] = {initialize: false, index: i};
+            escaped_column_name = js_string_escape_column_name(column_name, "`");
+            dst_variables_map[`${prefix}[\`${escaped_column_name}\`]`] = {initialize: false, index: i};
+        }
+    }
+}
+
+
+function parse_attribute_variables(query_text, prefix, column_names, column_names_source, dst_variables_map) {
+    // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
+
+    assert(prefix === 'a' || prefix === 'b');
+    let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\.([_a-zA-Z][_a-zA-Z0-9]*)`, 'g');
+    let matches = get_all_matches(rgx, query_text);
+    let column_names_from_query = matches.map(v => v[1]);
+    for (let column_name of column_names_from_query) {
+        let zero_based_idx = column_names.indexOf(column_name);
+        if (zero_based_idx != -1) {
+            dst_variables_map[`${prefix}.${column_name}`] = {initialize: true, index: zero_based_idx};
+        } else {
+            throw new RbqlParsingError(`Unable to find column "${column_name}" in ${prefix == 'a' ? 'input' : 'join'} ${column_names_source}`);
+        }
+    }
+}
+
+
+function map_variables_directly(query_text, column_names, dst_variables_map) {
+    for (let i = 0; i < column_names.length; i++) {
+        let column_name = column_names[i];
+        if ( /^[_a-zA-Z][_a-zA-Z0-9]*$/.exec(column_name) === null)
+            throw new RbqlIOHandlingError(`Unable to use column name "${column_name}" as RBQL/JS variable`)
+        if (query_text.indexOf(column_name) != -1)
+            dst_variables_map[column_name] = {initialize: true, index: i};
+    }
+}
+
+
+function ensure_no_ambiguous_variables(query_text, input_column_names, join_column_names) {
+    let join_column_names_set = new Set(join_column_names);
+    for (let column_name of input_column_names) {
+        if (join_column_names_set.has(column_name) && query_text.indexOf(column_name) != -1) // False positive is tolerable here
+            throw new RbqlParsingError(get_ambiguous_error_msg(column_name));
+    }
+}
+
+
 function parse_join_expression(src) {
     var rgx = /^ *([^ ]+) +on +([^ ]+) *== *([^ ]+) *$/i;
     var match = rgx.exec(src);
-    if (match === null) {
+    if (match === null)
         throw new RbqlParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a... == b..."');
-    }
     return [match[1], match[2], match[3]];
 }
 
@@ -838,7 +928,6 @@ function parse_join_expression(src) {
 function resolve_join_variables(input_variables_map, join_variables_map, join_var_1, join_var_2, string_literals) {
     join_var_1 = combine_string_literals(join_var_1, string_literals);
     join_var_2 = combine_string_literals(join_var_2, string_literals);
-    const get_ambiguous_error_msg = function(v) { return `Ambiguous variable name: "${v}" is present both in input and in join table`; };
     if (input_variables_map.hasOwnProperty(join_var_1) && join_variables_map.hasOwnProperty(join_var_1))
         throw new RbqlParsingError(get_ambiguous_error_msg(join_var_1));
     if (input_variables_map.hasOwnProperty(join_var_2) && join_variables_map.hasOwnProperty(join_var_2))
@@ -868,22 +957,22 @@ function resolve_join_variables(input_variables_map, join_variables_map, join_va
 }
 
 
-function generate_common_init_code(query, variable_prefix) {
+function generate_common_init_code(query_text, variable_prefix) {
     assert(variable_prefix == 'a' || variable_prefix == 'b');
     let result = [];
     result.push(`${variable_prefix} = new Object();`);
     let base_var = variable_prefix == 'a' ? 'NR' : 'bNR';
     let attr_var = `${variable_prefix}.NR`;
-    if (query.indexOf(attr_var) != -1)
+    if (query_text.indexOf(attr_var) != -1)
         result.push(`${attr_var} = ${base_var};`);
-    if (variable_prefix == 'a' && query.indexOf('aNR') != -1)
+    if (variable_prefix == 'a' && query_text.indexOf('aNR') != -1)
         result.push('aNR = NR;');
     return result;
 }
 
 
-function generate_init_statements(query, variables_map, join_variables_map, indent) {
-    let code_lines = generate_common_init_code(query, 'a');
+function generate_init_statements(query_text, variables_map, join_variables_map, indent) {
+    let code_lines = generate_common_init_code(query_text, 'a');
     let simple_var_name_rgx = /^[_0-9a-zA-Z]+$/;
     for (const [variable_name, var_info] of Object.entries(variables_map)) {
         if (var_info.initialize) {
@@ -892,7 +981,7 @@ function generate_init_statements(query, variables_map, join_variables_map, inde
         }
     }
     if (join_variables_map) {
-        code_lines = code_lines.concat(generate_common_init_code(query, 'b'));
+        code_lines = code_lines.concat(generate_common_init_code(query_text, 'b'));
         for (const [variable_name, var_info] of Object.entries(join_variables_map)) {
             if (var_info.initialize) {
                 let variable_declaration_keyword = simple_var_name_rgx.exec(variable_name) ? 'var ' : '';
@@ -1166,21 +1255,22 @@ function HashJoinMap(record_iterator, key_index) {
 }
 
 
-function cleanup_query(query) {
-    return query.split('\n').map(strip_comments).filter(line => line.length).join(' ');
+function cleanup_query(query_text) {
+    return query_text.split('\n').map(strip_comments).filter(line => line.length).join(' ');
 }
 
 
-async function parse_to_js(query, js_template_text, input_iterator, join_tables_registry, user_init_code) {
+async function parse_to_js(query_text, js_template_text, input_iterator, join_tables_registry, user_init_code) {
     user_init_code = indent_user_init_code(user_init_code);
-    query = cleanup_query(query);
-    var [format_expression, string_literals] = separate_string_literals_js(query);
-    var input_variables_map = await input_iterator.get_variables_map(query);
+    query_text = cleanup_query(query_text);
+    var [format_expression, string_literals] = separate_string_literals_js(query_text);
+    var input_variables_map = await input_iterator.get_variables_map(query_text);
 
     var rb_actions = separate_actions(format_expression);
 
     var js_meta_params = {};
     js_meta_params['__RBQLMP__user_init_code'] = user_init_code;
+    js_meta_params['__RBQLMP__version'] = version;
 
     if (rb_actions.hasOwnProperty(ORDER_BY) && rb_actions.hasOwnProperty(UPDATE))
         throw new RbqlParsingError('"ORDER BY" is not allowed in "UPDATE" queries');
@@ -1204,7 +1294,7 @@ async function parse_to_js(query, js_template_text, input_iterator, join_tables_
         let join_record_iterator = join_tables_registry.get_iterator_by_table_id(rhs_table_id);
         if (!join_record_iterator)
             throw new RbqlParsingError(`Unable to find join table: "${rhs_table_id}"`);
-        join_variables_map = await join_record_iterator.get_variables_map(query);
+        join_variables_map = await join_record_iterator.get_variables_map(query_text);
         let [lhs_join_var, rhs_key_index] = resolve_join_variables(input_variables_map, join_variables_map, join_var_1, join_var_2, string_literals);
         js_meta_params['__RBQLMP__join_operation'] = `"${rb_actions[JOIN]['join_subtype']}"`;
         js_meta_params['__RBQLMP__lhs_join_var'] = lhs_join_var;
@@ -1304,8 +1394,10 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
 }
 
 
-function TableIterator(input_table, variable_prefix='a') {
-    this.input_table = input_table;
+function TableIterator(table, column_names=null, normalize_column_names=true, variable_prefix='a') {
+    this.table = table;
+    this.column_names = column_names;
+    this.normalize_column_names = normalize_column_names;
     this.variable_prefix = variable_prefix;
     this.nr = 0;
     this.fields_info = new Object();
@@ -1317,10 +1409,20 @@ function TableIterator(input_table, variable_prefix='a') {
     };
 
 
-    this.get_variables_map = async function(query) {
+    this.get_variables_map = async function(query_text) {
         let variable_map = new Object();
-        parse_basic_variables(query, this.variable_prefix, variable_map);
-        parse_array_variables(query, this.variable_prefix, variable_map);
+        parse_basic_variables(query_text, this.variable_prefix, variable_map);
+        parse_array_variables(query_text, this.variable_prefix, variable_map);
+        if (this.column_names !== null) {
+            if (this.table.length && this.column_names.length != this.table[0].length)
+                throw new RbqlIOHandlingError('List of column names and table records have different lengths');
+            if (this.normalize_column_names) {
+                parse_dictionary_variables(query_text, this.variable_prefix, this.column_names, variable_map);
+                parse_attribute_variables(query_text, this.variable_prefix, this.column_names, 'column names list', variable_map);
+            } else {
+                map_variables_directly(query_text, this.column_names, variable_map);
+            }
+        }
         return variable_map;
     };
 
@@ -1328,9 +1430,9 @@ function TableIterator(input_table, variable_prefix='a') {
     this.get_record = async function() {
         if (this.stopped)
             return null;
-        if (this.nr >= this.input_table.length)
+        if (this.nr >= this.table.length)
             return null;
-        let record = this.input_table[this.nr];
+        let record = this.table[this.nr];
         this.nr += 1;
         let num_fields = record.length;
         if (!this.fields_info.hasOwnProperty(num_fields))
@@ -1361,23 +1463,25 @@ function TableWriter(external_table) {
 }
 
 
-function SingleTableRegistry(table, table_id='B') {
+function SingleTableRegistry(table, column_names=null, normalize_column_names=true, table_id='B') {
     this.table = table;
     this.table_id = table_id;
+    this.column_names = column_names;
+    this.normalize_column_names = normalize_column_names;
 
     this.get_iterator_by_table_id = function(table_id) {
-        if (table_id !== this.table_id) {
+        if (table_id !== this.table_id)
             throw new RbqlIOHandlingError(`Unable to find join table: "${table_id}"`);
-        }
-        return new TableIterator(this.table, 'b');
+        return new TableIterator(this.table, this.column_names, this.normalize_column_names, 'b');
     };
 }
 
 
-async function generic_run(user_query, input_iterator, output_writer, join_tables_registry=null, user_init_code='') {
-    let [js_code, join_map] = await parse_to_js(user_query, external_js_template_text, input_iterator, join_tables_registry, user_init_code);
+async function query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry=null, user_init_code='') {
+    let [js_code, join_map] = await parse_to_js(query_text, external_js_template_text, input_iterator, join_tables_registry, user_init_code);
     let rbql_worker = null;
     if (debug_mode) {
+        // This version works a little faster than eval below. The downside is that a temporary file is created
         rbql_worker = load_module_from_file(js_code);
     } else {
         let module = {'exports': {}};
@@ -1385,20 +1489,20 @@ async function generic_run(user_query, input_iterator, output_writer, join_table
         rbql_worker = module.exports;
     }
     await rbql_worker.rb_transform(input_iterator, join_map, output_writer);
-    let input_warnings = input_iterator.get_warnings();
-    let join_warnings = join_map ? join_map.get_warnings() : [];
-    let output_warnings = output_writer.get_warnings();
-    let warnings = (input_warnings.concat(join_warnings)).concat(output_warnings);
-    return warnings;
+    output_warnings.push(...input_iterator.get_warnings());
+    if (join_map)
+        output_warnings.push(...join_map.get_warnings());
+    output_warnings.push(...output_writer.get_warnings());
 }
 
 
-async function table_run(user_query, input_table, output_table, join_table=null, user_init_code='') {
-    let input_iterator = new TableIterator(input_table);
+async function query_table(query_text, input_table, output_table, output_warnings, join_table=null, input_column_names=null, join_column_names=null, normalize_column_names=true, user_init_code='') {
+    if (!normalize_column_names && input_column_names !== null && join_column_names !== null)
+        ensure_no_ambiguous_variables(query_text, input_column_names, join_column_names);
+    let input_iterator = new TableIterator(input_table, input_column_names, normalize_column_names);
     let output_writer = new TableWriter(output_table);
-    let join_tables_registry = join_table === null ? null : new SingleTableRegistry(join_table);
-    let warnings = await generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code);
-    return warnings;
+    let join_tables_registry = join_table === null ? null : new SingleTableRegistry(join_table, join_column_names, normalize_column_names);
+    await query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
 }
 
 
@@ -1408,14 +1512,16 @@ function set_debug_mode() {
 
 
 module.exports.version = version;
-module.exports.generic_run = generic_run;
-module.exports.table_run = table_run;
+module.exports.query = query;
+module.exports.query_table = query_table;
 
 module.exports.TableIterator = TableIterator;
 module.exports.TableWriter = TableWriter;
 module.exports.SingleTableRegistry = SingleTableRegistry;
 module.exports.parse_basic_variables = parse_basic_variables;
 module.exports.parse_array_variables = parse_array_variables;
+module.exports.parse_dictionary_variables = parse_dictionary_variables;
+module.exports.parse_attribute_variables = parse_attribute_variables;
 module.exports.get_all_matches = get_all_matches;
 
 module.exports.strip_comments = strip_comments;
