@@ -434,12 +434,12 @@ select {
 <button id="close_help">X</button>
 <div id="rbql_help">
     <div id="rbql_help_text">
-        <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
-        <p>RBQL is a technology which provides SQL-like language that supports <em>SELECT</em> and <em>UPDATE</em> queries with Python or JavaScript expressions.  <br />
-        RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  <br />
+        <h1 id="rbqlrainbowquerylanguagedescription">RBQL (Rainbow Query Language) Description</h1>
+        <p>RBQL is a technology for (not only) CSV files processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.<br />
+        RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.<br />
         RBQL core module is very generic and can process all kind of objects and record formats, but most popular RBQL implementation works with CSV files.  </p>
         <p><a href="https://rbql.org/">Official Site</a></p>
-        <h3 id="main-features">Main Features</h3>
+        <h3 id="mainfeatures">Main Features</h3>
         <ul>
         <li>Use Python or JavaScript expressions inside <em>SELECT</em>, <em>UPDATE</em>, <em>WHERE</em> and <em>ORDER BY</em> statements</li>
         <li>Result set of any query immediately becomes a first-class table on it's own</li>
@@ -458,7 +458,7 @@ select {
         <li>RBQL doesn't support nested queries, but they can be emulated with consecutive queries</li>
         <li>Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables</li>
         </ul>
-        <h3 id="supported-sql-keywords-keywords-are-case-insensitive">Supported SQL Keywords (Keywords are case insensitive)</h3>
+        <h3 id="supportedsqlkeywordskeywordsarecaseinsensitive">Supported SQL Keywords (Keywords are case insensitive)</h3>
         <ul>
         <li>SELECT</li>
         <li>UPDATE</li>
@@ -471,64 +471,64 @@ select {
         <li>LIMIT <em>N</em></li>
         </ul>
         <p>All keywords have the same meaning as in SQL queries. You can check them <a href="https://www.w3schools.com/sql/default.asp">online</a>  </p>
-        <h3 id="rbql-variables">RBQL variables</h3>
+        <h3 id="rbqlvariables">RBQL variables</h3>
         <p>RBQL for CSV files provides the following variables which you can use in your queries:</p>
         <ul>
-        <li><em>a1</em>, <em>a2</em>,…, <em>a{N}</em>  <br />
-        Variable type: <strong>string</strong>  <br />
+        <li><em>a1</em>, <em>a2</em>,…, <em>a{N}</em><br />
+        Variable type: <strong>string</strong><br />
         Description: value of i-th field in the current record in input table  </li>
-        <li><em>b1</em>, <em>b2</em>,…, <em>b{N}</em>  <br />
-        Variable type: <strong>string</strong>  <br />
+        <li><em>b1</em>, <em>b2</em>,…, <em>b{N}</em><br />
+        Variable type: <strong>string</strong><br />
         Description: value of i-th field in the current record in join table B  </li>
-        <li><em>NR</em>  <br />
-        Variable type: <strong>integer</strong>  <br />
+        <li><em>NR</em><br />
+        Variable type: <strong>integer</strong><br />
         Description: Record number (1-based)  </li>
-        <li><em>NF</em>  <br />
-        Variable type: <strong>integer</strong>  <br />
+        <li><em>NF</em><br />
+        Variable type: <strong>integer</strong><br />
         Description: Number of fields in the current record  </li>
-        <li><em>a.name</em>, <em>b.Person_age</em>, … <em>a.{good_alphanumeric_column_name}</em>  <br />
-        Variable type: <strong>string</strong>  <br />
+        <li><em>a.name</em>, <em>b.Person</em>age_, … _a.{Good<em>alphanumeric</em>column<em>name}</em><br />
+        Variable type: <strong>string</strong><br />
         Description: Value of the field referenced by it's "name". You can use this notation if the field in the first (header) CSV line has a "good" alphanumeric name  </li>
-        <li><em>a["object id"]</em>, <em>a['9.12341234']</em>, <em>b["%$ !! 10 20"]</em> … <em>a["arbitrary column name!"]</em>  <br />
-        Variable type: <strong>string</strong>  <br />
+        <li><em>a["object id"]</em>, <em>a['9.12341234']</em>, <em>b["%$ !! 10 20"]</em> … <em>a["Arbitrary column name!"]</em><br />
+        Variable type: <strong>string</strong><br />
         Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the first (header) CSV line, even when there is no header at all  </li>
         </ul>
         <h4 id="notes">Notes:</h4>
         <ul>
-        <li>You can mix all variable types in a single query, example:<br />
+        <li>You can mix all variable types in a single query, example:
         <code>select a1, b2 JOIN /path/to/b.csv ON a['Item Id'] == b.Identifier WHERE NR &gt; 1 and int(a.Weight) * 100 &gt; int(b["weight of the item"])</code></li>
         <li>Referencing fields by header names does not automatically skip the header line (you can use <code>where NR &gt; 1</code> trick to skip it)</li>
         <li>If you want to use RBQL as a library for your own app you can define your own custom variables and do not have to support the above mentioned CSV-related variables.</li>
         </ul>
-        <h3 id="update-statement">UPDATE statement</h3>
-        <p><em>UPDATE</em> query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query. This prevents accidental data loss from poorly written queries.  <br />
+        <h3 id="updatestatement">UPDATE statement</h3>
+        <p><em>UPDATE</em> query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query. This prevents accidental data loss from poorly written queries.<br />
         <em>UPDATE SET</em> is synonym to <em>UPDATE</em>, because in RBQL there is no need to specify the source table.  </p>
-        <h3 id="aggregate-functions-and-queries">Aggregate functions and queries</h3>
-        <p>RBQL supports the following aggregate functions, which can also be used with <em>GROUP BY</em> keyword:  <br />
-        <em>COUNT</em>, <em>ARRAY_AGG</em>, <em>MIN</em>, <em>MAX</em>, <em>SUM</em>, <em>AVG</em>, <em>VARIANCE</em>, <em>MEDIAN</em>  </p>
-        <p>Limitation: aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.  <br />
-        E.g. <code>MAX(float(a1) / 1000)</code> - valid; <code>MAX(a1) / 1000</code> - invalid.  <br />
-        There is a workaround for the limitation above for <em>ARRAY_AGG</em> function which supports an optional parameter - a callback function that can do something with the aggregated array. Example:  <br />
+        <h3 id="aggregatefunctionsandqueries">Aggregate functions and queries</h3>
+        <p>RBQL supports the following aggregate functions, which can also be used with <em>GROUP BY</em> keyword:<br />
+        <em>COUNT</em>, <em>ARRAY</em>AGG_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_  </p>
+        <p>Limitation: aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.<br />
+        E.g. <code>MAX(float(a1) / 1000)</code> - valid; <code>MAX(a1) / 1000</code> - invalid.<br />
+        There is a workaround for the limitation above for <em>ARRAY</em>AGG_ function which supports an optional parameter - a callback function that can do something with the aggregated array. Example:<br />
         <code>select a2, ARRAY_AGG(a1, lambda v: sorted(v)[:5]) group by a2</code> - Python; <code>select a2, ARRAY_AGG(a1, v =&gt; v.sort().slice(0, 5)) group by a2</code> - JS</p>
-        <h3 id="join-statements">JOIN statements</h3>
-        <p>Join table B can be referenced either by it's file path or by it's name - an arbitary string which user should provide before executing the JOIN query.  <br />
-        RBQL supports <em>STRICT LEFT JOIN</em> which is like <em>LEFT JOIN</em>, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  <br />
-        Limitation: <em>JOIN</em> statements must have the following form: <em><JOIN_KEYWORD> (/path/to/table.tsv | table_name ) ON ai == bj</em>  </p>
-        <h3 id="select-except-statement">SELECT EXCEPT statement</h3>
-        <p>SELECT EXCEPT can be used to select everything except specific columns. E.g. to select everything but columns 2 and 4, run: <code>SELECT * EXCEPT a2, a4</code>  <br />
+        <h3 id="joinstatements">JOIN statements</h3>
+        <p>Join table B can be referenced either by it's file path or by it's name - an arbitary string which user should provide before executing the JOIN query.<br />
+        RBQL supports <em>STRICT LEFT JOIN</em> which is like <em>LEFT JOIN</em>, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".<br />
+        Limitation: <em>JOIN</em> statements must have the following form: <em><JOIN_KEYWORD> (/path/to/table.tsv | table</em>name ) ON ai == bj_  </p>
+        <h3 id="selectexceptstatement">SELECT EXCEPT statement</h3>
+        <p>SELECT EXCEPT can be used to select everything except specific columns. E.g. to select everything but columns 2 and 4, run: <code>SELECT * EXCEPT a2, a4</code><br />
         Traditional SQL engines do not support this query mode.</p>
-        <h3 id="unnest-operator">UNNEST() operator</h3>
-        <p>UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.  <br />
+        <h3 id="unnestoperator">UNNEST() operator</h3>
+        <p>UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.<br />
         Example: <code>SELECT a1, UNNEST(a2.split(';'))</code>  </p>
-        <h3 id="user-defined-functions-udf">User Defined Functions (UDF)</h3>
-        <p>RBQL supports User Defined Functions  <br />
+        <h3 id="userdefinedfunctionsudf">User Defined Functions (UDF)</h3>
+        <p>RBQL supports User Defined Functions<br />
         You can define custom functions and/or import libraries in two special files:  </p>
         <ul>
         <li><code>~/.rbql_init_source.py</code> - for Python</li>
         <li><code>~/.rbql_init_source.js</code> - for JavaScript</li>
         </ul>
-        <h2 id="examples-of-rbql-queries">Examples of RBQL queries</h2>
-        <h4 id="with-python-expressions">With Python expressions</h4>
+        <h2 id="examplesofrbqlqueries">Examples of RBQL queries</h2>
+        <h4 id="withpythonexpressions">With Python expressions</h4>
         <ul>
         <li><code>select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2) desc</code></li>
         <li><code>select * order by random.random() where NR &gt; 1</code> - skip header record and random sort</li>
@@ -538,8 +538,9 @@ select {
         <li><code>select * where re.match(".*ab.*", a1) is not None</code> - select entries where first column has "ab" pattern</li>
         <li><code>select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3</code> - example of join query</li>
         <li><code>select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3</code> - example of aggregate query</li>
+        <li><code>select *a1.split(':')</code> - Using Python3 unpack operator to split one column into many. Do not try this with other SQL engines!</li>
         </ul>
-        <h4 id="with-javascript-expressions">With JavaScript expressions</h4>
+        <h4 id="withjavascriptexpressions">With JavaScript expressions</h4>
         <ul>
         <li><code>select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc</code></li>
         <li><code>select * order by Math.random() where NR &gt; 1</code> - skip header record and random sort</li>
@@ -548,28 +549,32 @@ select {
         <li><code>select NR, *</code> - enumerate records, NR is 1-based</li>
         <li><code>select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3</code> - example of join query</li>
         <li><code>select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3</code> - example of aggregate query</li>
+        <li><code>select ...a1.split(':')</code> - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!</li>
         </ul>
         <h3 id="faq">FAQ</h3>
-        <h4 id="how-do-i-skip-header-record-in-csv-files">How do I skip header record in CSV files?</h4>
+        <h4 id="howdoiskipheaderrecordincsvfiles">How do I skip header record in CSV files?</h4>
         <p>You can use the following trick: add <code>... where NR &gt; 1 ...</code> to your query  </p>
-        <p>And if you are doing math operation you can modify your query like this, example:  <br />
+        <p>And if you are doing math operation you can modify your query like this, example:<br />
         <code>select int(a3) * 1000, a2</code> -&gt; <code>select int(a3) * 1000 if NR &gt; 1 else a3, a2</code>  </p>
-        <h4 id="how-does-rbql-work">How does RBQL work?</h4>
-        <p>RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.  </p>
+        <h4 id="howdoesrbqlwork">How does RBQL work?</h4>
+        <p>RBQL parses SQL-like user query, generates new Python or JavaScript code and executes it.  </p>
         <p>Explanation of simplified Python version of RBQL algorithm by example.</p>
         <ol>
         <li>User enters the following query, which is stored as a string <em>Q</em>:</li>
         </ol>
-        <pre><code>    SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'</code></pre>
+        <pre><code>    SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'
+        </code></pre>
         <ol start="2">
         <li>RBQL replaces all <code>a{i}</code> substrings in the query string <em>Q</em> with <code>a[{i - 1}]</code> substrings. The result is the following string:</li>
         </ol>
-        <pre><code>    Q = "SELECT a[2], int(a[3]) + 100, len(a[1]) WHERE a[0] != 'SELL'"</code></pre>
+        <pre><code>    Q = "SELECT a[2], int(a[3]) + 100, len(a[1]) WHERE a[0] != 'SELL'"
+        </code></pre>
         <ol start="3">
         <li>RBQL searches for "SELECT" and "WHERE" keywords in the query string <em>Q</em>, throws the keywords away, and puts everything after these keywords into two variables <em>S</em> - select part and <em>W</em> - where part, so we will get:</li>
         </ol>
         <pre><code>    S = "a[2], int(a[3]) + 100, len(a[1])"
-            W = "a[0] != 'SELL'"</code></pre>
+            W = "a[0] != 'SELL'"
+        </code></pre>
         <ol start="4">
         <li>RBQL has static template script which looks like this:</li>
         </ol>
@@ -577,7 +582,8 @@ select {
                 a = line.rstrip('\n').split(',')
                 if %%%W_Expression%%%:
                     out_fields = [%%%S_Expression%%%]
-                    print ','.join([str(v) for v in out_fields])</code></pre>
+                    print ','.join([str(v) for v in out_fields])
+        </code></pre>
         <ol start="5">
         <li>RBQL replaces <code>%%%W_Expression%%%</code> with <em>W</em> and <code>%%%S_Expression%%%</code> with <em>S</em> so we get the following script:</li>
         </ol>
@@ -585,17 +591,19 @@ select {
                 a = line.rstrip('\n').split(',')
                 if a[0] != 'SELL':
                     out_fields = [a[2], int(a[3]) + 100, len(a[1])]
-                    print ','.join([str(v) for v in out_fields])</code></pre>
+                    print ','.join([str(v) for v in out_fields])
+        </code></pre>
         <ol start="6">
-        <li>RBQL runs the patched script against user's data file: </li>
+        <li>RBQL runs the patched script against user's data file (real RBQL implementation calls "exec" in Python or "eval" in JS): </li>
         </ol>
-        <pre><code>    ./tmp_script.py &lt; data.tsv &gt; result.tsv</code></pre>
-        <p>Result set of the original query (<code>SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'</code>) is in the "result.tsv" file.  <br />
+        <pre><code>    ./tmp_script.py &lt; data.tsv &gt; result.tsv
+        </code></pre>
+        <p>Result set of the original query (<code>SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'</code>) is in the "result.tsv" file.<br />
         Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can introduce an intermediate array.  </p>
         <h3 id="references">References</h3>
         <ul>
-        <li><a href="https://rbql.org/">RBQL: Official Site</a><br />
-        RBQL is integrated with Rainbow CSV extensions in <a href="https://github.com/mechatroner/rainbow_csv">Vim</a>, <a href="https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv">VSCode</a>, <a href="https://packagecontrol.io/packages/rainbow_csv">Sublime Text</a> editors.</li>
+        <li><a href="https://rbql.org/">RBQL: Official Site</a></li>
+        <li>RBQL is integrated with Rainbow CSV extensions in <a href="https://github.com/mechatroner/rainbow_csv">Vim</a>, <a href="https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv">VSCode</a>, <a href="https://packagecontrol.io/packages/rainbow_csv">Sublime Text</a> and <a href="https://atom.io/packages/rainbow-csv">Atom</a> editors.</li>
         <li><a href="https://www.npmjs.com/package/rbql">RBQL in npm</a>: <code>$ npm install -g rbql</code></li>
         <li><a href="https://pypi.org/project/rbql/">RBQL in PyPI</a>: <code>$ pip install rbql</code></li>
         </ul>
