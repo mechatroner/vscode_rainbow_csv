@@ -125,10 +125,6 @@ You can use RBQL command for all possible types of files (e.g. .js, .xml, .html)
 Screenshot of RBQL Console:  
 ![VSCode RBQL Console](https://i.imgur.com/HsBG2Y1.png)  
 
-#### Gotchas:
-* Unlike Rainbow CSV, which always treats first line as header, RBQL is header-agnostic i.e. it never treats first line as header, so to skip over header line add `WHERE NR > 1` to your query.  
-* RBQL uses JavaScript or Python backend language. This means that you need to use `==` to check for equality inside WHERE expressions.  
-* If you want to use RBQL with Python backend language instead of JavaScript, make sure you have Python interpreter installed and added to PATH variable of your OS.  
 
 ## Other
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment
