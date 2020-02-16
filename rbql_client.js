@@ -208,6 +208,7 @@ function toggle_help_msg() {
     if (new_style == 'block')
         rbql_help_element.style.backgroundColor = document_bg_color;
     rbql_help_element.style.display = new_style;
+    document.getElementById('close_help').style.display = new_style
 }
 
 
@@ -320,6 +321,7 @@ function main() {
     document.getElementById("skip_headers").addEventListener("click", process_skip_header_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
+    document.getElementById("close_help").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
     document.getElementById("go_up").addEventListener("click", preview_up);

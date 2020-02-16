@@ -234,6 +234,26 @@ select {
 }
 
 
+#close_help { 
+    height: 28px;
+    width: 28px;
+    top: 10%; 
+    left: 90%; 
+    z-index: 1000010; 
+    position: fixed; 
+    font-size: 18px !important;
+    background-color: #FFFFFF;
+    border: 1px solid;
+    color: black;
+    font-weight: bold;
+    display: none;
+
+}
+#close_help:hover {
+    background-color: #DDDDDD;
+}
+
+
 #rbql_help_text {
     margin-left: 2px;
 }
@@ -411,6 +431,7 @@ select {
 </div>
 
 
+<button id="close_help">X</button>
 <div id="rbql_help">
     <div id="rbql_help_text">
         <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
