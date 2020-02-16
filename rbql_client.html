@@ -205,10 +205,6 @@ select {
     flex-direction: column-reverse;
 }
 
-#rbql_help {
-    display: none;
-}
-
 #enable_rfc_newlines_section {
     display: none;
 }
@@ -223,6 +219,25 @@ select {
     display: none;
     color: black;
 }
+
+
+#rbql_help { 
+    width: 80%; 
+    top: 10%; 
+    left: 10%; 
+    height: 80%;
+    z-index: 1000000; 
+    position: fixed; 
+    display: none;
+    border: 1px solid #808080;
+    overflow: scroll;
+}
+
+
+#rbql_help_text {
+    margin-left: 2px;
+}
+
 
 #query_history { 
     width: var(--inputwidth);
@@ -364,7 +379,40 @@ select {
             <span class="select_info"> &ndash; Backend language for RBQL</span>
         </div>
     </div>
-    <div id="rbql_help">
+</div>
+
+
+<div id="query_history">
+    <div id="query_history_header">
+        <span class="padded_label">Query history</span>
+    </div>
+    <div id="history_entries">
+    </div>
+</div>
+
+
+<div id="rbql_error_message">
+    <div id="rbql_error_message_header">
+        <span class="padded_label">Error while executing RBQL query!</span>
+    </div>
+    <br>
+    <div>
+        <span class="padded_label" id="error_message_header"></span>
+    </div>
+    <br>
+    <div>
+        <span class="padded_label">Details:</span>
+        <br>
+        <div id="error_message_details"></div>
+    </div>
+    <div style="display: flex; justify-content:center;">
+        <button id="ack_error">OK</button>
+    </div>
+</div>
+
+
+<div id="rbql_help">
+    <div id="rbql_help_text">
         <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
         <p>RBQL is a technology which provides SQL-like language that supports <em>SELECT</em> and <em>UPDATE</em> queries with Python or JavaScript expressions.  <br />
         RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  <br />
@@ -530,35 +578,6 @@ select {
         <li><a href="https://www.npmjs.com/package/rbql">RBQL in npm</a>: <code>$ npm install -g rbql</code></li>
         <li><a href="https://pypi.org/project/rbql/">RBQL in PyPI</a>: <code>$ pip install rbql</code></li>
         </ul>
-    </div>
-</div>
-
-
-<div id="query_history">
-    <div id="query_history_header">
-        <span class="padded_label">Query history</span>
-    </div>
-    <div id="history_entries">
-    </div>
-</div>
-
-
-<div id="rbql_error_message">
-    <div id="rbql_error_message_header">
-        <span class="padded_label">Error while executing RBQL query!</span>
-    </div>
-    <br>
-    <div>
-        <span class="padded_label" id="error_message_header"></span>
-    </div>
-    <br>
-    <div>
-        <span class="padded_label">Details:</span>
-        <br>
-        <div id="error_message_details"></div>
-    </div>
-    <div style="display: flex; justify-content:center;">
-        <button id="ack_error">OK</button>
     </div>
 </div>
 
