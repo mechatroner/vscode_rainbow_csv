@@ -142,3 +142,10 @@ Screenshot of RBQL Console:
 * Rainbow CSV may be less effective for CSV files with many (> 10) columns.  
 * Rainbow CSV can't correctly handle newlines inside double-quoted CSV fields (well, theorethically it can, but only under specific conditions)  
 
+
+### References
+
+* [Rainbow CSV in Vim](https://github.com/mechatroner/rainbow_csv)
+* [Rainbow CSV in Atom](https://atom.io/packages/rainbow-csv)
+* [Rainbow CSV in Sublime Text 3](https://packagecontrol.io/packages/rainbow_csv)
+* [RBQL](https://github.com/mechatroner/RBQL)
