@@ -310,6 +310,18 @@ function handle_message(msg_event) {
 }
 
 
+function handle_input_keyup(event) {
+    event.preventDefault();
+    if (event.keyCode == 13) {
+        start_rbql();
+    } else {
+        let current_query = document.getElementById('rbql_input').value;
+        let last_var_prefix = current_query.match(/(?:^|[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
+        vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
+    }
+}
+
+
 function main() {
     window.addEventListener('message', handle_message);
     vscode.postMessage({'msg_type': 'handshake'});
@@ -327,16 +339,8 @@ function main() {
     document.getElementById("go_up").addEventListener("click", preview_up);
     document.getElementById("go_down").addEventListener("click", preview_down);
     document.getElementById("go_end").addEventListener("click", preview_end);
+    document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").focus();
-    document.getElementById("rbql_input").addEventListener("keyup", function(event) {
-        event.preventDefault();
-        if (event.keyCode == 13) {
-            start_rbql();
-        } else {
-            let current_query = document.getElementById('rbql_input').value;
-            vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
-        }
-    });
 }
 
 
