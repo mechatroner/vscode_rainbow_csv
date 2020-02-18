@@ -3,6 +3,7 @@ var rbql_running = false;
 var handshake_completed = false;
 
 var query_history = [];
+var autosuggest_header_vars = [];
 
 const vscode = acquireVsCodeApi();
 
@@ -225,14 +226,14 @@ function register_history_callback(button_element, query) {
 
 
 function toggle_history() {
-    var style_before = document.getElementById('query_history').style.display;
+    let query_history_block = document.getElementById('query_history');
+    var style_before = query_history_block.style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';
     if (new_style == 'block') {
         document.getElementById('toggle_history_btn').textContent = '\u25BC';
     } else {
         document.getElementById('toggle_history_btn').textContent = '\u25B2';
     }
-    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
     let history_entries_block = document.getElementById('history_entries');
     remove_children(history_entries_block);
     for (let nr = 0; nr < query_history.length; nr++) {
@@ -242,11 +243,11 @@ function toggle_history() {
         register_history_callback(entry_button, query_history[nr]);
         history_entries_block.appendChild(entry_button);
     }
-    let query_history_block = document.getElementById('query_history');
     query_history_block.style.display = new_style;
-    let calculated_history_height = query_history_block.scrollHeight;
+    let calculated_height = query_history_block.scrollHeight;
+    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
     query_history_block.style.left = text_input_coordinates.left + 'px';
-    query_history_block.style.top = text_input_coordinates.top - calculated_history_height + 'px';
+    query_history_block.style.top = text_input_coordinates.top - calculated_height + 'px';
 }
 
 
@@ -265,6 +266,18 @@ function start_rbql() {
 }
 
 
+function generate_autosuggest_variables(header) {
+    let result = [];
+    for (let h of header) {
+        if (h.match('^[_a-zA-Z][_a-zA-Z0-9]*$') !== null) {
+            result.push(`a.${h}`);
+        }
+        // FIXME also push a['...'] and a["..."], but don't show BOTH of the in suggest
+    }
+    return result;
+}
+
+
 function handle_message(msg_event) {
     var message = msg_event.data;
     console.log('message received at client: ' + JSON.stringify(msg_event));
@@ -280,6 +293,8 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
         }
+        let header = message['header'];
+        autosuggest_header_vars = generate_autosuggest_variables(header);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_headers = message['skip_headers'];
         last_preview_message = message;
@@ -310,13 +325,50 @@ function handle_message(msg_event) {
 }
 
 
+function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
+    remove_children(suggest_div);
+    for (let s of relevant_suggest_list) {
+        let entry_button = document.createElement('button');
+        entry_button.className = 'history_button';
+        entry_button.textContent = s;
+        //register_history_callback(entry_button, query_history[nr]);
+        suggest_div.appendChild(entry_button);
+    }
+    suggest_div.style.display = 'block';
+    let calculated_height = suggest_div.scrollHeight;
+    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
+    suggest_div.style.left = text_input_coordinates.left + 'px';
+    suggest_div.style.top = text_input_coordinates.top - calculated_height + 'px';
+}
+
+
 function handle_input_keyup(event) {
     event.preventDefault();
     if (event.keyCode == 13) {
         start_rbql();
     } else {
+        let suggest_div = document.getElementById('query_suggest');
+        suggest_div.style.display = 'none';
         let current_query = document.getElementById('rbql_input').value;
-        let last_var_prefix = current_query.match(/(?:^|[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
+        try {
+            let last_var_prefix_match = current_query.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
+            if (last_var_prefix_match) {
+                let relevant_suggest_list = [];
+                let last_var_prefix = last_var_prefix_match[1];
+                let query_before_var = current_query.substr(0, last_var_prefix_match.index + 1);
+                for (let hv of autosuggest_header_vars) {
+                    if (last_var_prefix === 'a[' && hv.startsWith('a["'))
+                        continue; // Don't match both a['...'] and a["..."] notations of the same variable
+                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()))
+                        relevant_suggest_list.push(hv);
+                }
+                if (relevant_suggest_list.length) {
+                    show_suggest(suggest_div, query_before_var, relevant_suggest_list);
+                }
+            }
+        } catch (e) {
+            console.error(`Autocomplete error: ${e}`);
+        }
         vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
     }
 }

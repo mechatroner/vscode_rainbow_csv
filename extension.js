@@ -219,6 +219,11 @@ function make_skip_header_key(file_path) {
 }
 
 
+function get_header_from_document(document, delim, policy) {
+    return csv_utils.smart_split(get_header_line(document), delim, policy, false)[0];
+}
+
+
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
     if (file_path) {
@@ -226,7 +231,7 @@ function get_header(document, delim, policy) {
         if (header)
             return csv_utils.smart_split(header, ',', 'quoted', false)[0];
     }
-    return csv_utils.smart_split(get_header_line(document), delim, policy, false)[0];
+    return get_header_from_document(document, delim, policy);
 }
 
 
@@ -1142,6 +1147,7 @@ function handle_rbql_client_message(webview, message) {
         init_msg['policy'] = rbql_context.policy;
         init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
         init_msg['skip_headers'] = rbql_context.skip_headers;
+        init_msg['header'] = rbql_context.header;
         webview.postMessage(init_msg);
     }
 
@@ -1252,6 +1258,7 @@ function edit_rbql() {
     }
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     let skip_headers = get_from_global_state(make_skip_header_key(input_path), false);
+    let header = get_header_from_document(active_doc, delim, policy); // TODO support custom virtual headers in RBQL, so we can use get_header() here
     rbql_context = {
         "input_document": active_doc,
          "input_document_path": input_path,
@@ -1260,7 +1267,8 @@ function edit_rbql() {
          "policy": policy,
          "rfc_record_map": [],
          "enable_rfc_newlines": enable_rfc_newlines,
-         "skip_headers": skip_headers
+         "skip_headers": skip_headers,
+         "header": header
     };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
