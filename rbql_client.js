@@ -325,13 +325,23 @@ function handle_message(msg_event) {
 }
 
 
+function register_suggest_callback(button_element, query_before_var, full_var) {
+    button_element.addEventListener("click", () => { 
+        let rbql_input = document.getElementById('rbql_input');
+        document.getElementById('query_suggest').style.display = 'none';
+        rbql_input.value = query_before_var + full_var; 
+        rbql_input.focus();
+    });
+}
+
+
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
     remove_children(suggest_div);
     for (let s of relevant_suggest_list) {
         let entry_button = document.createElement('button');
         entry_button.className = 'history_button';
         entry_button.textContent = s;
-        //register_history_callback(entry_button, query_history[nr]);
+        register_suggest_callback(entry_button, query_before_var, s);
         suggest_div.appendChild(entry_button);
     }
     suggest_div.style.display = 'block';
@@ -359,7 +369,7 @@ function handle_input_keyup(event) {
                 for (let hv of autosuggest_header_vars) {
                     if (last_var_prefix === 'a[' && hv.startsWith('a["'))
                         continue; // Don't match both a['...'] and a["..."] notations of the same variable
-                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()))
+                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()) && hv != last_var_prefix)
                         relevant_suggest_list.push(hv);
                 }
                 if (relevant_suggest_list.length) {
