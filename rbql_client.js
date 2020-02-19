@@ -12,6 +12,9 @@ const header_table_border = '1px solid red';
 
 var last_preview_message = null;
 
+var active_suggest_idx = null;
+var suggest_list_size = 0;
+
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
@@ -337,13 +340,18 @@ function register_suggest_callback(button_element, query_before_var, full_var) {
 
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
     remove_children(suggest_div);
-    for (let s of relevant_suggest_list) {
+    active_suggest_idx = 0;
+    suggest_list_size = relevant_suggest_list.length;
+    for (let i = 0; i < relevant_suggest_list.length; i++) {
+        let suggest_text = relevant_suggest_list[i];
         let entry_button = document.createElement('button');
         entry_button.className = 'history_button';
-        entry_button.textContent = s;
-        register_suggest_callback(entry_button, query_before_var, s);
+        entry_button.textContent = suggest_text;
+        entry_button.setAttribute('id', `rbql_suggest_var_${i}`);
+        register_suggest_callback(entry_button, query_before_var, suggest_text);
         suggest_div.appendChild(entry_button);
     }
+    highlight_suggest_entry(active_suggest_idx, true);
     suggest_div.style.display = 'block';
     let calculated_height = suggest_div.scrollHeight;
     let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
@@ -352,13 +360,48 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
 }
 
 
+function hide_suggest(suggest_div) {
+    suggest_div.style.display = 'none';
+    active_suggest_idx = null;
+}
+
+
+function highlight_suggest_entry(suggest_idx, do_highlight) {
+    let entry_button = document.getElementById(`rbql_suggest_var_${suggest_idx}`)
+    if (!entry_button)
+        return;
+    if (do_highlight) {
+        entry_button.className = 'history_button history_button_active';
+    } else {
+        entry_button.className = 'history_button';
+    }
+}
+
+
+function switch_active_suggest(direction) {
+    if (active_suggest_idx === null)
+        return;
+    highlight_suggest_entry(active_suggest_idx, false);
+    if (direction == 'up') {
+        active_suggest_idx = (active_suggest_idx + suggest_list_size - 1) % suggest_list_size;
+    } else {
+        active_suggest_idx = (active_suggest_idx + 1) % suggest_list_size;
+    }
+    highlight_suggest_entry(active_suggest_idx, true);
+}
+
+
 function handle_input_keyup(event) {
     event.preventDefault();
     if (event.keyCode == 13) {
         start_rbql();
+    } else if (event.keyCode == 38) {
+        switch_active_suggest('up');
+    } else if (event.keyCode == 40) {
+        switch_active_suggest('down');
     } else {
         let suggest_div = document.getElementById('query_suggest');
-        suggest_div.style.display = 'none';
+        hide_suggest(suggest_div);
         let current_query = document.getElementById('rbql_input').value;
         try {
             let last_var_prefix_match = current_query.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
