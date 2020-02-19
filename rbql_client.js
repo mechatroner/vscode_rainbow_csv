@@ -380,7 +380,7 @@ function highlight_suggest_entry(suggest_idx, do_highlight) {
 
 function switch_active_suggest(direction) {
     if (active_suggest_idx === null)
-        return;
+        return false;
     highlight_suggest_entry(active_suggest_idx, false);
     if (direction == 'up') {
         active_suggest_idx = (active_suggest_idx + suggest_list_size - 1) % suggest_list_size;
@@ -388,6 +388,19 @@ function switch_active_suggest(direction) {
         active_suggest_idx = (active_suggest_idx + 1) % suggest_list_size;
     }
     highlight_suggest_entry(active_suggest_idx, true);
+    return true;
+}
+
+
+function handle_input_keydown(event) {
+    // We need this logic to prevent the caret from going to the start of the input field with the default arrow-up keydown handler
+    if (event.keyCode == 38) {
+        if (switch_active_suggest('up'))
+            event.preventDefault();
+    } else if (event.keyCode == 40) {
+        if (switch_active_suggest('down'))
+            event.preventDefault();
+    }
 }
 
 
@@ -395,11 +408,7 @@ function handle_input_keyup(event) {
     event.preventDefault();
     if (event.keyCode == 13) {
         start_rbql();
-    } else if (event.keyCode == 38) {
-        switch_active_suggest('up');
-    } else if (event.keyCode == 40) {
-        switch_active_suggest('down');
-    } else {
+    } else if (event.keyCode != 38 && event.keyCode != 40) {
         let suggest_div = document.getElementById('query_suggest');
         hide_suggest(suggest_div);
         let current_query = document.getElementById('rbql_input').value;
@@ -445,6 +454,7 @@ function main() {
     document.getElementById("go_down").addEventListener("click", preview_down);
     document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
+    document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("rbql_input").focus();
 }
 
