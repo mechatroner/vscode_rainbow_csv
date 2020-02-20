@@ -346,6 +346,7 @@ function register_suggest_callback(button_element, suggest_index) {
 
 
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
+    // FIXME show suggest list right above the current caret position
     remove_children(suggest_div);
     active_suggest_idx = 0;
     suggest_list = [];
@@ -409,8 +410,10 @@ function handle_input_keydown(event) {
     } else if (event.keyCode == 40) {
         if (switch_active_suggest('down'))
             event.preventDefault();
+    } else if (event.keyCode == 39) {
+        if (active_suggest_idx !== null)
+            apply_suggest(active_suggest_idx);
     }
-    // FIXME handle right arrow -> treat as Enter
 }
 
 
