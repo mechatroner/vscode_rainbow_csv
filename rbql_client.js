@@ -13,7 +13,7 @@ const header_table_border = '1px solid red';
 var last_preview_message = null;
 
 var active_suggest_idx = null;
-var suggest_list_size = 0;
+var suggest_list = [];
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -328,12 +328,19 @@ function handle_message(msg_event) {
 }
 
 
-function register_suggest_callback(button_element, query_before_var, full_var) {
+
+function apply_suggest(suggest_index) {
+    let rbql_input = document.getElementById('rbql_input');
+    document.getElementById('query_suggest').style.display = 'none';
+    rbql_input.value = suggest_list[suggest_index]; 
+    rbql_input.focus();
+}
+
+
+
+function register_suggest_callback(button_element, suggest_index) {
     button_element.addEventListener("click", () => { 
-        let rbql_input = document.getElementById('rbql_input');
-        document.getElementById('query_suggest').style.display = 'none';
-        rbql_input.value = query_before_var + full_var; 
-        rbql_input.focus();
+        apply_suggest(suggest_index);
     });
 }
 
@@ -341,15 +348,16 @@ function register_suggest_callback(button_element, query_before_var, full_var) {
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
     remove_children(suggest_div);
     active_suggest_idx = 0;
-    suggest_list_size = relevant_suggest_list.length;
+    suggest_list = [];
     for (let i = 0; i < relevant_suggest_list.length; i++) {
         let suggest_text = relevant_suggest_list[i];
         let entry_button = document.createElement('button');
         entry_button.className = 'history_button';
         entry_button.textContent = suggest_text;
         entry_button.setAttribute('id', `rbql_suggest_var_${i}`);
-        register_suggest_callback(entry_button, query_before_var, suggest_text);
+        register_suggest_callback(entry_button, i);
         suggest_div.appendChild(entry_button);
+        suggest_list.push(query_before_var + suggest_text);
     }
     highlight_suggest_entry(active_suggest_idx, true);
     suggest_div.style.display = 'block';
@@ -363,6 +371,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
 function hide_suggest(suggest_div) {
     suggest_div.style.display = 'none';
     active_suggest_idx = null;
+    suggest_list = [];
 }
 
 
@@ -383,9 +392,9 @@ function switch_active_suggest(direction) {
         return false;
     highlight_suggest_entry(active_suggest_idx, false);
     if (direction == 'up') {
-        active_suggest_idx = (active_suggest_idx + suggest_list_size - 1) % suggest_list_size;
+        active_suggest_idx = (active_suggest_idx + suggest_list.length - 1) % suggest_list.length;
     } else {
-        active_suggest_idx = (active_suggest_idx + 1) % suggest_list_size;
+        active_suggest_idx = (active_suggest_idx + 1) % suggest_list.length;
     }
     highlight_suggest_entry(active_suggest_idx, true);
     return true;
@@ -401,14 +410,20 @@ function handle_input_keydown(event) {
         if (switch_active_suggest('down'))
             event.preventDefault();
     }
+    // FIXME handle right arrow -> treat as Enter
 }
 
 
 function handle_input_keyup(event) {
     event.preventDefault();
     if (event.keyCode == 13) {
-        start_rbql();
+        if (active_suggest_idx === null) {
+            start_rbql();
+        } else {
+            apply_suggest(active_suggest_idx);
+        }
     } else if (event.keyCode != 38 && event.keyCode != 40) {
+        // FIXME support suggest in the middle of the string
         let suggest_div = document.getElementById('query_suggest');
         hide_suggest(suggest_div);
         let current_query = document.getElementById('rbql_input').value;
