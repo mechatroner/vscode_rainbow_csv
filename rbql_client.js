@@ -332,9 +332,11 @@ function handle_message(msg_event) {
 function apply_suggest(suggest_index) {
     let rbql_input = document.getElementById('rbql_input');
     document.getElementById('query_suggest').style.display = 'none';
-    rbql_input.value = suggest_list[suggest_index]; 
+    rbql_input.value = suggest_list[suggest_index][0]; 
+    rbql_input.selectionStart = suggest_list[suggest_index][1];
+    rbql_input.selectionEnd = suggest_list[suggest_index][1];
     rbql_input.focus();
-    vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index]});
+    vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index][0]});
 }
 
 
@@ -359,7 +361,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
         entry_button.setAttribute('id', `rbql_suggest_var_${i}`);
         register_suggest_callback(entry_button, i);
         suggest_div.appendChild(entry_button);
-        suggest_list.push(query_before_var + suggest_text + query_after_cursor);
+        suggest_list.push([query_before_var + suggest_text + query_after_cursor, (query_before_var + suggest_text).length]);
     }
     highlight_suggest_entry(active_suggest_idx, true);
     suggest_div.style.display = 'block';
@@ -439,7 +441,6 @@ function handle_input_keyup(event) {
     let suggest_div = document.getElementById('query_suggest');
     hide_suggest(suggest_div);
     if (is_printable_key_code(event.keyCode)) {
-        // FIXME support suggest in the middle of the string: do not set caret at the end after completion selection
         let rbql_input = document.getElementById('rbql_input');
         let current_query = rbql_input.value;
         let cursor_pos = rbql_input.selectionStart;
