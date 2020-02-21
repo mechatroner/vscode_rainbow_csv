@@ -331,12 +331,12 @@ function handle_message(msg_event) {
 
 function apply_suggest(suggest_index) {
     let rbql_input = document.getElementById('rbql_input');
-    document.getElementById('query_suggest').style.display = 'none';
     rbql_input.value = suggest_list[suggest_index][0]; 
     rbql_input.selectionStart = suggest_list[suggest_index][1];
     rbql_input.selectionEnd = suggest_list[suggest_index][1];
     rbql_input.focus();
     vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index][0]});
+    hide_suggest(document.getElementById('query_suggest'));
 }
 
 
