@@ -334,6 +334,7 @@ function apply_suggest(suggest_index) {
     document.getElementById('query_suggest').style.display = 'none';
     rbql_input.value = suggest_list[suggest_index]; 
     rbql_input.focus();
+    vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index]});
 }
 
 
@@ -345,7 +346,7 @@ function register_suggest_callback(button_element, suggest_index) {
 }
 
 
-function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
+function show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor) {
     // FIXME show suggest list right above the current caret position
     remove_children(suggest_div);
     active_suggest_idx = 0;
@@ -358,7 +359,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list) {
         entry_button.setAttribute('id', `rbql_suggest_var_${i}`);
         register_suggest_callback(entry_button, i);
         suggest_div.appendChild(entry_button);
-        suggest_list.push(query_before_var + suggest_text);
+        suggest_list.push(query_before_var + suggest_text + query_after_cursor);
     }
     highlight_suggest_entry(active_suggest_idx, true);
     suggest_div.style.display = 'block';
@@ -411,9 +412,17 @@ function handle_input_keydown(event) {
         if (switch_active_suggest('down'))
             event.preventDefault();
     } else if (event.keyCode == 39) {
-        if (active_suggest_idx !== null)
+        if (active_suggest_idx !== null) {
             apply_suggest(active_suggest_idx);
+            event.preventDefault();
+        }
     }
+}
+
+
+function is_printable_key_code(keycode) {
+    // Taken from here: https://stackoverflow.com/a/12467610/2898283
+    return (keycode > 47 && keycode < 58) || keycode == 32 || (keycode > 64 && keycode < 91) || (keycode > 185 && keycode < 193) || (keycode > 218 && keycode < 223);
 }
 
 
@@ -425,17 +434,23 @@ function handle_input_keyup(event) {
         } else {
             apply_suggest(active_suggest_idx);
         }
-    } else if (event.keyCode != 38 && event.keyCode != 40) {
-        // FIXME support suggest in the middle of the string
-        let suggest_div = document.getElementById('query_suggest');
-        hide_suggest(suggest_div);
-        let current_query = document.getElementById('rbql_input').value;
+        return;
+    }
+    let suggest_div = document.getElementById('query_suggest');
+    hide_suggest(suggest_div);
+    if (is_printable_key_code(event.keyCode)) {
+        // FIXME support suggest in the middle of the string: do not set caret at the end after completion selection
+        let rbql_input = document.getElementById('rbql_input');
+        let current_query = rbql_input.value;
+        let cursor_pos = rbql_input.selectionStart;
+        let query_before_cursor = current_query.substr(0, cursor_pos);
+        let query_after_cursor = current_query.substr(cursor_pos);
         try {
-            let last_var_prefix_match = current_query.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
+            let last_var_prefix_match = query_before_cursor.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
             if (last_var_prefix_match) {
                 let relevant_suggest_list = [];
                 let last_var_prefix = last_var_prefix_match[1];
-                let query_before_var = current_query.substr(0, last_var_prefix_match.index + 1);
+                let query_before_var = query_before_cursor.substr(0, last_var_prefix_match.index + 1);
                 for (let hv of autosuggest_header_vars) {
                     if (last_var_prefix === 'a[' && hv.startsWith('a["'))
                         continue; // Don't match both a['...'] and a["..."] notations of the same variable
@@ -443,7 +458,7 @@ function handle_input_keyup(event) {
                         relevant_suggest_list.push(hv);
                 }
                 if (relevant_suggest_list.length) {
-                    show_suggest(suggest_div, query_before_var, relevant_suggest_list);
+                    show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor);
                 }
             }
         } catch (e) {
