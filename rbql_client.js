@@ -250,7 +250,7 @@ function toggle_history() {
     let calculated_height = query_history_block.scrollHeight;
     let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
     query_history_block.style.left = text_input_coordinates.left + 'px';
-    query_history_block.style.top = text_input_coordinates.top - calculated_height + 'px';
+    query_history_block.style.top = (text_input_coordinates.top - calculated_height) + 'px';
 }
 
 
@@ -349,7 +349,16 @@ function register_suggest_callback(button_element, suggest_index) {
 
 
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor) {
-    // FIXME show suggest list right above the current caret position
+    // FIXME sometime suggest disappears after entering the first character from the var e.g. 1. a. -> OK; 2. a.A -> FAIL, suggest has disappeared.
+    let rbql_input = document.getElementById('rbql_input');
+    let text_input_coordinates = get_coordinates(rbql_input);
+    let caret_left_shift = 0;
+    try {
+        let caret_coordinates = getCaretCoordinates(rbql_input, rbql_input.selectionStart);
+        caret_left_shift = caret_coordinates.left ? caret_coordinates.left : 0;
+    } catch (e) {
+        caret_left_shift = 0;
+    }
     remove_children(suggest_div);
     active_suggest_idx = 0;
     suggest_list = [];
@@ -366,9 +375,8 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
     highlight_suggest_entry(active_suggest_idx, true);
     suggest_div.style.display = 'block';
     let calculated_height = suggest_div.scrollHeight;
-    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
-    suggest_div.style.left = text_input_coordinates.left + 'px';
-    suggest_div.style.top = text_input_coordinates.top - calculated_height + 'px';
+    suggest_div.style.left = (text_input_coordinates.left + caret_left_shift) + 'px';
+    suggest_div.style.top = (text_input_coordinates.top - calculated_height) + 'px';
 }
 
 

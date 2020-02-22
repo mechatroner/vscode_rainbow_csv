@@ -58,6 +58,7 @@ var rbql_context = null;
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch
 
 var js_client_path = null;
+var textarea_cp_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
@@ -1277,7 +1278,10 @@ function edit_rbql() {
     if (!client_html_template)
         client_html_template = fs.readFileSync(client_html_template_path, "utf8");
     let rbql_client_file_uri_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(js_client_path));
-    preview_panel.webview.html = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
+    let rbql_client_textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(textarea_cp_path));
+    client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
+    client_html_template = client_html_template.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + rbql_client_textarea_cp_path + '"');
+    preview_panel.webview.html = client_html_template;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
 
@@ -1513,6 +1517,7 @@ function activate(context) {
     global_state = context.globalState;
 
     js_client_path = context.asAbsolutePath('rbql_client.js');
+    textarea_cp_path = context.asAbsolutePath('contrib/textarea-caret-position/index.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
