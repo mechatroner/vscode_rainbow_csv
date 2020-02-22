@@ -349,7 +349,6 @@ function register_suggest_callback(button_element, suggest_index) {
 
 
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor) {
-    // FIXME sometime suggest disappears after entering the first character from the var e.g. 1. a. -> OK; 2. a.A -> FAIL, suggest has disappeared.
     let rbql_input = document.getElementById('rbql_input');
     let text_input_coordinates = get_coordinates(rbql_input);
     let caret_left_shift = 0;
@@ -381,9 +380,11 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
 
 
 function hide_suggest(suggest_div) {
-    suggest_div.style.display = 'none';
-    active_suggest_idx = null;
-    suggest_list = [];
+    if (active_suggest_idx !== null) {
+        suggest_div.style.display = 'none';
+        active_suggest_idx = null;
+        suggest_list = [];
+    }
 }
 
 
@@ -437,6 +438,7 @@ function is_printable_key_code(keycode) {
 
 
 function handle_input_keyup(event) {
+    // FIXME can we move this into keydown handler?
     event.preventDefault();
     if (event.keyCode == 13) {
         if (active_suggest_idx === null) {
@@ -447,8 +449,8 @@ function handle_input_keyup(event) {
         return;
     }
     let suggest_div = document.getElementById('query_suggest');
-    hide_suggest(suggest_div);
     if (is_printable_key_code(event.keyCode)) {
+        hide_suggest(suggest_div);
         let rbql_input = document.getElementById('rbql_input');
         let current_query = rbql_input.value;
         let cursor_pos = rbql_input.selectionStart;
