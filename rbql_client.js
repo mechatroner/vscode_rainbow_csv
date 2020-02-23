@@ -330,13 +330,17 @@ function handle_message(msg_event) {
 
 
 function apply_suggest(suggest_index) {
-    let rbql_input = document.getElementById('rbql_input');
-    rbql_input.value = suggest_list[suggest_index][0]; 
-    rbql_input.selectionStart = suggest_list[suggest_index][1];
-    rbql_input.selectionEnd = suggest_list[suggest_index][1];
-    rbql_input.focus();
-    vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index][0]});
-    hide_suggest(document.getElementById('query_suggest'));
+    try {
+        let rbql_input = document.getElementById('rbql_input');
+        rbql_input.value = suggest_list[suggest_index][0]; 
+        rbql_input.selectionStart = suggest_list[suggest_index][1];
+        rbql_input.selectionEnd = suggest_list[suggest_index][1];
+        rbql_input.focus();
+        vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index][0]});
+        hide_suggest(document.getElementById('query_suggest'));
+    } catch (e) {
+        console.error(`Autocomplete error: ${e}`);
+    }
 }
 
 
@@ -416,17 +420,21 @@ function switch_active_suggest(direction) {
 
 function handle_input_keydown(event) {
     // We need this logic to prevent the caret from going to the start of the input field with the default arrow-up keydown handler
-    if (event.keyCode == 38) {
-        if (switch_active_suggest('up'))
-            event.preventDefault();
-    } else if (event.keyCode == 40) {
-        if (switch_active_suggest('down'))
-            event.preventDefault();
-    } else if (event.keyCode == 39) {
-        if (active_suggest_idx !== null) {
-            apply_suggest(active_suggest_idx);
-            event.preventDefault();
+    try {
+        if (event.keyCode == 38) {
+            if (switch_active_suggest('up'))
+                event.preventDefault();
+        } else if (event.keyCode == 40) {
+            if (switch_active_suggest('down'))
+                event.preventDefault();
+        } else if (event.keyCode == 39) {
+            if (active_suggest_idx !== null) {
+                apply_suggest(active_suggest_idx);
+                event.preventDefault();
+            }
         }
+    } catch (e) {
+        console.error(`Autocomplete error: ${e}`);
     }
 }
 
@@ -438,7 +446,6 @@ function is_printable_key_code(keycode) {
 
 
 function handle_input_keyup(event) {
-    // FIXME can we move this into keydown handler?
     event.preventDefault();
     if (event.keyCode == 13) {
         if (active_suggest_idx === null) {
@@ -448,15 +455,17 @@ function handle_input_keyup(event) {
         }
         return;
     }
-    let suggest_div = document.getElementById('query_suggest');
-    if (is_printable_key_code(event.keyCode)) {
-        hide_suggest(suggest_div);
-        let rbql_input = document.getElementById('rbql_input');
-        let current_query = rbql_input.value;
-        let cursor_pos = rbql_input.selectionStart;
-        let query_before_cursor = current_query.substr(0, cursor_pos);
-        let query_after_cursor = current_query.substr(cursor_pos);
+    if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
+        // We can't move this into the keydown handler because the characters appear in the input box only after keyUp event. 
+        // Or alternatively we could scan the event.keyCode to find out the next char, but this is additional logic
         try {
+            let suggest_div = document.getElementById('query_suggest');
+            hide_suggest(suggest_div);
+            let rbql_input = document.getElementById('rbql_input');
+            let current_query = rbql_input.value;
+            let cursor_pos = rbql_input.selectionStart;
+            let query_before_cursor = current_query.substr(0, cursor_pos);
+            let query_after_cursor = current_query.substr(cursor_pos);
             let last_var_prefix_match = query_before_cursor.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
             if (last_var_prefix_match) {
                 let relevant_suggest_list = [];
