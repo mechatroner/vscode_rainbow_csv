@@ -6,7 +6,6 @@
 * Multi-cursor column edit
 * Align columns with spaces and Shrink (trim spaces from fields)
 * Run queries in SQL-like language
-* Lightweight and dependency-free
 
 ![screenshot](https://i.imgur.com/PRFKVIN.png)
 
