@@ -15,6 +15,7 @@ var last_preview_message = null;
 var active_suggest_idx = null;
 var suggest_list = [];
 
+
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
@@ -127,7 +128,6 @@ function make_preview_table() {
     if (preview_error) {
         let row = document.createElement('tr');
         table.appendChild(row);
-        let cell = document.createElement('td');
         let span = document.createElement('span');
         span.style.color = '#FF6868';
         span.textContent = 'Unable to display preview table and run RBQL query:';
@@ -212,7 +212,7 @@ function toggle_help_msg() {
     if (new_style == 'block')
         rbql_help_element.style.backgroundColor = document_bg_color;
     rbql_help_element.style.display = new_style;
-    document.getElementById('close_help').style.display = new_style
+    document.getElementById('close_help').style.display = new_style;
 }
 
 
@@ -269,13 +269,29 @@ function start_rbql() {
 }
 
 
+function js_string_escape_column_name(column_name, quote_char) {
+    column_name = column_name.replace(/\\/g, '\\\\');
+    column_name = column_name.replace(/\n/g, '\\n');
+    column_name = column_name.replace(/\r/g, '\\r');
+    column_name = column_name.replace(/\t/g, '\\t');
+    if (quote_char === "'")
+        return column_name.replace(/'/g, "\\'");
+    if (quote_char === '"')
+        return column_name.replace(/"/g, '\\"');
+    return column_name.replace(/`/g, "\\`");
+}
+
+
 function generate_autosuggest_variables(header) {
     let result = [];
     for (let h of header) {
         if (h.match('^[_a-zA-Z][_a-zA-Z0-9]*$') !== null) {
             result.push(`a.${h}`);
         }
-        // FIXME also push a['...'] and a["..."], but don't show BOTH of the in suggest
+        let escaped_column_name = js_string_escape_column_name(h, '"');
+        result.push(`a["${escaped_column_name}"]`);
+        escaped_column_name = js_string_escape_column_name(h, "'");
+        result.push(`a['${escaped_column_name}']`);
     }
     return result;
 }
@@ -332,7 +348,7 @@ function handle_message(msg_event) {
 function apply_suggest(suggest_index) {
     try {
         let rbql_input = document.getElementById('rbql_input');
-        rbql_input.value = suggest_list[suggest_index][0]; 
+        rbql_input.value = suggest_list[suggest_index][0];
         rbql_input.selectionStart = suggest_list[suggest_index][1];
         rbql_input.selectionEnd = suggest_list[suggest_index][1];
         rbql_input.focus();
@@ -346,7 +362,7 @@ function apply_suggest(suggest_index) {
 
 
 function register_suggest_callback(button_element, suggest_index) {
-    button_element.addEventListener("click", () => { 
+    button_element.addEventListener("click", () => {
         apply_suggest(suggest_index);
     });
 }
@@ -393,7 +409,7 @@ function hide_suggest(suggest_div) {
 
 
 function highlight_suggest_entry(suggest_idx, do_highlight) {
-    let entry_button = document.getElementById(`rbql_suggest_var_${suggest_idx}`)
+    let entry_button = document.getElementById(`rbql_suggest_var_${suggest_idx}`);
     if (!entry_button)
         return;
     if (do_highlight) {
@@ -456,13 +472,13 @@ function handle_input_keyup(event) {
         return;
     }
     if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
-        // We can't move this into the keydown handler because the characters appear in the input box only after keyUp event. 
+        // We can't move this into the keydown handler because the characters appear in the input box only after keyUp event.
         // Or alternatively we could scan the event.keyCode to find out the next char, but this is additional logic
+        let rbql_input = document.getElementById('rbql_input');
+        let current_query = rbql_input.value;
         try {
             let suggest_div = document.getElementById('query_suggest');
             hide_suggest(suggest_div);
-            let rbql_input = document.getElementById('rbql_input');
-            let current_query = rbql_input.value;
             let cursor_pos = rbql_input.selectionStart;
             let query_before_cursor = current_query.substr(0, cursor_pos);
             let query_after_cursor = current_query.substr(cursor_pos);
