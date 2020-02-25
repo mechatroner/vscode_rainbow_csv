@@ -33,6 +33,15 @@ const dialect_map = {
     'csv (hyphen)': ['-', 'simple']
 };
 
+let absolute_path_map = {
+    'rbql_client.js': null,
+    'contrib/textarea-caret-position/index.js': null,
+    'rbql_suggest.js': null,
+    'rbql_client.html': null,
+    'rbql mock/rbql_mock.py': null,
+    'rbql_core/vscode_rbql.py': null
+};
+
 
 var lint_results = new Map();
 var aligned_files = new Set();
@@ -54,13 +63,6 @@ const max_preview_field_length = 250;
 var rbql_context = null;
 
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch
-
-var js_client_path = null;
-var textarea_cp_path = null;
-var rbql_suggest_path = null;
-var client_html_template_path = null;
-var mock_script_path = null;
-var rbql_exec_path = null;
 
 var client_html_template = null;
 
@@ -791,7 +793,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
         }
-        let args = [mock_script_path, rbql_query];
+        let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
         return;
     }
@@ -810,7 +812,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         });
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
-        let args = [rbql_exec_path, cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
+        let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
         if (skip_headers)
             args.push('--skip_headers');
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
@@ -1274,14 +1276,15 @@ function edit_rbql() {
     };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
-    if (!client_html_template)
-        client_html_template = fs.readFileSync(client_html_template_path, "utf8");
-    let rbql_client_file_uri_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(js_client_path));
-    let rbql_client_textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(textarea_cp_path));
-    let web_rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(rbql_suggest_path));
-    client_html_template = client_html_template.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + rbql_client_textarea_cp_path + '"');
-    client_html_template = client_html_template.replace('src="rbql_suggest.js"', 'src="' + web_rbql_suggest_path + '"');
-    client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
+    if (!client_html_template) {
+        client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
+        let textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['contrib/textarea-caret-position/index.js']));
+        let rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_suggest.js']));
+        let rbql_client_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_client.js']));
+        client_html_template = client_html_template.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + textarea_cp_path + '"');
+        client_html_template = client_html_template.replace('src="rbql_suggest.js"', 'src="' + rbql_suggest_path + '"');
+        client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_path + '"');
+    }
     preview_panel.webview.html = client_html_template;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
@@ -1517,13 +1520,10 @@ function register_csv_hover_info_provider(language_id, context) {
 function activate(context) {
     global_state = context.globalState;
 
-    // FIXME refactor this: create a single var with map relative_file_name -> abs_path
-    js_client_path = context.asAbsolutePath('rbql_client.js');
-    textarea_cp_path = context.asAbsolutePath('contrib/textarea-caret-position/index.js');
-    rbql_suggest_path = context.asAbsolutePath('rbql_suggest.js');
-    client_html_template_path = context.asAbsolutePath('rbql_client.html');
-    mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
-    rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
+    for (let local_path in absolute_path_map) {
+        if (absolute_path_map.hasOwnProperty(local_path))
+            absolute_path_map[local_path] = context.asAbsolutePath(local_path);
+    }
 
     for (let language_id in dialect_map) {
         if (dialect_map.hasOwnProperty(language_id)) {
