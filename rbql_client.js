@@ -15,6 +15,7 @@ var last_preview_message = null;
 var active_suggest_idx = null;
 var suggest_list = [];
 
+var skip_next_enter = false; //FIXME get rid of this state
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -196,11 +197,14 @@ function show_error(error_type, error_msg) {
     document.getElementById('error_message_header').textContent = 'Error type: "' + error_type + '"';
     document.getElementById('error_message_details').textContent = error_msg;
     document.getElementById('rbql_error_message').style.display = 'block';
+    document.getElementById('ack_error').focus();
 }
 
 
 function hide_error_msg() {
     document.getElementById('rbql_error_message').style.display = 'none';
+    skip_next_enter = true;
+    document.getElementById("rbql_input").focus();
 }
 
 
@@ -338,7 +342,11 @@ function is_printable_key_code(keycode) {
 function handle_input_keyup(event) {
     event.preventDefault(); // FIXME do we really need this?
     if (event.keyCode == 13 && rbql_suggest.active_suggest_idx === null) {
-        start_rbql();
+        if (skip_next_enter) {
+            skip_next_enter = false; // FIXME get rid of this clumsy logic by moving enter to on_key_down
+        } else {
+            start_rbql(); // FIXME can we move this to on_key_down?
+        }
     } else {
         rbql_suggest.handle_input_keyup(event);
         if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
