@@ -39,8 +39,7 @@ function apply_suggest(suggest_index) {
         rbql_input.selectionEnd = rbql_suggest.suggest_list[suggest_index][1];
         rbql_input.focus();
         if (rbql_suggest.apply_suggest_callback) {
-            rbql_suggest.apply_suggest_callback(suggest_list[suggest_index][0]);
-            //vscode.postMessage({'msg_type': 'update_query', 'query': suggest_list[suggest_index][0]}); // FIXME this should not be here - move back to rbql_client.js
+            rbql_suggest.apply_suggest_callback(rbql_suggest.suggest_list[suggest_index][0]);
         }
         hide_suggest(document.getElementById('query_suggest'));
     } catch (e) {

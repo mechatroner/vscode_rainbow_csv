@@ -342,6 +342,7 @@ function handle_input_keyup(event) {
     } else {
         rbql_suggest.handle_input_keyup(event);
         if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
+            let current_query = document.getElementById('rbql_input').value;
             vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
         }
     }
