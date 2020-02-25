@@ -19,6 +19,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // FIXME set focus on OK button when showing error message in RBQL console
 
+// FIXME query disappear after autocomplete apply after switching back and forth between RBQL console and a regular doc
+// FIXME suggest box doesn't disappear after applying autosuggest option
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -59,6 +61,7 @@ var last_rbql_queries = new Map(); // Query history does not replace this struct
 
 var js_client_path = null;
 var textarea_cp_path = null;
+var rbql_suggest_path = null;
 var client_html_template_path = null;
 var mock_script_path = null;
 var rbql_exec_path = null;
@@ -1279,8 +1282,10 @@ function edit_rbql() {
         client_html_template = fs.readFileSync(client_html_template_path, "utf8");
     let rbql_client_file_uri_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(js_client_path));
     let rbql_client_textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(textarea_cp_path));
-    client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
+    let web_rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(rbql_suggest_path));
     client_html_template = client_html_template.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + rbql_client_textarea_cp_path + '"');
+    client_html_template = client_html_template.replace('src="rbql_suggest.js"', 'src="' + web_rbql_suggest_path + '"');
+    client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_file_uri_path + '"');
     preview_panel.webview.html = client_html_template;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
@@ -1516,8 +1521,10 @@ function register_csv_hover_info_provider(language_id, context) {
 function activate(context) {
     global_state = context.globalState;
 
+    // FIXME refactor this: create a single var with map relative_file_name -> abs_path
     js_client_path = context.asAbsolutePath('rbql_client.js');
     textarea_cp_path = context.asAbsolutePath('contrib/textarea-caret-position/index.js');
+    rbql_suggest_path = context.asAbsolutePath('rbql_suggest.js');
     client_html_template_path = context.asAbsolutePath('rbql_client.html');
     mock_script_path = context.asAbsolutePath('rbql mock/rbql_mock.py');
     rbql_exec_path = context.asAbsolutePath('rbql_core/vscode_rbql.py');
