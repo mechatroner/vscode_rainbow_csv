@@ -55,9 +55,8 @@ function register_suggest_callback(button_element, suggest_index) {
 }
 
 
-function highlight_suggest_entry(suggest_idx, do_highlight) {
-    // FIXME we don't need suggest_idx variable here - use rbql_suggest.active_suggest_idx instead
-    let entry_button = document.getElementById(`rbql_suggest_var_${suggest_idx}`);
+function highlight_active_suggest_entry(do_highlight) {
+    let entry_button = document.getElementById(`rbql_suggest_var_${rbql_suggest.active_suggest_idx}`);
     if (!entry_button)
         return;
     if (do_highlight) {
@@ -91,7 +90,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
         suggest_div.appendChild(entry_button);
         rbql_suggest.suggest_list.push([query_before_var + suggest_text + query_after_cursor, (query_before_var + suggest_text).length]);
     }
-    highlight_suggest_entry(rbql_suggest.active_suggest_idx, true);
+    highlight_active_suggest_entry(true);
     suggest_div.style.display = 'block';
     let calculated_height = suggest_div.scrollHeight;
     suggest_div.style.left = (text_input_coordinates.left + caret_left_shift) + 'px';
@@ -102,13 +101,13 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
 function switch_active_suggest(direction) {
     if (rbql_suggest.active_suggest_idx === null)
         return false;
-    highlight_suggest_entry(rbql_suggest.active_suggest_idx, false);
+    highlight_active_suggest_entry(false);
     if (direction == 'up') {
         rbql_suggest.active_suggest_idx = (rbql_suggest.active_suggest_idx + rbql_suggest.suggest_list.length - 1) % rbql_suggest.suggest_list.length;
     } else {
         rbql_suggest.active_suggest_idx = (rbql_suggest.active_suggest_idx + 1) % rbql_suggest.suggest_list.length;
     }
-    highlight_suggest_entry(rbql_suggest.active_suggest_idx, true);
+    highlight_active_suggest_entry(true);
     return true;
 }
 
