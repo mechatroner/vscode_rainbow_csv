@@ -11,13 +11,17 @@ rbql_suggest.autosuggest_header_vars = [];
 function init_suggest_variables(header) {
     let result = [];
     for (let h of header) {
+        let column_var_options = {orig_column_name: h};
         if (h.match('^[_a-zA-Z][_a-zA-Z0-9]*$') !== null) {
-            result.push(`a.${h}`);
+            column_var_options.dot_var = `a.${h}`;
+        } else {
+            column_var_options.dot_var = null;
         }
         let escaped_column_name = js_string_escape_column_name(h, '"');
-        result.push(`a["${escaped_column_name}"]`);
+        column_var_options.double_q_var = `a["${escaped_column_name}"]`;
         escaped_column_name = js_string_escape_column_name(h, "'");
-        result.push(`a['${escaped_column_name}']`);
+        column_var_options.single_q_var = `a['${escaped_column_name}']`;
+        result.push(column_var_options);
     }
     rbql_suggest.autosuggest_header_vars = result;
 }
@@ -140,6 +144,26 @@ function handle_input_keydown(event) {
 }
 
 
+function lower_cased_starts_with(long_string, prefix) {
+    return long_string && long_string.toLowerCase().startsWith(prefix.toLowerCase());
+}
+
+
+function get_best_matching_variable(variable_prefix, column_var_options) {
+    if (variable_prefix.startsWith('a.')) {
+        if (lower_cased_starts_with(column_var_options.dot_var, variable_prefix))
+            return column_var_options.dot_var;
+        if (lower_cased_starts_with('a.' + column_var_options.orig_column_name, variable_prefix))
+            return column_var_options.single_q_var;
+    }
+    if (lower_cased_starts_with(column_var_options.single_q_var, variable_prefix))
+        return column_var_options.single_q_var;
+    if (lower_cased_starts_with(column_var_options.double_q_var, variable_prefix))
+        return column_var_options.double_q_var;
+    return null;
+}
+
+
 function handle_input_keyup(event) {
     try {
         if (event.keyCode == 13) {
@@ -160,15 +184,12 @@ function handle_input_keyup(event) {
             let last_var_prefix_match = query_before_cursor.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
             if (last_var_prefix_match) {
                 let relevant_suggest_list = [];
-                let last_var_prefix = last_var_prefix_match[1];
+                let cursor_var_prefix = last_var_prefix_match[1];
                 let query_before_var = query_before_cursor.substr(0, last_var_prefix_match.index + 1);
-                for (let hv of rbql_suggest.autosuggest_header_vars) {
-                    if (last_var_prefix === 'a[' && hv.startsWith('a["'))
-                        continue; // Don't match both a['...'] and a["..."] notations of the same variable
-                    if (hv == last_var_prefix)
-                        continue;
-                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()))
-                        relevant_suggest_list.push(hv);
+                for (let column_var_options of rbql_suggest.autosuggest_header_vars) {
+                    let suggested_var = get_best_matching_variable(cursor_var_prefix, column_var_options);
+                    if (suggested_var)
+                        relevant_suggest_list.push(suggested_var);
                 }
                 if (relevant_suggest_list.length) {
                     show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor);
