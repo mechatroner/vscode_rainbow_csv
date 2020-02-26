@@ -3,7 +3,6 @@ var rbql_running = false;
 var handshake_completed = false;
 
 var query_history = [];
-var autosuggest_header_vars = [];
 
 const vscode = acquireVsCodeApi();
 
@@ -300,7 +299,7 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let header = message['header'];
-        autosuggest_header_vars = rbql_suggest.generate_autosuggest_variables(header);
+        rbql_suggest.init_suggest_variables(header);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_headers = message['skip_headers'];
         last_preview_message = message;

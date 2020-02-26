@@ -5,9 +5,10 @@ let rbql_suggest = {};
 rbql_suggest.active_suggest_idx = null; 
 rbql_suggest.suggest_list = []
 rbql_suggest.apply_suggest_callback = null;
+rbql_suggest.autosuggest_header_vars = [];
 
 
-function generate_autosuggest_variables(header) {
+function init_suggest_variables(header) {
     let result = [];
     for (let h of header) {
         if (h.match('^[_a-zA-Z][_a-zA-Z0-9]*$') !== null) {
@@ -18,7 +19,7 @@ function generate_autosuggest_variables(header) {
         escaped_column_name = js_string_escape_column_name(h, "'");
         result.push(`a['${escaped_column_name}']`);
     }
-    return result;
+    rbql_suggest.autosuggest_header_vars = result;
 }
 
 
@@ -161,10 +162,12 @@ function handle_input_keyup(event) {
                 let relevant_suggest_list = [];
                 let last_var_prefix = last_var_prefix_match[1];
                 let query_before_var = query_before_cursor.substr(0, last_var_prefix_match.index + 1);
-                for (let hv of autosuggest_header_vars) {
+                for (let hv of rbql_suggest.autosuggest_header_vars) {
                     if (last_var_prefix === 'a[' && hv.startsWith('a["'))
                         continue; // Don't match both a['...'] and a["..."] notations of the same variable
-                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()) && hv != last_var_prefix)
+                    if (hv == last_var_prefix)
+                        continue;
+                    if (hv.toLowerCase().startsWith(last_var_prefix.toLowerCase()))
                         relevant_suggest_list.push(hv);
                 }
                 if (relevant_suggest_list.length) {
@@ -183,7 +186,7 @@ function set_apply_suggest_callback(apply_suggest_callback) {
 
 
 rbql_suggest.set_apply_suggest_callback = set_apply_suggest_callback;
-rbql_suggest.generate_autosuggest_variables = generate_autosuggest_variables;
+rbql_suggest.init_suggest_variables = init_suggest_variables;
 rbql_suggest.handle_input_keydown = handle_input_keydown;
 rbql_suggest.handle_input_keyup = handle_input_keyup;
 
