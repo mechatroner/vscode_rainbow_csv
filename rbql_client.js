@@ -15,7 +15,6 @@ var last_preview_message = null;
 var active_suggest_idx = null;
 var suggest_list = [];
 
-var skip_next_enter = false; //FIXME get rid of this state
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -203,7 +202,6 @@ function show_error(error_type, error_msg) {
 
 function hide_error_msg() {
     document.getElementById('rbql_error_message').style.display = 'none';
-    skip_next_enter = true;
     document.getElementById("rbql_input").focus();
 }
 
@@ -340,19 +338,19 @@ function is_printable_key_code(keycode) {
 
 
 function handle_input_keyup(event) {
-    event.preventDefault(); // FIXME do we really need this?
+    rbql_suggest.handle_input_keyup(event);
+    if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
+        let current_query = document.getElementById('rbql_input').value;
+        vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
+    }
+}
+
+
+function handle_input_keydown(event) {
     if (event.keyCode == 13 && rbql_suggest.active_suggest_idx === null) {
-        if (skip_next_enter) {
-            skip_next_enter = false; // FIXME get rid of this clumsy logic by moving enter to on_key_down
-        } else {
-            start_rbql(); // FIXME can we move this to on_key_down?
-        }
+        start_rbql();
     } else {
-        rbql_suggest.handle_input_keyup(event);
-        if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
-            let current_query = document.getElementById('rbql_input').value;
-            vscode.postMessage({'msg_type': 'update_query', 'query': current_query});
-        }
+        rbql_suggest.handle_input_keydown(event);
     }
 }
 
@@ -377,7 +375,7 @@ function main() {
     document.getElementById("go_down").addEventListener("click", preview_down);
     document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
-    document.getElementById("rbql_input").addEventListener("keydown", (event) => { rbql_suggest.handle_input_keydown(event); });
+    document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("rbql_input").focus();
 }
 
