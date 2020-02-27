@@ -9,6 +9,7 @@ rbql_suggest.autosuggest_header_vars = [];
 
 
 function init_suggest_variables(header) {
+    let max_suggest_len = 100; // Suggest UI could become unresponsive if there are too many suggest options to consider
     let result = [];
     for (let h of header) {
         let column_var_options = {orig_column_name: h};
@@ -22,6 +23,8 @@ function init_suggest_variables(header) {
         escaped_column_name = js_string_escape_column_name(h, "'");
         column_var_options.single_q_var = `a['${escaped_column_name}']`;
         result.push(column_var_options);
+        if (result.length > max_suggest_len)
+            break;
     }
     rbql_suggest.autosuggest_header_vars = result;
 }
@@ -97,7 +100,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
     }
     highlight_active_suggest_entry(true);
     suggest_div.style.display = 'block';
-    let calculated_height = suggest_div.scrollHeight;
+    let calculated_height = suggest_div.offsetHeight;
     suggest_div.style.left = (text_input_coordinates.left + caret_left_shift) + 'px';
     suggest_div.style.top = (text_input_coordinates.top - calculated_height) + 'px';
 }
@@ -181,6 +184,7 @@ function handle_input_keyup(event) {
             let cursor_pos = rbql_input.selectionStart;
             let query_before_cursor = current_query.substr(0, cursor_pos);
             let query_after_cursor = current_query.substr(cursor_pos);
+            // TODO improve the match - just find last var-looking expression. The problem with this one - it won't match extended suggest like a.arbitrary-var -> a['arbitrary-var']
             let last_var_prefix_match = query_before_cursor.match(/(?:[^_a-zA-Z0-9])([ab](?:\.[_a-zA-Z0-9]*|\[[^\]]*))$/);
             if (last_var_prefix_match) {
                 let relevant_suggest_list = [];

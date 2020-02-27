@@ -248,7 +248,7 @@ function toggle_history() {
         history_entries_block.appendChild(entry_button);
     }
     query_history_block.style.display = new_style;
-    let calculated_height = query_history_block.scrollHeight;
+    let calculated_height = query_history_block.offsetHeight;
     let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
     query_history_block.style.left = text_input_coordinates.left + 'px';
     query_history_block.style.top = (text_input_coordinates.top - calculated_height) + 'px';
