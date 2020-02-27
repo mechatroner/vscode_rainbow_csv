@@ -17,10 +17,6 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO automatically close RBQL console when the query successfully completes
 
 
-// FIXME test suggest with many columns which don't fit the suggest list - scroll bar appears
-// FIXME suggest list appears in the wrong place when scrollbar is present
-// FIXME make sure that active item in suggest is visible in the scroll viewport
-
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],

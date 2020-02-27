@@ -69,6 +69,7 @@ function highlight_active_suggest_entry(do_highlight) {
         return;
     if (do_highlight) {
         entry_button.className = 'history_button history_button_active';
+        entry_button.scrollIntoView();
     } else {
         entry_button.className = 'history_button';
     }
