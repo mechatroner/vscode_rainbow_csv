@@ -12,7 +12,7 @@ rbql_suggest.suggest_entry_class = null;
 
 
 
-function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, header) {
+function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, apply_suggest_callback, header) {
     let max_suggest_len = 100; // Suggest UI could become unresponsive if there are too many suggest options to consider
     let result = [];
     for (let h of header) {
@@ -30,10 +30,13 @@ function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, head
         if (result.length > max_suggest_len)
             break;
     }
+    rbql_suggest.active_suggest_idx = null; 
+    rbql_suggest.suggest_list = []
     rbql_suggest.autosuggest_header_vars = result;
     rbql_suggest.input_id = input_id;
     rbql_suggest.suggest_list_id = suggest_list_id;
     rbql_suggest.suggest_entry_class = suggest_entry_class;
+    rbql_suggest.apply_suggest_callback = apply_suggest_callback;
 }
 
 
@@ -214,12 +217,7 @@ function handle_input_keyup(event) {
     }
 }
 
-function set_apply_suggest_callback(apply_suggest_callback) {
-    rbql_suggest.apply_suggest_callback = apply_suggest_callback;
-}
 
-
-rbql_suggest.set_apply_suggest_callback = set_apply_suggest_callback;
 rbql_suggest.initialize_suggest = initialize_suggest;
 rbql_suggest.handle_input_keydown = handle_input_keydown;
 rbql_suggest.handle_input_keyup = handle_input_keyup;

@@ -283,6 +283,11 @@ function js_string_escape_column_name(column_name, quote_char) {
 }
 
 
+function apply_suggest_callback(query) {
+    vscode.postMessage({'msg_type': 'update_query', 'query': query});
+}
+
+
 function handle_message(msg_event) {
     var message = msg_event.data;
     console.log('message received at client: ' + JSON.stringify(msg_event));
@@ -299,7 +304,7 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let header = message['header'];
-        rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', header);
+        rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_headers = message['skip_headers'];
         last_preview_message = message;
@@ -357,8 +362,6 @@ function handle_input_keydown(event) {
 function main() {
     window.addEventListener('message', handle_message);
     vscode.postMessage({'msg_type': 'handshake'});
-
-    rbql_suggest.set_apply_suggest_callback((query) => { vscode.postMessage({'msg_type': 'update_query', 'query': query}); });
 
     document.getElementById("rbql_run_btn").addEventListener("click", start_rbql);
     document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
