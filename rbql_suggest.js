@@ -6,9 +6,13 @@ rbql_suggest.active_suggest_idx = null;
 rbql_suggest.suggest_list = []
 rbql_suggest.apply_suggest_callback = null;
 rbql_suggest.autosuggest_header_vars = [];
+rbql_suggest.input_id = null;
+rbql_suggest.suggest_list_id = null;
+rbql_suggest.suggest_entry_class = null;
 
 
-function init_suggest_variables(header) {
+
+function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, header) {
     let max_suggest_len = 100; // Suggest UI could become unresponsive if there are too many suggest options to consider
     let result = [];
     for (let h of header) {
@@ -27,6 +31,9 @@ function init_suggest_variables(header) {
             break;
     }
     rbql_suggest.autosuggest_header_vars = result;
+    rbql_suggest.input_id = input_id;
+    rbql_suggest.suggest_list_id = suggest_list_id;
+    rbql_suggest.suggest_entry_class = suggest_entry_class;
 }
 
 
@@ -41,7 +48,7 @@ function hide_suggest(suggest_div) {
 
 function apply_suggest(suggest_index) {
     try {
-        let rbql_input = document.getElementById('rbql_input');
+        let rbql_input = document.getElementById(rbql_suggest.input_id);
         rbql_input.value = rbql_suggest.suggest_list[suggest_index][0];
         rbql_input.selectionStart = rbql_suggest.suggest_list[suggest_index][1];
         rbql_input.selectionEnd = rbql_suggest.suggest_list[suggest_index][1];
@@ -49,7 +56,7 @@ function apply_suggest(suggest_index) {
         if (rbql_suggest.apply_suggest_callback) {
             rbql_suggest.apply_suggest_callback(rbql_suggest.suggest_list[suggest_index][0]);
         }
-        hide_suggest(document.getElementById('query_suggest'));
+        hide_suggest(document.getElementById(rbql_suggest.suggest_list_id));
     } catch (e) {
         console.error(`Autocomplete error: ${e}`);
     }
@@ -68,16 +75,17 @@ function highlight_active_suggest_entry(do_highlight) {
     if (!entry_button)
         return;
     if (do_highlight) {
-        entry_button.className = 'history_button history_button_active';
+        let active_entry_class = rbql_suggest.suggest_entry_class + '_active';
+        entry_button.className = [rbql_suggest.suggest_entry_class, active_entry_class].join(' ');
         entry_button.scrollIntoView();
     } else {
-        entry_button.className = 'history_button';
+        entry_button.className = rbql_suggest.suggest_entry_class;
     }
 }
 
 
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor) {
-    let rbql_input = document.getElementById('rbql_input');
+    let rbql_input = document.getElementById(rbql_suggest.input_id);
     let text_input_coordinates = get_coordinates(rbql_input);
     let caret_left_shift = 0;
     try {
@@ -92,7 +100,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
     for (let i = 0; i < relevant_suggest_list.length; i++) {
         let suggest_text = relevant_suggest_list[i];
         let entry_button = document.createElement('button');
-        entry_button.className = 'history_button';
+        entry_button.className = rbql_suggest.suggest_entry_class;
         entry_button.textContent = suggest_text;
         entry_button.setAttribute('id', `rbql_suggest_var_${i}`);
         register_suggest_callback(entry_button, i);
@@ -178,9 +186,9 @@ function handle_input_keyup(event) {
         if (is_printable_key_code(event.keyCode) || event.keyCode == 8 /* Bakspace */) {
             // We can't move this into the keydown handler because the characters appear in the input box only after keyUp event.
             // Or alternatively we could scan the event.keyCode to find out the next char, but this is additional logic
-            let rbql_input = document.getElementById('rbql_input');
+            let rbql_input = document.getElementById(rbql_suggest.input_id);
             let current_query = rbql_input.value;
-            let suggest_div = document.getElementById('query_suggest');
+            let suggest_div = document.getElementById(rbql_suggest.suggest_list_id);
             hide_suggest(suggest_div);
             let cursor_pos = rbql_input.selectionStart;
             let query_before_cursor = current_query.substr(0, cursor_pos);
@@ -212,7 +220,7 @@ function set_apply_suggest_callback(apply_suggest_callback) {
 
 
 rbql_suggest.set_apply_suggest_callback = set_apply_suggest_callback;
-rbql_suggest.init_suggest_variables = init_suggest_variables;
+rbql_suggest.initialize_suggest = initialize_suggest;
 rbql_suggest.handle_input_keydown = handle_input_keydown;
 rbql_suggest.handle_input_keyup = handle_input_keyup;
 

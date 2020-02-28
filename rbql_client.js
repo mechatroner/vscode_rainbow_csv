@@ -299,7 +299,7 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let header = message['header'];
-        rbql_suggest.init_suggest_variables(header);
+        rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', header);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_headers = message['skip_headers'];
         last_preview_message = message;
