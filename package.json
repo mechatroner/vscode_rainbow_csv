@@ -6,7 +6,7 @@
     "publisher": "mechatroner",
     "icon": "rainbow_csv_logo.png",
     "engines": {
-        "vscode": "^1.19.0"
+        "vscode": "^1.38.0"
     },
     "keywords": [
         "csv",
