@@ -17,6 +17,9 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 // TODO automatically close RBQL console when the query successfully completes
 
 
+// FIXME suggest appears in the wrong place when query is very long and does not fit into the input field
+
+
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
