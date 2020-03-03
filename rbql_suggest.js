@@ -100,9 +100,15 @@ function highlight_active_suggest_entry(do_highlight) {
 }
 
 
+function remove_children(root_node) {
+    while (root_node.firstChild) {
+        root_node.removeChild(root_node.firstChild);
+    }
+}
+
+
 function show_suggest(suggest_div, query_before_var, relevant_suggest_list, query_after_cursor) {
     let rbql_input = document.getElementById(rbql_suggest.input_id);
-    let text_input_coordinates = get_coordinates(rbql_input);
     let caret_left_shift = 0;
     try {
         let caret_coordinates = getCaretCoordinates(rbql_input, rbql_input.selectionStart);
@@ -126,6 +132,7 @@ function show_suggest(suggest_div, query_before_var, relevant_suggest_list, quer
     highlight_active_suggest_entry(true);
     suggest_div.style.display = 'block';
     let calculated_height = suggest_div.offsetHeight;
+    let text_input_coordinates = rbql_input.getBoundingClientRect();
     suggest_div.style.left = (text_input_coordinates.left + caret_left_shift) + 'px';
     suggest_div.style.top = (text_input_coordinates.top - calculated_height) + 'px';
 }

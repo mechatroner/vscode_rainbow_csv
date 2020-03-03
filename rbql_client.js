@@ -217,13 +217,6 @@ function toggle_help_msg() {
 }
 
 
-function get_coordinates(elem) {
-    // Taken from here: https://javascript.info/coordinates
-    let box = elem.getBoundingClientRect();
-    return {top: box.top + window.pageYOffset, left: box.left + window.pageXOffset};
-}
-
-
 function register_history_callback(button_element, query) {
     button_element.addEventListener("click", () => { document.getElementById('rbql_input').value = query; });
 }
@@ -249,7 +242,7 @@ function toggle_history() {
     }
     query_history_block.style.display = new_style;
     let calculated_height = query_history_block.offsetHeight;
-    let text_input_coordinates = get_coordinates(document.getElementById('rbql_input'));
+    let text_input_coordinates = document.getElementById('rbql_input').getBoundingClientRect();
     query_history_block.style.left = text_input_coordinates.left + 'px';
     query_history_block.style.top = (text_input_coordinates.top - calculated_height) + 'px';
 }
