@@ -179,21 +179,21 @@ function handle_input_keydown(event) {
 }
 
 
-function lower_cased_starts_with(long_string, prefix) {
-    return long_string && long_string.toLowerCase().startsWith(prefix.toLowerCase());
+function variable_has_prefix(full_variable, variable_prefix) {
+    return full_variable && full_variable.toLowerCase().startsWith(variable_prefix.toLowerCase()) && full_variable != variable_prefix;
 }
 
 
 function get_best_matching_variable(variable_prefix, column_var_options) {
     if (variable_prefix.startsWith('a.')) {
-        if (lower_cased_starts_with(column_var_options.dot_var, variable_prefix))
+        if (variable_has_prefix(column_var_options.dot_var, variable_prefix))
             return column_var_options.dot_var;
-        if (lower_cased_starts_with('a.' + column_var_options.orig_column_name, variable_prefix))
+        if (variable_has_prefix('a.' + column_var_options.orig_column_name, variable_prefix))
             return column_var_options.single_q_var;
     }
-    if (lower_cased_starts_with(column_var_options.single_q_var, variable_prefix))
+    if (variable_has_prefix(column_var_options.single_q_var, variable_prefix))
         return column_var_options.single_q_var;
-    if (lower_cased_starts_with(column_var_options.double_q_var, variable_prefix))
+    if (variable_has_prefix(column_var_options.double_q_var, variable_prefix))
         return column_var_options.double_q_var;
     return null;
 }
