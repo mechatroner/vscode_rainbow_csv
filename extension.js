@@ -19,6 +19,7 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // FIXME suggest appears in the wrong place when query is very long and does not fit into the input field
 
+// FIXME rbql query input: replace text input with scrollable textarea
 
 const dialect_map = {
     'csv': [',', 'quoted'],
