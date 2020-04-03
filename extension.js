@@ -28,6 +28,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // FIXME add clear-history button
 
+// FIXME add a link to github-based documentation to the RBQL console doc window
+
 
 const dialect_map = {
     'csv': [',', 'quoted'],
