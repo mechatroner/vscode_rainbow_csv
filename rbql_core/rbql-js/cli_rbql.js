@@ -43,23 +43,8 @@ function report_error_json(error_type, error_msg) {
 }
 
 
-function exception_to_error_info(e) {
-    let exceptions_type_map = {
-        'RbqlRuntimeError': 'query execution',
-        'RbqlParsingError': 'query parsing',
-        'RbqlIOHandlingError': 'IO handling'
-    };
-    let error_type = 'unexpected';
-    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
-        error_type = exceptions_type_map[e.constructor.name];
-    }
-    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
-    return [error_type, error_msg];
-}
-
-
 function show_exception(e) {
-    let [error_type, error_msg] = exception_to_error_info(e);
+    let [error_type, error_msg] = rbql.exception_to_error_info(e);
     if (error_format == 'hr') {
         show_error_plain_text(error_type, error_msg);
     } else {

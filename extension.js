@@ -8,6 +8,10 @@ const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 
+// In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
+// Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
+
+
 // TODO implement skip header option in RBQL? - Should also update preview table.
 
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824

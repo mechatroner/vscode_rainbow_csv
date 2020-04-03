@@ -30,7 +30,7 @@ from ._version import __version__
 
 # TODO catch exceptions in user expression to report the exact place where it occured: "SELECT" expression, "WHERE" expression, etc
 
-# TODO consider supporting explicit column names variables like "host" or "name" or "surname" - just parse all variable-looking sequences from the query and match them against available column names from the header, but skip all symbol defined in template.py/rbql.js, user init code and python/js builtin keywords (show warning on intersection)
+# TODO consider supporting explicit column names variables like "host" or "name" or "surname" - just parse all variable-looking sequences from the query and match them against available column names from the header, but skip all symbol defined in rbql_engine.py/rbql.js, user init code and python/js builtin keywords (show warning on intersection)
 
 # TODO optimize performance: optional compilation depending on python2/python3
 
@@ -38,12 +38,13 @@ from ._version import __version__
 
 # TODO show warning when csv fields contain trailing spaces, at least in join mode
 
+# TODO support custom (virtual) headers for CSV version
+
 # TODO support RBQL variable "NL" - line number. when header is skipped it would be "2" for the first record. Also it is not equal to NR for multiline records
 
 # TODO support option to skip comment lines (lines starting with the specified prefix)
 
 # TODO add "inconsistent number of fields in output table" warning. Useful for queries like this: `*a1.split("|")` or `...a1.split("|")`, where num of fields in a1 is variable
-
 
 
 GROUP_BY = 'GROUP BY'
@@ -59,6 +60,7 @@ LIMIT = 'LIMIT'
 EXCEPT = 'EXCEPT'
 
 ambiguous_error_msg = 'Ambiguous variable name: "{}" is present both in input and in join tables'
+invalid_keyword_in_aggregate_query_error_msg = '"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries'
 
 debug_mode = False
 
@@ -88,6 +90,8 @@ class RBQLContext:
         self.unnest_list = None
         self.top_count = None
 
+        self.like_regex_cache = dict()
+
         self.sort_key_expression = None
         self.reverse_sort = False
 
@@ -110,7 +114,8 @@ class RBQLContext:
 
 
 
-###################################### From template.py
+######################################
+
 
 import datetime # For date operations
 import os # For system operations
@@ -173,6 +178,32 @@ def safe_set(record, idx, value):
         record[idx] = value
     except IndexError:
         raise InternalBadFieldError(idx)
+
+
+def like_to_regex(pattern):
+    p = 0
+    i = 0
+    converted = ''
+    while i < len(pattern):
+        if pattern[i] in ['_', '%']:
+            converted += re.escape(pattern[p:i])
+            p = i + 1
+            if pattern[i] == '_':
+                converted += '.'
+            else:
+                converted += '.*'
+        i += 1
+    converted += re.escape(pattern[p:i])
+    return '^' + converted + '$'
+
+
+def like(text, pattern):
+    matcher = query_context.like_regex_cache.get(pattern, None)
+    if matcher is None:
+        matcher = re.compile(like_to_regex(pattern))
+        query_context.like_regex_cache[pattern] = matcher
+    return matcher.match(text) is not None
+LIKE = like
 
 
 class RBQLAggregationToken(object):
@@ -639,7 +670,7 @@ def select_simple(sort_key, out_fields):
 def select_aggregated(key, transparent_values):
     if query_context.aggregation_stage == 1:
         if type(query_context.writer) is SortedWriter or type(query_context.writer) is UniqWriter or type(query_context.writer) is UniqCountWriter:
-            raise RbqlParsingError('"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries') # UT JSON (the same error can be triggered statically, see builder.py)
+            raise RbqlParsingError(invalid_keyword_in_aggregate_query_error_msg) # UT JSON
         query_context.writer = AggregateWriter(query_context.writer)
         num_aggregators_found = 0
         for i, trans_value in enumerate(transparent_values):
@@ -847,6 +878,18 @@ def exception_to_error_info(e):
         'RbqlParsingError': 'query parsing',
         'RbqlIOHandlingError': 'IO handling'
     }
+    if isinstance(e, SyntaxError):
+        import traceback
+        etype, evalue, _etb = sys.exc_info()
+        error_strings = traceback.format_exception_only(etype, evalue)
+        if len(error_strings) and re.search('File.*line', error_strings[0]) is not None:
+            error_strings[0] = '\n'
+        error_msg = ''.join(error_strings).rstrip()
+        if re.search(' like[ (]', error_msg, flags=re.IGNORECASE) is not None:
+            error_msg += "\nRBQL doesn't support LIKE operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... " # UT JSON
+        if error_msg.lower().find(' from ') != -1:
+            error_msg += "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM" # UT JSON
+        return ('syntax error', error_msg)
     error_type = 'unexpected'
     error_msg = str(e)
     for k, v in exceptions_type_map.items():
@@ -869,38 +912,59 @@ def combine_string_literals(backend_expression, string_literals):
 
 
 def parse_join_expression(src):
-    match = re.match(r'(?i)^ *([^ ]+) +on +([^ ]+) *== *([^ ]+) *$', src)
+    src = src.strip()
+    invalid_join_syntax_error = 'Invalid join syntax. Valid syntax: <JOIN> /path/to/B/table on a... == b... [and a... == b... [and ... ]]'
+    match = re.search(r'^([^ ]+) +on +', src, re.IGNORECASE)
     if match is None:
-        raise RbqlParsingError('Invalid join syntax. Must be: "<JOIN> /path/to/B/table on a... == b..."') # UT JSON
-    return (match.group(1), match.group(2), match.group(3))
+        raise RbqlParsingError(invalid_join_syntax_error)
+    table_id = match.group(1)
+    src = src[match.end():]
+    variable_pairs = []
+    while True:
+        match = re.search('^([^ =]+) *==? *([^ =]+)', src)
+        if match is None:
+            raise RbqlParsingError(invalid_join_syntax_error)
+        variable_pair = (match.group(1), match.group(2))
+        variable_pairs.append(variable_pair)
+        src = src[match.end():]
+        if not len(src):
+            break
+        match = re.search('^ +and +', src, re.IGNORECASE)
+        if match is None:
+            raise RbqlParsingError(invalid_join_syntax_error)
+        src = src[match.end():]
+    return (table_id, variable_pairs)
 
 
-def resolve_join_variables(input_variables_map, join_variables_map, join_var_1, join_var_2, string_literals):
-    join_var_1 = combine_string_literals(join_var_1, string_literals)
-    join_var_2 = combine_string_literals(join_var_2, string_literals)
-    if join_var_1 in input_variables_map and join_var_1 in join_variables_map:
-        raise RbqlParsingError(ambiguous_error_msg.format(join_var_1))
-    if join_var_2 in input_variables_map and join_var_2 in join_variables_map:
-        raise RbqlParsingError(ambiguous_error_msg.format(join_var_2))
-    if join_var_2 in input_variables_map:
-        join_var_1, join_var_2 = join_var_2, join_var_1
-
-    if join_var_1 in ['NR', 'a.NR', 'aNR']:
-        lhs_key_index = -1
-    elif join_var_1 in input_variables_map:
-        lhs_key_index = input_variables_map.get(join_var_1).index
-    else:
-        raise RbqlParsingError('Unable to parse JOIN expression: Input table does not have field "{}"'.format(join_var_1)) # UT JSON
-
-    if join_var_2 in ['bNR', 'b.NR']:
-        rhs_key_index = -1
-    elif join_var_2 in join_variables_map:
-        rhs_key_index = join_variables_map.get(join_var_2).index
-    else:
-        raise RbqlParsingError('Unable to parse JOIN expression: Join table does not have field "{}"'.format(join_var_2)) # UT JSON
-
-    lhs_join_var_expression = 'NR' if lhs_key_index == -1 else 'safe_join_get(record_a, {})'.format(lhs_key_index)
-    return (lhs_join_var_expression, rhs_key_index)
+def resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals):
+    lhs_variables = []
+    rhs_indices = []
+    valid_join_syntax_msg = 'Valid JOIN syntax: <JOIN> /path/to/B/table on a... == b... [and a... == b... [and ... ]]'
+    for join_var_1, join_var_2 in variable_pairs:
+        join_var_1 = combine_string_literals(join_var_1, string_literals)
+        join_var_2 = combine_string_literals(join_var_2, string_literals)
+        if join_var_1 in input_variables_map and join_var_1 in join_variables_map:
+            raise RbqlParsingError(ambiguous_error_msg.format(join_var_1))
+        if join_var_2 in input_variables_map and join_var_2 in join_variables_map:
+            raise RbqlParsingError(ambiguous_error_msg.format(join_var_2))
+        if join_var_2 in input_variables_map:
+            join_var_1, join_var_2 = join_var_2, join_var_1
+        if join_var_1 in ['NR', 'a.NR', 'aNR']:
+            lhs_key_index = -1
+        elif join_var_1 in input_variables_map:
+            lhs_key_index = input_variables_map.get(join_var_1).index
+        else:
+            raise RbqlParsingError('Unable to parse JOIN expression: Input table does not have field "{}"\n{}'.format(join_var_1, valid_join_syntax_msg)) # UT JSON
+        if join_var_2 in ['bNR', 'b.NR']:
+            rhs_key_index = -1
+        elif join_var_2 in join_variables_map:
+            rhs_key_index = join_variables_map.get(join_var_2).index
+        else:
+            raise RbqlParsingError('Unable to parse JOIN expression: Join table does not have field "{}"\n{}'.format(join_var_2, valid_join_syntax_msg)) # UT JSON
+        lhs_join_var_expression = 'NR' if lhs_key_index == -1 else 'safe_join_get(record_a, {})'.format(lhs_key_index)
+        rhs_indices.append(rhs_key_index)
+        lhs_variables.append(lhs_join_var_expression)
+    return (lhs_variables, rhs_indices)
 
 
 def parse_basic_variables(query_text, prefix, dst_variables_map):
@@ -1020,9 +1084,18 @@ def replace_star_count(aggregate_expression):
 
 
 def replace_star_vars(rbql_expression):
-    rbql_expression = re.sub(r'(?:^|,) *\* *(?=, *\* *($|,))', '] + star_fields + [', rbql_expression)
-    rbql_expression = re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
-    return rbql_expression
+    star_matches = list(re.finditer(r'(?:^|,) *(\*|a\.\*|b\.\*) *(?=$|,)', rbql_expression))
+    last_pos = 0
+    result = ''
+    for match in star_matches:
+        star_expression = match.group(1)
+        replacement_expression = '] + ' + {'*': 'star_fields', 'a.*': 'record_a', 'b.*': 'record_b'}[star_expression] + ' + ['
+        if last_pos < match.start():
+            result += rbql_expression[last_pos:match.start()]
+        result += replacement_expression
+        last_pos = match.end() + 1 # Adding one to skip the lookahead comma
+    result += rbql_expression[last_pos:]
+    return result
 
 
 def translate_update_expression(update_expression, input_variables_map, string_literals):
@@ -1186,11 +1259,33 @@ def translate_except_expression(except_expression, input_variables_map, string_l
 
 class HashJoinMap:
     # Other possible flavors: BinarySearchJoinMap, MergeJoinMap
-    def __init__(self, record_iterator, key_index):
+    def __init__(self, record_iterator, key_indices):
         self.max_record_len = 0
         self.hash_map = defaultdict(list)
         self.record_iterator = record_iterator
-        self.key_index = key_index
+        self.key_indices = None
+        self.key_index = None
+        if len(key_indices) == 1:
+            self.key_index = key_indices[0]
+            self.polymorphic_get_key = self.get_single_key
+        else:
+            self.key_indices = key_indices
+            self.polymorphic_get_key = self.get_multi_key
+
+
+    def get_single_key(self, nr, fields):
+        if self.key_index >= len(fields):
+            raise RbqlRuntimeError('No field with index {} at record {} in "B" table'.format(self.key_index + 1, nr))
+        return nr if self.key_index == -1 else fields[self.key_index]
+
+
+    def get_multi_key(self, nr, fields):
+        result = []
+        for ki in self.key_indices:
+            if ki >= len(fields):
+                raise RbqlRuntimeError('No field with index {} at record {} in "B" table'.format(ki + 1, nr))
+            result.append(nr if ki == -1 else fields[ki])
+        return tuple(result)
 
 
     def build(self):
@@ -1202,9 +1297,7 @@ class HashJoinMap:
             nr += 1
             nf = len(fields)
             self.max_record_len = builtin_max(self.max_record_len, nf)
-            if self.key_index >= nf:
-                raise RbqlRuntimeError('No field with index {} at record {} in "B" table'.format(self.key_index + 1, nr))
-            key = nr if self.key_index == -1 else fields[self.key_index]
+            key = self.polymorphic_get_key(nr, fields)
             self.hash_map[key].append((nr, nf, fields))
 
 
@@ -1223,9 +1316,14 @@ def cleanup_query(query_text):
     return ' '.join(rbql_lines)
 
 
+def remove_redundant_keyword_from(query_text):
+    return re.sub(' +from +a(?: +|$)', ' ', query_text, flags=re.IGNORECASE).strip()
+
+
 def parse_to_py(query_text, input_iterator, join_tables_registry):
     query_text = cleanup_query(query_text)
     format_expression, string_literals = separate_string_literals_py(query_text)
+    format_expression = remove_redundant_keyword_from(format_expression)
     input_variables_map = input_iterator.get_variables_map(query_text)
 
     rb_actions = separate_actions(format_expression)
@@ -1235,13 +1333,13 @@ def parse_to_py(query_text, input_iterator, join_tables_registry):
 
     if GROUP_BY in rb_actions:
         if ORDER_BY in rb_actions or UPDATE in rb_actions:
-            raise RbqlParsingError('"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries') # UT JSON (the same error can be triggered dynamically, see template.py)
+            raise RbqlParsingError(invalid_keyword_in_aggregate_query_error_msg) # UT JSON
         query_context.aggregation_key_expression = '({},)'.format(combine_string_literals(rb_actions[GROUP_BY]['text'], string_literals))
 
 
     join_variables_map = None
     if JOIN in rb_actions:
-        rhs_table_id, join_var_1, join_var_2 = parse_join_expression(rb_actions[JOIN]['text'])
+        rhs_table_id, variable_pairs = parse_join_expression(rb_actions[JOIN]['text'])
         if join_tables_registry is None:
             raise RbqlParsingError('JOIN operations are not supported by the application') # UT JSON
         join_record_iterator = join_tables_registry.get_iterator_by_table_id(rhs_table_id)
@@ -1249,11 +1347,11 @@ def parse_to_py(query_text, input_iterator, join_tables_registry):
             raise RbqlParsingError('Unable to find join table: "{}"'.format(rhs_table_id)) # UT JSON CSV
         join_variables_map = join_record_iterator.get_variables_map(query_text)
 
-        lhs_join_var_expression, rhs_key_index = resolve_join_variables(input_variables_map, join_variables_map, join_var_1, join_var_2, string_literals)
+        lhs_variables, rhs_indices = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals)
         joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
         query_context.join_operation = rb_actions[JOIN]['join_subtype']
-        query_context.lhs_join_var_expression = lhs_join_var_expression
-        query_context.join_map_impl = HashJoinMap(join_record_iterator, rhs_key_index)
+        query_context.lhs_join_var_expression = lhs_variables[0] if len(lhs_variables) == 1 else '({})'.format(', '.join(lhs_variables))
+        query_context.join_map_impl = HashJoinMap(join_record_iterator, rhs_indices)
         query_context.join_map_impl.build()
         query_context.join_map = joiner_type(query_context.join_map_impl)
 

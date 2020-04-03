@@ -91,7 +91,7 @@ There is a workaround for the limitation above for _ARRAY_AGG_ function which su
 
 Join table B can be referenced either by it's file path or by it's name - an arbitary string which user should provide before executing the JOIN query.  
 RBQL supports _STRICT LEFT JOIN_ which is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  
-Limitation: _JOIN_ statements must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON ai == bj_  
+Limitation: _JOIN_ statements can't contain Python/JS expressions and must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON a... == b... [AND a... == b... [AND ... ]]_
 
 
 ### SELECT EXCEPT statement
@@ -103,6 +103,11 @@ Traditional SQL engines do not support this query mode.
 ### UNNEST() operator
 UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.  
 Example: `SELECT a1, UNNEST(a2.split(';'))`  
+
+
+### LIKE() function
+RBQL does not support LIKE operator, instead it provides "like()" function which can be used like this:
+`SELECT * where like(a1, 'foo%bar')`
 
 
 ### User Defined Functions (UDF)
