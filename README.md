@@ -144,7 +144,17 @@ Screenshot of RBQL Console:
 
 ### References
 
-* [Rainbow CSV in Vim](https://github.com/mechatroner/rainbow_csv)
-* [Rainbow CSV in Atom](https://atom.io/packages/rainbow-csv)
-* [Rainbow CSV in Sublime Text 3](https://packagecontrol.io/packages/rainbow_csv)
+#### Rainbow CSV and similar plugins in other editors:
+
+* Rainbow CSV extension in [Vim](https://github.com/mechatroner/rainbow_csv)
+* rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
+* rainbow_csv plugin in [Sublime Text](https://packagecontrol.io/packages/rainbow_csv)
+* rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
+* rainbow_csv_4_nedit in [NEdit](https://github.com/DmitTrix/rainbow_csv_4_nedit)
+* CSV highlighting in [Nano](https://github.com/scopatz/nanorc)
+* Rainbow CSV in [IntelliJ IDEA](https://plugins.jetbrains.com/plugin/12896-rainbow-csv/)
+
+#### RBQL
 * [RBQL](https://github.com/mechatroner/RBQL)
+* Library and CLI App for Python [RBQL](https://pypi.org/project/rbql/)  
+* Library and CLI App for JavaScript [RBQL](https://www.npmjs.com/package/rbql)  
