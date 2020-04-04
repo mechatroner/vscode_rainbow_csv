@@ -66,6 +66,11 @@ select {
     border-left: 1px solid;
 }
 
+#rbql_input:focus {
+    background-color: #FFFFFF;
+    outline:none;
+}
+
 
 #toggle_history_btn {
     margin: 0px;
@@ -83,6 +88,10 @@ select {
     border-top: 1px solid;
     border-bottom: 1px solid;
     border-right: 1px solid;
+}
+
+#toggle_history_btn:hover {
+    background-color: #DDDDDD;
 }
 
 
@@ -103,6 +112,10 @@ select {
     box-sizing: border-box;
 }
 
+#rbql_run_btn:hover {
+    background-color: #2C6B2E;
+}
+
 
 #help_btn {
     margin: 0px;
@@ -119,25 +132,26 @@ select {
     box-sizing: border-box;
 }
 
-
-#rbql_input:focus {
-    background-color: #FFFFFF;
-    outline:none;
-}
-
-
-#toggle_history_btn:hover {
-    background-color: #DDDDDD;
-}
-
-
 #help_btn:hover {
     background-color: #DDDDDD;
 }
 
 
-#rbql_run_btn:hover {
-    background-color: #2C6B2E;
+#clear_history {
+    margin: 0px;
+    background-color: #FFFFFF;
+    height: 24px !important;
+    color: red;
+    padding: 0px 5px 0px 5px;
+    display: inline-block;
+    float: right;
+    outline:none;
+    vertical-align:middle;
+    border:none;
+}
+
+#clear_history:hover {
+    background-color: #DDDDDD;
 }
 
 
@@ -430,6 +444,7 @@ select {
 <div id="query_history">
     <div id="query_history_header">
         <span class="padded_label">Query history</span>
+        <button id="clear_history">Clear history</button>
     </div>
     <div id="history_entries">
     </div>

@@ -22,13 +22,10 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO DEBUG add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55
 
-// FIXME suggest appears in the wrong place when query is very long and does not fit into the input field
-
 // FIXME rbql query input: replace text input with scrollable textarea
 
 // FIXME add clear-history button
 
-// FIXME add a link to github-based documentation to the RBQL console doc window
 
 
 const dialect_map = {
