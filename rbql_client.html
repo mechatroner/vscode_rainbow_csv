@@ -383,7 +383,7 @@ select {
         </table>
     </div>
     <div style="margin-top: 20px; margin-bottom: 8px;">
-        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span><br>and/or values from the first row e.g. <span class="color_span" id="var_example_1">a.Good_alphanumeric_column_name</span> or <span class="color_span" id="var_example_2">a["Arbitrary column name!"]</span>
+        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span><br>and/or values from the first row e.g. <span class="color_span" id="var_example_1">a.Good_alphanumeric_column_name</span> or <span class="color_span" id="var_example_2">a["Arbitrary column name!"]</span>. Example: <i>select a2, a1</i>
     </div>
     <div id="query_group">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
@@ -462,6 +462,7 @@ select {
 
 <button id="close_help">X</button>
 <div id="rbql_help">
+    <p><a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/rbql_core/README.md#rbql-rainbow-query-language-description">Read RBQL documentation on github</a></p>
     <div id="rbql_help_text">
         <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
         <p>RBQL is a technology for (not only) CSV files processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  <br />
