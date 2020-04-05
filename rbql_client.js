@@ -248,6 +248,13 @@ function toggle_history() {
 }
 
 
+function clear_history() {
+    query_history = [];
+    toggle_history();
+    vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_query_history', 'value': []});
+}
+
+
 function start_rbql() {
     var rbql_text = document.getElementById('rbql_input').value;
     if (!rbql_text || rbql_running)
@@ -352,6 +359,7 @@ function main() {
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("close_help").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);
+    document.getElementById("clear_history_btn").addEventListener("click", clear_history);
     document.getElementById("go_begin").addEventListener("click", preview_begin);
     document.getElementById("go_up").addEventListener("click", preview_up);
     document.getElementById("go_down").addEventListener("click", preview_down);

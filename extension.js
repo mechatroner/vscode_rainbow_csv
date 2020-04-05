@@ -22,10 +22,9 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO DEBUG add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55
 
+// FIXME implement suggest for join tables
+
 // FIXME rbql query input: replace text input with scrollable textarea
-
-// FIXME add clear-history button
-
 
 
 const dialect_map = {
