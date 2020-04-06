@@ -5,7 +5,22 @@ const os = require('os');
 const child_process = require('child_process');
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
-var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
+var rbql_csv = null; // Using lazy load to improve startup performance
+var rainbow_utils = null; // Using lazy load to improve startup performance
+
+
+function ll_rbql_csv() {
+    if (rbql_csv === null)
+        rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
+    return rbql_csv;
+}
+
+
+function ll_rainbow_utils() {
+    if (rainbow_utils === null)
+        rainbow_utils = require('./rainbow_utils.js');
+    return rainbow_utils;
+}
 
 
 // In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
@@ -22,7 +37,7 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO DEBUG add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55
 
-// TODO consider moving some code into a separate lazy-loaded module to improve startup time, see #55
+// TODO consider moving more code into a separate lazy-loaded module to improve startup time, see #55
 
 // FIXME implement suggest for join tables
 
@@ -84,6 +99,7 @@ var preview_panel = null;
 var doc_edit_subscription = null;
 
 const scratch_buf_marker = 'vscode_rbql_scratch';
+
 
 function map_separator_to_language_id(separator) {
     for (let language_id in dialect_map) {
@@ -760,21 +776,6 @@ function handle_worker_success(output_path, warnings, webview_report_handler) {
 }
 
 
-function exception_to_error_info(e) {
-    let exceptions_type_map = {
-        'RbqlRuntimeError': 'query execution',
-        'RbqlParsingError': 'query parsing',
-        'RbqlIOHandlingError': 'IO handling'
-    };
-    let error_type = 'unexpected';
-    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
-        error_type = exceptions_type_map[e.constructor.name];
-    }
-    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
-    return [error_type, error_msg];
-}
-
-
 function file_path_to_query_key(file_path) {
     return (file_path && file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : file_path;
 }
@@ -814,11 +815,8 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
-        if (rbql_csv == null) {
-            rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-        }
-        rbql_csv.query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers, '', {'bulk_read': true}).then(handle_success).catch(e => {
-            let [error_type, error_msg] = exception_to_error_info(e);
+        ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers, '', {'bulk_read': true}).then(handle_success).catch(e => {
+            let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
         });
     } else {
@@ -891,59 +889,6 @@ function restore_original_language() {
 }
 
 
-function update_records(records, record_key, new_record) {
-    for (var i = 0; i < records.length; i++) {
-        if (records[i].length && records[i][0] == record_key) {
-            records[i] = new_record;
-            return;
-        }
-    }
-    records.push(new_record);
-}
-
-
-function try_read_index(index_path) {
-    var content = null;
-    try {
-        content = fs.readFileSync(index_path, 'utf-8');
-    } catch (e) {
-        return [];
-    }
-    var lines = content.split('\n');
-    var records = [];
-    for (var i = 0; i < lines.length; i++) {
-        if (!lines[i])
-            continue;
-        var record = lines[i].split('\t');
-        records.push(record);
-    }
-    return records;
-}
-
-
-function write_index(records, index_path) {
-    var lines = [];
-    for (var i = 0; i < records.length; i++) {
-        lines.push(records[i].join('\t'));
-    }
-    fs.writeFileSync(index_path, lines.join('\n'));
-}
-
-
-function do_set_table_name(table_path, table_name) {
-    // TODO use VSCode "globalState" persistent storage instead with new RBQL version
-    let home_dir = os.homedir();
-    let index_path = path.join(home_dir, '.rbql_table_names');
-    let records = try_read_index(index_path);
-    let new_record = [table_name, table_path];
-    update_records(records, table_name, new_record);
-    if (records.length > 100) {
-        records.splice(0, 1);
-    }
-    write_index(records, index_path);
-}
-
-
 function set_join_table_name() {
     var active_doc = get_active_doc();
     if (!active_doc)
@@ -955,7 +900,7 @@ function set_join_table_name() {
     }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
     var input_box_props = {"prompt": title, "value": 'b'};
-    vscode.window.showInputBox(input_box_props).then(table_name => do_set_table_name(file_path, table_name));
+    vscode.window.showInputBox(input_box_props).then(table_name => ll_rainbow_utils().do_set_table_name(file_path, table_name));
 }
 
 
