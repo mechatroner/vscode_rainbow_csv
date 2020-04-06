@@ -652,3 +652,4 @@ module.exports.read_user_init_code = read_user_init_code;
 module.exports.query_csv = query_csv;
 module.exports.set_debug_mode = set_debug_mode;
 module.exports.RecordQueue = RecordQueue;
+module.exports.exception_to_error_info = rbql.exception_to_error_info;
