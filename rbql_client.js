@@ -14,6 +14,8 @@ var last_preview_message = null;
 var active_suggest_idx = null;
 var suggest_list = [];
 
+var adjust_join_table_headers_callback = null;
+
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -275,6 +277,12 @@ function apply_suggest_callback(query) {
 }
 
 
+function fetch_join_header_callback(join_table_id, adjust_join_table_headers) {
+    adjust_join_table_headers_callback = adjust_join_table_headers;
+    vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id});
+}
+
+
 function handle_message(msg_event) {
     var message = msg_event.data;
     console.log('message received at client: ' + JSON.stringify(msg_event));
@@ -291,7 +299,7 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         let header = message['header'];
-        rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header);
+        rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header, fetch_join_header_callback);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let skip_headers = message['skip_headers'];
         last_preview_message = message;
@@ -303,6 +311,12 @@ function handle_message(msg_event) {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }
         make_preview_table();
+    }
+
+    if (message_type == 'fetch_table_header_response') {
+        if (adjust_join_table_headers_callback && message['header']) {
+            adjust_join_table_headers_callback(message['header']);
+        }
     }
 
     if (message_type == 'navigate' || message_type == 'resample') {

@@ -22,6 +22,8 @@ var rbql_csv = null; // Using lazy load for rbql_csv.js to improve startup time
 
 // TODO DEBUG add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55
 
+// TODO consider moving some code into a separate lazy-loaded module to improve startup time, see #55
+
 // FIXME implement suggest for join tables
 
 // FIXME rbql query input: replace text input with scrollable textarea
@@ -952,7 +954,7 @@ function set_join_table_name() {
         return;
     }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
-    var input_box_props = {"prompt": title};
+    var input_box_props = {"prompt": title, "value": 'b'};
     vscode.window.showInputBox(input_box_props).then(table_name => do_set_table_name(file_path, table_name));
 }
 
@@ -1162,6 +1164,11 @@ function handle_rbql_client_message(webview, message) {
         init_msg['skip_headers'] = rbql_context.skip_headers;
         init_msg['header'] = rbql_context.header;
         webview.postMessage(init_msg);
+    }
+
+    if (message_type == 'fetch_table_header') {
+        let table_id = message['table_id'];
+        // FIXME get the header and send the response
     }
 
     if (message_type == 'update_query') {
