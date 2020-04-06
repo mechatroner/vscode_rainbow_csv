@@ -9,6 +9,8 @@ rbql_suggest.autosuggest_header_vars = [];
 rbql_suggest.input_id = null;
 rbql_suggest.suggest_list_id = null;
 rbql_suggest.suggest_entry_class = null;
+rbql_suggest.current_join_table_id = null;
+rbql_suggest.fetch_join_header_callback = null;
 
 
 
@@ -25,31 +27,37 @@ function js_string_escape_column_name(column_name, quote_char) {
 }
 
 
-function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, apply_suggest_callback, header) {
+function convert_header_to_rbql_variables(header, table_var_prefix) {
     let max_suggest_len = 100; // Suggest UI could become unresponsive if there are too many suggest options to consider
     let result = [];
     for (let h of header) {
-        let column_var_options = {orig_column_name: h};
+        let column_var_options = {orig_column_name: h, table_var_prefix: table_var_prefix};
         if (h.match('^[_a-zA-Z][_a-zA-Z0-9]*$') !== null) {
-            column_var_options.dot_var = `a.${h}`;
+            column_var_options.dot_var = `${table_var_prefix}.${h}`;
         } else {
             column_var_options.dot_var = null;
         }
         let escaped_column_name = js_string_escape_column_name(h, '"');
-        column_var_options.double_q_var = `a["${escaped_column_name}"]`;
+        column_var_options.double_q_var = `${table_var_prefix}["${escaped_column_name}"]`;
         escaped_column_name = js_string_escape_column_name(h, "'");
-        column_var_options.single_q_var = `a['${escaped_column_name}']`;
+        column_var_options.single_q_var = `${table_var_prefix}['${escaped_column_name}']`;
         result.push(column_var_options);
         if (result.length > max_suggest_len)
             break;
     }
+    return result;
+}
+
+
+function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, apply_suggest_callback, header, fetch_join_header_callback=null) {
+    rbql_suggest.autosuggest_header_vars = convert_header_to_rbql_variables(header, 'a');
     rbql_suggest.active_suggest_idx = null; 
     rbql_suggest.suggest_list = []
-    rbql_suggest.autosuggest_header_vars = result;
     rbql_suggest.input_id = input_id;
     rbql_suggest.suggest_list_id = suggest_list_id;
     rbql_suggest.suggest_entry_class = suggest_entry_class;
     rbql_suggest.apply_suggest_callback = apply_suggest_callback;
+    rbql_suggest.fetch_join_header_callback = fetch_join_header_callback;
 }
 
 
@@ -180,23 +188,41 @@ function handle_input_keydown(event) {
 }
 
 
-function variable_has_prefix(full_variable, variable_prefix) {
-    return full_variable && full_variable.toLowerCase().startsWith(variable_prefix.toLowerCase()) && full_variable != variable_prefix;
+function variable_has_prefix(full_variable, cursor_var_prefix) {
+    return full_variable && full_variable.toLowerCase().startsWith(cursor_var_prefix.toLowerCase()) && full_variable != cursor_var_prefix;
 }
 
 
-function get_best_matching_variable(variable_prefix, column_var_options) {
-    if (variable_prefix.startsWith('a.')) {
-        if (variable_has_prefix(column_var_options.dot_var, variable_prefix))
+function get_best_matching_variable(cursor_var_prefix, column_var_options) {
+    if (cursor_var_prefix.startsWith(column_var_options.table_var_prefix + '.')) {
+        if (variable_has_prefix(column_var_options.dot_var, cursor_var_prefix))
             return column_var_options.dot_var;
-        if (variable_has_prefix('a.' + column_var_options.orig_column_name, variable_prefix))
+        if (variable_has_prefix(column_var_options.table_var_prefix + '.' + column_var_options.orig_column_name, cursor_var_prefix))
             return column_var_options.single_q_var;
     }
-    if (variable_has_prefix(column_var_options.single_q_var, variable_prefix))
+    if (variable_has_prefix(column_var_options.single_q_var, cursor_var_prefix))
         return column_var_options.single_q_var;
-    if (variable_has_prefix(column_var_options.double_q_var, variable_prefix))
+    if (variable_has_prefix(column_var_options.double_q_var, cursor_var_prefix))
         return column_var_options.double_q_var;
     return null;
+}
+
+
+function get_join_table_id(query) {
+    let match = query.match(/ join +([^ ]+)(?: *$| +o$| +on)/i);
+    if (!match)
+        return null;
+    return match[1];
+}
+
+
+function adjust_join_table_headers(join_headers) {
+    if (!join_headers.length) {
+        rbql_suggest.autosuggest_header_vars = rbql_suggest.autosuggest_header_vars.filter(v => v.table_var_prefix != 'b');
+    } else {
+        let join_header_vars = convert_header_to_rbql_variables(header, 'b');
+        rbql_suggest.autosuggest_header_vars = rbql_suggest.autosuggest_header_vars.concat(join_header_vars);
+    }
 }
 
 
@@ -212,6 +238,17 @@ function handle_input_keyup(event) {
             // Or alternatively we could scan the event.keyCode to find out the next char, but this is additional logic
             let rbql_input = document.getElementById(rbql_suggest.input_id);
             let current_query = rbql_input.value;
+            if (rbql_suggest.fetch_join_header_callback !== null) {
+                let join_table_id = get_join_table_id(current_query);
+                if (rbql_suggest.current_join_table_id != join_table_id) {
+                    rbql_suggest.current_join_table_id = join_table_id;
+                    if (join_table_id === null) {
+                        adjust_join_table_headers([]);
+                    } else {
+                        rbql_suggest.fetch_join_header_callback(join_table_id, adjust_join_table_headers)
+                    }
+                }
+            }
             let suggest_div = document.getElementById(rbql_suggest.suggest_list_id);
             hide_suggest(suggest_div);
             let cursor_pos = rbql_input.selectionStart;
