@@ -279,7 +279,8 @@ function apply_suggest_callback(query) {
 
 function fetch_join_header_callback(join_table_id, adjust_join_table_headers) {
     adjust_join_table_headers_callback = adjust_join_table_headers;
-    vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id});
+    let encoding = document.getElementById('select_encoding').value;
+    vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id, 'encoding': encoding});
 }
 
 

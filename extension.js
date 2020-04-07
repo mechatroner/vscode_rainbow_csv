@@ -4,24 +4,6 @@ const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
 
-const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
-var rbql_csv = null; // Using lazy load to improve startup performance
-var rainbow_utils = null; // Using lazy load to improve startup performance
-
-
-function ll_rbql_csv() {
-    if (rbql_csv === null)
-        rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-    return rbql_csv;
-}
-
-
-function ll_rainbow_utils() {
-    if (rainbow_utils === null)
-        rainbow_utils = require('./rainbow_utils.js');
-    return rainbow_utils;
-}
-
 
 // In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 // Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
@@ -42,6 +24,25 @@ function ll_rainbow_utils() {
 // FIXME implement suggest for join tables
 
 // FIXME rbql query input: replace text input with scrollable textarea
+
+
+const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
+var rbql_csv = null; // Using lazy load to improve startup performance
+var rainbow_utils = null; // Using lazy load to improve startup performance
+
+
+function ll_rbql_csv() {
+    if (rbql_csv === null)
+        rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
+    return rbql_csv;
+}
+
+
+function ll_rainbow_utils() {
+    if (rainbow_utils === null)
+        rainbow_utils = require('./rainbow_utils.js');
+    return rainbow_utils;
+}
 
 
 const dialect_map = {
@@ -900,7 +901,7 @@ function set_join_table_name() {
     }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
     var input_box_props = {"prompt": title, "value": 'b'};
-    vscode.window.showInputBox(input_box_props).then(table_name => ll_rainbow_utils().do_set_table_name(file_path, table_name));
+    vscode.window.showInputBox(input_box_props).then(table_name => ll_rainbow_utils().write_table_name(file_path, table_name));
 }
 
 
@@ -1112,8 +1113,20 @@ function handle_rbql_client_message(webview, message) {
     }
 
     if (message_type == 'fetch_table_header') {
-        let table_id = message['table_id'];
-        // FIXME get the header and send the response
+        try {
+            let table_id = message['table_id'];
+            let encoding = message['encoding'];
+            let table_path = ll_rainbow_utils().read_table_path(table_id);
+            let process_header_line = function(header_line) {
+                let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
+                if (!warning) {
+                    webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
+                }
+            };
+            ll_rainbow_utils().read_header(table_path, encoding, process_header_line);
+        } catch (e) {
+            console.error('Unable to get join table path: ' + String(e));
+        }
     }
 
     if (message_type == 'update_query') {

@@ -37,7 +37,7 @@ function write_index(records, index_path) {
 }
 
 
-function do_set_table_name(table_path, table_name) {
+function write_table_name(table_path, table_name) {
     // TODO use VSCode "globalState" persistent storage instead with new RBQL version
     let home_dir = os.homedir();
     let index_path = path.join(home_dir, '.rbql_table_names');
@@ -49,3 +49,40 @@ function do_set_table_name(table_path, table_name) {
     }
     write_index(records, index_path);
 }
+
+
+function read_table_path(table_name) {
+    let home_dir = os.homedir();
+    let index_path = path.join(home_dir, '.rbql_table_names');
+    let records = try_read_index(index_path);
+    for (let record of records) {
+        if (record.length > 1 && record[0] === table_name) {
+            return record[1];
+        }
+    }
+    if (fs.existsSync(table_name))
+        return table_name;
+    return null;
+}
+
+
+function read_header(table_path, encoding, process_header_line_callback) {
+    if (encoding == 'latin-1')
+        encoding = 'binary';
+    let readline = require('readline');
+    let input_reader = readline.createInterface({ input: fs.createReadStream(table_path, {encoding: encoding}) });
+    let sampled_lines = [];
+    let closed = false;
+    input_reader.on('line', line => {
+        if (!closed) {
+            closed = true;
+            input_reader.close();
+            process_header_line_callback(line)
+        }
+    });
+}
+
+
+module.exports.write_table_name = write_table_name;
+module.exports.read_table_path = read_table_path;
+module.exports.read_header = read_header;
