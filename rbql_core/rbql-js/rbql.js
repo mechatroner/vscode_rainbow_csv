@@ -762,7 +762,7 @@ module.exports.rb_transform = rb_transform;
 // TODO replace prototypes with classes: this improves readability
 
 
-const version = '0.16.0';
+const version = '0.16.1';
 
 const GROUP_BY = 'GROUP BY';
 const UPDATE = 'UPDATE';
@@ -1358,8 +1358,10 @@ function cleanup_query(query_text) {
 }
 
 
-function remove_redundant_keyword_from(query_text) {
-    return str_strip(query_text.replace(/ +from +a(?: +|$)/gi, ' '));
+function remove_redundant_table_name(query_text) {
+    query_text = str_strip(query_text.replace(/ +from +a(?: +|$)/gi, ' '));
+    query_text = str_strip(query_text.replace(/^ *update +a +set /gi, 'update '));
+    return query_text;
 }
 
 
@@ -1367,7 +1369,7 @@ async function parse_to_js(query_text, js_template_text, input_iterator, join_ta
     user_init_code = indent_user_init_code(user_init_code);
     query_text = cleanup_query(query_text);
     var [format_expression, string_literals] = separate_string_literals_js(query_text);
-    format_expression = remove_redundant_keyword_from(format_expression);
+    format_expression = remove_redundant_table_name(format_expression);
     var input_variables_map = await input_iterator.get_variables_map(query_text);
 
     var rb_actions = separate_actions(format_expression);
