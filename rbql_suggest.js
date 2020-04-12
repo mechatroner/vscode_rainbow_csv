@@ -216,11 +216,11 @@ function get_join_table_id(query) {
 }
 
 
-function adjust_join_table_headers_callback(join_headers) {
-    if (!join_headers.length) {
+function adjust_join_table_header_callback(join_header) {
+    if (!join_header.length) {
         rbql_suggest.autosuggest_header_vars = rbql_suggest.autosuggest_header_vars.filter(v => v.table_var_prefix != 'b');
     } else {
-        let join_header_vars = convert_header_to_rbql_variables(header, 'b');
+        let join_header_vars = convert_header_to_rbql_variables(join_header, 'b');
         rbql_suggest.autosuggest_header_vars = rbql_suggest.autosuggest_header_vars.concat(join_header_vars);
     }
 }
@@ -243,9 +243,9 @@ function handle_input_keyup(event) {
                 if (rbql_suggest.current_join_table_id != join_table_id) {
                     rbql_suggest.current_join_table_id = join_table_id;
                     if (join_table_id === null) {
-                        adjust_join_table_headers_callback([]);
+                        adjust_join_table_header_callback([]);
                     } else {
-                        rbql_suggest.fetch_join_header_callback(join_table_id, adjust_join_table_headers_callback)
+                        rbql_suggest.fetch_join_header_callback(join_table_id, adjust_join_table_header_callback)
                     }
                 }
             }

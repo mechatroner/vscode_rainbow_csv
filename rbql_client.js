@@ -14,7 +14,7 @@ var last_preview_message = null;
 var active_suggest_idx = null;
 var suggest_list = [];
 
-var adjust_join_table_headers_callback = null;
+var adjust_join_table_header_callback = null;
 
 
 function report_backend_language_change() {
@@ -278,7 +278,7 @@ function apply_suggest_callback(query) {
 
 
 function fetch_join_header_callback(join_table_id, adjust_join_table_headers) {
-    adjust_join_table_headers_callback = adjust_join_table_headers;
+    adjust_join_table_header_callback = adjust_join_table_headers;
     let encoding = document.getElementById('select_encoding').value;
     vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id, 'encoding': encoding});
 }
@@ -315,8 +315,8 @@ function handle_message(msg_event) {
     }
 
     if (message_type == 'fetch_table_header_response') {
-        if (adjust_join_table_headers_callback && message['header']) {
-            adjust_join_table_headers_callback(message['header']);
+        if (adjust_join_table_header_callback && message['header']) {
+            adjust_join_table_header_callback(message['header']);
         }
     }
 

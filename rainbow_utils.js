@@ -1,3 +1,7 @@
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
+
 function update_records(records, record_key, new_record) {
     for (var i = 0; i < records.length; i++) {
         if (records[i].length && records[i][0] == record_key) {

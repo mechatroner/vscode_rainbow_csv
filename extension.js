@@ -1117,6 +1117,8 @@ function handle_rbql_client_message(webview, message) {
             let table_id = message['table_id'];
             let encoding = message['encoding'];
             let table_path = ll_rainbow_utils().read_table_path(table_id);
+            if (!table_path)
+                return;
             let process_header_line = function(header_line) {
                 let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
                 if (!warning) {
