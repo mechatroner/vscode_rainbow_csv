@@ -21,9 +21,9 @@ const child_process = require('child_process');
 
 // TODO consider moving more code into a separate lazy-loaded module to improve startup time, see #55
 
-// FIXME implement suggest for join tables
+// TODO support virtual header for rbql_csv
 
-// FIXME rbql query input: replace text input with scrollable textarea
+// TODO rbql query input: replace text input with scrollable textarea
 
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
