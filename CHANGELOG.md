@@ -1,5 +1,10 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 1.7.0
+* Updated RBQL
+* Improved RBQL UI
+
+
 ## 1.6.0
 * Updated RBQL
 
