@@ -217,7 +217,7 @@ function get_join_table_id(query) {
 
 
 function adjust_join_table_header_callback(join_header) {
-    if (!join_header.length) {
+    if (!join_header || !join_header.length) {
         rbql_suggest.autosuggest_header_vars = rbql_suggest.autosuggest_header_vars.filter(v => v.table_var_prefix != 'b');
     } else {
         let join_header_vars = convert_header_to_rbql_variables(join_header, 'b');
