@@ -1040,7 +1040,7 @@ function align_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let [column_sizes, first_failed_line] = calc_column_sizes(active_doc, delim, policy);
     if (first_failed_line) {
-        show_single_line_error(`Unable to allign: Inconsistent double quotes at line ${first_failed_line}`);
+        show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
     let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
