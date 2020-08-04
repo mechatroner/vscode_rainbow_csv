@@ -14,8 +14,9 @@
         "highlight"
     ],
     "categories": [
+        "Data Science",
         "Other",
-        "Languages"
+        "Programming Languages"
     ],
     "activationEvents": [
         "onLanguage:csv",
