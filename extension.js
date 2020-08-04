@@ -1254,14 +1254,15 @@ function edit_rbql() {
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_html_template) {
         client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
-        let textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['contrib/textarea-caret-position/index.js']));
-        let rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_suggest.js']));
-        let rbql_client_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_client.js']));
-        client_html_template = client_html_template.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + textarea_cp_path + '"');
-        client_html_template = client_html_template.replace('src="rbql_suggest.js"', 'src="' + rbql_suggest_path + '"');
-        client_html_template = client_html_template.replace('src="rbql_client.js"', 'src="' + rbql_client_path + '"');
     }
-    preview_panel.webview.html = client_html_template;
+    let client_html = client_html_template;
+    let textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['contrib/textarea-caret-position/index.js']));
+    let rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_suggest.js']));
+    let rbql_client_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_client.js']));
+    client_html = client_html.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + textarea_cp_path + '"');
+    client_html = client_html.replace('src="rbql_suggest.js"', 'src="' + rbql_suggest_path + '"');
+    client_html = client_html.replace('src="rbql_client.js"', 'src="' + rbql_client_path + '"');
+    preview_panel.webview.html = client_html;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
 
