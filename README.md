@@ -144,6 +144,13 @@ Screenshot of RBQL Console:
 
 ### References
 
+#### Related VSCode extensions
+These extensions can work well together with Rainbow CSV and provide additional functionality e.g. export to Excel and Parquet formats:
+* [Excel Viewer](https://marketplace.visualstudio.com/items?itemName=GrapeCity.gc-excelviewer)
+* [Edit CSV](https://marketplace.visualstudio.com/items?itemName=janisdd.vscode-edit-csv)
+* [Data Preview](https://marketplace.visualstudio.com/items?itemName=RandomFractalsInc.vscode-data-preview)
+
+
 #### Rainbow CSV and similar plugins in other editors:
 
 * Rainbow CSV extension in [Vim](https://github.com/mechatroner/rainbow_csv)
