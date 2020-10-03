@@ -837,6 +837,20 @@ function get_dialect(document) {
     return dialect_map[language_id];
 }
 
+function set_header_line() {
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+
+    let file_path = active_doc.fileName;
+    let selection = active_editor.selection;
+    let header = active_doc.lineAt(selection.start.line).text;
+
+    save_to_global_state(make_header_key(file_path), header);
+}
 
 function set_rainbow_separator() {
     let active_editor = get_active_editor();
@@ -1510,6 +1524,7 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
+    var set_header_line_cmd = vscode.commands.registerCommand('extension.SetHeaderLine', set_header_line);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
     var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
@@ -1542,6 +1557,7 @@ function activate(context) {
     context.subscriptions.push(align_cmd);
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
+    context.subscriptions.push(set_header_line_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document

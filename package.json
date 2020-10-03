@@ -115,6 +115,11 @@
                     "when": "editorHasSelection",
                     "command": "extension.RainbowSeparator",
                     "group": "rainbow_csv"
+                },
+                {
+                    "when": "editorTextFocus",
+                    "command": "extension.SetHeaderLine",
+                    "group": "rainbow_csv"
                 }
             ],
             "explorer/context": [
@@ -246,6 +251,11 @@
                 "command": "extension.SetVirtualHeader",
                 "category": "Rainbow CSV",
                 "title": "Set virtual header"
+            },
+            {
+                "command": "extension.SetHeaderLine",
+                "category": "Rainbow CSV",
+                "title": "Set header line"
             },
             {
                 "command": "extension.RBQL",
