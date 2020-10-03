@@ -99,6 +99,10 @@ To remove cursor/selection from the header line use "Alt+Click" on it.
 Input a comma-separated string with column names to adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.
 "Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
 
+#### SetHeaderLine 
+Uses the current line to adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.
+This is a "Virtual" header and will be persistent and will be associated with the parent file across VSCode sessions.
+
 #### SetJoinTableName
 Set a custom name for the current file so you can use it instead of the file path in RBQL JOIN queries
 
