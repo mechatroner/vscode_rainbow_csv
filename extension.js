@@ -26,6 +26,17 @@ const child_process = require('child_process');
 // TODO rbql query input: replace text input with scrollable textarea
 
 
+// FIXME update preview screenshots (and use playlist.csv instead?)
+
+// FIXME autodetection separator list: create a special keyword for invisible tab in VSCode settings section, e.g. \t or TAB
+
+// FIXME allow comment prefix selection/disabling through the context menu
+
+// FIXME re-check current decoration line on hover
+
+// FIXME add rainbow pictogram to the query/lint/off buttons at the statusline, like here: https://marketplace.visualstudio.com/items?itemName=Wscats.qf
+
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load to improve startup performance
 var rainbow_utils = null; // Using lazy load to improve startup performance
@@ -98,6 +109,8 @@ var global_state = null;
 var preview_panel = null;
 
 var doc_edit_subscription = null;
+
+var comment_decoration_type = null;
 
 const scratch_buf_marker = 'vscode_rbql_scratch';
 
@@ -354,15 +367,22 @@ function produce_lint_report(active_doc, delim, policy, config) {
     let first_trailing_space_line = null;
     var num_lines = active_doc.lineCount;
     var num_fields = null;
+    let comment_lines = [];
+    let report_msg = null;
     for (var lnum = 0; lnum < num_lines; lnum++) {
         var line_text = active_doc.lineAt(lnum).text;
         if (lnum + 1 == num_lines && !line_text)
             break;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            comment_lines.push(new vscode.Range(new vscode.Position(lnum, 0), new vscode.Position(lnum, line_text.length)));
             continue;
+        }
         var split_result = csv_utils.smart_split(line_text, delim, policy, true);
         if (split_result[1]) {
-            return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+            if (!report_msg)
+                report_msg = 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
+            if (!comment_prefix)
+                break;
         }
         if (detect_trailing_spaces && first_trailing_space_line === null) {
             let fields = split_result[0];
@@ -376,13 +396,19 @@ function produce_lint_report(active_doc, delim, policy, config) {
             num_fields = split_result[0].length;
         }
         if (num_fields != split_result[0].length) {
-            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+            if (!report_msg)
+                report_msg = 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
+            if (!comment_prefix)
+                break;
         }
     }
     if (first_trailing_space_line !== null) {
-        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
+        if (!report_msg)
+            report_msg = 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
     }
-    return 'OK';
+    if (!report_msg)
+        report_msg = 'OK';
+    return [report_msg, comment_lines];
 }
 
 
@@ -622,7 +648,7 @@ function csv_lint(active_doc, is_manual_op) {
         if (lint_results.has(lint_cache_key))
             return false;
         const config = vscode.workspace.getConfiguration('rainbow_csv');
-        if (config && config.get('enable_auto_csv_lint') === false)
+        if (config && config.get('enable_auto_csv_lint') === false) // TODO also do the linting when comment_prefix is not null
             return false;
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -631,7 +657,13 @@ function csv_lint(active_doc, is_manual_op) {
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
     let [delim, policy] = dialect_map[language_id];
-    var lint_report = produce_lint_report(active_doc, delim, policy, config);
+    let [lint_report, comment_lines] = produce_lint_report(active_doc, delim, policy, config);
+    if (comment_lines && comment_lines.length) { // FIXME this logic fails if we have only one decoration line and want to remove it after producing the lint report
+        let active_editor = get_active_editor();
+        if (active_editor && active_editor.document == active_doc) { // Being paranoid
+            active_editor.setDecorations(comment_decoration_type, comment_lines);
+        }
+    }
     lint_results.set(lint_cache_key, lint_report);
     return true;
 }
@@ -1525,6 +1557,8 @@ function activate(context) {
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
+
+    comment_decoration_type = vscode.window.createTextEditorDecorationType({ color: '#00FF00' });
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
