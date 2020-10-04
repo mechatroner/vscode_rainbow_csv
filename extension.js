@@ -1558,7 +1558,7 @@ function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    comment_decoration_type = vscode.window.createTextEditorDecorationType({ color: '#00FF00' });
+    comment_decoration_type = vscode.window.createTextEditorDecorationType({ color: new vscode.ThemeColor('editor.foreground'), fontStyle: 'italic' });
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
