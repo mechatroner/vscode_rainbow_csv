@@ -259,9 +259,14 @@ function get_header_from_document(document, delim, policy) {
 function get_header(document, delim, policy) {
     var file_path = document.fileName;
     if (file_path) {
-        let header = get_from_global_state(make_header_key(file_path), null);
-        if (header)
-            return csv_utils.smart_split(header, ',', 'quoted', false)[0];
+        let raw_header = get_from_global_state(make_header_key(file_path), null);
+        if (raw_header) {
+            try {
+                return JSON.parse(raw_header)
+            } catch (err) { // Prior versions stored the header as CSV
+                return csv_utils.smart_split(header, ',', 'quoted', false)[0];
+            }
+        }
     }
     return get_header_from_document(document, delim, policy);
 }
@@ -837,6 +842,25 @@ function get_dialect(document) {
     return dialect_map[language_id];
 }
 
+function set_header_line() {
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+
+    var dialect = get_dialect(active_doc);
+    var delim = dialect[0];
+    var policy = dialect[1];
+
+    let file_path = active_doc.fileName;
+    let selection = active_editor.selection;
+    let raw_header = active_doc.lineAt(selection.start.line).text;
+
+    let header = csv_utils.smart_split(raw_header, delim, policy, false)[0];
+    save_to_global_state(make_header_key(file_path), JSON.stringify(header));
+}
 
 function set_rainbow_separator() {
     let active_editor = get_active_editor();
@@ -919,9 +943,12 @@ function edit_column_names() {
         return;
     var old_header = get_header(active_doc, delim, policy);
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
-    var old_header_str = quoted_join(old_header, ',');
+    var old_header_str = quoted_join(old_header, delim);
     var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function(new_header) { save_to_global_state(make_header_key(file_path), new_header); };
+    var handle_success = function (raw_new_header) {
+        let new_header = csv_utils.smart_split(raw_new_header, delim, policy, false)[0];
+        save_to_global_state(make_header_key(file_path), JSON.stringify(new_header));
+    };
     var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
@@ -1510,6 +1537,7 @@ function activate(context) {
 
     var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
+    var set_header_line_cmd = vscode.commands.registerCommand('extension.SetHeaderLine', set_header_line);
     var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
     var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
@@ -1542,6 +1570,7 @@ function activate(context) {
     context.subscriptions.push(align_cmd);
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
+    context.subscriptions.push(set_header_line_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
