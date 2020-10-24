@@ -4,6 +4,16 @@ const path = require('path');
 const os = require('os');
 const child_process = require('child_process');
 
+// Running unit tests for the extension:
+// 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including vscode/lib/testrunner
+// 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
+
+
+// Debugging the extension:
+// 1. Open rainbow_csv directory in VSCode  
+// 2. Make sure you have "Extension" run mode enabled
+// 3. Click "Run" or F5
+
 
 // In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 // Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
