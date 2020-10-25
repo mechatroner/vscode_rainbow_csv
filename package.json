@@ -33,10 +33,10 @@
         "onLanguage:csv (dot)",
         "onLanguage:csv (hyphen)",
         "onLanguage:plaintext",
-        "onCommand:extension.RBQL",
-        "onCommand:extension.RainbowSeparator",
-        "onCommand:extension.SampleHead",
-        "onCommand:extension.SampleTail"
+        "onCommand:rainbow-csv.RBQL",
+        "onCommand:rainbow-csv.RainbowSeparator",
+        "onCommand:rainbow-csv.SampleHead",
+        "onCommand:rainbow-csv.SampleTail"
     ],
     "main": "./extension",
     "contributes": {
@@ -114,23 +114,23 @@
             "editor/context": [
                 {
                     "when": "editorHasSelection",
-                    "command": "extension.RainbowSeparator",
+                    "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },
                 {
                     "when": "editorTextFocus",
-                    "command": "extension.SetHeaderLine",
+                    "command": "rainbow-csv.SetHeaderLine",
                     "group": "rainbow_csv"
                 }
             ],
             "explorer/context": [
                 {
-                    "command": "extension.SampleHead",
+                    "command": "rainbow-csv.SampleHead",
                     "when": "config.rainbow_csv.enable_context_menu_head",
                     "group": "rainbow_csv"
                 },
                 {
-                    "command": "extension.SampleTail",
+                    "command": "rainbow-csv.SampleTail",
                     "when": "config.rainbow_csv.enable_context_menu_tail",
                     "group": "rainbow_csv"
                 }
@@ -245,72 +245,72 @@
         ],
         "commands": [
             {
-                "command": "extension.CSVLint",
+                "command": "rainbow-csv.CSVLint",
                 "title": "CSV Lint"
             },
             {
-                "command": "extension.SetVirtualHeader",
+                "command": "rainbow-csv.SetVirtualHeader",
                 "category": "Rainbow CSV",
                 "title": "Set virtual header"
             },
             {
-                "command": "extension.SetHeaderLine",
+                "command": "rainbow-csv.SetHeaderLine",
                 "category": "Rainbow CSV",
                 "title": "Set header line"
             },
             {
-                "command": "extension.RBQL",
+                "command": "rainbow-csv.RBQL",
                 "category": "Rainbow CSV",
                 "title": "RBQL"
             },
             {
-                "command": "extension.SetJoinTableName",
+                "command": "rainbow-csv.SetJoinTableName",
                 "category": "Rainbow CSV",
                 "title": "Set join table name for RBQL"
             },
             {
-                "command": "extension.ColumnEditBefore",
+                "command": "rainbow-csv.ColumnEditBefore",
                 "category": "Rainbow CSV",
                 "title": "Column edit before"
             },
             {
-                "command": "extension.ColumnEditAfter",
+                "command": "rainbow-csv.ColumnEditAfter",
                 "category": "Rainbow CSV",
                 "title": "Column edit after"
             },
             {
-                "command": "extension.ColumnEditSelect",
+                "command": "rainbow-csv.ColumnEditSelect",
                 "category": "Rainbow CSV",
                 "title": "Column edit select"
             },
             {
-                "command": "extension.RainbowSeparator",
+                "command": "rainbow-csv.RainbowSeparator",
                 "title": "Set as Rainbow separator"
             },
             {
-                "command": "extension.RainbowSeparatorOff",
+                "command": "rainbow-csv.RainbowSeparatorOff",
                 "title": "RainbowSeparatorOff"
             },
             {
-                "command": "extension.Align",
+                "command": "rainbow-csv.Align",
                 "category": "Rainbow CSV",
                 "title": "Align CSV Columns"
             },
             {
-                "command": "extension.Shrink",
+                "command": "rainbow-csv.Shrink",
                 "category": "Rainbow CSV",
                 "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
             },
             {
-                "command": "extension.CopyBack",
+                "command": "rainbow-csv.CopyBack",
                 "title": "CopyBack"
             },
             {
-                "command": "extension.SampleHead",
+                "command": "rainbow-csv.SampleHead",
                 "title": "Preview big CSV: head"
             },
             {
-                "command": "extension.SampleTail",
+                "command": "rainbow-csv.SampleTail",
                 "title": "Preview big CSV: tail"
             }
         ],

@@ -535,7 +535,7 @@ function show_lint_status_bar_button(file_path, language_id) {
         lint_status_bar_button.color = '#f44242';
     }
     lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
-    lint_status_bar_button.command = 'extension.CSVLint';
+    lint_status_bar_button.command = 'rainbow-csv.CSVLint';
     lint_status_bar_button.show();
 }
 
@@ -546,11 +546,11 @@ function show_align_shrink_button(file_path) {
     if (aligned_files.has(file_path)) {
         align_shrink_button.text = 'Shrink';
         align_shrink_button.tooltip = 'Click to shrink table (Then you can click again to align)';
-        align_shrink_button.command = 'extension.Shrink';
+        align_shrink_button.command = 'rainbow-csv.Shrink';
     } else {
         align_shrink_button.text = 'Align';
         align_shrink_button.tooltip = 'Click to align table (Then you can click again to shrink)';
-        align_shrink_button.command = 'extension.Align';
+        align_shrink_button.command = 'rainbow-csv.Align';
     }
     align_shrink_button.show();
 }
@@ -564,7 +564,7 @@ function show_rainbow_off_status_bar_button() {
         rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     rainbow_off_status_bar_button.text = 'Rainbow OFF';
     rainbow_off_status_bar_button.tooltip = 'Click to restore original file type and syntax';
-    rainbow_off_status_bar_button.command = 'extension.RainbowSeparatorOff';
+    rainbow_off_status_bar_button.command = 'rainbow-csv.RainbowSeparatorOff';
     rainbow_off_status_bar_button.show();
 }
 
@@ -574,7 +574,7 @@ function show_rbql_status_bar_button() {
         rbql_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     rbql_status_bar_button.text = 'Query';
     rbql_status_bar_button.tooltip = 'Click to run SQL-like RBQL query';
-    rbql_status_bar_button.command = 'extension.RBQL';
+    rbql_status_bar_button.command = 'rainbow-csv.RBQL';
     rbql_status_bar_button.show();
 }
 
@@ -597,7 +597,7 @@ function show_rbql_copy_to_source_button(file_path) {
         copy_back_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     copy_back_button.text = 'Copy Back';
     copy_back_button.tooltip = `Copy to parent table: ${parent_basename}`;
-    copy_back_button.command = 'extension.CopyBack';
+    copy_back_button.command = 'rainbow-csv.CopyBack';
     copy_back_button.show();
 }
 
@@ -1550,21 +1550,21 @@ function activate(context) {
         }
     }
 
-    var lint_cmd = vscode.commands.registerCommand('extension.CSVLint', csv_lint_cmd);
-    var rbql_cmd = vscode.commands.registerCommand('extension.RBQL', edit_rbql);
-    var set_header_line_cmd = vscode.commands.registerCommand('extension.SetHeaderLine', set_header_line);
-    var edit_column_names_cmd = vscode.commands.registerCommand('extension.SetVirtualHeader', edit_column_names);
-    var set_join_table_name_cmd = vscode.commands.registerCommand('extension.SetJoinTableName', set_join_table_name);
-    var column_edit_before_cmd = vscode.commands.registerCommand('extension.ColumnEditBefore', function() { column_edit('ce_before'); });
-    var column_edit_after_cmd = vscode.commands.registerCommand('extension.ColumnEditAfter', function() { column_edit('ce_after'); });
-    var column_edit_select_cmd = vscode.commands.registerCommand('extension.ColumnEditSelect', function() { column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('extension.RainbowSeparator', set_rainbow_separator);
-    var rainbow_off_cmd = vscode.commands.registerCommand('extension.RainbowSeparatorOff', restore_original_language);
-    var sample_head_cmd = vscode.commands.registerCommand('extension.SampleHead', uri => make_preview(uri, 'head'));
-    var sample_tail_cmd = vscode.commands.registerCommand('extension.SampleTail', uri => make_preview(uri, 'tail'));
-    var align_cmd = vscode.commands.registerTextEditorCommand('extension.Align', align_table);
-    var shrink_cmd = vscode.commands.registerTextEditorCommand('extension.Shrink', shrink_table);
-    var copy_back_cmd = vscode.commands.registerCommand('extension.CopyBack', copy_back);
+    var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
+    var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
+    var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
+    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names);
+    var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name);
+    var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); });
+    var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); });
+    var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); });
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
+    var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
+    var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head'));
+    var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail'));
+    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
+    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
+    var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
