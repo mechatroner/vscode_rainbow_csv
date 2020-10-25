@@ -1,8 +1,8 @@
 .vscode/**
 .vscode-test/**
 test/**
+node_modules/**
 .gitignore
 jsconfig.json
 .eslintrc.json
 .eslintrc_browser.json
-cli_test.js
