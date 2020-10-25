@@ -26,8 +26,10 @@ function log_message(msg) {
 // Defines a Mocha test suite to group tests of similar kind together
 suite("Extension Tests", function() {
 
+    this.timeout(0); // Disable Mocha timeouts
+
     // Defines a Mocha unit test
-    test("Something 1", async () => {
+    test("Test 1", async () => {
         try {
             fs.unlinkSync(log_file_path);
         } catch (e) {
@@ -40,7 +42,7 @@ suite("Extension Tests", function() {
             const uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
             const document = await vscode.workspace.openTextDocument(uri);
             const editor = await vscode.window.showTextDocument(document);
-            await sleep(1000);
+            await sleep(3000);
             log_message('Finishing tests');
         } catch (e) {
             log_message('Error: tests have failed. Exception:');
