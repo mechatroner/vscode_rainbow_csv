@@ -70,7 +70,21 @@ suite("Extension Tests", function() {
             let length_shrinked = data.length;
             log_message(`Shrinked length: ${length_shrinked}`)
             assert.equal(length_original, length_shrinked);
+            await sleep(500);
 
+            let text_with_comma = 'foobar,';
+            await vscode.commands.executeCommand('default:type', { text: text_with_comma });
+            lint_report = rainbow_csv.csv_lint(active_doc, true);
+            assert(lint_report.indexOf('Number of fields is not consistent') != -1);
+            await sleep(500);
+
+            for (let i = 0; i < text_with_comma.length; i++) {
+                vscode.commands.executeCommand("deleteLeft");
+            }
+
+            // One approach to set selection:
+            //const currentPosition: vscode.Position = activeEditor.selection.active;
+            //activeEditor.selection = new vscode.Selection(currentPosition, currentPosition);
 
             await sleep(1000);
             log_message('Finishing tests');
