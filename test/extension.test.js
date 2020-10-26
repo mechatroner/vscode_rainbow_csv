@@ -60,6 +60,9 @@ suite("Extension Tests", function() {
             data = active_doc.getText();
             let length_aligned = data.length;
             log_message(`Aligned length: ${length_aligned}`)
+            assert(length_aligned > length_original);
+            let lint_report = rainbow_csv.csv_lint(active_doc, true);
+            assert.equal(lint_report, 'OK');
             await sleep(2000);
 
             await vscode.commands.executeCommand('rainbow-csv.Shrink');

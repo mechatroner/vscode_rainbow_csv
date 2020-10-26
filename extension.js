@@ -630,30 +630,30 @@ function csv_lint(active_doc, is_manual_op) {
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
-        return false;
+        return null;
     var file_path = active_doc.fileName; // For new unitled scratch documents this would be "Untitled-1", "Untitled-2", etc...
     if (!file_path)
-        return false;
+        return null;
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
-        return false;
+        return null;
     let lint_cache_key = `${file_path}.${language_id}`;
     if (!is_manual_op) {
         if (lint_results.has(lint_cache_key))
-            return false;
+            return null;
         const config = vscode.workspace.getConfiguration('rainbow_csv');
         if (config && config.get('enable_auto_csv_lint') === false)
-            return false;
+            return null;
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (!config)
-        return false;
+        return null;
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_buttons(active_doc); // Visual feedback
     let [delim, policy] = dialect_map[language_id];
     var lint_report = produce_lint_report(active_doc, delim, policy, config);
     lint_results.set(lint_cache_key, lint_report);
-    return true;
+    return lint_report;
 }
 
 
@@ -1597,7 +1597,6 @@ function activate(context) {
 }
 
 
-exports.activate = activate;
 
 
 function deactivate() {
@@ -1605,4 +1604,8 @@ function deactivate() {
 }
 
 
+exports.activate = activate;
 exports.deactivate = deactivate;
+
+// Export some functions for integration tests:
+exports.csv_lint = csv_lint;
