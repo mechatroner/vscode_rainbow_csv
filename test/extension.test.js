@@ -48,17 +48,15 @@ suite("Extension Tests", function() {
             log_message('Starting tests');
             assert.equal(-1, [1, 2, 3].indexOf(0));
 
-            const uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
-            const active_doc = await vscode.workspace.openTextDocument(uri);
-            const editor = await vscode.window.showTextDocument(active_doc);
-            let data = active_doc.getText();
-            let length_original = data.length;
+            let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
+            let active_doc = await vscode.workspace.openTextDocument(uri);
+            let editor = await vscode.window.showTextDocument(active_doc);
+            let length_original = active_doc.getText().length;
             log_message(`Original length: ${length_original}`)
             await sleep(2000);
 
             await vscode.commands.executeCommand('rainbow-csv.Align');
-            data = active_doc.getText();
-            let length_aligned = data.length;
+            let length_aligned = active_doc.getText().length;
             log_message(`Aligned length: ${length_aligned}`)
             assert(length_aligned > length_original);
             let lint_report = rainbow_csv.csv_lint(active_doc, true);
@@ -66,8 +64,7 @@ suite("Extension Tests", function() {
             await sleep(2000);
 
             await vscode.commands.executeCommand('rainbow-csv.Shrink');
-            data = active_doc.getText();
-            let length_shrinked = data.length;
+            let length_shrinked = active_doc.getText().length;
             log_message(`Shrinked length: ${length_shrinked}`)
             assert.equal(length_original, length_shrinked);
             await sleep(500);
@@ -81,6 +78,30 @@ suite("Extension Tests", function() {
             for (let i = 0; i < text_with_comma.length; i++) {
                 vscode.commands.executeCommand("deleteLeft");
             }
+
+            await sleep(500);
+            uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'movies.txt'));
+            active_doc = await vscode.workspace.openTextDocument(uri);
+            editor = await vscode.window.showTextDocument(active_doc);
+            length_original = active_doc.getText().length;
+            log_message(`Original length: ${length_original}`)
+            for (let i = 0; i < 10; i++) {
+                vscode.commands.executeCommand("cursorRight");
+            }
+            await sleep(1000);
+            vscode.commands.executeCommand("rainbow-csv.ColumnEditAfter");
+            await sleep(1000);
+            await vscode.commands.executeCommand('default:type', { text: text_with_comma });
+            length_after_column_edit = active_doc.getText().length;
+            log_message(`Length after column edit: ${length_after_column_edit}`)
+            assert.equal(length_original + active_doc.lineCount * text_with_comma.length, length_after_column_edit);
+            await sleep(1000);
+            for (let i = 0; i < text_with_comma.length; i++) {
+                vscode.commands.executeCommand("deleteLeft");
+            }
+            await sleep(1000);
+            length_after_delete = active_doc.getText().length;
+            assert.equal(length_original, length_after_delete);
 
             // One approach to set selection:
             //const currentPosition: vscode.Position = activeEditor.selection.active;

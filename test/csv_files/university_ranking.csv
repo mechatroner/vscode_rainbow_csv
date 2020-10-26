@@ -1,0 +1,201 @@
+world_rank,university_name,country,total_score,num_students,international_students
+1,Harvard University,United States of America,96.1,"20,152",25%
+2,California Institute of Technology,United States of America,96.0,"2,243",27%
+3,Massachusetts Institute of Technology,United States of America,95.6,"11,074",33%
+4,Stanford University,United States of America,94.3,"15,596",22%
+5,Princeton University,United States of America,94.2,"7,929",27%
+6,University of Cambridge,United Kingdom,91.2,"18,812",34%
+6,University of Oxford,United Kingdom,91.2,"19,919",34%
+8,"University of California, Berkeley",United States of America,91.1,"36,186",15%
+9,Imperial College London,United Kingdom,90.6,"15,060",51%
+10,Yale University,United States of America,89.5,"11,751",20%
+11,"University of California, Los Angeles",United States of America,87.7,"38,206",15%
+12,University of Chicago,United States of America,86.9,"14,221",21%
+13,Johns Hopkins University,United States of America,86.4,"15,128",23%
+14,Cornell University,United States of America,83.9,"21,424",19%
+15,ETH Zurich – Swiss Federal Institute of Technology Zurich,Switzerland,83.4,"18,178",37%
+15,University of Michigan,United States of America,83.4,"41,786",16%
+17,University of Toronto,Canada,82.0,"66,198",15%
+18,Columbia University,United States of America,81.0,"25,055",28%
+19,University of Pennsylvania,United States of America,79.5,"20,376",20%
+20,Carnegie Mellon University,United States of America,79.3,"11,885",35%
+21,University of Hong Kong,Hong Kong,79.2,"19,835",38%
+22,University College London,United Kingdom,78.4,"26,607",46%
+23,University of Washington,United States of America,78.0,"44,020",13%
+24,Duke University,United States of America,76.5,"15,172",17%
+25,Northwestern University,United States of America,75.9,"18,334",15%
+26,University of Tokyo,Japan,75.6,"26,199",10%
+27,Georgia Institute of Technology,United States of America,75.3,"19,967",26%
+28,Pohang University of Science and Technology,South Korea,75.1,"3,055",4%
+29,"University of California, Santa Barbara",United States of America,75.0,"22,020",11%
+30,University of British Columbia,Canada,73.8,"50,152",25%
+30,University of North Carolina at Chapel Hill,United States of America,73.8,"26,518",8%
+32,"University of California, San Diego",United States of America,73.2,"27,233",11%
+33,University of Illinois at Urbana-Champaign,United States of America,73.0,"42,727",20%
+34,National University of Singapore,Singapore,72.9,"31,592",34%
+35,McGill University,Canada,71.7,"31,326",23%
+36,University of Melbourne,Australia,71.0,"40,128",35%
+37,Peking University,China,70.7,"40,148",14%
+38,Washington University in St Louis,United States of America,69.9,"12,528",17%
+39,École Polytechnique,France,69.5,"2,429",30%
+40,University of Edinburgh,United Kingdom,69.2,"25,774",36%
+41,Hong Kong University of Science and Technology,Hong Kong,69.0,"11,385",36%
+42,École Normale Supérieure,France,68.6,"2,400",20%
+43,Australian National University,Australia,67.0,"14,604",35%
+43,Karolinska Institute,Sweden,67.0,"7,774",22%
+43,University of Göttingen,Germany,67.0,"25,581",12%
+43,University of Wisconsin,United States of America,67.0,,
+47,Rice University,United States of America,66.9,"6,333",26%
+48,École Polytechnique Fédérale de Lausanne,Switzerland,66.5,"9,666",54%
+49,"University of California, Irvine",United States of America,66.0,"26,614",16%
+49,University of Science and Technology of China,China,66.0,"14,290",2%
+51,Vanderbilt University,United States of America,65.9,"12,161",10%
+52,University of Minnesota,United States of America,65.6,"46,825",13%
+53,Tufts University,United States of America,65.2,"10,410",14%
+54,"University of California, Davis",United States of America,65.0,"35,364",13%
+55,Brown University,United States of America,64.9,"8,653",19%
+56,University of Massachusetts,United States of America,64.7,"56,959",11%
+57,Kyoto University,Japan,64.6,"22,809",7%
+58,Tsinghua University,China,64.2,"39,763",10%
+59,Boston University,United States of America,64.0,"24,789",17%
+60,New York University,United States of America,63.9,"42,056",19%
+61,Emory University,United States of America,63.0,"12,338",18%
+61,LMU Munich,Germany,63.0,"35,691",13%
+63,University of Notre Dame,United States of America,62.8,"11,829",10%
+64,University of Pittsburgh,United States of America,62.7,"26,485",10%
+65,Case Western Reserve University,United States of America,62.2,"9,259",17%
+66,Ohio State University,United States of America,62.1,"51,462",12%
+67,University of Colorado Boulder,United States of America,61.6,"29,325",8%
+68,University of Bristol,United Kingdom,61.4,"17,906",25%
+68,"University of California, Santa Cruz",United States of America,61.4,"17,404",1%
+68,Yeshiva University,United States of America,61.4,"6,753",7%
+71,University of Sydney,Australia,61.2,"41,868",28%
+72,University of Virginia,United States of America,61.1,"23,845",12%
+73,University of Adelaide,Australia,60.7,"20,771",26%
+73,University of Southern California,United States of America,60.7,"36,534",20%
+75,William & Mary,United States of America,60.4,"7,867",7%
+76,Trinity College Dublin,Republic of Ireland,60.3,"15,521",25%
+77,King’s College London,United Kingdom,59.7,"21,394",37%
+78,Stony Brook University,United States of America,59.6,"21,908",24%
+79,Korea Advanced Institute of Science and Technology (KAIST),South Korea,59.5,"9,027",9%
+79,University of Sussex,United Kingdom,59.5,"12,001",35%
+81,The University of Queensland,Australia,59.1,"34,718",27%
+81,University of York,United Kingdom,59.1,,
+83,Heidelberg University,Germany,59.0,"28,881",17%
+83,University of Utah,United States of America,59.0,"25,674",9%
+85,Durham University,United Kingdom,58.9,"15,489",24%
+86,London School of Economics and Political Science,United Kingdom,58.3,,
+87,University of Manchester,United Kingdom,58.0,"34,938",34%
+88,"Royal Holloway, University of London",United Kingdom,57.9,"8,747",37%
+89,Lund University,Sweden,57.8,"28,251",15%
+90,University of Southampton,United Kingdom,57.7,"20,925",29%
+90,University of Zurich,Switzerland,57.7,"26,583",19%
+90,Wake Forest University,United States of America,57.7,"7,326",5%
+93,McMaster University,Canada,57.6,"23,823",15%
+94,University College Dublin,Republic of Ireland,57.5,"22,193",23%
+95,George Washington University,United States of America,57.3,"20,541",16%
+95,University of Arizona,United States of America,57.3,"36,429",8%
+95,University of Basel,Switzerland,57.3,"12,551",24%
+98,"University of Maryland, College Park",United States of America,57.2,"31,331",9%
+99,Dartmouth College,United States of America,57.1,"6,178",16%
+100,École Normale Supérieure de Lyon,France,57.0,"2,218",14%
+101,Technical University of Munich,Germany,56.9,"35,565",20%
+102,University of Helsinki,Finland,56.6,"23,505",6%
+103,University of St Andrews,United Kingdom,56.5,"8,338",47%
+104,Rensselaer Polytechnic Institute,United States of America,56.4,"6,671",16%
+105,"Rutgers, the State University of New Jersey",United States of America,56.3,"37,032",8%
+106,Purdue University,United States of America,56.2,"39,256",22%
+107,National Tsing Hua University,Taiwan,56.1,"10,221",5%
+107,University of Cape Town,South Africa,56.1,"20,040",18%
+109,Pennsylvania State University,United States of America,56.0,"44,501",12%
+109,Seoul National University,South Korea,56.0,"26,389",10%
+111,Hong Kong Baptist University,Hong Kong,55.6,"10,441",25%
+112,Bilkent University,Turkey,55.4,,
+112,Tokyo Institute of Technology,Japan,55.4,"9,586",13%
+114,Eindhoven University of Technology,Netherlands,55.3,"8,176",14%
+115,National Taiwan University,Taiwan,55.2,"31,891",7%
+115,University of Hawai’i at Mānoa,United States of America,55.2,,
+117,"University of California, Riverside",United States of America,55.1,"20,626",12%
+118,University of Geneva,Switzerland,55.0,"15,668",39%
+119,KU Leuven,Belgium,54.8,"42,503",18%
+120,Nanjing University,China,54.6,"29,743",10%
+120,Queen Mary University of London,United Kingdom,54.6,"14,260",40%
+122,Michigan State University,United States of America,54.5,"44,750",15%
+122,Technical University of Denmark,Denmark,54.5,"9,990",18%
+124,Ghent University,Belgium,54.4,"32,166",9%
+124,Lancaster University,United Kingdom,54.4,"11,512",33%
+124,Leiden University,Netherlands,54.4,"21,222",10%
+127,University of Alberta,Canada,54.3,"36,299",23%
+128,University of Glasgow,United Kingdom,54.2,"22,616",29%
+129,Stockholm University,Sweden,54.0,"31,715",8%
+130,Osaka University,Japan,53.4,"23,144",9%
+130,University of Victoria,Canada,53.4,"17,581",11%
+132,Tohoku University,Japan,53.3,"17,200",7%
+132,University of Freiburg,Germany,53.3,"26,467",16%
+132,University of Iowa,United States of America,53.3,"27,526",11%
+135,University of Bergen,Norway,52.7,"11,623",12%
+136,University of Lausanne,Switzerland,52.6,"11,964",22%
+137,University of Sheffield,United Kingdom,52.5,"23,311",31%
+138,University of Montreal,Canada,52.4,"38,264",25%
+139,VU University Amsterdam,Netherlands,52.3,"23,280",6%
+140,Pierre and Marie Curie University,France,52.2,"27,862",18%
+140,University of Dundee,United Kingdom,52.2,"11,628",25%
+142,University of Barcelona,Spain,52.1,"47,491",10%
+143,Utrecht University,Netherlands,52.0,"30,779",7%
+144,Wageningen University and Research Center,Netherlands,51.9,"9,248",21%
+145,University of Auckland,New Zealand,51.8,"29,787",28%
+145,University of Birmingham,United Kingdom,51.8,"25,295",23%
+147,Alexandria University,Egypt,51.6,"127,431",1%
+147,Uppsala University,Sweden,51.6,"25,266",12%
+149,Hong Kong Polytechnic University,Hong Kong,51.4,"22,064",26%
+149,University of Aberdeen,United Kingdom,51.4,"12,938",33%
+151,Delft University of Technology,Netherlands,51.3,"15,920",25%
+152,"Birkbeck, University of London",United Kingdom,51.2,"9,454",38%
+152,Newcastle University,United Kingdom,51.2,"20,174",29%
+152,University of New South Wales,Australia,51.2,"38,309",33%
+155,Pompeu Fabra University,Spain,51.1,"10,901",13%
+156,Indiana University,United States of America,51.0,"62,468",13%
+156,Iowa State University,United States of America,51.0,"29,991",11%
+158,Georgia Health Sciences University,United States of America,50.7,,
+159,Erasmus University Rotterdam,Netherlands,50.4,"20,580",18%
+159,University of Delaware,United States of America,50.4,"19,262",10%
+161,Arizona State University,United States of America,50.3,"83,236",9%
+161,Boston College,United States of America,50.3,"13,216",19%
+163,National Sun Yat-Sen University,Taiwan,50.2,"9,336",4%
+164,Georgetown University,United States of America,50.1,"15,408",14%
+165,University of Amsterdam,Netherlands,50.0,"24,570",11%
+165,University of Liverpool,United Kingdom,50.0,"18,815",30%
+167,Aarhus University,Denmark,49.9,"23,895",14%
+168,University of Leeds,United Kingdom,49.8,"27,703",21%
+168,University of Würzburg,Germany,49.8,"26,576",8%
+170,University of Groningen,Netherlands,49.7,"24,556",12%
+171,Sun Yat-sen University,China,49.6,"51,351",8%
+172,Goethe University Frankfurt,Germany,49.4,"31,861",15%
+173,Bielefeld University,Germany,49.3,"21,428",8%
+174,Nanyang Technological University,Singapore,49.0,"25,028",33%
+174,University of East Anglia,United Kingdom,49.0,"14,992",28%
+174,University of Nottingham,United Kingdom,49.0,"30,144",27%
+177,University of Copenhagen,Denmark,48.8,"27,545",19%
+178,Humboldt University of Berlin,Germany,48.5,"29,987",16%
+178,Monash University,Australia,48.5,"50,882",36%
+178,University of Bonn,Germany,48.5,"32,474",13%
+181,National Chiao Tung University,Taiwan,48.3,"12,646",5%
+182,RWTH Aachen University,Germany,48.2,"37,917",16%
+183,Middle East Technical University,Turkey,47.7,"25,779",7%
+184,University of Exeter,United Kingdom,47.6,"17,755",28%
+185,University of Twente,Netherlands,47.5,"6,631",26%
+186,University of Konstanz,Germany,47.3,"10,930",12%
+187,Karlsruhe Institute of Technology,Germany,47.2,"25,294",16%
+187,University of Innsbruck,Austria,47.2,"18,209",39%
+189,University of Tübingen,Germany,47.0,"28,327",12%
+190,Drexel University,United States of America,46.9,"20,713",18%
+190,University of Cincinnati,United States of America,46.9,"36,108",6%
+190,Yonsei University,South Korea,46.9,"24,774",14%
+193,Dalhousie University,Canada,46.8,"15,064",18%
+193,KTH Royal Institute of Technology,Sweden,46.8,"12,062",21%
+195,University of Vienna,Austria,46.7,"34,651",25%
+196,Kent State University,United States of America,46.5,"23,122",8%
+197,University of Illinois at Chicago,United States of America,46.4,"24,313",17%
+197,Zhejiang University,China,46.4,"47,508",5%
+199,Simon Fraser University,Canada,46.2,"26,640",19%
+199,Swedish University of Agricultural Sciences,Sweden,46.2,"3,879",20%
