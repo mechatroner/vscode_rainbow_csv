@@ -103,6 +103,19 @@ suite("Extension Tests", function() {
             length_after_delete = active_doc.getText().length;
             assert.equal(length_original, length_after_delete);
 
+
+            uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum.txt'));
+            active_doc = await vscode.workspace.openTextDocument(uri);
+            assert.equal(active_doc.languageId, 'plaintext');
+            editor = await vscode.window.showTextDocument(active_doc);
+            await sleep(1000);
+
+            uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum'));
+            active_doc = await vscode.workspace.openTextDocument(uri);
+            assert.equal(active_doc.languageId, 'plaintext');
+            editor = await vscode.window.showTextDocument(active_doc);
+            await sleep(1000);
+
             // One approach to set selection:
             //const currentPosition: vscode.Position = activeEditor.selection.active;
             //activeEditor.selection = new vscode.Selection(currentPosition, currentPosition);
