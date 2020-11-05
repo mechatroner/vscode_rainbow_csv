@@ -106,14 +106,23 @@ suite("Extension Tests", function() {
 
             uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum.txt'));
             active_doc = await vscode.workspace.openTextDocument(uri);
+            log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`)
             assert.equal(active_doc.languageId, 'plaintext');
             editor = await vscode.window.showTextDocument(active_doc);
             await sleep(1000);
 
             uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum'));
             active_doc = await vscode.workspace.openTextDocument(uri);
+            log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)
             assert.equal(active_doc.languageId, 'plaintext');
             editor = await vscode.window.showTextDocument(active_doc);
+            await sleep(1000);
+
+            uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking_semicolon.txt'));
+            active_doc = await vscode.workspace.openTextDocument(uri);
+            editor = await vscode.window.showTextDocument(active_doc);
+            log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`)
+            assert.equal(active_doc.languageId, 'csv (semicolon)');
             await sleep(1000);
 
             // One approach to set selection:
