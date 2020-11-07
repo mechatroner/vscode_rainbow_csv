@@ -100,6 +100,13 @@ async function test_no_autodetection() {
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
+
+    uri = vscode.Uri.file(path.join(__dirname, 'extension.test.js'));
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    log_message(`languageId for extension.test.js: ${active_doc.languageId}`)
+    assert.equal(active_doc.languageId, 'javascript');
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
     
     uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum'));
     active_doc = await vscode.workspace.openTextDocument(uri);
