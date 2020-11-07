@@ -1283,14 +1283,14 @@ function edit_rbql() {
     let header = get_header_from_document(active_doc, delim, policy); // TODO support custom virtual headers in RBQL, so we can use get_header() here
     rbql_context = {
         "input_document": active_doc,
-         "input_document_path": input_path,
-         "requested_start_record": 0,
-         "delim": delim,
-         "policy": policy,
-         "rfc_record_map": [],
-         "enable_rfc_newlines": enable_rfc_newlines,
-         "skip_headers": skip_headers,
-         "header": header
+        "input_document_path": input_path,
+        "requested_start_record": 0,
+        "delim": delim,
+        "policy": policy,
+        "rfc_record_map": [],
+        "enable_rfc_newlines": enable_rfc_newlines,
+        "skip_headers": skip_headers,
+        "header": header
     };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
