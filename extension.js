@@ -45,6 +45,8 @@ const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load to improve startup performance
 var rainbow_utils = null; // Using lazy load to improve startup performance
 
+var integration_test_config = null;
+
 
 function ll_rbql_csv() {
     if (rbql_csv === null)
@@ -83,6 +85,17 @@ let absolute_path_map = {
     'rbql mock/rbql_mock.py': null,
     'rbql_core/vscode_rbql.py': null
 };
+
+
+function read_integration_test_config() {
+    let config_path = path.join(path.dirname(absolute_path_map['rbql_client.js']), 'test', 'test_config.json');
+    if (fs.existsSync(config_path)) {
+        let data = fs.readFileSync(config_path, {encoding: 'utf8', flag: 'r'});
+        integration_test_config = JSON.parse(data);
+    } else {
+        integration_test_config = null;
+    }
+}
 
 
 var lint_results = new Map();
@@ -1151,6 +1164,10 @@ function handle_rbql_client_message(webview, message) {
         init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
         init_msg['skip_headers'] = rbql_context.skip_headers;
         init_msg['header'] = rbql_context.header;
+        if (integration_test_config) {
+            init_msg['integration_test_language'] = integration_test_config.rbql_backend;
+            init_msg['integration_test_query'] = integration_test_config.rbql_query;
+        }
         webview.postMessage(init_msg);
     }
 
@@ -1565,6 +1582,7 @@ function activate(context) {
     var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
     var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back);
+    var test_mode_cmd = vscode.commands.registerCommand('rainbow-csv.SetIntegrationTestMode', read_integration_test_config);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1586,6 +1604,7 @@ function activate(context) {
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
+    context.subscriptions.push(test_mode_cmd);
 
     setTimeout(function() {
         // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
@@ -1608,4 +1627,4 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 
 // Export some functions for integration tests:
-exports.csv_lint = csv_lint;
+exports.csv_lint = csv_lint; // TODO do not expose the method, use command instead

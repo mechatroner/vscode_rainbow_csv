@@ -31,6 +31,21 @@ function log_message(msg) {
 }
 
 
+
+async function test_rbql() {
+    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    let test_config_path = path.join(__dirname, 'test_config.json')
+    fs.writeFileSync(test_config_path, JSON.stringify({"rbql_backend": "python", "rbql_query": "select top 20 a1, float(a.total_score) * 100, a.university_name, 'foo bar' where NR > 1 order by a.university_name"}));
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
+    await vscode.commands.executeCommand('rainbow-csv.RBQL');
+    await sleep(5000);
+    // FIXME validate the result set fail and run another query with JS
+}
+
+
 async function test_align_shrink_lint() {
     let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -43,7 +58,7 @@ async function test_align_shrink_lint() {
     let length_aligned = active_doc.getText().length;
     log_message(`Aligned length: ${length_aligned}`)
     assert(length_aligned > length_original);
-    let lint_report = rainbow_csv.csv_lint(active_doc, true);
+    let lint_report = rainbow_csv.csv_lint(active_doc, true); // FIXME this is not reliable to call this method, use command instead, we are actually using non-activated version of rainbow_csv here
     assert.equal(lint_report, 'OK');
     await sleep(2000);
     
@@ -55,7 +70,7 @@ async function test_align_shrink_lint() {
     
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
-    lint_report = rainbow_csv.csv_lint(active_doc, true);
+    lint_report = rainbow_csv.csv_lint(active_doc, true); // FIXME this is not reliable to call this method, use command instead, we are actually using non-activated version of rainbow_csv here
     assert(lint_report.indexOf('Number of fields is not consistent') != -1);
     await sleep(500);
     
@@ -166,11 +181,12 @@ suite("Extension Tests", function() {
         }
         try {
             log_message('Starting tests');
+
             assert.equal(-1, [1, 2, 3].indexOf(0));
 
+            await test_rbql();
             await test_align_shrink_lint();
             await test_column_edit();
-            // FIXME add test to open a python or js file too
             await test_no_autodetection();
             await test_autodetection();
             await test_manual_enable_disable();
@@ -179,6 +195,7 @@ suite("Extension Tests", function() {
         } catch (e) {
             log_message('Error: tests have failed. Exception:');
             log_message(String(e));
+            log_message(String(e.stack));
         }
     });
 });

@@ -312,6 +312,16 @@ function handle_message(msg_event) {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }
         make_preview_table();
+
+        let integration_test_query = message['integration_test_query'];
+        let integration_test_language = message['integration_test_language'];
+        if (integration_test_query && integration_test_language) {
+            document.getElementById("select_backend_language").value = integration_test_language;
+            document.getElementById('rbql_input').value = integration_test_query;
+            setTimeout(function() {
+                start_rbql();
+            }, 2000);
+        }
     }
 
     if (message_type == 'fetch_table_header_response') {
