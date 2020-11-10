@@ -1504,7 +1504,7 @@ function make_preview(uri, preview_mode) {
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes <= size_limit) {
-        vscode.window.showWarningMessage('Too small to preview: Showing the original file instead');
+        vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
         vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
     }
