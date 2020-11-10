@@ -177,4 +177,4 @@ These extensions can work well together with Rainbow CSV and provide additional 
 ### Support the project
 
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/paypalme/mechatroner)  
-[![Buy me a Coffee](https://cdn.buymeacoffee.com/buttons/default-orange.png)](https://www.buymeacoffee.com/mechatroner)  
+[![Buy me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow.svg)](https://www.buymeacoffee.com/mechatroner)  
