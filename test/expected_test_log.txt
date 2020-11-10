@@ -1,0 +1,16 @@
+Starting tests
+Lenght after python query: 805
+Lenght after js query: 268
+Original length: 12538
+Aligned length: 25896
+Shrinked length: 12538
+Original length: 9986
+Length after column edit: 10686
+languageId for lorem_ipsum.txt: plaintext
+languageId for extension.test.js: javascript
+languageId for lorem_ipsum: plaintext
+languageId for university_ranking_semicolon.txt: csv (semicolon)
+languageId for small_movies.pipe: plaintext
+languageId for small_movies.pipe after RainbowSeparator: csv (pipe)
+languageId for small_movies.pipe after RainbowSeparatorOff: plaintext
+Finishing tests

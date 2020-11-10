@@ -37,12 +37,28 @@ async function test_rbql() {
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let test_config_path = path.join(__dirname, 'test_config.json')
-    fs.writeFileSync(test_config_path, JSON.stringify({"rbql_backend": "python", "rbql_query": "select top 20 a1, float(a.total_score) * 100, a.university_name, 'foo bar' where NR > 1 order by a.university_name"}));
+
+    let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a.total_score) * 100), a.university_name, 'foo bar' where NR > 1 order by a.university_name"};
+    fs.writeFileSync(test_config_path, JSON.stringify(test_config));
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
     await vscode.commands.executeCommand('rainbow-csv.RBQL');
-    await sleep(5000);
-    // FIXME validate the result set fail and run another query with JS
+    await sleep(6000);
+    active_doc = vscode.window.activeTextEditor.document;
+    let length_after_query = active_doc.getText().length;
+    log_message(`Lenght after python query: ${length_after_query}`)
+    assert.equal(805, length_after_query); // wc -c gives 785 characters length. Probably VSCode uses '\r\n' as line ends
+
+    test_config = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
+    fs.writeFileSync(test_config_path, JSON.stringify(test_config));
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
+    await vscode.commands.executeCommand('rainbow-csv.RBQL');
+    await sleep(6000);
+    active_doc = vscode.window.activeTextEditor.document;
+    length_after_query = active_doc.getText().length;
+    log_message(`Lenght after js query: ${length_after_query}`)
+    assert.equal(268, length_after_query);
 }
 
 
