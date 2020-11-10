@@ -3,8 +3,8 @@
 const fs = require('fs');
 const readline = require('readline');
 
-var rbql = null;
-var rbql_csv = null;
+const rbql = require('./rbql.js');
+const rbql_csv = require('./rbql_csv.js');
 const csv_utils = require('./csv_utils.js');
 const cli_parser = require('./cli_parser.js');
 
@@ -209,6 +209,7 @@ async function run_with_js(args) {
     var output_path = get_default(args, 'output', null);
     var csv_encoding = args['encoding'];
     var skip_header = args['skip-header'];
+    var comment_prefix = args['comment-prefix'];
     var output_delim = get_default(args, 'out-delim', null);
     var output_policy = get_default(args, 'out-policy', null);
     let init_source_file = get_default(args, 'init-source-file', null);
@@ -217,14 +218,12 @@ async function run_with_js(args) {
         [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : rbql_csv.interpret_named_csv_format(output_format);
     }
 
-    if (args['debug-mode'])
-        rbql_csv.set_debug_mode();
     let user_init_code = '';
     if (init_source_file !== null)
         user_init_code = rbql_csv.read_user_init_code(init_source_file);
     try {
         let warnings = [];
-        await rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_header, user_init_code, {'bulk_read': true});
+        await rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_header, comment_prefix, user_init_code, {'bulk_read': true});
         await handle_query_success(warnings, output_path, csv_encoding, output_delim, output_policy);
         return true;
     } catch (e) {
@@ -319,13 +318,6 @@ Description of the available CSV split policies:
 
 
 async function do_main(args) {
-    if (args['auto-rebuild-engine']) {
-        let build_engine = require('./build_engine.js');
-        build_engine.build_engine();
-    }
-
-    rbql = require('./rbql.js');
-    rbql_csv = require('./rbql_csv.js');
 
     if (args['version']) {
         console.log(rbql.version);
@@ -367,14 +359,13 @@ function main() {
         '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
         '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
         '--skip-header': {'boolean': true, 'help': 'Skip header line in input and join tables. Roughly equivalent of ... WHERE NR > 1 ... in your Query'},
+        '--comment-prefix': {'help': 'Ignore lines in input and join tables that start with the comment PREFIX, e.g. "#" or ">>"', 'metavar': 'PREFIX'},
         '--encoding': {'default': 'utf-8', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
         '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},
         '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format', 'metavar': 'DELIM'},
         '--out-policy': {'help': 'Output policy. Use with "out-delim". Overrides out-format', 'metavar': 'POLICY'},
         '--error-format': {'default': 'hr', 'help': 'Errors and warnings format. [hr|json]', 'hidden': true},
         '--version': {'boolean': true, 'help': 'Print RBQL version and exit'},
-        '--auto-rebuild-engine': {'boolean': true, 'help': 'Auto rebuild engine', 'hidden': true},
-        '--debug-mode': {'boolean': true, 'help': 'Run in debug mode', 'hidden': true},
         '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js', 'hidden': true}
     };
     let args = cli_parser.parse_cmd_args(process.argv, scheme, tool_description, epilog);

@@ -39,13 +39,6 @@ except NameError: # Python 2
     broken_pipe_exception = IOError
 
 
-class RbqlIOHandlingError(Exception):
-    pass
-
-class RbqlParsingError(Exception):
-    pass
-
-
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
 
@@ -114,18 +107,6 @@ def remove_utf8_bom(line, assumed_source_encoding):
     return line
 
 
-def str_py2(obj):
-    return obj if isinstance(obj, basestring) else str(obj)
-
-
-def str_py3(obj):
-    return obj if isinstance(obj, str) else str(obj)
-
-
-polymorphic_str = str_py3 if PY3 else str_py2
-
-
-
 def try_read_index(index_path):
     lines = []
     try:
@@ -187,7 +168,7 @@ def init_ansi_terminal_colors():
 
 
 
-class CSVWriter:
+class CSVWriter(rbql_engine.RBQLOutputWriter):
     def __init__(self, stream, close_stream_on_finish, encoding, delim, policy, line_separator='\n', colorize_output=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.stream = encode_output_stream(stream, encoding)
@@ -287,19 +268,23 @@ class CSVWriter:
 
     def ensure_single_field(self, fields):
         if len(fields) > 1:
-            raise RbqlIOHandlingError('Unable to use "Monocolumn" output format: some records have more than one field')
+            raise rbql_engine.RbqlIOHandlingError('Unable to use "Monocolumn" output format: some records have more than one field')
 
 
     def normalize_fields(self, fields):
         for i in polymorphic_xrange(len(fields)):
-            if fields[i] is None:
+            if PY3 and isinstance(fields[i], str):
+                continue
+            elif not PY3 and isinstance(fields[i], basestring):
+                continue
+            elif fields[i] is None:
                 fields[i] = ''
                 self.none_in_output = True
             elif isinstance(fields[i], list):
                 self.normalize_fields(fields[i])
                 fields[i] = self.sub_array_delim.join(fields[i])
             else:
-                fields[i] = polymorphic_str(fields[i])
+                fields[i] = str(fields[i])
 
 
     def _write_all(self, table):
@@ -340,8 +325,8 @@ class CSVWriter:
         return result
 
 
-class CSVRecordIterator:
-    def __init__(self, stream, encoding, delim, policy, skip_headers=False, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
+class CSVRecordIterator(rbql_engine.RBQLInputIterator):
+    def __init__(self, stream, encoding, delim, policy, skip_headers=False, comment_prefix=None, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.encoding = encoding
         self.stream = encode_input_stream(stream, encoding)
@@ -349,16 +334,18 @@ class CSVRecordIterator:
         self.policy = policy
         self.table_name = table_name
         self.variable_prefix = variable_prefix
+        self.comment_prefix = comment_prefix if (comment_prefix is not None and len(comment_prefix)) else None
 
         self.buffer = ''
         self.detected_line_separator = '\n'
         self.exhausted = False
-        self.NR = 0
+        self.NR = 0 # Record number
+        self.NL = 0 # Line number (NL != NR when the CSV file has comments or multiline fields)
         self.chunk_size = chunk_size
         self.fields_info = dict()
 
         self.utf8_bom_removed = False
-        self.first_defective_line = None # TODO use line # instead of record # when "\n" in fields parsing is implemented
+        self.first_defective_line = None
         self.polymorphic_get_row = self.get_row_rfc if policy == 'quoted_rfc' else self.get_row_simple
 
         if not line_mode:
@@ -410,26 +397,32 @@ class CSVRecordIterator:
     def get_row_simple(self):
         try:
             row = self._get_row_from_buffer()
-            if row is not None:
-                return row
-            self._read_until_found()
-            row = self._get_row_from_buffer()
             if row is None:
-                assert self.exhausted
-                if self.buffer:
-                    tmp = self.buffer
+                self._read_until_found()
+                row = self._get_row_from_buffer()
+                if row is None:
+                    assert self.exhausted
+                    if not len(self.buffer):
+                        return None
+                    row = self.buffer
                     self.buffer = ''
-                    return tmp
-                return None
+            self.NL += 1
+            if self.NL == 1:
+                clean_line = remove_utf8_bom(row, self.encoding)
+                if clean_line != row:
+                    row = clean_line
+                    self.utf8_bom_removed = True
             return row
         except UnicodeDecodeError:
-            raise RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead')
+            raise rbql_engine.RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead')
 
     
     def get_row_rfc(self):
         first_row = self.get_row_simple()
         if first_row is None:
             return None
+        if self.comment_prefix is not None and first_row.startswith(self.comment_prefix):
+            return first_row
         if first_row.count('"') % 2 == 0:
             return first_row
         rows_buffer = [first_row]
@@ -446,22 +439,19 @@ class CSVRecordIterator:
         if not self.header_record_emitted and self.header_record is not None:
             self.header_record_emitted = True
             return self.header_record
-        line = self.polymorphic_get_row()
-        if line is None:
-            return None
-        if self.NR == 0:
-            clean_line = remove_utf8_bom(line, self.encoding)
-            if clean_line != line:
-                line = clean_line
-                self.utf8_bom_removed = True
+        while True:
+            line = self.polymorphic_get_row()
+            if line is None:
+                return None
+            if self.comment_prefix is None or not line.startswith(self.comment_prefix):
+                break
         self.NR += 1
         record, warning = csv_utils.smart_split(line, self.delim, self.policy, preserve_quotes_and_whitespaces=False)
         if warning:
             if self.first_defective_line is None:
-                self.first_defective_line = self.NR
+                self.first_defective_line = self.NL
                 if self.policy == 'quoted_rfc':
-                    # TODO add line number when NL is supported
-                    raise RbqlIOHandlingError('Inconsistent double quote escaping in {} table at record {}'.format(self.table_name, self.NR))
+                    raise rbql_engine.RbqlIOHandlingError('Inconsistent double quote escaping in {} table at record {}, line {}'.format(self.table_name, self.NR, self.NL))
         num_fields = len(record)
         if num_fields not in self.fields_info:
             self.fields_info[num_fields] = self.NR
@@ -501,32 +491,37 @@ class CSVRecordIterator:
         return result
 
 
-class FileSystemCSVRegistry:
-    def __init__(self, delim, policy, encoding, skip_headers):
+class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
+    def __init__(self, delim, policy, encoding, skip_headers, comment_prefix):
         self.delim = delim
         self.policy = policy
         self.encoding = encoding
         self.record_iterator = None
         self.input_stream = None
         self.skip_headers = skip_headers
+        self.comment_prefix = comment_prefix
         self.table_path = None
 
     def get_iterator_by_table_id(self, table_id):
         self.table_path = find_table_path(table_id)
         if self.table_path is None:
-            raise RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
+            raise rbql_engine.RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
         self.input_stream = open(self.table_path, 'rb')
-        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.skip_headers, table_name=table_id, variable_prefix='b')
+        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.skip_headers, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix='b')
         return self.record_iterator
 
-    def finish(self, output_warnings):
+    def finish(self):
         if self.input_stream is not None:
             self.input_stream.close()
-            if self.skip_headers:
-                output_warnings.append('The first (header) record was also skipped in the JOIN file: {}'.format(os.path.basename(self.table_path))) # UT JSON CSV
+
+    def get_warnings(self):
+        result = []
+        if self.record_iterator is not None and self.skip_headers:
+            result.append('The first (header) record was also skipped in the JOIN file: {}'.format(os.path.basename(self.table_path))) # UT JSON CSV
+        return result
 
 
-def query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, skip_headers=False, user_init_code='', colorize_output=False):
+def query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, skip_headers=False, comment_prefix=None, user_init_code='', colorize_output=False):
     output_stream, close_output_on_finish = (None, False)
     input_stream, close_input_on_finish = (None, False)
     join_tables_registry = None
@@ -535,22 +530,22 @@ def query_csv(query_text, input_path, input_delim, input_policy, output_path, ou
         input_stream, close_input_on_finish = (sys.stdin, False) if input_path is None else (open(input_path, 'rb'), True)
 
         if input_delim == '"' and input_policy == 'quoted':
-            raise RbqlIOHandlingError('Double quote delimiter is incompatible with "quoted" policy')
+            raise rbql_engine.RbqlIOHandlingError('Double quote delimiter is incompatible with "quoted" policy')
         if input_delim != ' ' and input_policy == 'whitespace':
-            raise RbqlIOHandlingError('Only whitespace " " delim is supported with "whitespace" policy')
+            raise rbql_engine.RbqlIOHandlingError('Only whitespace " " delim is supported with "whitespace" policy')
 
         if not is_ascii(query_text) and csv_encoding == 'latin-1':
-            raise RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary')
+            raise rbql_engine.RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary')
 
         if (not is_ascii(input_delim) or not is_ascii(output_delim)) and csv_encoding == 'latin-1':
-            raise RbqlIOHandlingError('To use non-ascii separators enable UTF-8 encoding instead of latin-1/binary')
+            raise rbql_engine.RbqlIOHandlingError('To use non-ascii separators enable UTF-8 encoding instead of latin-1/binary')
 
         default_init_source_path = os.path.join(os.path.expanduser('~'), '.rbql_init_source.py')
         if user_init_code == '' and os.path.exists(default_init_source_path):
             user_init_code = read_user_init_code(default_init_source_path)
 
-        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, skip_headers)
-        input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, skip_headers)
+        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, skip_headers, comment_prefix)
+        input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, skip_headers, comment_prefix=comment_prefix)
         output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy, colorize_output=colorize_output)
         if debug_mode:
             rbql_engine.set_debug_mode()
@@ -561,7 +556,8 @@ def query_csv(query_text, input_path, input_delim, input_policy, output_path, ou
         if close_output_on_finish:
             output_stream.close()
         if join_tables_registry:
-            join_tables_registry.finish(output_warnings)
+            join_tables_registry.finish()
+            output_warnings += join_tables_registry.get_warnings()
 
 
 def set_debug_mode():

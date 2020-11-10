@@ -8,17 +8,15 @@ import random
 import time
 from collections import OrderedDict, defaultdict, namedtuple
 
+import datetime # For date operations inside user queries
+import os # For system operations inside user queries
+import math # For math operations inside user queries
+
 from ._version import __version__
 
-##########################################################################
-#
-# RBQL: RainBow Query Language
-# Authors: Dmitry Ignatovich, ...
-#
-#
-##########################################################################
 
 # This module must be both python2 and python3 compatible
+
 
 # This module works with records only. It is CSV-agnostic.
 # Do not add CSV-related logic or variables/functions/objects like "delim", "separator" etc
@@ -40,11 +38,18 @@ from ._version import __version__
 
 # TODO support custom (virtual) headers for CSV version
 
-# TODO support RBQL variable "NL" - line number. when header is skipped it would be "2" for the first record. Also it is not equal to NR for multiline records
-
-# TODO support option to skip comment lines (lines starting with the specified prefix)
+# TODO allow to use NL in RBQL queries for CSV version
 
 # TODO add "inconsistent number of fields in output table" warning. Useful for queries like this: `*a1.split("|")` or `...a1.split("|")`, where num of fields in a1 is variable
+
+# TODO refactor this module in sync with the JS version. There wasn't any cleanup after the last redesign
+
+
+# TODO add RBQL iterators for json lines ( https://jsonlines.org/ ) and xml-by-line files
+# TODO add RBQL file-system iterator to be able to query files like fselect does
+
+
+# FIXME use proper interface base classes, see: https://stackoverflow.com/questions/44315961/when-to-use-raise-notimplementederror
 
 
 GROUP_BY = 'GROUP BY'
@@ -53,6 +58,7 @@ SELECT = 'SELECT'
 JOIN = 'JOIN'
 INNER_JOIN = 'INNER JOIN'
 LEFT_JOIN = 'LEFT JOIN'
+LEFT_OUTER_JOIN = 'LEFT OUTER JOIN'
 STRICT_LEFT_JOIN = 'STRICT LEFT JOIN'
 ORDER_BY = 'ORDER BY'
 WHERE = 'WHERE'
@@ -74,11 +80,17 @@ class RbqlIOHandlingError(Exception):
     pass
 
 
+class InternalBadFieldError(Exception):
+    def __init__(self, bad_idx):
+        self.bad_idx = bad_idx
+
+
+class InternalBadKeyError(Exception):
+    def __init__(self, bad_key):
+        self.bad_key = bad_key
+
+
 VariableInfo = namedtuple('VariableInfo', ['initialize', 'index'])
-
-
-
-query_context = None
 
 
 class RBQLContext:
@@ -93,7 +105,6 @@ class RBQLContext:
         self.like_regex_cache = dict()
 
         self.sort_key_expression = None
-        self.reverse_sort = False
 
         self.aggregation_stage = 0
         self.aggregation_key_expression = None
@@ -101,7 +112,6 @@ class RBQLContext:
 
         self.join_map_impl = None
         self.join_map = None
-        self.join_operation = None
         self.lhs_join_var_expression = None
 
         self.where_expression = None
@@ -113,13 +123,7 @@ class RBQLContext:
         self.variables_init_code = None
 
 
-
-######################################
-
-
-import datetime # For date operations
-import os # For system operations
-import math # For math operations
+query_context = None # Needs to be global for MIN(), MAX(), etc functions
 
 
 RBQL_VERSION = __version__
@@ -136,16 +140,6 @@ def iteritems6(x):
     if PY3:
         return x.items()
     return x.iteritems()
-
-
-class InternalBadFieldError(Exception):
-    def __init__(self, bad_idx):
-        self.bad_idx = bad_idx
-
-
-class InternalBadKeyError(Exception):
-    def __init__(self, bad_key):
-        self.bad_key = bad_key
 
 
 class RBQLRecord:
@@ -416,14 +410,12 @@ def init_aggregator(generator_name, val, post_proc=None):
 def MIN(val):
     return init_aggregator(MinAggregator, val) if query_context.aggregation_stage < 2 else val
 
-# min = MIN - see the mad max copypaste below
 Min = MIN
 
 
 def MAX(val):
     return init_aggregator(MaxAggregator, val) if query_context.aggregation_stage < 2 else val
 
-# max = MAX - see the mad max copypaste below
 Max = MAX
 
 
@@ -437,7 +429,6 @@ Count = COUNT
 def SUM(val):
     return init_aggregator(SumAggregator, val) if query_context.aggregation_stage < 2 else val
 
-# sum = SUM - see the mad max copypaste below
 Sum = SUM
 
 
@@ -469,9 +460,7 @@ def ARRAY_AGG(val, post_proc=None):
 array_agg = ARRAY_AGG
 
 
-
-
-# Redefining builtin max, min and sum. See test_max_max.py unit test for explanation
+# Redefining builtin max, min and sum
 builtin_max = max
 builtin_min = min
 builtin_sum = sum
@@ -585,8 +574,9 @@ class UniqCountWriter(object):
 
 
 class SortedWriter(object):
-    def __init__(self, subwriter):
+    def __init__(self, subwriter, reverse_sort):
         self.subwriter = subwriter
+        self.reverse_sort = reverse_sort
         self.unsorted_entries = list()
 
     def write(self, sort_key_value, record):
@@ -595,7 +585,7 @@ class SortedWriter(object):
 
     def finish(self):
         sorted_entries = sorted(self.unsorted_entries, key=lambda x: x[0])
-        if query_context.reverse_sort:
+        if self.reverse_sort:
             sorted_entries.reverse()
         for e in sorted_entries:
             if not self.subwriter.write(e[1]):
@@ -816,7 +806,6 @@ def embed_code(parent_code, child_placeholder, child_code):
     assert parent_code.count(child_placeholder) == 1
     parent_lines = parent_code.strip().split('\n')
     child_lines = child_code.strip().split('\n')
-    placeholder_indentation = None
     for i in range(len(parent_lines)):
         pos = parent_lines[i].find(child_placeholder)
         if pos == -1:
@@ -825,15 +814,14 @@ def embed_code(parent_code, child_placeholder, child_code):
         placeholder_indentation = parent_lines[i][:pos]
         assert placeholder_indentation == ' ' * pos
         child_lines = [placeholder_indentation + cl for cl in child_lines]
-        result = parent_lines[:i] + child_lines + parent_lines[i + 1:]
-        return '\n'.join(result) + '\n'
+        result_lines = parent_lines[:i] + child_lines + parent_lines[i + 1:]
+        return '\n'.join(result_lines) + '\n'
     assert False
 
 
 def generate_main_loop_code():
     is_select_query = query_context.select_expression is not None
     is_join_query = query_context.join_map is not None
-    python_code = None
     where_expression = 'True' if query_context.where_expression is None else query_context.where_expression
     aggregation_key_expression = 'None' if query_context.aggregation_key_expression is None else query_context.aggregation_key_expression
     sort_key_expression = 'None' if query_context.sort_key_expression is None else query_context.sort_key_expression
@@ -861,16 +849,11 @@ def generate_main_loop_code():
     return python_code
 
 
-
 def compile_and_run():
     # TODO consider putting mad_max stuff here instead of keeping it in the global scope
     main_loop_body = generate_main_loop_code()
     compiled_main_loop = compile(main_loop_body, '<main loop>', 'exec')
     exec(compiled_main_loop)
-
-
-
-############################################################
 
 
 
@@ -887,8 +870,10 @@ def exception_to_error_info(e):
         if len(error_strings) and re.search('File.*line', error_strings[0]) is not None:
             error_strings[0] = '\n'
         error_msg = ''.join(error_strings).rstrip()
+        if re.search(' having ', error_msg, flags=re.IGNORECASE) is not None:
+            error_msg += "\nRBQL doesn't support \"HAVING\" keyword"
         if re.search(' like[ (]', error_msg, flags=re.IGNORECASE) is not None:
-            error_msg += "\nRBQL doesn't support LIKE operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... " # UT JSON
+            error_msg += "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... " # UT JSON
         if error_msg.lower().find(' from ') != -1:
             error_msg += "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM" # UT JSON
         return ('syntax error', error_msg)
@@ -1058,6 +1043,7 @@ def ensure_no_ambiguous_variables(query_text, input_column_names, join_column_na
 def generate_common_init_code(query_text, variable_prefix):
     assert variable_prefix in ['a', 'b']
     result = list()
+    # TODO [PERFORMANCE] do not initialize RBQLRecord if we don't have `a.` or `a[` prefix in the query
     result.append('{} = RBQLRecord()'.format(variable_prefix))
     base_var = 'NR' if variable_prefix == 'a' else 'bNR'
     attr_var = '{}.NR'.format(variable_prefix)
@@ -1123,7 +1109,7 @@ def translate_update_expression(update_expression, input_variables_map, string_l
     return combine_string_literals('\n'.join(update_expressions), string_literals)
 
 
-def translate_select_expression_py(select_expression):
+def translate_select_expression(select_expression):
     translated = replace_star_count(select_expression)
     translated = replace_star_vars(translated)
     translated = translated.strip()
@@ -1132,7 +1118,7 @@ def translate_select_expression_py(select_expression):
     return '[{}]'.format(translated)
 
 
-def separate_string_literals_py(rbql_expression):
+def separate_string_literals(rbql_expression):
     # The regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
     string_literals_regex = r'''(\"\"\"|\'\'\'|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1'''
     matches = list(re.finditer(string_literals_regex, rbql_expression))
@@ -1153,7 +1139,7 @@ def separate_string_literals_py(rbql_expression):
 
 def locate_statements(rbql_expression):
     statement_groups = list()
-    statement_groups.append([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
+    statement_groups.append([STRICT_LEFT_JOIN, LEFT_OUTER_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
     statement_groups.append([SELECT])
     statement_groups.append([ORDER_BY])
     statement_groups.append([WHERE])
@@ -1195,7 +1181,7 @@ def separate_actions(rbql_expression):
 
         statement_params = dict()
 
-        if statement in [STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN]:
+        if statement in [STRICT_LEFT_JOIN, LEFT_OUTER_JOIN, LEFT_JOIN, INNER_JOIN, JOIN]:
             statement_params['join_subtype'] = statement
             statement = JOIN
 
@@ -1324,9 +1310,9 @@ def remove_redundant_input_table_name(query_text):
     return query_text
 
 
-def parse_to_py(query_text, input_iterator, join_tables_registry):
+def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, query_context):
     query_text = cleanup_query(query_text)
-    format_expression, string_literals = separate_string_literals_py(query_text)
+    format_expression, string_literals = separate_string_literals(query_text)
     format_expression = remove_redundant_input_table_name(format_expression)
     input_variables_map = input_iterator.get_variables_map(query_text)
 
@@ -1352,12 +1338,13 @@ def parse_to_py(query_text, input_iterator, join_tables_registry):
         join_variables_map = join_record_iterator.get_variables_map(query_text)
 
         lhs_variables, rhs_indices = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals)
-        joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
-        query_context.join_operation = rb_actions[JOIN]['join_subtype']
+        joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_OUTER_JOIN: LeftJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
         query_context.lhs_join_var_expression = lhs_variables[0] if len(lhs_variables) == 1 else '({})'.format(', '.join(lhs_variables))
         query_context.join_map_impl = HashJoinMap(join_record_iterator, rhs_indices)
         query_context.join_map_impl.build()
         query_context.join_map = joiner_type(query_context.join_map_impl)
+
+    query_context.variables_init_code = combine_string_literals(generate_init_statements(format_expression, input_variables_map, join_variables_map), string_literals)
 
 
     if WHERE in rb_actions:
@@ -1365,8 +1352,6 @@ def parse_to_py(query_text, input_iterator, join_tables_registry):
         if re.search(r'[^!=]=[^=]', where_expression) is not None:
             raise RbqlParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="') # UT JSON
         query_context.where_expression = combine_string_literals(where_expression, string_literals)
-
-    query_context.variables_init_code = combine_string_literals(generate_init_statements(format_expression, input_variables_map, join_variables_map), string_literals)
 
 
     if UPDATE in rb_actions:
@@ -1384,13 +1369,12 @@ def parse_to_py(query_text, input_iterator, join_tables_registry):
         if EXCEPT in rb_actions:
             query_context.select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals)
         else:
-            select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
+            select_expression = translate_select_expression(rb_actions[SELECT]['text'])
             query_context.select_expression = combine_string_literals(select_expression, string_literals)
 
     if ORDER_BY in rb_actions:
         query_context.sort_key_expression = '({})'.format(combine_string_literals(rb_actions[ORDER_BY]['text'], string_literals))
-        query_context.reverse_sort = rb_actions[ORDER_BY]['reverse']
-        query_context.writer = SortedWriter(query_context.writer)
+        query_context.writer = SortedWriter(query_context.writer, reverse_sort=rb_actions[ORDER_BY]['reverse'])
 
 
 def make_inconsistent_num_fields_warning(table_name, inconsistent_records_info):
@@ -1407,7 +1391,7 @@ def make_inconsistent_num_fields_warning(table_name, inconsistent_records_info):
 def query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry=None, user_init_code=''):
     global query_context
     query_context = RBQLContext(input_iterator, output_writer, user_init_code)
-    parse_to_py(query_text, input_iterator, join_tables_registry)
+    shallow_parse_input_query(query_text, input_iterator, join_tables_registry, query_context)
     compile_and_run()
     query_context.writer.finish()
     output_warnings.extend(input_iterator.get_warnings())
@@ -1416,7 +1400,40 @@ def query(query_text, input_iterator, output_writer, output_warnings, join_table
     output_warnings.extend(output_writer.get_warnings())
 
 
-class TableIterator:
+class RBQLInputIterator:
+    def get_variables_map(self, query_text):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def get_record(self):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class RBQLOutputWriter:
+    def write(self, fields):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def finish(self):
+        pass # Reimplement if your class needs to do something on finish e.g. cleanup
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class RBQLTableRegistry:
+    def get_iterator_by_table_id(self, table_id):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def finish(self):
+        pass # Reimplement if your class needs to do something on finish e.g. cleanup
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class TableIterator(RBQLInputIterator):
     def __init__(self, table, column_names=None, normalize_column_names=True, variable_prefix='a'):
         self.table = table
         self.column_names = column_names
@@ -1455,7 +1472,7 @@ class TableIterator:
         return []
 
 
-class TableWriter:
+class TableWriter(RBQLOutputWriter):
     def __init__(self, external_table):
         self.table = external_table
 
@@ -1470,15 +1487,15 @@ class TableWriter:
         return []
 
 
-class SingleTableRegistry:
-    def __init__(self, table, column_names=None, normalize_column_names=True, table_name='B'):
+class SingleTableRegistry(RBQLTableRegistry):
+    def __init__(self, table, column_names=None, normalize_column_names=True, table_name='b'):
         self.table = table
         self.column_names = column_names
         self.normalize_column_names = normalize_column_names
         self.table_name = table_name
 
     def get_iterator_by_table_id(self, table_id):
-        if table_id != self.table_name:
+        if table_id.lower() != self.table_name:
             raise RbqlParsingError('Unable to find join table: "{}"'.format(table_id)) # UT JSON
         return TableIterator(self.table, self.column_names, self.normalize_column_names, 'b')
 

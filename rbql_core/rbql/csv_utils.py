@@ -83,19 +83,19 @@ def extract_line_from_data(data):
 
 
 def quote_field(src, delim):
-    if src.find(delim) != -1 or src.find('"') != -1:
-        escaped = src.replace('"', '""')
-        escaped = '"{}"'.format(escaped)
-        return escaped
+    if src.find('"') != -1:
+        return '"{}"'.format(src.replace('"', '""'))
+    if src.find(delim) != -1:
+        return '"{}"'.format(src)
     return src
 
 
 def rfc_quote_field(src, delim):
     # A single regexp can be used to find all 4 characters simultaneously, but this approach doesn't significantly improve performance according to my tests.
-    if src.find(delim) != -1 or src.find('"') != -1 or src.find('\n') != -1 or src.find('\r') != -1:
-        escaped = src.replace('"', '""')
-        escaped = '"{}"'.format(escaped)
-        return escaped
+    if src.find('"') != -1:
+        return '"{}"'.format(src.replace('"', '""'))
+    if src.find(delim) != -1 or src.find('\n') != -1 or src.find('\r') != -1:
+        return '"{}"'.format(src)
     return src
 
 
