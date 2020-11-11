@@ -11,7 +11,7 @@
 * Align columns with spaces and Shrink (trim spaces from fields)
 * Run queries in SQL-like language
 
-![screenshot](https://i.imgur.com/PRFKVIN.png)
+![screenshot](https://i.imgur.com/6eJqeUN.png)
 
 ## Usage
 
@@ -130,7 +130,7 @@ You can use RBQL command for all possible types of files (e.g. .js, .xml, .html)
 
 
 Screenshot of RBQL Console:  
-![VSCode RBQL Console](https://i.imgur.com/HsBG2Y1.png)  
+![VSCode RBQL Console](https://i.imgur.com/6eJqeUN.png)  
 
 
 ## Other
