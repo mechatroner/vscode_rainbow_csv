@@ -849,7 +849,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
         };
-        ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers, '', {'bulk_read': true}).then(handle_success).catch(e => {
+        ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers, null, '', {'bulk_read': true}).then(handle_success).catch(e => {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
         });
