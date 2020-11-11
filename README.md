@@ -130,7 +130,7 @@ You can use RBQL command for all possible types of files (e.g. .js, .xml, .html)
 
 
 Screenshot of RBQL Console:  
-![VSCode RBQL Console](https://i.imgur.com/6eJqeUN.png)  
+![VSCode RBQL Console](https://i.imgur.com/cQGJ8Vq.png)  
 
 
 ## Other
