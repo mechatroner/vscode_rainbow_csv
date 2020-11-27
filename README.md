@@ -1,7 +1,4 @@
 # Rainbow CSV
-[![Buy me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow.svg)](https://www.buymeacoffee.com/mechatroner)
-[![PayPal](https://img.shields.io/badge/PayPal-Donate-yellow)](https://www.paypal.com/paypalme/mechatroner)
-[![Installs](https://vsmarketplacebadge.apphb.com/installs/mechatroner.rainbow-csv.svg)](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
 
 ## Main Features
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors
@@ -174,7 +171,3 @@ These extensions can work well together with Rainbow CSV and provide additional 
 * Library and CLI App for Python [RBQL](https://pypi.org/project/rbql/)  
 * Library and CLI App for JavaScript [RBQL](https://www.npmjs.com/package/rbql)  
 
-### Support the project
-
-[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/paypalme/mechatroner)  
-[![Buy me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow.svg)](https://www.buymeacoffee.com/mechatroner)  
