@@ -24,8 +24,6 @@ const child_process = require('child_process');
 // Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
 
 
-// TODO implement skip header option in RBQL? - Should also update preview table.
-
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
 // TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
