@@ -867,6 +867,8 @@ async function compile_and_run(query_context) {
             if (query_context.query_text.toLowerCase().indexOf(' from ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM"); // UT JSON
         }
+        if (e && e.message && e.message.indexOf('Received an instance of RBQLAggregationToken') != -1)
+            throw new RbqlParsingError(wrong_aggregation_usage_error);
         throw e;
     }
 }
@@ -1620,7 +1622,7 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
 
     if (rb_actions.hasOwnProperty(WHERE)) {
         var where_expression = rb_actions[WHERE]['text'];
-        if (/[^!=]=[^=]/.exec(where_expression))
+        if (/[^><!=]=[^=]/.exec(where_expression))
             throw new RbqlParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "==" or "==="');
         query_context.where_expression = combine_string_literals(where_expression, string_literals);
     }

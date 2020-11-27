@@ -1349,7 +1349,7 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
 
     if WHERE in rb_actions:
         where_expression = rb_actions[WHERE]['text']
-        if re.search(r'[^!=]=[^=]', where_expression) is not None:
+        if re.search(r'[^><!=]=[^=]', where_expression) is not None:
             raise RbqlParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="') # UT JSON
         query_context.where_expression = combine_string_literals(where_expression, string_literals)
 
