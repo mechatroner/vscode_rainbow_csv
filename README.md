@@ -139,6 +139,7 @@ Screenshot of RBQL Console:
 * Familiar editing environment of your favorite text editor  
 * Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
 * High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.  
+* Color -> column association allows to locate the columns of interest more quickly when looking away and back at the data (with column alignment one have to locate the header first or count the columns if the header is not visible)
 * Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
 
 #### Disadvantages:
