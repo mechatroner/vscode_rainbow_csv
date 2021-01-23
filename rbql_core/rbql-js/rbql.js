@@ -860,12 +860,19 @@ async function compile_and_run(query_context) {
         if (e instanceof SyntaxError) {
             // SyntaxError's from eval() function do not contain detailed explanation of what has caused the syntax error, so to guess what was wrong we can only use the original query
             // v8 issue to fix eval: https://bugs.chromium.org/p/v8/issues/detail?id=2589
-            if (query_context.query_text.toLowerCase().indexOf(' having ') != -1)
+            let lower_case_query = query_context.query_text.toLowerCase();
+            if (lower_case_query.indexOf(' having ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"HAVING\" keyword");
-            if (query_context.query_text.toLowerCase().indexOf(' like ') != -1)
+            if (lower_case_query.indexOf(' like ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... "); // UT JSON
-            if (query_context.query_text.toLowerCase().indexOf(' from ') != -1)
+            if (lower_case_query.indexOf(' from ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM"); // UT JSON
+            if (e && e.message && String(e.message).toLowerCase().indexOf('unexpected identifier') != -1) {
+                if (lower_case_query.indexOf(' and ') != -1)
+                    throw new SyntaxError(e.message + "\nDid you use 'and' keyword in your query?\nJavaScript backend doesn't support 'and' keyword, use '&&' operator instead!");
+                if (lower_case_query.indexOf(' or ') != -1)
+                    throw new SyntaxError(e.message + "\nDid you use 'or' keyword in your query?\nJavaScript backend doesn't support 'or' keyword, use '||' operator instead!");
+            }
         }
         if (e && e.message && e.message.indexOf('Received an instance of RBQLAggregationToken') != -1)
             throw new RbqlParsingError(wrong_aggregation_usage_error);

@@ -146,7 +146,7 @@ You can define custom functions and/or import libraries in two special files:
 
 * `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc`
 * `select * order by Math.random() where NR > 1` - skip header record and random sort
-* `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 and ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
+* `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 && ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
 * `update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1`
 * `select NR, *` - enumerate records, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - example of join query
