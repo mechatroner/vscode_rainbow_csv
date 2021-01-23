@@ -36,7 +36,7 @@ async function test_rbql() {
     let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
-    let test_config_path = path.join(__dirname, 'test_config.json')
+    let test_config_path = path.join(__dirname, '.tmp_test_config.json')
 
     let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a.total_score) * 100), a.university_name, 'foo bar' where NR > 1 order by a.university_name"};
     fs.writeFileSync(test_config_path, JSON.stringify(test_config));

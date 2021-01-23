@@ -86,7 +86,7 @@ let absolute_path_map = {
 
 
 function read_integration_test_config() {
-    let config_path = path.join(path.dirname(absolute_path_map['rbql_client.js']), 'test', 'test_config.json');
+    let config_path = path.join(path.dirname(absolute_path_map['rbql_client.js']), 'test', '.tmp_test_config.json');
     if (fs.existsSync(config_path)) {
         let data = fs.readFileSync(config_path, {encoding: 'utf8', flag: 'r'});
         integration_test_config = JSON.parse(data);
