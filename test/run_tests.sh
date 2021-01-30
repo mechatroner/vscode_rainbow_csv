@@ -22,6 +22,7 @@ rc=$?
 if [ $rc != 0 ]; then
     echo "ERROR: Some tests have failed: expected_test_log.txt log does not match the actual log: rainbow_csv.test.log. See the diff output above" 1>&2
     echo "If the log file is empty than maybe you forgot to call npm install from the parent vscode_rainbow_csv directory?" 1>&2
+    echo "If you are running the tests in WSL while the VSCode itself is in Windows - provide Windows paths like C:\\path\\to\\extension\\dir ... instead of Linux paths" 1>&2
     exit 1
 else
     echo "OK"
