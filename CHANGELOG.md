@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 1.8.1
+* Minor RBQL update
+
 ## 1.8.0
 * New command: "SetHeaderLine" by @WetDesertRock, see [#71](https://github.com/mechatroner/vscode_rainbow_csv/issues/71)
 * Updated RBQL

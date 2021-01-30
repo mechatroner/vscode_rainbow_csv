@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# Don't forget to  run `npm install` from the parent vscode_rainbow_csv directory before running the tests
+# In order to run this test:
+# 1. Make sure to run `npm install` from the parent vscode_rainbow_csv directory
+# 2. Close all VSCode windows
 
 # This should work from WSL too, even if your VSCode is installed for Windows
 
