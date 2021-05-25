@@ -2,11 +2,11 @@
 
 ## Main Features
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors
+* Transform and filter tables using built-in SQL-like query language
 * Provide info about column on hover
 * Automatic consistency check for csv files (CSVLint)
 * Multi-cursor column edit
 * Align columns with spaces and Shrink (trim spaces from fields)
-* Run queries in SQL-like language
 
 ![screenshot](https://i.imgur.com/6eJqeUN.png)
 
