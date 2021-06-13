@@ -67,17 +67,10 @@ RBQL for CSV files provides the following variables which you can use in your qu
    Description: Number of fields in the current record  
 * _a.name_, _b.Person_age_, ... _a.{Good_alphanumeric_column_name}_  
    Variable type: **string**  
-   Description: Value of the field referenced by it's "name". You can use this notation if the field in the first (header) CSV line has a "good" alphanumeric name  
+   Description: Value of the field referenced by it's "name". You can use this notation if the field in the header has a "good" alphanumeric name  
 * _a["object id"]_, _a['9.12341234']_, _b["%$ !! 10 20"]_ ... _a["Arbitrary column name!"]_  
    Variable type: **string**  
-   Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the first (header) CSV line, even when there is no header at all  
-
-
-#### Notes:
-* You can mix all variable types in a single query, example:
-  ```select a1, b2 JOIN /path/to/b.csv ON a['Item Id'] == b.Identifier WHERE NR > 1 and int(a.Weight) * 100 > int(b["weight of the item"])```
-* Referencing fields by header names does not automatically skip the header line (you can use `where NR > 1` trick to skip it)
-* If you want to use RBQL as a library for your own app you can define your own custom variables and do not have to support the above mentioned CSV-related variables.
+   Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the header
 
 
 ### UPDATE statement
@@ -120,6 +113,12 @@ RBQL does not support LIKE operator, instead it provides "like()" function which
 `SELECT * where like(a1, 'foo%bar')`
 
 
+### WITH (header) and WITH (noheader) statements
+You can set whether the input (and join) CSV file has a header or not using the environment configuration parameters which could be `--with_headers` CLI flag or GUI checkbox or something else.
+But it is also possible to override this selection directly in the query by adding either `WITH (header)` or `WITH (noheader)` statement at the end of the query.
+Example: `select top 5 NR, * with (header)`
+
+
 ### User Defined Functions (UDF)
 
 RBQL supports User Defined Functions  
@@ -133,8 +132,8 @@ You can define custom functions and/or import libraries in two special files:
 #### With Python expressions
 
 * `select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2) desc`
-* `select * order by random.random() where NR > 1` - skip header record and random sort
-* `select len(a.vehicle_price) / 10, a2 where NR > 1 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20` - referencing columns by names from header record, skipping the header and using Python's "in" to emulate SQL's "in"
+* `select * order by random.random()` - random sort
+* `select len(a.vehicle_price) / 10, a2 where int(a.vehicle_price) < 500 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20` - referencing columns by names from header and using Python's "in" to emulate SQL's "in"
 * `update set a3 = 'NPC' where a3.find('Non-playable character') != -1`
 * `select NR, *` - enumerate records, NR is 1-based
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
@@ -145,8 +144,8 @@ You can define custom functions and/or import libraries in two special files:
 #### With JavaScript expressions
 
 * `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc`
-* `select * order by Math.random() where NR > 1` - skip header record and random sort
-* `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 && ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
+* `select * order by Math.random()` - random sort
+* `select top 20 a.vehicle_price.length / 10, a2 where parseInt(a.vehicle_price) < 500 && ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header
 * `update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1`
 * `select NR, *` - enumerate records, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - example of join query
@@ -189,15 +188,6 @@ The diagram below gives an overview of the main RBQL components and data flow:
 * RBQL doesn't support nested queries, but they can be emulated with consecutive queries
 * Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables
 * Does not support HAVING statement
-
-
-### FAQ
-#### How do I skip header record in CSV files?
-
-You can use the following trick: add `... where NR > 1 ...` to your query  
-
-And if you are doing math operation you can modify your query like this, example:  
-`select int(a3) * 1000, a2` -> `select int(a3) * 1000 if NR > 1 else a3, a2`  
 
 
 ### References

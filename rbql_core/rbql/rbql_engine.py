@@ -6,6 +6,7 @@ import sys
 import re
 import random
 import time
+import ast
 from collections import OrderedDict, defaultdict, namedtuple
 
 import datetime # For date operations inside user queries
@@ -26,6 +27,8 @@ from ._version import __version__
 # UT JSON CSV - means json csv Unit Test exists for this case
 
 
+# TODO we can do good-enough header autodetection in CSV files to show warnings when we have a high degree of confidence that the file has header but user didn't skip it and vise versa
+
 # TODO catch exceptions in user expression to report the exact place where it occured: "SELECT" expression, "WHERE" expression, etc
 
 # TODO consider supporting explicit column names variables like "host" or "name" or "surname" - just parse all variable-looking sequences from the query and match them against available column names from the header, but skip all symbol defined in rbql_engine.py/rbql.js, user init code and python/js builtin keywords (show warning on intersection)
@@ -42,14 +45,14 @@ from ._version import __version__
 
 # TODO add "inconsistent number of fields in output table" warning. Useful for queries like this: `*a1.split("|")` or `...a1.split("|")`, where num of fields in a1 is variable
 
-# TODO refactor this module in sync with the JS version. There wasn't any cleanup after the last redesign
-
-
 # TODO add RBQL iterators for json lines ( https://jsonlines.org/ ) and xml-by-line files
 # TODO add RBQL file-system iterator to be able to query files like fselect does
 
+# TODO use ast module to improve parsing of parse_attribute_variables / parse_dictionary_variables, like it was done for select parsing
 
-# FIXME use proper interface base classes, see: https://stackoverflow.com/questions/44315961/when-to-use-raise-notimplementederror
+# TODO support 'AS' keyword
+
+# FIXME consider disallowing to use values in the first row when header is not enabled (only a1, a2, ... should be allowed) and vice versa - Don't allow a1, a2 etc when header is enabled. This is to make sure that the user knows what query mode they are in.
 
 
 GROUP_BY = 'GROUP BY'
@@ -64,6 +67,7 @@ ORDER_BY = 'ORDER BY'
 WHERE = 'WHERE'
 LIMIT = 'LIMIT'
 EXCEPT = 'EXCEPT'
+WITH = 'WITH'
 
 ambiguous_error_msg = 'Ambiguous variable name: "{}" is present both in input and in join tables'
 invalid_keyword_in_aggregate_query_error_msg = '"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries'
@@ -134,6 +138,95 @@ numeric_conversion_error = 'Unable to convert value "{}" to int or float. MIN, M
 
 
 PY3 = sys.version_info[0] == 3
+
+
+def is_str6(val):
+    return (PY3 and isinstance(val, str)) or (not PY3 and isinstance(val, basestring))
+
+
+QueryColumnInfo = namedtuple('QueryColumnInfo', ['table_name', 'column_index', 'column_name', 'is_star'])
+
+
+def get_field(root, field_name):
+    for f in ast.iter_fields(root):
+        if len(f) == 2 and f[0] == field_name:
+            return f[1]
+    return None
+
+
+def column_info_from_node(root):
+    rbql_star_marker = '__RBQL_INTERNAL_STAR'
+    if isinstance(root, ast.Name):
+        var_name = get_field(root, 'id')
+        if var_name is None:
+            return None
+        if var_name == rbql_star_marker:
+            return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=True)
+        good_column_name_rgx = '^([ab])([0-9][0-9]*)$'
+        match_obj = re.match(good_column_name_rgx, var_name)
+        if match_obj is not None:
+            table_name = match_obj.group(1)
+            column_index = int(match_obj.group(2)) - 1
+            return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=None, is_star=False)
+        # Some examples for this branch: NR, NF
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=var_name, is_star=False)
+    if isinstance(root, ast.Attribute):
+        column_name = get_field(root, 'attr')
+        if not column_name:
+            return None
+        if not is_str6(column_name):
+            return None
+        var_root = get_field(root, 'value')
+        if not isinstance(var_root, ast.Name):
+            return None
+        table_name = get_field(var_root, 'id')
+        if table_name is None or table_name not in ['a', 'b']:
+            return None
+        if column_name == rbql_star_marker:
+            return QueryColumnInfo(table_name=table_name, column_index=None, column_name=None, is_star=True)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_name, is_star=False)
+    if isinstance(root, ast.Subscript):
+        var_root = get_field(root, 'value')
+        if not isinstance(var_root, ast.Name):
+            return None
+        table_name = get_field(var_root, 'id')
+        if table_name is None or table_name not in ['a', 'b']:
+            return None
+        slice_root = get_field(root, 'slice')
+        if slice_root is None or not isinstance(slice_root, ast.Index):
+            return None
+        slice_val_root = get_field(slice_root, 'value')
+        column_index = None
+        column_name = None
+        if isinstance(slice_val_root, ast.Str):
+            column_name = get_field(slice_val_root, 's')
+            table_name = None # We don't need table name for named fields
+        elif isinstance(slice_val_root, ast.Num):
+            column_index = get_field(slice_val_root, 'n') - 1
+        else:
+            return None
+        return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False)
+    return None
+
+
+def ast_parse_select_expression_to_column_infos(select_expression):
+    root = ast.parse(select_expression)
+    children = list(ast.iter_child_nodes(root))
+    if 'body' not in root._fields:
+        raise RbqlParsingError('Unable to parse SELECT expression (error code #117)') # Should never happen
+    if len(children) != 1:
+        raise RbqlParsingError('Unable to parse SELECT expression (error code #118)') # Should never happen
+    root = children[0]
+    children = list(ast.iter_child_nodes(root))
+    if len(children) != 1:
+        raise RbqlParsingError('Unable to parse SELECT expression (error code #119): "{}"'.format(select_expression)) # This can be triggered with `SELECT a = 100`
+    root = children[0]
+    if isinstance(root, ast.Tuple):
+        column_expression_trees = root.elts
+        column_infos = [column_info_from_node(ct) for ct in column_expression_trees]
+    else:
+        column_infos = [column_info_from_node(root)]
+    return column_infos
 
 
 def iteritems6(x):
@@ -232,9 +325,7 @@ class NumHandler:
     def parse(self, val):
         if not self.string_detection_done:
             self.string_detection_done = True
-            if PY3 and isinstance(val, str):
-                self.is_str = True
-            if not PY3 and isinstance(val, basestring):
+            if is_str6(val):
                 self.is_str = True
         if not self.is_str:
             return val
@@ -894,7 +985,7 @@ def strip_comments(cline):
 
 def combine_string_literals(backend_expression, string_literals):
     for i in range(len(string_literals)):
-        backend_expression = backend_expression.replace('###RBQL_STRING_LITERAL{}###'.format(i), string_literals[i])
+        backend_expression = backend_expression.replace('___RBQL_STRING_LITERAL{}___'.format(i), string_literals[i])
     return backend_expression
 
 
@@ -1086,6 +1177,21 @@ def replace_star_vars(rbql_expression):
     return result
 
 
+def replace_star_vars_for_ast(rbql_expression):
+    star_matches = list(re.finditer(r'(?:(?<=^)|(?<=,)) *(\*|a\.\*|b\.\*) *(?=$|,)', rbql_expression))
+    last_pos = 0
+    result = ''
+    for match in star_matches:
+        star_expression = match.group(1)
+        replacement_expression = {'*': '__RBQL_INTERNAL_STAR', 'a.*': 'a.__RBQL_INTERNAL_STAR', 'b.*': 'b.__RBQL_INTERNAL_STAR'}[star_expression]
+        if last_pos < match.start():
+            result += rbql_expression[last_pos:match.start()]
+        result += replacement_expression
+        last_pos = match.end()
+    result += rbql_expression[last_pos:]
+    return result
+
+
 def translate_update_expression(update_expression, input_variables_map, string_literals):
     assignment_looking_rgx = re.compile(r'(?:^|,) *(a[.#a-zA-Z0-9\[\]_]*) *=(?=[^=])')
     update_expressions = []
@@ -1110,12 +1216,12 @@ def translate_update_expression(update_expression, input_variables_map, string_l
 
 
 def translate_select_expression(select_expression):
-    translated = replace_star_count(select_expression)
-    translated = replace_star_vars(translated)
-    translated = translated.strip()
+    expression_without_stars = replace_star_count(select_expression)
+    translated = replace_star_vars(expression_without_stars).strip()
+    translated_for_ast = replace_star_vars_for_ast(expression_without_stars).strip()
     if not len(translated):
         raise RbqlParsingError('"SELECT" expression is empty') # UT JSON
-    return '[{}]'.format(translated)
+    return ('[{}]'.format(translated), translated_for_ast)
 
 
 def separate_string_literals(rbql_expression):
@@ -1129,7 +1235,7 @@ def separate_string_literals(rbql_expression):
         literal_id = len(string_literals)
         string_literals.append(m.group(0))
         format_parts.append(rbql_expression[idx_before:m.start()])
-        format_parts.append('###RBQL_STRING_LITERAL{}###'.format(literal_id))
+        format_parts.append('___RBQL_STRING_LITERAL{}___'.format(literal_id))
         idx_before = m.end()
     format_parts.append(rbql_expression[idx_before:])
     format_expression = ''.join(format_parts)
@@ -1168,8 +1274,13 @@ def separate_actions(rbql_expression):
     # TODO add more checks:
     # make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
     rbql_expression = rbql_expression.strip(' ')
-    ordered_statements = locate_statements(rbql_expression)
     result = dict()
+    # For now support no more than one query modifier per query
+    mobj = re.match('^(.*)  *[Ww][Ii][Tt][Hh] *\(([a-z]{4,20})\) *$', rbql_expression)
+    if mobj is not None:
+        rbql_expression = mobj.group(1)
+        result[WITH] = mobj.group(2)
+    ordered_statements = locate_statements(rbql_expression)
     for i in range(len(ordered_statements)):
         statement_start = ordered_statements[i][0]
         span_start = ordered_statements[i][1]
@@ -1217,7 +1328,8 @@ def separate_actions(rbql_expression):
         result[statement] = statement_params
     if SELECT not in result and UPDATE not in result:
         raise RbqlParsingError('Query must contain either SELECT or UPDATE statement') # UT JSON
-    assert (SELECT in result) != (UPDATE in result)
+    if SELECT in result and UPDATE in result:
+        raise RbqlParsingError('Query can not contain both SELECT and UPDATE statements')
     return result
 
 
@@ -1230,7 +1342,7 @@ def find_top(rb_actions):
     return rb_actions[SELECT].get('top', None)
 
 
-def translate_except_expression(except_expression, input_variables_map, string_literals):
+def translate_except_expression(except_expression, input_variables_map, string_literals, input_header):
     skip_vars = except_expression.split(',')
     skip_vars = [v.strip() for v in skip_vars]
     skip_indices = list()
@@ -1241,8 +1353,9 @@ def translate_except_expression(except_expression, input_variables_map, string_l
             raise RbqlParsingError('Unknown field in EXCEPT expression: "{}"'.format(var_name)) # UT JSON
         skip_indices.append(var_info.index)
     skip_indices = sorted(skip_indices)
+    output_header = None if input_header is None else select_except(input_header, skip_indices)
     skip_indices = [str(v) for v in skip_indices]
-    return 'select_except(record_a, [{}])'.format(','.join(skip_indices))
+    return (output_header, 'select_except(record_a, [{}])'.format(','.join(skip_indices)))
 
 
 class HashJoinMap:
@@ -1310,13 +1423,46 @@ def remove_redundant_input_table_name(query_text):
     return query_text
 
 
+def select_output_header(input_header, join_header, query_column_infos):
+    if input_header is None and join_header is None:
+        return None
+    if input_header is None:
+        input_header = []
+    if join_header is None:
+        join_header = []
+    output_header = []
+    for qci in query_column_infos:
+        if qci is None:
+            output_header.append('col{}'.format(len(output_header) + 1))
+        elif qci.is_star:
+            if qci.table_name is None:
+                output_header += input_header + join_header
+            elif qci.table_name == 'a':
+                output_header += input_header
+            elif qci.table_name == 'b':
+                output_header += join_header
+        elif qci.column_name is not None:
+            output_header.append(qci.column_name)
+        elif qci.column_index is not None:
+            if qci.table_name == 'a' and qci.column_index < len(input_header):
+                output_header.append(input_header[qci.column_index])
+            elif qci.table_name == 'b' and qci.column_index < len(join_header):
+                output_header.append(join_header[qci.column_index])
+            else:
+                output_header.append('col{}'.format(len(output_header) + 1))
+        else: # Should never happen
+            output_header.append('col{}'.format(len(output_header) + 1))
+    return output_header
+
+
 def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, query_context):
     query_text = cleanup_query(query_text)
     format_expression, string_literals = separate_string_literals(query_text)
     format_expression = remove_redundant_input_table_name(format_expression)
     input_variables_map = input_iterator.get_variables_map(query_text)
-
     rb_actions = separate_actions(format_expression)
+    if WITH in rb_actions:
+        input_iterator.handle_query_modifier(rb_actions[WITH])
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
         raise RbqlParsingError('"ORDER BY" is not allowed in "UPDATE" queries') # UT JSON
@@ -1328,6 +1474,7 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
 
 
     join_variables_map = None
+    join_header = None
     if JOIN in rb_actions:
         rhs_table_id, variable_pairs = parse_join_expression(rb_actions[JOIN]['text'])
         if join_tables_registry is None:
@@ -1335,7 +1482,10 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
         join_record_iterator = join_tables_registry.get_iterator_by_table_id(rhs_table_id)
         if join_record_iterator is None:
             raise RbqlParsingError('Unable to find join table: "{}"'.format(rhs_table_id)) # UT JSON CSV
+        if WITH in rb_actions:
+            join_record_iterator.handle_query_modifier(rb_actions[WITH])
         join_variables_map = join_record_iterator.get_variables_map(query_text)
+        join_header = join_record_iterator.get_header()
 
         lhs_variables, rhs_indices = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals)
         joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_OUTER_JOIN: LeftJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
@@ -1357,20 +1507,29 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
     if UPDATE in rb_actions:
         update_expression = translate_update_expression(rb_actions[UPDATE]['text'], input_variables_map, string_literals)
         query_context.update_expressions = combine_string_literals(update_expression, string_literals)
+        query_context.writer.set_header(input_iterator.get_header())
 
 
     if SELECT in rb_actions:
         query_context.top_count = find_top(rb_actions)
+
+        if EXCEPT in rb_actions:
+            output_header, select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_iterator.get_header())
+        else:
+            select_expression, select_expression_for_ast = translate_select_expression(rb_actions[SELECT]['text'])
+            select_expression = combine_string_literals(select_expression, string_literals)
+            # We need to add string literals back in order to have relevant errors in case of exceptions during parsing
+            combined_select_expression_for_ast = combine_string_literals(select_expression_for_ast, string_literals)
+            column_infos = ast_parse_select_expression_to_column_infos(combined_select_expression_for_ast)
+            output_header = select_output_header(input_iterator.get_header(), join_header, column_infos)
+        query_context.select_expression = select_expression
+        query_context.writer.set_header(output_header)
+
         query_context.writer = TopWriter(query_context.writer)
         if 'distinct_count' in rb_actions[SELECT]:
             query_context.writer = UniqCountWriter(query_context.writer)
         elif 'distinct' in rb_actions[SELECT]:
             query_context.writer = UniqWriter(query_context.writer)
-        if EXCEPT in rb_actions:
-            query_context.select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals)
-        else:
-            select_expression = translate_select_expression(rb_actions[SELECT]['text'])
-            query_context.select_expression = combine_string_literals(select_expression, string_literals)
 
     if ORDER_BY in rb_actions:
         query_context.sort_key_expression = '({})'.format(combine_string_literals(rb_actions[ORDER_BY]['text'], string_literals))
@@ -1407,8 +1566,15 @@ class RBQLInputIterator:
     def get_record(self):
         raise NotImplementedError('Unable to call the interface method')
 
+    def handle_query_modifier(self, modifier_name):
+        # Reimplement if you need to handle a boolean query modifier that can be used like this: `SELECT * WITH (modifiername)`
+        pass
+
     def get_warnings(self):
         return [] # Reimplement if your class can produce warnings
+
+    def get_header(self):
+        return None # Reimplement if your class can provide input header
 
 
 class RBQLOutputWriter:
@@ -1420,6 +1586,9 @@ class RBQLOutputWriter:
 
     def get_warnings(self):
         return [] # Reimplement if your class can produce warnings
+
+    def set_header(self, header):
+        pass # Reimplement if your class can handle output headers in a meaningful way
 
 
 class RBQLTableRegistry:
@@ -1471,20 +1640,21 @@ class TableIterator(RBQLInputIterator):
             return [make_inconsistent_num_fields_warning('input', self.fields_info)]
         return []
 
+    def get_header(self):
+        return self.column_names
+
 
 class TableWriter(RBQLOutputWriter):
     def __init__(self, external_table):
         self.table = external_table
+        self.header = None
 
     def write(self, fields):
         self.table.append(fields)
         return True
 
-    def finish(self):
-        pass
-
-    def get_warnings(self):
-        return []
+    def set_header(self, header):
+        self.header = header
 
 
 class SingleTableRegistry(RBQLTableRegistry):
@@ -1500,16 +1670,21 @@ class SingleTableRegistry(RBQLTableRegistry):
         return TableIterator(self.table, self.column_names, self.normalize_column_names, 'b')
 
 
-def query_table(query_text, input_table, output_table, output_warnings, join_table=None, input_column_names=None, join_column_names=None, normalize_column_names=True, user_init_code=''):
+def query_table(query_text, input_table, output_table, output_warnings, join_table=None, input_column_names=None, join_column_names=None, output_column_names=None, normalize_column_names=True, user_init_code=''):
     if not normalize_column_names and input_column_names is not None and join_column_names is not None:
         ensure_no_ambiguous_variables(query_text, input_column_names, join_column_names)
     input_iterator = TableIterator(input_table, input_column_names, normalize_column_names)
     output_writer = TableWriter(output_table)
     join_tables_registry = None if join_table is None else SingleTableRegistry(join_table, join_column_names, normalize_column_names)
     query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code=user_init_code)
+    if output_column_names is not None:
+        assert len(output_column_names) == 0, '`output_column_names` param must be an empty list or None'
+        if output_writer.header is not None:
+            for column_name in output_writer.header:
+                output_column_names.append(column_name)
 
 
-def set_debug_mode():
+def set_debug_mode(new_value=True):
     global debug_mode
-    debug_mode = True
+    debug_mode = new_value
 

@@ -158,7 +158,7 @@ async function autodetect_delim_policy(table_path) {
 }
 
 
-function print_colorized(records, delim, show_column_names, skip_header) {
+function print_colorized(records, delim, show_column_names, with_headers) {
     let reset_color_code = '\x1b[0m';
     let color_codes = ['\x1b[0m', '\x1b[31m', '\x1b[32m', '\x1b[33m', '\x1b[34m', '\x1b[35m', '\x1b[36m', '\x1b[31;1m', '\x1b[32;1m', '\x1b[33;1m'];
     for (let r = 0; r < records.length; r++) {
@@ -166,7 +166,7 @@ function print_colorized(records, delim, show_column_names, skip_header) {
         for (let c = 0; c < records[r].length; c++) {
             let color_code = color_codes[c % color_codes.length];
             let field = records[r][c];
-            let colored_field = (!show_column_names || (skip_header && r == 0)) ? color_code + field : `${color_code}a${c + 1}:${field}`;
+            let colored_field = (!show_column_names || (with_headers && r == 0)) ? color_code + field : `${color_code}a${c + 1}:${field}`;
             out_fields.push(colored_field);
         }
         let out_line = out_fields.join(delim) + reset_color_code;
@@ -208,7 +208,7 @@ async function run_with_js(args) {
     var input_path = get_default(args, 'input', null);
     var output_path = get_default(args, 'output', null);
     var csv_encoding = args['encoding'];
-    var skip_header = args['skip-header'];
+    var with_headers = args['with-headers'];
     var comment_prefix = args['comment-prefix'];
     var output_delim = get_default(args, 'out-delim', null);
     var output_policy = get_default(args, 'out-policy', null);
@@ -223,7 +223,14 @@ async function run_with_js(args) {
         user_init_code = rbql_csv.read_user_init_code(init_source_file);
     try {
         let warnings = [];
-        await rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_header, comment_prefix, user_init_code, {'bulk_read': true});
+        // Do not use bulk_read mode here because:
+        // * Bulk read can't handle large file since node unable to read the whole file into a string, see https://github.com/mechatroner/rainbow_csv/issues/19
+        // * In case of stdin read we would have to use the util.TextDecoder anyway
+        // * binary/latin-1 do not require the decoder anyway
+        // * This is CLI so no way we are in the Electron environment which can't use the TextDecoder
+        // * Streaming mode works a little faster (since we don't need to do the manual validation)
+        // TODO check if the current node installation doesn't have ICU enabled (which is typicaly provided by Node.js by default, see https://nodejs.org/api/intl.html) and report a user-friendly error with an option to use latin-1 encoding or switch the interpreter
+        await rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, user_init_code/*, {'bulk_read': true}*/);
         await handle_query_success(warnings, output_path, csv_encoding, output_delim, output_policy);
         return true;
     } catch (e) {
@@ -243,11 +250,11 @@ function get_default_output_path(input_path, delim) {
 }
 
 
-async function show_preview(input_path, encoding, delim, policy, skip_header) {
+async function show_preview(input_path, encoding, delim, policy, with_headers) {
     let [records, warnings] = await sample_records(input_path, encoding, delim, policy);
     console.log('Input table preview:');
     console.log('====================================');
-    print_colorized(records, delim, true, skip_header);
+    print_colorized(records, delim, true, with_headers);
     console.log('====================================\n');
     for (let warning of warnings) {
         show_warning(warning);
@@ -273,7 +280,7 @@ async function run_interactive_loop(args) {
         if (!delim)
             throw new GenericError('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option');
     }
-    await show_preview(input_path, args['encoding'], delim, policy, args['skip-header']);
+    await show_preview(input_path, args['encoding'], delim, policy, args['with-headers']);
     args.delim = delim;
     args.policy = policy;
     if (!args.output) {
@@ -358,7 +365,7 @@ function main() {
         '--output': {'help': 'Write output table to FILE instead of stdout', 'metavar': 'FILE'},
         '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
         '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
-        '--skip-header': {'boolean': true, 'help': 'Skip header line in input and join tables. Roughly equivalent of ... WHERE NR > 1 ... in your Query'},
+        '--with-headers': {'boolean': true, 'help': 'Indicates that input (and join) table has header'},
         '--comment-prefix': {'help': 'Ignore lines in input and join tables that start with the comment PREFIX, e.g. "#" or ">>"', 'metavar': 'PREFIX'},
         '--encoding': {'default': 'utf-8', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
         '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},

@@ -34,7 +34,7 @@ class SqliteRecordIterator(rbql_engine.RBQLInputIterator):
                 raise rbql_engine.RbqlIOHandlingError('no such table "{}"'.format(table_name))
             raise
 
-    def get_column_names(self):
+    def get_header(self):
         column_names = [description[0] for description in self.cursor.description]
         return column_names
 
@@ -42,8 +42,8 @@ class SqliteRecordIterator(rbql_engine.RBQLInputIterator):
         variable_map = dict()
         rbql_engine.parse_basic_variables(query_text, self.variable_prefix, variable_map)
         rbql_engine.parse_array_variables(query_text, self.variable_prefix, variable_map)
-        rbql_engine.parse_dictionary_variables(query_text, self.variable_prefix, self.get_column_names(), variable_map)
-        rbql_engine.parse_attribute_variables(query_text, self.variable_prefix, self.get_column_names(), 'table column names', variable_map)
+        rbql_engine.parse_dictionary_variables(query_text, self.variable_prefix, self.get_header(), variable_map)
+        rbql_engine.parse_attribute_variables(query_text, self.variable_prefix, self.get_header(), 'table column names', variable_map)
         return variable_map
 
     def get_record(self):

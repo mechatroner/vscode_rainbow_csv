@@ -10,7 +10,7 @@
             "jsx": true
         },
         "sourceType": "module",
-        "ecmaVersion": 2017
+        "ecmaVersion": 2018
     },
     "rules": {
         "no-const-assign": "warn",

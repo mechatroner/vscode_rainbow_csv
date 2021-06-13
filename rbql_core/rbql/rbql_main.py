@@ -75,7 +75,7 @@ def run_with_python_csv(args, is_interactive):
     delim = rbql_csv.normalize_delim(args.delim)
     policy = args.policy if args.policy is not None else get_default_policy(delim)
     query = args.query
-    skip_header = args.skip_header
+    with_headers = args.with_headers
     input_path = args.input
     output_path = args.output
     csv_encoding = args.encoding
@@ -87,7 +87,7 @@ def run_with_python_csv(args, is_interactive):
     warnings = []
     error_type, error_msg = None, None
     try:
-        rbql_csv.query_csv(query, input_path, delim, policy, output_path, out_delim, out_policy, csv_encoding, warnings, skip_header, args.comment_prefix, user_init_code, args.color)
+        rbql_csv.query_csv(query, input_path, delim, policy, output_path, out_delim, out_policy, csv_encoding, warnings, with_headers, args.comment_prefix, user_init_code, args.color)
     except Exception as e:
         if args.debug_mode:
             raise
@@ -183,7 +183,7 @@ def sample_records(input_path, delim, policy, encoding, comment_prefix=None):
         return (sampled_records, warnings)
 
 
-def print_colorized(records, delim, encoding, show_column_names, skip_header):
+def print_colorized(records, delim, encoding, show_column_names, with_headers):
     # TODO consider colorizing a1,a2,... in different default color
     if os.name == 'nt': # Windows does not support terminal colors
         reset_color_code = ''
@@ -195,7 +195,7 @@ def print_colorized(records, delim, encoding, show_column_names, skip_header):
         out_fields = []
         for i, field in enumerate(record):
             color_code = color_codes[i % len(color_codes)]
-            if not show_column_names or (skip_header and rnum == 0):
+            if not show_column_names or (with_headers and rnum == 0):
                 colored_field = '{}{}'.format(color_code, field)
             else:
                 colored_field = '{}a{}:{}'.format(color_code, i + 1, field)
@@ -247,7 +247,7 @@ def run_interactive_loop(mode, args):
             print('\nOutput table preview:')
             print('====================================')
             records, _warnings = sample_records(args.output, args.output_delim, args.output_policy, args.encoding, comment_prefix=None)
-            print_colorized(records, args.output_delim, args.encoding, show_column_names=False, skip_header=False)
+            print_colorized(records, args.output_delim, args.encoding, show_column_names=False, with_headers=False)
             print('====================================')
             print('Success! Result table was saved to: ' + args.output)
             break
@@ -303,7 +303,7 @@ def start_preview_mode_sqlite(args):
 
     print('Input table preview:')
     print('====================================')
-    print_colorized(records, '|', args.encoding, show_column_names=True, skip_header=False)
+    print_colorized(records, '|', args.encoding, show_column_names=True, with_headers=False)
     print('====================================\n')
     if args.output is None:
         args.output = get_default_output_path('rbql_sqlite_rs', args.output_delim)
@@ -335,7 +335,7 @@ def start_preview_mode_csv(args):
     records, warnings = sample_records(input_path, delim, policy, args.encoding, args.comment_prefix)
     print('Input table preview:')
     print('====================================')
-    print_colorized(records, delim, args.encoding, show_column_names=True, skip_header=args.skip_header)
+    print_colorized(records, delim, args.encoding, show_column_names=True, with_headers=args.with_headers)
     print('====================================\n')
     for warning in warnings:
         show_warning(warning, is_interactive=True)
@@ -381,7 +381,7 @@ def csv_main():
     parser.add_argument('--input', metavar='FILE', help='read csv table from FILE instead of stdin. Required in interactive mode')
     parser.add_argument('--delim', help='delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode')
     parser.add_argument('--policy', help='CSV split policy, see the explanation below. Can be autodetected in interactive mode', choices=policy_names)
-    parser.add_argument('--skip-header', action='store_true', help='skip header line in input and join tables. Roughly equivalent of ... WHERE NR > 1 ... in your Query')
+    parser.add_argument('--with-headers', action='store_true', help='indicates that input (and join) table has header')
     parser.add_argument('--comment-prefix', metavar='PREFIX', help='ignore lines in input and join tables that start with the comment PREFIX, e.g. "#" or ">>"')
     parser.add_argument('--query', help='query string in rbql. Run in interactive mode if empty')
     parser.add_argument('--out-format', help='output format', default='input', choices=out_format_names)

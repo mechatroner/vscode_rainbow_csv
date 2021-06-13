@@ -6,7 +6,6 @@ import sys
 import os
 import codecs
 import io
-import re
 from errno import EPIPE
 
 from . import rbql_engine
@@ -202,6 +201,13 @@ class CSVWriter(rbql_engine.RBQLOutputWriter):
 
         self.none_in_output = False
         self.delim_in_simple_output = False
+        self.header_len = None
+
+
+    def set_header(self, header):
+        if header is not None:
+            self.header_len = len(header)
+            self.write(header)
 
 
     def monocolumn_join(self, fields):
@@ -224,6 +230,8 @@ class CSVWriter(rbql_engine.RBQLOutputWriter):
 
 
     def write(self, fields):
+        if self.header_len is not None and len(fields) != self.header_len:
+            raise rbql_engine.RbqlIOHandlingError('Inconsistent number of columns in output header and the current record: {} != {}'.format(self.header_len, len(fields)))
         self.normalize_fields(fields)
 
         if self.polymorphic_preprocess is not None:
@@ -326,7 +334,7 @@ class CSVWriter(rbql_engine.RBQLOutputWriter):
 
 
 class CSVRecordIterator(rbql_engine.RBQLInputIterator):
-    def __init__(self, stream, encoding, delim, policy, skip_headers=False, comment_prefix=None, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
+    def __init__(self, stream, encoding, delim, policy, has_header=False, comment_prefix=None, table_name='input', variable_prefix='a', chunk_size=1024, line_mode=False):
         assert encoding in ['utf-8', 'latin-1', None]
         self.encoding = encoding
         self.stream = encode_input_stream(stream, encoding)
@@ -347,22 +355,36 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
         self.utf8_bom_removed = False
         self.first_defective_line = None
         self.polymorphic_get_row = self.get_row_rfc if policy == 'quoted_rfc' else self.get_row_simple
+        self.has_header = has_header
+        self.first_record_should_be_emitted = False
 
         if not line_mode:
-            self.header_record = None
-            self.header_record_emitted = skip_headers
-            self.header_record = self.get_record()
+            self.first_record = None
+            self.first_record = self.get_record()
+            self.first_record_should_be_emitted = not has_header
 
+
+    def handle_query_modifier(self, modifier):
+        # For `... WITH (header) ...` syntax
+        if modifier in ['header', 'headers']:
+            self.has_header = True
+            self.first_record_should_be_emitted = False
+        if modifier in ['noheader', 'noheaders']:
+            self.has_header = False
+            self.first_record_should_be_emitted = True
+        
 
     def get_variables_map(self, query_text):
         variable_map = dict()
         rbql_engine.parse_basic_variables(query_text, self.variable_prefix, variable_map)
         rbql_engine.parse_array_variables(query_text, self.variable_prefix, variable_map)
-        if self.header_record is not None:
-            rbql_engine.parse_attribute_variables(query_text, self.variable_prefix, self.header_record, 'CSV header line', variable_map)
-            rbql_engine.parse_dictionary_variables(query_text, self.variable_prefix, self.header_record, variable_map)
+        if self.first_record is not None:
+            rbql_engine.parse_attribute_variables(query_text, self.variable_prefix, self.first_record, 'CSV header line', variable_map)
+            rbql_engine.parse_dictionary_variables(query_text, self.variable_prefix, self.first_record, variable_map)
         return variable_map
 
+    def get_header(self):
+        return self.first_record if self.has_header else None
 
     def _get_row_from_buffer(self):
         str_before, separator, str_after = csv_utils.extract_line_from_data(self.buffer)
@@ -436,9 +458,9 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
 
 
     def get_record(self):
-        if not self.header_record_emitted and self.header_record is not None:
-            self.header_record_emitted = True
-            return self.header_record
+        if self.first_record_should_be_emitted:
+            self.first_record_should_be_emitted = False
+            return self.first_record
         while True:
             line = self.polymorphic_get_row()
             if line is None:
@@ -492,13 +514,13 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
 
 
 class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
-    def __init__(self, delim, policy, encoding, skip_headers, comment_prefix):
+    def __init__(self, delim, policy, encoding, has_header, comment_prefix):
         self.delim = delim
         self.policy = policy
         self.encoding = encoding
         self.record_iterator = None
         self.input_stream = None
-        self.skip_headers = skip_headers
+        self.has_header = has_header
         self.comment_prefix = comment_prefix
         self.table_path = None
 
@@ -507,7 +529,7 @@ class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
         if self.table_path is None:
             raise rbql_engine.RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
         self.input_stream = open(self.table_path, 'rb')
-        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.skip_headers, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix='b')
+        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.has_header, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix='b')
         return self.record_iterator
 
     def finish(self):
@@ -516,12 +538,12 @@ class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
 
     def get_warnings(self):
         result = []
-        if self.record_iterator is not None and self.skip_headers:
-            result.append('The first (header) record was also skipped in the JOIN file: {}'.format(os.path.basename(self.table_path))) # UT JSON CSV
+        if self.record_iterator is not None and self.has_header:
+            result.append('The first record in JOIN file {} was also treated as header (and skipped)'.format(os.path.basename(self.table_path))) # UT JSON CSV
         return result
 
 
-def query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, skip_headers=False, comment_prefix=None, user_init_code='', colorize_output=False):
+def query_csv(query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, with_headers, comment_prefix=None, user_init_code='', colorize_output=False):
     output_stream, close_output_on_finish = (None, False)
     input_stream, close_input_on_finish = (None, False)
     join_tables_registry = None
@@ -544,8 +566,8 @@ def query_csv(query_text, input_path, input_delim, input_policy, output_path, ou
         if user_init_code == '' and os.path.exists(default_init_source_path):
             user_init_code = read_user_init_code(default_init_source_path)
 
-        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, skip_headers, comment_prefix)
-        input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, skip_headers, comment_prefix=comment_prefix)
+        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, with_headers, comment_prefix)
+        input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, with_headers, comment_prefix=comment_prefix)
         output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy, colorize_output=colorize_output)
         if debug_mode:
             rbql_engine.set_debug_mode()
