@@ -25,7 +25,7 @@ def main():
     parser.add_argument('output_delim', help='Out Delimiter')
     parser.add_argument('output_policy', help='Out csv policy')
     parser.add_argument('encoding', help='encoding')
-    parser.add_argument('--skip_headers', action='store_true', help='skip headers')
+    parser.add_argument('--with_headers', action='store_true', help='use headers')
     args = parser.parse_args()
 
     delim = args.delim
@@ -36,11 +36,11 @@ def main():
     input_path = args.input_table_path
     csv_encoding = args.encoding
     output_path = args.output_table_path
-    skip_headers = args.skip_headers
+    with_headers = args.with_headers
     
     try:
         warnings = []
-        rbql.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, skip_headers)
+        rbql.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers)
         sys.stdout.write(json.dumps({'warnings': warnings}))
     except Exception as e:
         error_type, error_msg = rbql.exception_to_error_info(e)

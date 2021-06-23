@@ -141,13 +141,13 @@ function make_preview_table() {
         return;
     }
 
-    let skip_headers = document.getElementById('skip_headers').checked;
+    let with_headers = document.getElementById('with_headers').checked;
     let max_num_columns = get_max_num_columns(records);
     add_header_row(max_num_columns, table);
     for (var r = 0; r < records.length; r++) {
         let row = document.createElement('tr');
         let NR = r + start_record_zero_based + 1;
-        if (skip_headers)
+        if (with_headers)
             NR -= 1;
         let nr_text = NR > 0 ? String(NR) : '';
         row.appendChild(make_nr_cell(nr_text));
@@ -185,9 +185,9 @@ function preview_end() {
 }
 
 
-function process_skip_header_change() {
-    let skip_headers = document.getElementById('skip_headers').checked;
-    vscode.postMessage({'msg_type': 'skip_headers_change', 'skip_headers': skip_headers}); // We need to send it to remember preview state
+function process_with_headers_change() {
+    let with_headers = document.getElementById('with_headers').checked;
+    vscode.postMessage({'msg_type': 'with_headers_change', 'with_headers': with_headers}); // We need to send it to remember preview state
     make_preview_table();
 }
 
@@ -267,8 +267,8 @@ function start_rbql() {
     let output_format = document.getElementById('select_output_format').value;
     let encoding = document.getElementById('select_encoding').value;
     let enable_rfc_newlines = document.getElementById('enable_rfc_newlines').checked;
-    let skip_headers = document.getElementById('skip_headers').checked;
-    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding, 'enable_rfc_newlines': enable_rfc_newlines, 'skip_headers': skip_headers});
+    let with_headers = document.getElementById('with_headers').checked;
+    vscode.postMessage({'msg_type': 'run', 'query': rbql_text, 'backend_language': backend_language, 'output_dialect': output_format, 'encoding': encoding, 'enable_rfc_newlines': enable_rfc_newlines, 'with_headers': with_headers});
 }
 
 
@@ -302,12 +302,12 @@ function handle_message(msg_event) {
         let header = message['header'];
         rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header, fetch_join_header_callback);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
-        let skip_headers = message['skip_headers'];
+        let with_headers = message['with_headers'];
         last_preview_message = message;
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
-        document.getElementById("skip_headers").checked = skip_headers;
+        document.getElementById("with_headers").checked = with_headers;
         if (message['policy'] == 'quoted') {
             document.getElementById('enable_rfc_newlines_section').style.display = 'block';
         }
@@ -379,7 +379,7 @@ function main() {
     document.getElementById("select_backend_language").addEventListener("change", report_backend_language_change);
     document.getElementById("select_encoding").addEventListener("change", report_encoding_change);
     document.getElementById("enable_rfc_newlines").addEventListener("click", report_rfc_fields_policy_change);
-    document.getElementById("skip_headers").addEventListener("click", process_skip_header_change);
+    document.getElementById("with_headers").addEventListener("click", process_with_headers_change);
     document.getElementById("ack_error").addEventListener("click", hide_error_msg);
     document.getElementById("help_btn").addEventListener("click", toggle_help_msg);
     document.getElementById("close_help").addEventListener("click", toggle_help_msg);
