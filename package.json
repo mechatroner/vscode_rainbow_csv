@@ -78,6 +78,11 @@
                     "default": true,
                     "description": "Show column names in tooltip"
                 },
+                "rainbow_csv.rbql_with_headers_by_default": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "RBQL treats the first line as header by default"
+                },
                 "rainbow_csv.enable_tooltip_warnings": {
                     "type": "boolean",
                     "default": true,

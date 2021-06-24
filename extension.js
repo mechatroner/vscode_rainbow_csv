@@ -147,7 +147,7 @@ function get_last(arr) {
 function get_from_global_state(key, default_value) {
     if (global_state) {
         var value = global_state.get(key);
-        if (value)
+        if (value !== null && value !== undefined)
             return value;
     }
     return default_value;
@@ -1286,7 +1286,7 @@ function edit_rbql() {
         show_single_line_error("Unable to run RBQL for this file");
         return;
     }
-
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
     let language_id = active_doc.languageId;
     let delim = 'monocolumn';
     let policy = 'monocolumn';
@@ -1294,7 +1294,8 @@ function edit_rbql() {
         [delim, policy] = dialect_map[language_id];
     }
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
-    let with_headers = get_from_global_state(make_with_headers_key(input_path), false);
+    let with_headers_by_default = config ? config.get('rbql_with_headers_by_default') : false;
+    let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
     let header = get_header_from_document(active_doc, delim, policy); // TODO support custom virtual headers in RBQL, so we can use get_header() here
     rbql_context = {
         "input_document": active_doc,
