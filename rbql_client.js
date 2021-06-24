@@ -208,7 +208,7 @@ function hide_error_msg() {
 
 
 function toggle_help_msg() {
-    let document_bg_color = window.getComputedStyle(document.body).getPropertyValue("background-color");
+    let document_bg_color = '#1E1E1E';
     let rbql_help_element = document.getElementById('rbql_help');
     var style_before = rbql_help_element.style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';

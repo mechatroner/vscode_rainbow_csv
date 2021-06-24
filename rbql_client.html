@@ -480,24 +480,22 @@ select {
 <div id="rbql_help">
     <p><a href="https://github.com/mechatroner/vscode_rainbow_csv/blob/master/rbql_core/README.md#rbql-rainbow-query-language-description">Read RBQL documentation on github</a></p>
     <div id="rbql_help_text">
-        <h1 id="rbql-rainbow-query-language-description">RBQL (Rainbow Query Language) Description</h1>
-        <p>RBQL is a technology for (not only) CSV files processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  <br />
-        RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  <br />
-        RBQL core module is very generic and can process all kind of objects and record formats, but most popular RBQL implementation works with CSV files.  </p>
+        <h1 id="rbql-rainbow-query-language">RBQL: Rainbow Query Language</h1>
+        <p>RBQL is an eval-based SQL-like query engine for (not only) CSV file processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  <br />
+        RBQL is best suited for data transformation, data cleaning, and analytical queries.  <br />
+        RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries.  </p>
         <p><a href="https://rbql.org/">Official Site</a></p>
         <h3 id="main-features">Main Features</h3>
         <ul>
         <li>Use Python or JavaScript expressions inside <em>SELECT</em>, <em>UPDATE</em>, <em>WHERE</em> and <em>ORDER BY</em> statements</li>
-        <li>Result set of any query immediately becomes a first-class table on it's own</li>
-        <li>Supports input tables with inconsistent number of fields per record</li>
-        <li>Output records appear in the same order as in input unless <em>ORDER BY</em> is provided</li>
-        <li>Each record has a unique NR (record number) identifier</li>
+        <li>Supports multiple input formats</li>
+        <li>Result set of any query immediately becomes a first-class table on its own</li>
+        <li>No need to provide FROM statement in the query - input table is defined by the current context</li>
         <li>Supports all main SQL keywords</li>
         <li>Supports aggregate functions and GROUP BY queries</li>
-        <li>Provides some new useful query modes which traditional SQL engines do not have</li>
-        <li>Supports both <em>TOP</em> and <em>LIMIT</em> keywords</li>
         <li>Supports user-defined functions (UDF)</li>
-        <li>Works out of the box, no external dependencies</li>
+        <li>Provides some new useful query modes which traditional SQL engines do not have</li>
+        <li>Lightweight, dependency-free, works out of the box</li>
         </ul>
         <h4 id="limitations">Limitations:</h4>
         <ul>
@@ -534,17 +532,10 @@ select {
         Description: Number of fields in the current record  </li>
         <li><em>a.name</em>, <em>b.Person_age</em>, … <em>a.{Good_alphanumeric_column_name}</em>  <br />
         Variable type: <strong>string</strong>  <br />
-        Description: Value of the field referenced by it's "name". You can use this notation if the field in the first (header) CSV line has a "good" alphanumeric name  </li>
+        Description: Value of the field referenced by it's "name". You can use this notation if the field in the header has a "good" alphanumeric name  </li>
         <li><em>a["object id"]</em>, <em>a['9.12341234']</em>, <em>b["%$ !! 10 20"]</em> … <em>a["Arbitrary column name!"]</em>  <br />
         Variable type: <strong>string</strong>  <br />
-        Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the first (header) CSV line, even when there is no header at all  </li>
-        </ul>
-        <h4 id="notes">Notes:</h4>
-        <ul>
-        <li>You can mix all variable types in a single query, example:<br />
-        <code>select a1, b2 JOIN /path/to/b.csv ON a['Item Id'] == b.Identifier WHERE NR &gt; 1 and int(a.Weight) * 100 &gt; int(b["weight of the item"])</code></li>
-        <li>Referencing fields by header names does not automatically skip the header line (you can use <code>where NR &gt; 1</code> trick to skip it)</li>
-        <li>If you want to use RBQL as a library for your own app you can define your own custom variables and do not have to support the above mentioned CSV-related variables.</li>
+        Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the header</li>
         </ul>
         <h3 id="update-statement">UPDATE statement</h3>
         <p><em>UPDATE</em> query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query. This prevents accidental data loss from poorly written queries.  <br />
@@ -557,8 +548,8 @@ select {
         There is a workaround for the limitation above for <em>ARRAY_AGG</em> function which supports an optional parameter - a callback function that can do something with the aggregated array. Example:  <br />
         <code>select a2, ARRAY_AGG(a1, lambda v: sorted(v)[:5]) group by a2</code> - Python; <code>select a2, ARRAY_AGG(a1, v =&gt; v.sort().slice(0, 5)) group by a2</code> - JS</p>
         <h3 id="join-statements">JOIN statements</h3>
-        <p>Join table B can be referenced either by it's file path or by it's name - an arbitary string which user should provide before executing the JOIN query.  <br />
-        RBQL supports <em>STRICT LEFT JOIN</em> which is like <em>LEFT JOIN</em>, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  <br />
+        <p>Join table B can be referenced either by its file path or by its name - an arbitrary string which the user should provide before executing the JOIN query.  <br />
+        RBQL supports <em>STRICT LEFT JOIN</em> which is like <em>LEFT JOIN</em>, but generates an error if any key in the left table "A" doesn't have exactly one matching key in the right table "B".  <br />
         Limitation: <em>JOIN</em> statements can't contain Python/JS expressions and must have the following form: <em><JOIN_KEYWORD> (/path/to/table.tsv | table_name ) ON a… == b… [AND a… == b… [AND … ]]</em></p>
         <h3 id="select-except-statement">SELECT EXCEPT statement</h3>
         <p>SELECT EXCEPT can be used to select everything except specific columns. E.g. to select everything but columns 2 and 4, run: <code>SELECT * EXCEPT a2, a4</code>  <br />
@@ -569,6 +560,10 @@ select {
         <h3 id="like-function">LIKE() function</h3>
         <p>RBQL does not support LIKE operator, instead it provides "like()" function which can be used like this:<br />
         <code>SELECT * where like(a1, 'foo%bar')</code></p>
+        <h3 id="with-header-and-with-noheader-statements">WITH (header) and WITH (noheader) statements</h3>
+        <p>You can set whether the input (and join) CSV file has a header or not using the environment configuration parameters which could be <code>--with_headers</code> CLI flag or GUI checkbox or something else.<br />
+        But it is also possible to override this selection directly in the query by adding either <code>WITH (header)</code> or <code>WITH (noheader)</code> statement at the end of the query.<br />
+        Example: <code>select top 5 NR, * with (header)</code></p>
         <h3 id="user-defined-functions-udf">User Defined Functions (UDF)</h3>
         <p>RBQL supports User Defined Functions  <br />
         You can define custom functions and/or import libraries in two special files:  </p>
@@ -580,8 +575,8 @@ select {
         <h4 id="with-python-expressions">With Python expressions</h4>
         <ul>
         <li><code>select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2) desc</code></li>
-        <li><code>select * order by random.random() where NR &gt; 1</code> - skip header record and random sort</li>
-        <li><code>select len(a.vehicle_price) / 10, a2 where NR &gt; 1 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20</code> - referencing columns by names from header record, skipping the header and using Python's "in" to emulate SQL's "in"</li>
+        <li><code>select * order by random.random()</code> - random sort</li>
+        <li><code>select len(a.vehicle_price) / 10, a2 where int(a.vehicle_price) &lt; 500 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20</code> - referencing columns by names from header and using Python's "in" to emulate SQL's "in"</li>
         <li><code>update set a3 = 'NPC' where a3.find('Non-playable character') != -1</code></li>
         <li><code>select NR, *</code> - enumerate records, NR is 1-based</li>
         <li><code>select * where re.match(".*ab.*", a1) is not None</code> - select entries where first column has "ab" pattern</li>
@@ -592,63 +587,13 @@ select {
         <h4 id="with-javascript-expressions">With JavaScript expressions</h4>
         <ul>
         <li><code>select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc</code></li>
-        <li><code>select * order by Math.random() where NR &gt; 1</code> - skip header record and random sort</li>
-        <li><code>select top 20 a.vehicle_price.length / 10, a2 where NR &gt; 1 and ["car", "plane", "boat"].indexOf(a['Vehicle type']) &gt; -1 limit 20</code> - referencing columns by names from header record and skipping the header</li>
+        <li><code>select * order by Math.random()</code> - random sort</li>
+        <li><code>select top 20 a.vehicle_price.length / 10, a2 where parseInt(a.vehicle_price) &lt; 500 &amp;&amp; ["car", "plane", "boat"].indexOf(a['Vehicle type']) &gt; -1 limit 20</code> - referencing columns by names from header</li>
         <li><code>update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1</code></li>
         <li><code>select NR, *</code> - enumerate records, NR is 1-based</li>
         <li><code>select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3</code> - example of join query</li>
         <li><code>select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3</code> - example of aggregate query</li>
         <li><code>select ...a1.split(':')</code> - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!</li>
-        </ul>
-        <h3 id="faq">FAQ</h3>
-        <h4 id="how-do-i-skip-header-record-in-csv-files">How do I skip header record in CSV files?</h4>
-        <p>You can use the following trick: add <code>... where NR &gt; 1 ...</code> to your query  </p>
-        <p>And if you are doing math operation you can modify your query like this, example:  <br />
-        <code>select int(a3) * 1000, a2</code> -&gt; <code>select int(a3) * 1000 if NR &gt; 1 else a3, a2</code>  </p>
-        <h4 id="how-does-rbql-work">How does RBQL work?</h4>
-        <p>RBQL parses SQL-like user query, generates new Python or JavaScript code and executes it.  </p>
-        <p>Explanation of simplified Python version of RBQL algorithm by example.</p>
-        <ol>
-        <li>User enters the following query, which is stored as a string <em>Q</em>:</li>
-        </ol>
-        <pre><code>    SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'</code></pre>
-        <ol start="2">
-        <li>RBQL replaces all <code>a{i}</code> substrings in the query string <em>Q</em> with <code>a[{i - 1}]</code> substrings. The result is the following string:</li>
-        </ol>
-        <pre><code>    Q = "SELECT a[2], int(a[3]) + 100, len(a[1]) WHERE a[0] != 'SELL'"</code></pre>
-        <ol start="3">
-        <li>RBQL searches for "SELECT" and "WHERE" keywords in the query string <em>Q</em>, throws the keywords away, and puts everything after these keywords into two variables <em>S</em> - select part and <em>W</em> - where part, so we will get:</li>
-        </ol>
-        <pre><code>    S = "a[2], int(a[3]) + 100, len(a[1])"
-            W = "a[0] != 'SELL'"</code></pre>
-        <ol start="4">
-        <li>RBQL has static template script which looks like this:</li>
-        </ol>
-        <pre><code>    for line in sys.stdin:
-                a = line.rstrip('\n').split(',')
-                if %%%W_Expression%%%:
-                    out_fields = [%%%S_Expression%%%]
-                    print ','.join([str(v) for v in out_fields])</code></pre>
-        <ol start="5">
-        <li>RBQL replaces <code>%%%W_Expression%%%</code> with <em>W</em> and <code>%%%S_Expression%%%</code> with <em>S</em> so we get the following script:</li>
-        </ol>
-        <pre><code>    for line in sys.stdin:
-                a = line.rstrip('\n').split(',')
-                if a[0] != 'SELL':
-                    out_fields = [a[2], int(a[3]) + 100, len(a[1])]
-                    print ','.join([str(v) for v in out_fields])</code></pre>
-        <ol start="6">
-        <li>RBQL runs the patched script against user's data file (real RBQL implementation calls "exec" in Python or "eval" in JS): </li>
-        </ol>
-        <pre><code>    ./tmp_script.py &lt; data.tsv &gt; result.tsv</code></pre>
-        <p>Result set of the original query (<code>SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'</code>) is in the "result.tsv" file.  <br />
-        Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can introduce an intermediate array.  </p>
-        <h3 id="references">References</h3>
-        <ul>
-        <li><a href="https://rbql.org/">RBQL: Official Site</a></li>
-        <li>RBQL is integrated with Rainbow CSV extensions in <a href="https://github.com/mechatroner/rainbow_csv">Vim</a>, <a href="https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv">VSCode</a>, <a href="https://packagecontrol.io/packages/rainbow_csv">Sublime Text</a> and <a href="https://atom.io/packages/rainbow-csv">Atom</a> editors.</li>
-        <li><a href="https://www.npmjs.com/package/rbql">RBQL in npm</a>: <code>$ npm install -g rbql</code></li>
-        <li><a href="https://pypi.org/project/rbql/">RBQL in PyPI</a>: <code>$ pip install rbql</code></li>
         </ul>
     </div>
 </div>
