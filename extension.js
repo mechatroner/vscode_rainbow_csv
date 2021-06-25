@@ -8,11 +8,10 @@ const child_process = require('child_process');
 // 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including vscode/lib/testrunner
 // 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
 // Or alternative way to launch it (use double quotes for both Win and Linux compatibilty): code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --wait
-//
-
 // Running integration tests from windows cmd terminal. Example command:
 // code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --extensionTestsPath="C:\wsl_share\vscode_rainbow_csv\test"
 // You can also run this command from wsl terminal!
+
 
 // Debugging the extension:
 // 1. Open rainbow_csv directory in VSCode  
