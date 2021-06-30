@@ -261,7 +261,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         rbql.parse_array_variables(query_text, this.variable_prefix, variable_map);
 
         await this.preread_first_record();
-        if (this.first_record) {
+        if (this.has_header && this.first_record) {
             rbql.parse_attribute_variables(query_text, this.variable_prefix, this.first_record, 'CSV header line', variable_map);
             rbql.parse_dictionary_variables(query_text, this.variable_prefix, this.first_record, variable_map);
         }

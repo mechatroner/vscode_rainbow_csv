@@ -52,7 +52,7 @@ from ._version import __version__
 
 # TODO support 'AS' keyword
 
-# FIXME consider disallowing to use values in the first row when header is not enabled (only a1, a2, ... should be allowed) and vice versa - Don't allow a1, a2 etc when header is enabled. This is to make sure that the user knows what query mode they are in.
+# TODO Consider disabling a1, a2 etc variables when header is enabled. This is to make sure that the user knows what query mode they are in.
 
 
 GROUP_BY = 'GROUP BY'
@@ -205,6 +205,8 @@ def column_info_from_node(root):
             column_index = get_field(slice_val_root, 'n') - 1
         else:
             return None
+        if not PY3 and isinstance(column_name, str):
+            column_name = column_name.decode('utf-8')
         return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False)
     return None
 
@@ -1459,10 +1461,10 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
     query_text = cleanup_query(query_text)
     format_expression, string_literals = separate_string_literals(query_text)
     format_expression = remove_redundant_input_table_name(format_expression)
-    input_variables_map = input_iterator.get_variables_map(query_text)
     rb_actions = separate_actions(format_expression)
     if WITH in rb_actions:
         input_iterator.handle_query_modifier(rb_actions[WITH])
+    input_variables_map = input_iterator.get_variables_map(query_text)
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
         raise RbqlParsingError('"ORDER BY" is not allowed in "UPDATE" queries') # UT JSON
