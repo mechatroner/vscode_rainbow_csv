@@ -16,6 +16,7 @@ var suggest_list = [];
 
 var adjust_join_table_header_callback = null;
 
+var global_header = null;
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -185,9 +186,23 @@ function preview_end() {
 }
 
 
+function apply_suggest_callback(query) {
+    vscode.postMessage({'msg_type': 'update_query', 'query': query});
+}
+
+
+function fetch_join_header_callback(join_table_id, adjust_join_table_headers) {
+    adjust_join_table_header_callback = adjust_join_table_headers;
+    let encoding = document.getElementById('select_encoding').value;
+    vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id, 'encoding': encoding});
+}
+
+
 function process_with_headers_change() {
     let with_headers = document.getElementById('with_headers').checked;
     vscode.postMessage({'msg_type': 'with_headers_change', 'with_headers': with_headers}); // We need to send it to remember preview state
+    let header = with_headers ? global_header : null;
+    rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header, fetch_join_header_callback);
     make_preview_table();
 }
 
@@ -272,18 +287,6 @@ function start_rbql() {
 }
 
 
-function apply_suggest_callback(query) {
-    vscode.postMessage({'msg_type': 'update_query', 'query': query});
-}
-
-
-function fetch_join_header_callback(join_table_id, adjust_join_table_headers) {
-    adjust_join_table_header_callback = adjust_join_table_headers;
-    let encoding = document.getElementById('select_encoding').value;
-    vscode.postMessage({'msg_type': 'fetch_table_header', 'table_id': join_table_id, 'encoding': encoding});
-}
-
-
 function handle_message(msg_event) {
     var message = msg_event.data;
     console.log('message received at client: ' + JSON.stringify(msg_event));
@@ -299,10 +302,11 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
         }
-        let header = message['header'];
+        global_header = message['header'];
+        let with_headers = message['with_headers'];
+        let header = with_headers ? global_header : null;
         rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header, fetch_join_header_callback);
         let enable_rfc_newlines = message['enable_rfc_newlines'];
-        let with_headers = message['with_headers'];
         last_preview_message = message;
         document.getElementById("select_backend_language").value = message['backend_language'];
         document.getElementById("select_encoding").value = message['encoding'];

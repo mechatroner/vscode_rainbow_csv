@@ -50,6 +50,8 @@ function convert_header_to_rbql_variables(header, table_var_prefix) {
 
 
 function initialize_suggest(input_id, suggest_list_id, suggest_entry_class, apply_suggest_callback, header, fetch_join_header_callback=null) {
+    if (!header)
+        header = [];
     rbql_suggest.autosuggest_header_vars = convert_header_to_rbql_variables(header, 'a');
     rbql_suggest.active_suggest_idx = null; 
     rbql_suggest.suggest_list = []
