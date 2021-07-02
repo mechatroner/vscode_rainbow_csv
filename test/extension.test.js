@@ -38,7 +38,7 @@ async function test_rbql() {
     let editor = await vscode.window.showTextDocument(active_doc);
     let test_config_path = path.join(__dirname, '.tmp_test_config.json')
 
-    let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a.total_score) * 100), a.university_name, 'foo bar' where NR > 1 order by a.university_name"};
+    let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
     fs.writeFileSync(test_config_path, JSON.stringify(test_config));
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
