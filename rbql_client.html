@@ -34,11 +34,11 @@ select {
 }
 
 .code_sample {
-    font-style:italic;
+    font-style: italic;
 }
 
-.color_span {
-    color: #FF6868;
+.column_name_highlight_span {
+    color: var(--vscode-symbolIcon-variableForeground);
 }
 
 
@@ -53,45 +53,50 @@ select {
     height: 24px !important;
     font-family: Consolas, Monaco, monospace;
     padding-left: 2px;
+    /*
     background-color: #DDDDDD;
-    caret-color: #000000;
+    */
+    background-color: var(--vscode-input-background);
+    caret-color: var(--vscode-input-foreground);
+    color: var(--vscode-input-foreground);
     display: inline-block;
-    border-width: 0px;
-    outline:none;
+    outline: none;
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
     vertical-align:middle;
     width: var(--inputwidth);
+    border-width: 0px;
+    /*
+    border-width: 0px;
     border-top: 1px solid;
     border-bottom: 1px solid;
     border-left: 1px solid;
+    */
 }
 
 #rbql_input:focus {
+    /*
     background-color: #FFFFFF;
     outline:none;
+    */
 }
 
 
 #toggle_history_btn {
     margin: 0px;
     width: 28px;
-    background-color: #FFFFFF;
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
     height: 24px !important;
-    color: black;
-    font-weight: bold;
     padding: 0px;
     display: inline-block;
     border-width: 0px;
     outline:none;
     vertical-align:middle;
     box-sizing: border-box;
-    border-top: 1px solid;
-    border-bottom: 1px solid;
-    border-right: 1px solid;
 }
 
 #toggle_history_btn:hover {
-    background-color: #DDDDDD;
+    background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 
@@ -101,15 +106,12 @@ select {
     background-color: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
     height: 24px !important;
-    font-weight: bold;
     padding: 0px;
     display: inline-block;
-    border-width: 0px;
-    border-top: 1px solid black;
-    border-bottom: 1px solid black;
     outline:none;
     vertical-align:middle;
     box-sizing: border-box;
+    border-width: 0px;
 }
 
 #rbql_run_btn:hover {
@@ -120,20 +122,19 @@ select {
 #help_btn {
     margin: 0px;
     width: 28px;
-    background-color: #FFFFFF;
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
     height: 24px !important;
-    color: black;
-    font-weight: bold;
     padding: 0px;
     display: inline-block;
-    border: 1px solid;
     outline:none;
     vertical-align:middle;
     box-sizing: border-box;
+    border-width: 0px;
 }
 
 #help_btn:hover {
-    background-color: #DDDDDD;
+    background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 
@@ -158,9 +159,13 @@ select {
 .history_button {
     margin: 0px;
     width: 100%;
-    background-color: #FFFFFF;
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    /*
+    background-color: var(--vscode-inputOption-activeBackground);
+    color: var(--vscode-inputOption-activeForeground);
+    */
     height: 24px !important;
-    color: black;
     font-family: Consolas, Monaco, monospace;
     border-width: 0px;
     outline: none;
@@ -170,27 +175,23 @@ select {
     white-space: nowrap;
 }
 
-.history_button_active {
-    background-color: #DDDDDD;
-}
-
 .history_button:hover {
-    background-color: #DDDDDD;
+    background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 .navig_button_new {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
     font-size: 18px !important;
     width: 28px;
-    background-color: #FFFFFF;
     border: 1px solid;
     font-size: 18px !important;
-    color: black;
     height: 28px;
     font-weight: bold;
 }
 
 .navig_button_new:hover {
-    background-color: #DDDDDD;
+    background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 #go_begin {
@@ -247,7 +248,6 @@ select {
     z-index: 1000000; 
     position: fixed; 
     display: none;
-    border: 1px solid #808080;
     overflow: scroll;
 }
 
@@ -261,8 +261,8 @@ select {
     position: fixed; 
     font-size: 18px !important;
     background-color: #FFFFFF;
-    border: 1px solid;
     color: black;
+    border: 1px solid;
     font-weight: bold;
     display: none;
 
@@ -398,7 +398,7 @@ select {
         </table>
     </div>
     <div style="margin-top: 20px; margin-bottom: 8px;">
-        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="color_span">a1</span>, <span class="color_span">a2</span>, <span class="color_span">a3</span>, ... and <span class="color_span">NR</span><br>and/or values from the header if enabled e.g. <span class="color_span" id="var_example_1">a.Column_name</span> or <span class="color_span" id="var_example_2">a["Column name"]</span>. Example: <i>select a2, a1</i>
+        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="column_name_highlight_span">a1</span>, <span class="column_name_highlight_span">a2</span>, <span class="column_name_highlight_span">a3</span>, ... and <span class="column_name_highlight_span">NR</span><br>and/or values from the header if enabled e.g. <span class="column_name_highlight_span" id="var_example_1">a.Column_name</span> or <span class="column_name_highlight_span" id="var_example_2">a["Column name"]</span>. Example: <i>select a2, a1</i>
     </div>
     <div id="query_group">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
