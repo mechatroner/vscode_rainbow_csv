@@ -37,6 +37,12 @@ const child_process = require('child_process');
 
 // TODO rbql query input: replace text input with scrollable textarea
 
+// TODO keep the header on top when scrolling the table in the UI
+
+// TODO add udf editing feature to the UI
+
+// TODO show the RBQL tips only during the first time it is invoked with an option to (never show it again) or just cross to close.
+
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load to improve startup performance
