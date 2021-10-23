@@ -155,10 +155,13 @@ select {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-
 .history_button {
     margin: 0px;
     width: 100%;
+    /*
+    background-color: var(--vscode-list-focusBackground);
+    color: var(--vscode-list-focusForeground);
+    */
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
     /*
@@ -177,6 +180,10 @@ select {
 
 .history_button:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
+    /*
+    background-color: var(--vscode-list-hoverBackground);
+    color: var(--vscode-list-hoverForeground);
+    */
 }
 
 .navig_button_new {
@@ -184,10 +191,10 @@ select {
     color: var(--vscode-button-secondaryForeground);
     font-size: 18px !important;
     width: 28px;
-    border: 1px solid;
     font-size: 18px !important;
     height: 28px;
     font-weight: bold;
+    border-width: 0px;
 }
 
 .navig_button_new:hover {
@@ -228,18 +235,6 @@ select {
     display: none;
 }
 
-#rbql_error_message { 
-    width: 50%; 
-    top: 20%; 
-    left: 25%; 
-    z-index: 1000000; 
-    background-color: #FFFCD3; 
-    position: fixed; 
-    display: none;
-    color: black;
-}
-
-
 #rbql_help { 
     width: 80%; 
     top: 10%; 
@@ -251,7 +246,6 @@ select {
     overflow: scroll;
 }
 
-
 #close_help { 
     height: 28px;
     width: 28px;
@@ -260,15 +254,15 @@ select {
     z-index: 1000010; 
     position: fixed; 
     font-size: 18px !important;
-    background-color: #FFFFFF;
-    color: black;
-    border: 1px solid;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
     font-weight: bold;
     display: none;
+    border-width: 0px;
 
 }
 #close_help:hover {
-    background-color: #DDDDDD;
+    background-color: var(--vscode-button-hoverBackground);
 }
 
 
@@ -280,26 +274,28 @@ select {
 #query_history { 
     width: var(--inputwidth);
     z-index: 1000000; 
-    background-color: #FFFFFF; 
+    background-color: var(--vscode-notifications-background); 
+    color: var(--vscode-notifications-foreground);
     position: fixed; 
     display: none;
-    color: black;
     border-top: 1px solid;
     border-left: 1px solid;
     border-right: 1px solid;
+    border-color: var(--vscode-focusBorder);
 }
 
 
 #query_suggest{ 
     width: 200px;
     z-index: 1000010; 
-    background-color: #FFFFFF; 
+    background-color: var(--vscode-notifications-background); 
+    color: var(--vscode-notifications-foreground);
     position: fixed; 
     display: none;
-    color: black;
     border-top: 1px solid;
     border-left: 1px solid;
     border-right: 1px solid;
+    border-color: var(--vscode-focusBorder);
     max-height: 300px;
     white-space: nowrap;
     overflow-y: auto;
@@ -328,8 +324,28 @@ select {
     width: 95%;
 }
 
+#rbql_error_message { 
+    width: 50%; 
+    top: 20%; 
+    left: 25%; 
+    z-index: 1000000; 
+    /*
+    background-color: var(--vscode-inputValidation-errorBackground); 
+    color: var(--vscode-inputValidation-errorForeground);
+    */
+    background-color: var(--vscode-notifications-background); 
+    color: var(--vscode-notifications-foreground);
+    position: fixed; 
+    display: none;
+    /*
+    border: 1px solid;
+    border-color: var(--vscode-focusBorder);
+    */
+}
+
 #rbql_error_message_header { 
-    background-color: #FF4444; 
+    background-color: var(--vscode-inputValidation-errorBackground); 
+    color: var(--vscode-inputValidation-errorForeground);
     font-size: 18px !important;
     height: 26px;
     font-weight: bold;
@@ -337,27 +353,28 @@ select {
 
 #ack_error { 
     width: 70px;
-    background-color: #FF4444;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
     display: inline-block;
-    transition-duration: 0.3s;
     border:none;
     font-size: 18px !important;
     height: 28px;
-    font-weight: bold;
 }
 
 #ack_error:hover { 
-    background-color: #b70101;
+    background-color: var(--vscode-button-hoverBackground);
 }
 
 #error_message_details { 
     height: 100px;
     font-family: Consolas, Monaco, monospace;
     overflow: auto;
-    border: 1px solid black;
+    border: 1px solid;
+    border-color: var(--vscode-focusBorder);
     white-space: pre;
     margin: 5px;
-    background-color: #FFFFFF;
+    background-color: var(--vscode-notifications-background); 
+    color: var(--vscode-notifications-foreground);
 }
 
 [type="checkbox"]
