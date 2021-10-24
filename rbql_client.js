@@ -6,8 +6,9 @@ var query_history = [];
 
 const vscode = acquireVsCodeApi();
 
-const normal_table_border = '1px solid rgb(130, 6, 219)';
-const header_table_border = '1px solid red';
+var global_css_style = null;
+var normal_table_border = null;
+var header_table_border = null;
 
 var last_preview_message = null;
 
@@ -68,8 +69,7 @@ function add_header_row(max_num_columns, table) {
     for (let value of header_index_row) {
         let cell = document.createElement('td');
         cell.style.border = header_table_border;
-        cell.style.color = '#FF6868';
-        cell.style.fontWeight = 'bold';
+        cell.style.color = global_css_style.getPropertyValue('--vscode-symbolIcon-variableForeground');
         cell.textContent = value;
         row_elem.appendChild(cell);
     }
@@ -94,14 +94,14 @@ function make_data_cell(cell_text, border_style) {
         if (i + 1 < field_rfc_lines.length) {
             let newline_span = document.createElement('span');
             newline_span.textContent = '\\n';
-            newline_span.style.color = 'yellow';
+            newline_span.style.color = global_css_style.getPropertyValue('--vscode-editorWarning-foreground');
             newline_span.title = 'new line';
             cell.appendChild(newline_span);
         }
     }
     if (add_ellipsis) {
         let ellipsis_span = document.createElement('span');
-        ellipsis_span.style.color = 'yellow';
+        ellipsis_span.style.color = global_css_style.getPropertyValue('--vscode-editorWarning-foreground');
         ellipsis_span.textContent = ' ...';
         ellipsis_span.title = 'value too long to display';
         cell.appendChild(ellipsis_span);
@@ -131,12 +131,12 @@ function make_preview_table() {
         let row = document.createElement('tr');
         table.appendChild(row);
         let span = document.createElement('span');
-        span.style.color = '#FF6868';
+        span.style.color = global_css_style.getPropertyValue('--vscode-inputValidation-errorForeground');
         span.textContent = 'Unable to display preview table and run RBQL query:';
         row.appendChild(span);
         row.appendChild(document.createElement('br'));
         span = document.createElement('span');
-        span.style.color = '#FF6868';
+        span.style.color = global_css_style.getPropertyValue('--vscode-inputValidation-errorForeground');
         span.textContent = preview_error;
         row.appendChild(span);
         return;
@@ -223,7 +223,7 @@ function hide_error_msg() {
 
 
 function toggle_help_msg() {
-    let document_bg_color = '#1E1E1E';
+    let document_bg_color = global_css_style.getPropertyValue('--vscode-notifications-background');
     let rbql_help_element = document.getElementById('rbql_help');
     var style_before = rbql_help_element.style.display;
     var new_style = style_before == 'block' ? 'none' : 'block';
@@ -376,6 +376,10 @@ function handle_input_keydown(event) {
 
 
 function main() {
+    global_css_style = getComputedStyle(document.body);
+    normal_table_border = '1px solid ' + global_css_style.getPropertyValue('--vscode-window-activeBorder');
+    header_table_border = '1px solid ' + global_css_style.getPropertyValue('--vscode-symbolIcon-variableForeground');
+
     window.addEventListener('message', handle_message);
     vscode.postMessage({'msg_type': 'handshake'});
 
