@@ -83,6 +83,8 @@ const dialect_map = {
 let absolute_path_map = {
     'rbql_client.js': null,
     'contrib/textarea-caret-position/index.js': null,
+    'node_modules/bootstrap/dist/js/bootstrap.bundle.min.js': null,
+    'node_modules/bootstrap/dist/css/bootstrap.min.css': null,
     'rbql_suggest.js': null,
     'rbql_client.html': null,
     'rbql mock/rbql_mock.py': null,
@@ -1257,6 +1259,26 @@ function handle_rbql_client_message(webview, message) {
 }
 
 
+function adjust_webview_paths(paths_list, client_html) {
+    // TODO merge with adjust_webview_refs
+    for (const local_path of paths_list) {
+        let adjusted_webview_url = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map[local_path]));
+        client_html = client_html.replace(`src="${local_path}"`, `src="${adjusted_webview_url}"`);
+    }
+    return client_html;
+}
+
+
+function adjust_webview_refs(paths_list, client_html) {
+    // TODO merge with adjust_webview_paths
+    for (const local_path of paths_list) {
+        let adjusted_webview_url = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map[local_path]));
+        client_html = client_html.replace(`href="${local_path}"`, `href="${adjusted_webview_url}"`);
+    }
+    return client_html;
+}
+
+
 function edit_rbql() {
     let active_window = vscode.window;
     if (!active_window)
@@ -1319,12 +1341,8 @@ function edit_rbql() {
         client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
     }
     let client_html = client_html_template;
-    let textarea_cp_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['contrib/textarea-caret-position/index.js']));
-    let rbql_suggest_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_suggest.js']));
-    let rbql_client_path = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map['rbql_client.js']));
-    client_html = client_html.replace('src="contrib/textarea-caret-position/index.js"', 'src="' + textarea_cp_path + '"');
-    client_html = client_html.replace('src="rbql_suggest.js"', 'src="' + rbql_suggest_path + '"');
-    client_html = client_html.replace('src="rbql_client.js"', 'src="' + rbql_client_path + '"');
+    client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'], client_html);
+    client_html = adjust_webview_refs(['node_modules/bootstrap/dist/css/bootstrap.min.css'], client_html);
     preview_panel.webview.html = client_html;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
