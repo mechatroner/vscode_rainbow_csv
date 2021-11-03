@@ -427,38 +427,43 @@ select {
         <input type="text" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
         --><button id="toggle_history_btn" title="History">&#9650;</button><!--
         --><button id="rbql_run_btn" title="Run query and open result set in a new tab">Run</button><!--
-        --><button id="help_btn" title="Help">?</button><!--
-        --><span style="margin-left: 10px;" id="status_label"></span>
+        --><button id="help_btn" title="Help">?</button>
     </div>
-    <div style="margin-top: 40px;">
-        <h3 style="margin-bottom: 10px;">Query settings:</h3>
+    <div style="margin-top: 10px;">
+        <h3 style="margin-bottom: 5px;">Query settings</h3>
         <div id="with_headers_section">
-            <label style="word-wrap:break-word"><input id="with_headers" title="Indicate that the input (and join) table has header in the first line" type="checkbox"/> &ndash; Input table has header</label>
+            <label style="word-wrap:break-word"><input id="with_headers" title="Indicate that the input (and join) table has header in the first line" type="checkbox"/>Input table has header</label>
         </div>
         <div id="enable_rfc_newlines_section">
-            <label style="word-wrap:break-word"><input id="enable_rfc_newlines" title="This setting will not fix Rainbow syntax highlighting, but will allow RBQL to correctly handle multi-line (RFC-4180 - compatible) fields" type="checkbox"/> &ndash; Enable double-quoted multiline fields</label>
+            <label style="word-wrap:break-word"><input id="enable_rfc_newlines" title="This setting will not fix Rainbow syntax highlighting, but will allow RBQL to correctly handle multi-line (RFC-4180 - compatible) fields" type="checkbox"/>Enable double-quoted multiline fields</label>
         </div>
         <div>
+            <div>
+              <span class="select_info">Output format</span>
+            </div>
             <select id="select_output_format">
               <option value="input">Same as input (Default)</option>
               <option value="csv">CSV</option>
               <option value="tsv">TSV</option>
             </select>
-            <span class="select_info"> &ndash; Output format</span>
         </div>
         <div>
+            <div>
+              <span class="select_info">Encoding</span>
+            </div>
             <select id="select_encoding">
               <option value="utf-8">UTF-8</option>
               <option value="latin-1">Binary/Latin-1</option>
             </select>
-            <span class="select_info"> &ndash; Encoding</span>
         </div>
         <div>
+            <div>
+              <span class="select_info">Backend language for RBQL</span>
+            </div>
             <select id="select_backend_language">
               <option value="js">JavaScript</option>
               <option value="pyhon">Python (Requires python installed)</option>
             </select>
-            <span class="select_info"> &ndash; Backend language for RBQL</span>
         </div>
     </div>
 </div>

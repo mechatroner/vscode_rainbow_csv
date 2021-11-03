@@ -277,7 +277,7 @@ function start_rbql() {
     if (!rbql_text || rbql_running)
         return;
     rbql_running = true;
-    document.getElementById('status_label').textContent = "Running...";
+    document.getElementById('rbql_run_btn').textContent = "\u231B";
     let backend_language = document.getElementById('select_backend_language').value;
     let output_format = document.getElementById('select_output_format').value;
     let encoding = document.getElementById('select_encoding').value;
@@ -346,7 +346,7 @@ function handle_message(msg_event) {
             let error_msg = message.hasOwnProperty('error_msg') ? message['error_msg'] : 'Unknown Error';
             show_error(error_type, error_msg);
         }
-        document.getElementById('status_label').textContent = "";
+        document.getElementById('rbql_run_btn').textContent = "Run";
     }
 }
 
