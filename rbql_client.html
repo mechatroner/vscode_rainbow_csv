@@ -30,11 +30,6 @@ td {
     padding: 3px 8px;
 }
 
-select {
-    margin-bottom: 6px;
-    width: 300px;
-}
-
 .padded_label {
     padding: 5px;
 }
@@ -52,40 +47,33 @@ select {
     margin-top: 20px;
 }
 
+.select_input {
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    margin-bottom: 6px;
+    width: 300px;
+    font-size: 14px !important;
+    font-family: Consolas, Monaco, monospace;
+}
 
 #rbql_input {
     margin: 0px;
-    /*font-size: 18px !important;*/
     height: 24px !important;
     font-family: Consolas, Monaco, monospace;
     padding-left: 2px;
-    /*
-    background-color: #DDDDDD;
-    */
     background-color: var(--vscode-input-background);
     caret-color: var(--vscode-input-foreground);
     color: var(--vscode-input-foreground);
     display: inline-block;
+    font-size: 14px !important;
+    /*
     outline: none;
+    */
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
     vertical-align:middle;
     width: var(--inputwidth);
-    border-width: 0px;
-    /*
-    border-width: 0px;
-    border-top: 1px solid;
-    border-bottom: 1px solid;
-    border-left: 1px solid;
-    */
+    /*border-width: 0px;*/
 }
-
-#rbql_input:focus {
-    /*
-    background-color: #FFFFFF;
-    outline:none;
-    */
-}
-
 
 #toggle_history_btn {
     margin: 0px;
@@ -164,16 +152,8 @@ select {
 .history_button {
     margin: 0px;
     width: 100%;
-    /*
-    background-color: var(--vscode-list-focusBackground);
-    color: var(--vscode-list-focusForeground);
-    */
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
-    /*
-    background-color: var(--vscode-inputOption-activeBackground);
-    color: var(--vscode-inputOption-activeForeground);
-    */
     height: 24px !important;
     font-family: Consolas, Monaco, monospace;
     border-width: 0px;
@@ -186,10 +166,6 @@ select {
 
 .history_button:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
-    /*
-    background-color: var(--vscode-list-hoverBackground);
-    color: var(--vscode-list-hoverForeground);
-    */
 }
 
 .navig_button_new {
@@ -330,23 +306,24 @@ select {
     width: 95%;
 }
 
+#first_time_help { 
+    width: 50%; 
+    top: 20%; 
+    left: 25%; 
+    z-index: 1000000; 
+    position: fixed; 
+    display: none;
+}
+
 #rbql_error_message { 
     width: 50%; 
     top: 20%; 
     left: 25%; 
     z-index: 1000000; 
-    /*
-    background-color: var(--vscode-inputValidation-errorBackground); 
-    color: var(--vscode-inputValidation-errorForeground);
-    */
     background-color: var(--vscode-notifications-background); 
     color: var(--vscode-notifications-foreground);
     position: fixed; 
     display: none;
-    /*
-    border: 1px solid;
-    border-color: var(--vscode-focusBorder);
-    */
 }
 
 #rbql_error_message_header { 
@@ -419,10 +396,7 @@ select {
         <table id="preview_table">
         </table>
     </div>
-    <div style="margin-top: 20px; margin-bottom: 8px;">
-        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="column_name_highlight_span">a1</span>, <span class="column_name_highlight_span">a2</span>, <span class="column_name_highlight_span">a3</span>, ... and <span class="column_name_highlight_span">NR</span><br>and/or values from the header if enabled e.g. <span class="column_name_highlight_span" id="var_example_1">a.Column_name</span> or <span class="column_name_highlight_span" id="var_example_2">a["Column name"]</span>. Example: <i>select a2, a1</i>
-    </div>
-    <div id="query_group">
+    <div id="query_group" style="margin-top: 10px;">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->
         <input type="text" id="rbql_input" placeholder="select ... where ... order by ... limit ... " autofocus><!--
         --><button id="toggle_history_btn" title="History">&#9650;</button><!--
@@ -441,7 +415,7 @@ select {
             <div>
               <span class="select_info">Output format</span>
             </div>
-            <select id="select_output_format">
+            <select class="select_input" id="select_output_format">
               <option value="input">Same as input (Default)</option>
               <option value="csv">CSV</option>
               <option value="tsv">TSV</option>
@@ -451,7 +425,7 @@ select {
             <div>
               <span class="select_info">Encoding</span>
             </div>
-            <select id="select_encoding">
+            <select class="select_input" id="select_encoding">
               <option value="utf-8">UTF-8</option>
               <option value="latin-1">Binary/Latin-1</option>
             </select>
@@ -460,7 +434,7 @@ select {
             <div>
               <span class="select_info">Backend language for RBQL</span>
             </div>
-            <select id="select_backend_language">
+            <select class="select_input" id="select_backend_language">
               <option value="js">JavaScript</option>
               <option value="pyhon">Python (Requires python installed)</option>
             </select>
@@ -485,7 +459,7 @@ select {
 
 <div id="rbql_error_message">
     <div id="rbql_error_message_header">
-        <span class="padded_label">Error while executing RBQL query!</span>
+        <span class="padded_label">&#9888; Error while executing RBQL query!</span>
     </div>
     <br>
     <div>
@@ -499,6 +473,13 @@ select {
     </div>
     <div style="display: flex; justify-content:center;">
         <button id="ack_error">OK</button>
+    </div>
+</div>
+
+
+<div id="first_time_help">
+    <div style="margin-top: 20px; margin-bottom: 8px;">
+        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="column_name_highlight_span">a1</span>, <span class="column_name_highlight_span">a2</span>, <span class="column_name_highlight_span">a3</span>, ... and <span class="column_name_highlight_span">NR</span><br>and/or values from the header if enabled e.g. <span class="column_name_highlight_span" id="var_example_1">a.Column_name</span> or <span class="column_name_highlight_span" id="var_example_2">a["Column name"]</span>. Example: <i>select a2, a1</i>
     </div>
 </div>
 
