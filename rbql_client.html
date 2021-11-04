@@ -47,6 +47,15 @@ td {
     margin-top: 20px;
 }
 
+.checkbox_input {
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    margin-bottom: 6px;
+    font-size: 14px !important;
+    font-family: Consolas, Monaco, monospace;
+}
+
+
 .select_input {
     background-color: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
@@ -406,19 +415,19 @@ td {
     <div style="margin-top: 10px;">
         <h3 style="margin-bottom: 5px;">Query settings</h3>
         <div id="with_headers_section">
-            <label style="word-wrap:break-word"><input id="with_headers" title="Indicate that the input (and join) table has header in the first line" type="checkbox"/>Input table has header</label>
+            <label style="word-wrap:break-word"><input class="checkbox_input" id="with_headers" title="Indicate that the input (and join) table has header in the first line" type="checkbox"/>Input table has header</label>
         </div>
         <div id="enable_rfc_newlines_section">
-            <label style="word-wrap:break-word"><input id="enable_rfc_newlines" title="This setting will not fix Rainbow syntax highlighting, but will allow RBQL to correctly handle multi-line (RFC-4180 - compatible) fields" type="checkbox"/>Enable double-quoted multiline fields</label>
+            <label style="word-wrap:break-word"><input class="checkbox_input" id="enable_rfc_newlines" title="This setting will not fix Rainbow syntax highlighting, but will allow RBQL to correctly handle multi-line (RFC-4180 - compatible) fields" type="checkbox"/>Enable double-quoted multiline fields</label>
         </div>
         <div>
             <div>
               <span class="select_info">Output format</span>
             </div>
             <select class="select_input" id="select_output_format">
-              <option value="input">Same as input (Default)</option>
-              <option value="csv">CSV</option>
-              <option value="tsv">TSV</option>
+              <option class="select_input" value="input">Same as input (Default)</option>
+              <option class="select_input" value="csv">CSV</option>
+              <option class="select_input" value="tsv">TSV</option>
             </select>
         </div>
         <div>
@@ -426,8 +435,8 @@ td {
               <span class="select_info">Encoding</span>
             </div>
             <select class="select_input" id="select_encoding">
-              <option value="utf-8">UTF-8</option>
-              <option value="latin-1">Binary/Latin-1</option>
+              <option class="select_input" value="utf-8">UTF-8</option>
+              <option class="select_input" value="latin-1">Binary/Latin-1</option>
             </select>
         </div>
         <div>
@@ -435,8 +444,8 @@ td {
               <span class="select_info">Backend language for RBQL</span>
             </div>
             <select class="select_input" id="select_backend_language">
-              <option value="js">JavaScript</option>
-              <option value="pyhon">Python (Requires python installed)</option>
+              <option class="select_input" value="js">JavaScript</option>
+              <option class="select_input" value="pyhon">Python (Requires python installed)</option>
             </select>
         </div>
     </div>
