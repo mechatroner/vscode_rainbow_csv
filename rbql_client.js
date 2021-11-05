@@ -42,32 +42,34 @@ function remove_children(root_node) {
 }
 
 
-function get_max_num_columns(records) {
+function get_max_num_columns(records, with_headers) {
     let max_num_columns = 0;
     for (let r = 0; r < records.length; r++) {
         max_num_columns = Math.max(max_num_columns, records[r].length);
     }
+    if (with_headers && global_header && global_header.length)
+        max_num_columns = Math.max(max_num_columns, global_header.length);
     return max_num_columns;
 }
 
 
-function make_header_index_row(num_columns) {
-    let result = [];
-    result.push('NR');
-    for (let i = 0; i < num_columns; i++) {
-        result.push(`a${i + 1}`);
-    }
-    return result;
+function add_header_cell_with_text(cell_text, dst_row_elem) {
+    let cell = document.createElement('th');
+    cell.textContent = cell_text;
+    dst_row_elem.appendChild(cell);
 }
 
 
-function add_header_row(max_num_columns, table) {
-    let header_index_row = make_header_index_row(max_num_columns);
+function add_header_row(max_num_columns, with_headers, table) {
     let row_elem = document.createElement('tr');
-    for (let value of header_index_row) {
-        let cell = document.createElement('th');
-        cell.textContent = value;
-        row_elem.appendChild(cell);
+    add_header_cell_with_text('NR', row_elem);
+    for (let i = 0; i < max_num_columns; i++) {
+        let cell_text = `a${i + 1}`;
+        if (with_headers && global_header && i < global_header.length) {
+            // FIXME turn header name into a variable here e.g. Color -> a.Color or City Name -> a['Citi Name']
+            cell_text += '\r\n' + global_header[i];
+        }
+        add_header_cell_with_text(cell_text, row_elem);
     }
     table.appendChild(row_elem);
 }
@@ -138,8 +140,8 @@ function make_preview_table() {
     }
 
     let with_headers = document.getElementById('with_headers').checked;
-    let max_num_columns = get_max_num_columns(records);
-    add_header_row(max_num_columns, table);
+    let max_num_columns = get_max_num_columns(records, with_headers);
+    add_header_row(max_num_columns, with_headers, table);
     for (var r = 0; r < records.length; r++) {
         let row = document.createElement('tr');
         let NR = r + start_record_zero_based + 1;
@@ -385,10 +387,10 @@ function main() {
     document.getElementById("close_help").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);
     document.getElementById("clear_history_btn").addEventListener("click", clear_history);
-    document.getElementById("go_begin").addEventListener("click", preview_begin);
-    document.getElementById("go_up").addEventListener("click", preview_up);
-    document.getElementById("go_down").addEventListener("click", preview_down);
-    document.getElementById("go_end").addEventListener("click", preview_end);
+    //document.getElementById("go_begin").addEventListener("click", preview_begin);
+    //document.getElementById("go_up").addEventListener("click", preview_up);
+    //document.getElementById("go_down").addEventListener("click", preview_down);
+    //document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("rbql_input").focus();
