@@ -19,16 +19,42 @@ body {
     color: var(--vscode-editor-foreground);
 }
 
-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-    border-collapse: collapse;
+th { 
+    padding: 3px 8px;
+    border-right: 1px solid;
+    border-top: 1px solid;
+    border-bottom: 1px solid;
+    border-right-color: var(--vscode-window-activeBorder);
+    border-top-color: var(--vscode-window-activeBorder);
+    border-bottom-color: var(--vscode-window-activeBorder);
+    position: sticky;
+    top: 0;
+    background-color: var(--vscode-editor-background);
 }
 
 td {
     padding: 3px 8px;
+    background-color: var(--vscode-editor-background);
+    border-right: 1px solid;
+    border-top: 1px solid;
+    border-right-color: var(--vscode-window-activeBorder);
+    border-top-color: var(--vscode-window-activeBorder);
 }
+
+table {
+    display: block;
+    white-space: nowrap;
+    border-collapse: separate;
+    background-color: var(--vscode-editor-background);
+}
+
+
+table th:first-child, table td:first-child {
+    /* Apply a left border on the first <td> or <th> in a row */
+    border-left: 1px solid;
+    border-left-color: var(--vscode-window-activeBorder);
+}
+
 
 .padded_label {
     padding: 5px;
@@ -75,13 +101,9 @@ td {
     color: var(--vscode-input-foreground);
     display: inline-block;
     font-size: 14px !important;
-    /*
-    outline: none;
-    */
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
     vertical-align:middle;
     width: var(--inputwidth);
-    /*border-width: 0px;*/
 }
 
 #toggle_history_btn {
@@ -315,6 +337,13 @@ td {
     width: 95%;
 }
 
+#table_window {
+    max-width: 95%;
+    max-height: 350px;
+    overflow: scroll;
+    /*border: 2px solid black;*/
+}
+
 #first_time_help { 
     width: 50%; 
     top: 20%; 
@@ -402,8 +431,10 @@ td {
                 <button class="navig_button_new" title="Down" id="go_down">&#8595;</button>
             </div>
         </div>
-        <table id="preview_table">
-        </table>
+        <div id="table_window">
+            <table id="preview_table">
+            </table>
+        </div>
     </div>
     <div id="query_group" style="margin-top: 10px;">
         <!-- Do not remove the weird comments below, we need them to avoid spaces between inline elements, see https://css-tricks.com/fighting-the-space-between-inline-block-elements/ -->

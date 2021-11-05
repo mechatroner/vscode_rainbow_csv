@@ -116,7 +116,7 @@ var copy_back_button = null;
 
 let last_statusbar_doc = null;
 
-const preview_window_size = 12;
+const preview_window_size = 100; // FIXME set to 100
 const max_preview_field_length = 250;
 
 var rbql_context = null;

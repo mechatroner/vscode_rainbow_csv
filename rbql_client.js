@@ -7,8 +7,6 @@ var query_history = [];
 const vscode = acquireVsCodeApi();
 
 var global_css_style = null;
-var normal_table_border = null;
-var header_table_border = null;
 
 var last_preview_message = null;
 
@@ -67,9 +65,7 @@ function add_header_row(max_num_columns, table) {
     let header_index_row = make_header_index_row(max_num_columns);
     let row_elem = document.createElement('tr');
     for (let value of header_index_row) {
-        let cell = document.createElement('td');
-        cell.style.border = header_table_border;
-        cell.style.color = global_css_style.getPropertyValue('--vscode-symbolIcon-variableForeground');
+        let cell = document.createElement('th');
         cell.textContent = value;
         row_elem.appendChild(cell);
     }
@@ -77,9 +73,8 @@ function add_header_row(max_num_columns, table) {
 }
 
 
-function make_data_cell(cell_text, border_style) {
+function make_data_cell(cell_text) {
     let cell = document.createElement('td');
-    cell.style.border = border_style;
     const trim_marker = '###UI_STRING_TRIM_MARKER###';
     let add_ellipsis = false;
     if (cell_text.endsWith(trim_marker)) {
@@ -112,7 +107,7 @@ function make_data_cell(cell_text, border_style) {
 
 function make_nr_cell(cell_text) {
     let nr_cell = document.createElement('td');
-    nr_cell.style.border = header_table_border;
+    //nr_cell.style.border = header_table_border;
     nr_cell.textContent = cell_text;
     return nr_cell;
 }
@@ -153,8 +148,7 @@ function make_preview_table() {
         let nr_text = NR > 0 ? String(NR) : '';
         row.appendChild(make_nr_cell(nr_text));
         for (var nf = 0; nf < records[r].length; nf++) {
-            let border_style = NR > 0 ? normal_table_border : header_table_border;
-            row.appendChild(make_data_cell(records[r][nf], border_style));
+            row.appendChild(make_data_cell(records[r][nf]));
         }
         table.appendChild(row);
     }
@@ -377,8 +371,6 @@ function handle_input_keydown(event) {
 
 function main() {
     global_css_style = getComputedStyle(document.body);
-    normal_table_border = '1px solid ' + global_css_style.getPropertyValue('--vscode-window-activeBorder');
-    header_table_border = '1px solid ' + global_css_style.getPropertyValue('--vscode-symbolIcon-variableForeground');
 
     window.addEventListener('message', handle_message);
     vscode.postMessage({'msg_type': 'handshake'});
