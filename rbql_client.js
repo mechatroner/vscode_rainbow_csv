@@ -10,9 +10,6 @@ var global_css_style = null;
 
 var last_preview_message = null;
 
-var active_suggest_idx = null;
-var suggest_list = [];
-
 var adjust_join_table_header_callback = null;
 
 var global_header = null;
@@ -63,12 +60,15 @@ function add_header_cell_with_text(cell_text, dst_row_elem) {
 function add_header_row(max_num_columns, with_headers, table) {
     let row_elem = document.createElement('tr');
     add_header_cell_with_text('NR', row_elem);
+    let named_header_vars = [];
+    if (with_headers && global_header && global_header.length) {
+        named_header_vars = rbql_suggest.convert_header_to_rbql_variables(global_header, 'a');
+    }
     for (let i = 0; i < max_num_columns; i++) {
         let cell_text = `a${i + 1}`;
-        if (with_headers && global_header && i < global_header.length) {
-            // FIXME turn header name into a variable here e.g. Color -> a.Color or City Name -> a['Citi Name']
-            // You can use an existing funtion from the autocomplete
-            cell_text += '\r\n' + global_header[i];
+        if (i < named_header_vars.length) {
+            let var_column = named_header_vars[i].dot_var ? named_header_vars[i].dot_var : named_header_vars[i].single_q_var;
+            cell_text += '\r\n' + var_column;
         }
         add_header_cell_with_text(cell_text, row_elem);
     }
@@ -110,7 +110,6 @@ function make_data_cell(cell_text) {
 
 function make_nr_cell(cell_text) {
     let nr_cell = document.createElement('td');
-    //nr_cell.style.border = header_table_border;
     nr_cell.textContent = cell_text;
     return nr_cell;
 }

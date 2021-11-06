@@ -281,5 +281,6 @@ function handle_input_keyup(event) {
 rbql_suggest.initialize_suggest = initialize_suggest;
 rbql_suggest.handle_input_keydown = handle_input_keydown;
 rbql_suggest.handle_input_keyup = handle_input_keyup;
+rbql_suggest.convert_header_to_rbql_variables = convert_header_to_rbql_variables;
 
 } )();
