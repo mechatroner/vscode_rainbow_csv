@@ -7,7 +7,7 @@
 <style>
 
 :root {
-  --inputwidth: 900px;
+  --inputwidth: 80%;
 }
 
 html * {
@@ -96,12 +96,12 @@ table th:first-child, table td:first-child {
     margin: 0px;
     height: 24px !important;
     font-family: Consolas, Monaco, monospace;
+    font-size: 14px !important;
     padding-left: 2px;
     background-color: var(--vscode-input-background);
     caret-color: var(--vscode-input-foreground);
     color: var(--vscode-input-foreground);
     display: inline-block;
-    font-size: 14px !important;
     box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
     vertical-align:middle;
     width: var(--inputwidth);
@@ -166,8 +166,8 @@ table th:first-child, table td:first-child {
 
 #clear_history_btn {
     margin: 0px;
-    background-color: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
     height: 24px !important;
     padding: 0px 5px 0px 5px;
     display: inline-block;
@@ -178,7 +178,7 @@ table th:first-child, table td:first-child {
 }
 
 #clear_history_btn:hover {
-    background-color: var(--vscode-button-secondaryHoverBackground);
+    background-color: var(--vscode-button-hoverBackground);
 }
 
 .history_button {
@@ -188,6 +188,7 @@ table th:first-child, table td:first-child {
     color: var(--vscode-button-secondaryForeground);
     height: 24px !important;
     font-family: Consolas, Monaco, monospace;
+    font-size: 14px !important;
     border-width: 0px;
     outline: none;
     display: block;
@@ -200,10 +201,9 @@ table th:first-child, table td:first-child {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.navig_button_new {
+.navigation_button {
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
-    font-size: 18px !important;
     width: 28px;
     font-size: 18px !important;
     height: 28px;
@@ -211,38 +211,8 @@ table th:first-child, table td:first-child {
     border-width: 0px;
 }
 
-.navig_button_new:hover {
+.navigation_button:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
-}
-
-#go_begin {
-    border-bottom: 0px;
-}
-
-#go_end {
-    border-top: 0px;
-}
-
-#navig_bar {
-    display: flex;
-    flex-direction: column;
-    margin-right: 5px;
-    width: 28px;
-}
-
-
-#navig_top {
-    height: 50%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-#navig_bottom {
-    height: 50%;
-    width: 100%;
-    display: flex;
-    flex-direction: column-reverse;
 }
 
 #enable_rfc_newlines_section {
@@ -286,6 +256,8 @@ table th:first-child, table td:first-child {
 
 
 #query_history { 
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px !important;
     width: var(--inputwidth);
     z-index: 1000000; 
     background-color: var(--vscode-notifications-background); 
@@ -317,6 +289,8 @@ table th:first-child, table td:first-child {
 }
 
 #history_entries {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px !important;
     max-height: 300px;
     margin: 0px;
     overflow-x: auto;
@@ -328,13 +302,11 @@ table th:first-child, table td:first-child {
 #query_history_header { 
     font-size: 18px !important;
     height: 24px;
-    font-weight: bold;
     margin: 0px;
 }
 
 
 #table_group {
-    display: flex; /*equal height for children*/
     width: 95%;
 }
 
@@ -422,19 +394,15 @@ table th:first-child, table td:first-child {
 
 <div id="rbql_console">
     <div id="table_group">
-        <!--<div id="navig_bar">-->
-        <!--    <div id="navig_top">-->
-        <!--        <button class="navig_button_new" title="Top" id="go_begin">&#8648;</button>-->
-        <!--        <button class="navig_button_new" title="Up" id="go_up">&#8593;</button>-->
-        <!--    </div>-->
-        <!--    <div id="navig_bottom">-->
-        <!--        <button class="navig_button_new" title="Bottom" id="go_end">&#8650;</button>-->
-        <!--        <button class="navig_button_new" title="Down" id="go_down">&#8595;</button>-->
-        <!--    </div>-->
-        <!--</div>-->
         <div id="table_window">
             <table id="preview_table">
             </table>
+        </div>
+        <div id="navig_bar">
+            <button class="navigation_button" title="Begin" id="go_begin">&#171;</button>
+            <button class="navigation_button" title="Back" id="go_backward">&#8249;</button>
+            <button class="navigation_button" title="Forward" id="go_forward">&#8250;</button>
+            <button class="navigation_button" title="End" id="go_end">&#187;</button>
         </div>
     </div>
     <div id="query_group" style="margin-top: 10px;">

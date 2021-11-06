@@ -116,7 +116,7 @@ var copy_back_button = null;
 
 let last_statusbar_doc = null;
 
-const preview_window_size = 100; // FIXME set to 100
+const preview_window_size = 100;
 const max_preview_field_length = 250;
 
 var rbql_context = null;
@@ -1219,10 +1219,10 @@ function handle_rbql_client_message(webview, message) {
 
     if (message_type == 'navigate') {
         var navig_direction = message['direction'];
-        if (navig_direction == 'up') {
-            rbql_context.requested_start_record -= 1;
-        } else if (navig_direction == 'down') {
-            rbql_context.requested_start_record += 1;
+        if (navig_direction == 'backward') {
+            rbql_context.requested_start_record -= preview_window_size;
+        } else if (navig_direction == 'forward') {
+            rbql_context.requested_start_record += preview_window_size;
         } else if (navig_direction == 'begin') {
             rbql_context.requested_start_record = 0;
         } else if (navig_direction == 'end') {

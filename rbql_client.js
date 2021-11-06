@@ -67,6 +67,7 @@ function add_header_row(max_num_columns, with_headers, table) {
         let cell_text = `a${i + 1}`;
         if (with_headers && global_header && i < global_header.length) {
             // FIXME turn header name into a variable here e.g. Color -> a.Color or City Name -> a['Citi Name']
+            // You can use an existing funtion from the autocomplete
             cell_text += '\r\n' + global_header[i];
         }
         add_header_cell_with_text(cell_text, row_elem);
@@ -145,10 +146,12 @@ function make_preview_table() {
     for (var r = 0; r < records.length; r++) {
         let row = document.createElement('tr');
         let NR = r + start_record_zero_based + 1;
-        if (with_headers)
+        if (with_headers) {
             NR -= 1;
-        let nr_text = NR > 0 ? String(NR) : '';
-        row.appendChild(make_nr_cell(nr_text));
+            if (NR == 0)
+                continue;
+        }
+        row.appendChild(make_nr_cell(String(NR)));
         for (var nf = 0; nf < records[r].length; nf++) {
             row.appendChild(make_data_cell(records[r][nf]));
         }
@@ -162,13 +165,13 @@ function navigate_preview(direction) {
 }
 
 
-function preview_up() {
-    navigate_preview('up');
+function preview_backward() {
+    navigate_preview('backward');
 }
 
 
-function preview_down() {
-    navigate_preview('down');
+function preview_forward() {
+    navigate_preview('forward');
 }
 
 
@@ -387,10 +390,10 @@ function main() {
     document.getElementById("close_help").addEventListener("click", toggle_help_msg);
     document.getElementById("toggle_history_btn").addEventListener("click", toggle_history);
     document.getElementById("clear_history_btn").addEventListener("click", clear_history);
-    //document.getElementById("go_begin").addEventListener("click", preview_begin);
-    //document.getElementById("go_up").addEventListener("click", preview_up);
-    //document.getElementById("go_down").addEventListener("click", preview_down);
-    //document.getElementById("go_end").addEventListener("click", preview_end);
+    document.getElementById("go_begin").addEventListener("click", preview_begin);
+    document.getElementById("go_backward").addEventListener("click", preview_backward);
+    document.getElementById("go_forward").addEventListener("click", preview_forward);
+    document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("rbql_input").focus();
