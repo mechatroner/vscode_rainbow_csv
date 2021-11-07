@@ -81,10 +81,13 @@ const dialect_map = {
     'csv (hyphen)': ['-', 'simple']
 };
 
+
+// This structure will get properly initialized during the startup.
 let absolute_path_map = {
     'rbql_client.js': null,
     'contrib/textarea-caret-position/index.js': null,
     'rbql_suggest.js': null,
+    'rbql_logo.svg': null,
     'rbql_client.html': null,
     'rbql mock/rbql_mock.py': null,
     'rbql_core/vscode_rbql.py': null
@@ -1329,7 +1332,7 @@ function edit_rbql() {
         client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
     }
     let client_html = client_html_template;
-    client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js'], client_html);
+    client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'rbql_logo.svg'], client_html);
     preview_panel.webview.html = client_html;
     preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
 }
