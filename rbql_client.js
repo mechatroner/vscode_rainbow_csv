@@ -14,6 +14,8 @@ var adjust_join_table_header_callback = null;
 
 var global_header = null;
 
+// FIXME add the tooltip messages to checkbox labels too.
+
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
