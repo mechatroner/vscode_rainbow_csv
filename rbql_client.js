@@ -18,6 +18,7 @@ var global_header = null;
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
+    assign_backend_lang_selection_title();
 }
 
 
@@ -374,8 +375,20 @@ function handle_input_keydown(event) {
 }
 
 
+function assign_backend_lang_selection_title() {
+    let select_backend_element = document.getElementById('select_backend_language');
+    let backend_language = select_backend_element.value;
+    if (backend_language == 'js') {
+        select_backend_element.title = 'Allows to use JS expressions such as: `Math.sqrt(a1)`, `a2.substring(1, 5)`, `a3.toUpperCase()`, etc';
+    } else {
+        select_backend_element.title = 'Allows to use Python expressions such as: `math.sqrt(float(a1))`, `a2[1:5]`, `a3.upper()`, etc';
+    }
+}
+
+
 function main() {
     global_css_style = getComputedStyle(document.body);
+    assign_backend_lang_selection_title();
 
     window.addEventListener('message', handle_message);
     vscode.postMessage({'msg_type': 'handshake'});
