@@ -45,6 +45,8 @@ const child_process = require('child_process');
 
 // TODO just make the main RBQL area scrollable with pagination
 
+// TODO figure out if it is possible to convert to a web extension
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load to improve startup performance
 var rainbow_utils = null; // Using lazy load to improve startup performance
@@ -1253,6 +1255,47 @@ function handle_rbql_client_message(webview, message) {
         };
         update_query_history(rbql_query);
         run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler);
+    }
+
+    if (message_type == 'edit_udf') {
+        let backend_language = message['backend_language'];
+        let udf_file_path = null;
+        let default_content = '';
+        if (backend_language == 'js') {
+            udf_file_path = path.join(os.homedir(), '.rbql_init_source.js');
+            default_content = `// This file can be used to store RBQL UDFs. Example:
+            //
+            // function foo(value) {
+            //     return 'foo ' + String(value.length);
+            // }
+            // 
+            // Functions defined in this file can be used in RBQL queries e.g. 
+            // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
+            //
+            // Don't forget to save this file after editing!
+            //
+            // Write your own functions bellow this line:
+            `.replace(new RegExp(/^  */, 'mg'), '');
+        } else {
+            udf_file_path = path.join(os.homedir(), '.rbql_init_source.py');
+            default_content = `# This file can be used to store RBQL UDFs. Example:
+            #
+            # def foo(value):
+            #     return 'foo ' + str(len(value))
+            # 
+            # 
+            # Functions defined in this file can be used in RBQL queries e.g. 
+            # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
+            #
+            # Don't forget to save this file after editing!
+            #
+            # Write your own functions bellow this line:
+            `.replace(new RegExp(/^  */, 'mg'), '');
+        }
+        if (!fs.existsSync(udf_file_path)) {
+            fs.writeFileSync(udf_file_path, default_content);
+        }
+        vscode.workspace.openTextDocument(udf_file_path).then(doc => vscode.window.showTextDocument(doc));
     }
 
     if (message_type == 'global_param_change') {

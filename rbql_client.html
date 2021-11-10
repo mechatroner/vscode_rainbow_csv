@@ -65,10 +65,6 @@ table th:first-child, table td:first-child {
     font-style: italic;
 }
 
-.column_name_highlight_span {
-    color: var(--vscode-symbolIcon-variableForeground);
-}
-
 
 #rbql_console {
     margin-top: 20px;
@@ -215,6 +211,25 @@ table th:first-child, table td:first-child {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
+
+#udf_button {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    font-size: 14px !important;
+    border-width: 0px;
+    height: 24px !important;
+    outline:none;
+    vertical-align:middle;
+    padding: 0px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-top: 8px;
+}
+
+#udf_button:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
 #enable_rfc_newlines_section {
     display: none;
 }
@@ -314,15 +329,6 @@ table th:first-child, table td:first-child {
     /*border: 2px solid black;*/
 }
 
-#first_time_help { 
-    width: 50%; 
-    top: 20%; 
-    left: 25%; 
-    z-index: 1000000; 
-    position: fixed; 
-    display: none;
-}
-
 #rbql_error_message { 
     width: 50%; 
     top: 20%; 
@@ -409,8 +415,8 @@ table th:first-child, table td:first-child {
         --><button id="rbql_run_btn" title="Run query and open result set in a new tab">Run</button><!--
         --><button id="help_btn" title="Help">?</button>
     </div>
-    <div style="margin-top: 10px;">
-        <h3 style="margin-bottom: 5px;">Query settings</h3>
+    <h3 style="margin-bottom: 5px; margin-top: 10px;">&#9881; Query settings</h3>
+    <div style="margin-left: 30px;">
         <div id="with_headers_section">
             <label style="word-wrap:break-word" title="Indicate that the input (and join) table has header in the first line"><input class="checkbox_input" id="with_headers" type="checkbox"/>Input table has header</label>
         </div>
@@ -444,6 +450,9 @@ table th:first-child, table td:first-child {
               <option class="select_input" value="js">JavaScript</option>
               <option class="select_input" value="pyhon">Python (Requires python installed)</option>
             </select>
+        </div>
+        <div>
+            <button id="udf_button" title="Edit UDF (User Defined Functions) - will open a new tab with UDF file">Edit UDF...</button>
         </div>
     </div>
 </div>
@@ -479,13 +488,6 @@ table th:first-child, table td:first-child {
     </div>
     <div style="display: flex; justify-content:center;">
         <button id="ack_error">OK</button>
-    </div>
-</div>
-
-
-<div id="first_time_help">
-    <div style="margin-top: 20px; margin-bottom: 8px;">
-        Input SQL-like RBQL query and press Enter. To refer to the table columns use index names: <span class="column_name_highlight_span">a1</span>, <span class="column_name_highlight_span">a2</span>, <span class="column_name_highlight_span">a3</span>, ... and <span class="column_name_highlight_span">NR</span><br>and/or values from the header if enabled e.g. <span class="column_name_highlight_span" id="var_example_1">a.Column_name</span> or <span class="column_name_highlight_span" id="var_example_2">a["Column name"]</span>. Example: <i>select a2, a1</i>
     </div>
 </div>
 

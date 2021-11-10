@@ -14,6 +14,8 @@ var adjust_join_table_header_callback = null;
 
 var global_header = null;
 
+// FIXME close the console at the end of the query.
+
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -386,6 +388,12 @@ function assign_backend_lang_selection_title() {
 }
 
 
+function handle_udf_edit() {
+    let backend_language = document.getElementById('select_backend_language').value;
+    vscode.postMessage({'msg_type': 'edit_udf', 'backend_language': backend_language});
+}
+
+
 function main() {
     global_css_style = getComputedStyle(document.body);
     assign_backend_lang_selection_title();
@@ -409,6 +417,7 @@ function main() {
     document.getElementById("go_end").addEventListener("click", preview_end);
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
+    document.getElementById("udf_button").addEventListener("click", handle_udf_edit);
     document.getElementById("rbql_input").focus();
 }
 
