@@ -25,9 +25,7 @@ const child_process = require('child_process');
 
 // TODO Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824
 
-// TODO make language changes persistent across vscode sessions and file closing/opening. Or maybe this should be solved on VSCode level?
-
-// TODO automatically close RBQL console when the query successfully completes
+// TODO consider keeping only one open RBQL console at any time - if another one opens automatically close the previous one.
 
 // TODO DEBUG add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55
 
@@ -35,17 +33,10 @@ const child_process = require('child_process');
 
 // TODO support virtual header for rbql_csv
 
-// TODO rbql query input: replace text input with scrollable textarea
-
-// TODO keep the header on top when scrolling the table in the UI
-
-// TODO add udf editing feature to the UI
-
-// TODO show the RBQL tips only during the first time it is invoked with an option to (never show it again) or just cross to close.
-
-// TODO just make the main RBQL area scrollable with pagination
+// TODO consider replacing the RBQL query text input with scrollable textarea - it has a drawback that on enter it will go to the next line instead running the query
 
 // TODO figure out if it is possible to convert to a web extension
+
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 var rbql_csv = null; // Using lazy load to improve startup performance
@@ -792,6 +783,7 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
     if (error_type || error_msg) {
         return; // Just exit: error would be shown in the preview window.
     }
+    // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
     autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
     vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
@@ -1357,7 +1349,7 @@ function edit_rbql() {
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     let with_headers_by_default = config ? config.get('rbql_with_headers_by_default') : false;
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
-    let header = get_header_from_document(active_doc, delim, policy); // TODO support custom virtual headers in RBQL, so we can use get_header() here
+    let header = get_header_from_document(active_doc, delim, policy);
     rbql_context = {
         "input_document": active_doc,
         "input_document_path": input_path,

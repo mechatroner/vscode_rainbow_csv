@@ -14,8 +14,6 @@ var adjust_join_table_header_callback = null;
 
 var global_header = null;
 
-// FIXME close the console at the end of the query.
-
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
