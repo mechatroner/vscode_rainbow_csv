@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 1.10.0
+* RBQL update: improved console UI.
+
 ## 1.9.0
 * RBQL update: improved CSV header support.
 
