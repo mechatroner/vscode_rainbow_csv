@@ -309,6 +309,7 @@ function handle_message(msg_event) {
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         last_preview_message = message;
         document.getElementById("select_backend_language").value = message['backend_language'];
+        assign_backend_lang_selection_title();
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("enable_rfc_newlines").checked = enable_rfc_newlines;
         document.getElementById("with_headers").checked = with_headers;
@@ -321,6 +322,7 @@ function handle_message(msg_event) {
         let integration_test_language = message['integration_test_language'];
         if (integration_test_query && integration_test_language) {
             document.getElementById("select_backend_language").value = integration_test_language;
+            assign_backend_lang_selection_title();
             document.getElementById('rbql_input').value = integration_test_query;
             setTimeout(function() {
                 start_rbql();
