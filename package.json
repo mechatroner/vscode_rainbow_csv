@@ -39,6 +39,7 @@
         "onCommand:rainbow-csv.SampleTail"
     ],
     "main": "./extension",
+    "browser": "./dist/web/extension.js",
     "contributes": {
         "configuration": {
             "type": "object",
