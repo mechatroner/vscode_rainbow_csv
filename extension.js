@@ -21,6 +21,12 @@ const child_process = require('child_process'); // For RBQL
 // 3. Click "Run" or F5
 
 
+// Running the browser version
+// 1. Run `npm install` - OK to run in WSL
+// 2. Run `npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
+// 3. Point your browser to http://localhost:3000/
+
+
 // In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 // Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
 
