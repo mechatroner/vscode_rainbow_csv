@@ -1,8 +1,10 @@
 const vscode = require('vscode');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const child_process = require('child_process');
+
+const path = require('path'); // For RBQL and preview
+
+const fs = require('fs'); // For RBQL and preview
+const os = require('os'); // For RBQL and preview
+const child_process = require('child_process'); // For RBQL
 
 // Running unit tests for the extension inside VSCode:
 // 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including vscode/lib/testrunner

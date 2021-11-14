@@ -10,7 +10,7 @@ const webExtensionConfig = {
     extension: './extension.js', // source of the web extension main file
   },
   output: {
-    filename: '[name].js', // XXX What exactly does this do?
+    filename: '[name].js', // The name will be replaced with the key from the `entry` section i.e. by `extension` - because it is the only key in entry for this particular config.
     path: path.join(__dirname, './dist/web'),
     // devtoolModuleFilenameTemplate: '../../[resource-path]',
     libraryTarget: 'commonjs' // value from a fixed dictionary.
@@ -26,6 +26,13 @@ const webExtensionConfig = {
       // see https://webpack.js.org/configuration/resolve/#resolvefallback
       // for the list of Node.js core module polyfills.
       // assert: require.resolve('assert')
+      path: false,
+      fs: false,
+      os: false,
+      child_process: false,
+      readline: false, // For read_header in rainbow_utils.js
+      util: false, // For util.TextDecoder in rbql_csv.js
+      process: false // For process in rbql_csv.js
     }
   },
   module: {
