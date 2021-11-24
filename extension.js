@@ -6,6 +6,8 @@ const fs = require('fs'); // For RBQL and preview
 const os = require('os'); // For RBQL and preview
 const child_process = require('child_process'); // For RBQL
 
+let webextension_dbg_output_channel = null;
+
 // Running unit tests for the extension inside VSCode:
 // 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including vscode/lib/testrunner
 // 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
@@ -23,7 +25,7 @@ const child_process = require('child_process'); // For RBQL
 
 // Running the browser version
 // 1. Run `npm install` - OK to run in WSL
-// 2. Run `npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
+// 2. Run `npm run compile-web && npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 // 3. Point your browser to http://localhost:3000/
 
 
@@ -1314,6 +1316,15 @@ function adjust_webview_paths(paths_list, client_html) {
 
 
 function edit_rbql() {
+    webextension_dbg_output_channel.appendLine('abracadabra2');
+    // FIXME this is just to test webview
+    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
+    let client_html_dummy = '<!DOCTYPE html><html lang="en"><head></head><body><div>Hello RBQL!</div></body></html>';
+    preview_panel.webview.html = client_html_dummy;
+    return;
+
+
+
     let active_window = vscode.window;
     if (!active_window)
         return;
@@ -1641,6 +1652,10 @@ function activate(context) {
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
+
+    // FIXME initialize conditionally / remove altogether
+    webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
+    webextension_dbg_output_channel.appendLine('starting the extension!');
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
