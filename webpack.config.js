@@ -45,6 +45,10 @@ const webExtensionConfig = {
             loader: 'ts-loader'
           }
         ]
+      },
+      {
+        test: /\.html$/,
+        use: 'raw-loader',
       }
     ]
   },

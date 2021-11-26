@@ -6,6 +6,11 @@ const fs = require('fs'); // For RBQL and preview
 const os = require('os'); // For RBQL and preview
 const child_process = require('child_process'); // For RBQL
 
+import client_html_template_web from './rbql_client.html'; // FIXME will not work in node
+
+// TODO make the `is_web_ext` check more reliable and explicit.
+let is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
+
 let webextension_dbg_output_channel = null;
 
 // Running unit tests for the extension inside VSCode:
@@ -1316,14 +1321,12 @@ function adjust_webview_paths(paths_list, client_html) {
 
 
 function edit_rbql() {
-    webextension_dbg_output_channel.appendLine('abracadabra2');
-    // FIXME this is just to test webview
-    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
-    let client_html_dummy = '<!DOCTYPE html><html lang="en"><head></head><body><div>Hello RBQL!</div></body></html>';
-    preview_panel.webview.html = client_html_dummy;
-    return;
 
-
+    //// FIXME this is just to test webview
+    //preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
+    //let client_html_dummy = '<!DOCTYPE html><html lang="en"><head></head><body><div>Hello RBQL!</div></body></html>';
+    //preview_panel.webview.html = client_html_dummy;
+    //return;
 
     let active_window = vscode.window;
     if (!active_window)
@@ -1337,14 +1340,22 @@ function edit_rbql() {
     let orig_uri = active_doc.uri;
     if (!orig_uri)
         return;
-    if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled')
+    webextension_dbg_output_channel.appendLine('abracadabra3');
+    webextension_dbg_output_channel.appendLine('is_web_ext: ' + is_web_ext);
+    webextension_dbg_output_channel.appendLine('os: "' + JSON.stringify(os).substring(0, 200) + '"');
+    // FIXME test with an untitled file in the web extension
+    // FIXME test with an unsaved but named file with modifications in the web extension
+    // For web orig_uri.scheme can have other valid values e.g. `vscode-test-web` when testing the browser integration.
+    if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)
         return;
-    if (orig_uri.scheme == 'file' && active_doc.isDirty) {
+    webextension_dbg_output_channel.appendLine('abracadabra4');
+    if (orig_uri.scheme == 'file' && active_doc.isDirty && !is_web_ext) {
         show_single_line_error("Unable to run RBQL: file has unsaved changes");
         return;
     }
+    webextension_dbg_output_channel.appendLine('abracadabra5');
     let input_path = null;
-    if (orig_uri.scheme == 'untitled') {
+    if (orig_uri.scheme == 'untitled' && !is_web_ext) {
         // Scheme 'untitled' means that the document is a scratch buffer that hasn't been saved yet, see https://code.visualstudio.com/api/references/document-selector
         let data = active_doc.getText();
         let rnd_suffix = String(Math.floor(Math.random() * 1000000));
@@ -1354,6 +1365,9 @@ function edit_rbql() {
     } else {
         input_path = active_doc.fileName;
     }
+
+    webextension_dbg_output_channel.appendLine('orig_uri.scheme ' + orig_uri.scheme + ' active_doc.fileName ' + active_doc.fileName);
+
     if (!input_path) {
         show_single_line_error("Unable to run RBQL for this file");
         return;
@@ -1383,7 +1397,13 @@ function edit_rbql() {
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_html_template) {
-        client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
+        if (is_web_ext) {
+            client_html_template = client_html_template_web;
+        } else {
+            // We can also try to use this, but this is an async function
+            //client_html_template = vscode.workspace.fs.readFile(absolute_path_map['rbql_client.html']);
+            client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
+        }
     }
     let client_html = client_html_template;
     client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'rbql_logo.svg'], client_html);
