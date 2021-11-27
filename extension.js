@@ -1313,7 +1313,12 @@ function handle_rbql_client_message(webview, message) {
 
 function adjust_webview_paths(paths_list, client_html) {
     for (const local_path of paths_list) {
-        let adjusted_webview_url = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map[local_path]));
+        let adjusted_webview_url = null;
+        if (is_web_ext) {
+            adjusted_webview_url = absolute_path_map[local_path];
+        } else {
+            adjusted_webview_url = preview_panel.webview.asWebviewUri(vscode.Uri.file(absolute_path_map[local_path]));
+        }
         client_html = client_html.replace(`src="${local_path}"`, `src="${adjusted_webview_url}"`);
     }
     return client_html;
@@ -1340,20 +1345,15 @@ function edit_rbql() {
     let orig_uri = active_doc.uri;
     if (!orig_uri)
         return;
-    webextension_dbg_output_channel.appendLine('abracadabra3');
-    webextension_dbg_output_channel.appendLine('is_web_ext: ' + is_web_ext);
-    webextension_dbg_output_channel.appendLine('os: "' + JSON.stringify(os).substring(0, 200) + '"');
     // FIXME test with an untitled file in the web extension
     // FIXME test with an unsaved but named file with modifications in the web extension
     // For web orig_uri.scheme can have other valid values e.g. `vscode-test-web` when testing the browser integration.
     if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)
         return;
-    webextension_dbg_output_channel.appendLine('abracadabra4');
     if (orig_uri.scheme == 'file' && active_doc.isDirty && !is_web_ext) {
         show_single_line_error("Unable to run RBQL: file has unsaved changes");
         return;
     }
-    webextension_dbg_output_channel.appendLine('abracadabra5');
     let input_path = null;
     if (orig_uri.scheme == 'untitled' && !is_web_ext) {
         // Scheme 'untitled' means that the document is a scratch buffer that hasn't been saved yet, see https://code.visualstudio.com/api/references/document-selector
@@ -1365,8 +1365,6 @@ function edit_rbql() {
     } else {
         input_path = active_doc.fileName;
     }
-
-    webextension_dbg_output_channel.appendLine('orig_uri.scheme ' + orig_uri.scheme + ' active_doc.fileName ' + active_doc.fileName);
 
     if (!input_path) {
         show_single_line_error("Unable to run RBQL for this file");
@@ -1642,9 +1640,17 @@ function register_csv_hover_info_provider(language_id, context) {
 function activate(context) {
     global_state = context.globalState;
 
+    // FIXME initialize conditionally / remove altogether
+    webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
+    webextension_dbg_output_channel.appendLine('starting the extension!');
+
     for (let local_path in absolute_path_map) {
-        if (absolute_path_map.hasOwnProperty(local_path))
-            absolute_path_map[local_path] = context.asAbsolutePath(local_path);
+        if (absolute_path_map.hasOwnProperty(local_path)) {
+            let adjusted_path = vscode.Uri.joinPath(context.extensionUri, local_path);
+            // FIXME this will break the node version without adjustment probably
+            //absolute_path_map[local_path] = context.asAbsolutePath(local_path);
+            absolute_path_map[local_path] = adjusted_path;
+        }
     }
 
     for (let language_id in dialect_map) {
@@ -1673,9 +1679,6 @@ function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    // FIXME initialize conditionally / remove altogether
-    webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
-    webextension_dbg_output_channel.appendLine('starting the extension!');
 
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
