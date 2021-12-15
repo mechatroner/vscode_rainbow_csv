@@ -8,7 +8,8 @@
     "parserOptions": {
         "ecmaFeatures": {
             "jsx": true
-        }
+        },
+        "ecmaVersion": 8
     },
     "rules": {
         "no-const-assign": "warn",

@@ -6,7 +6,9 @@ const fs = require('fs'); // For RBQL and preview
 const os = require('os'); // For RBQL and preview
 const child_process = require('child_process'); // For RBQL
 
-import client_html_template_web from './rbql_client.html'; // FIXME will not work in node
+let client_html_template_web = null;
+// FIXME delete the raw-loader logic from webpack
+//import client_html_template_web from './rbql_client.html'; // FIXME will not work in node
 
 // TODO make the `is_web_ext` check more reliable and explicit.
 let is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
@@ -181,6 +183,7 @@ function save_to_global_state(key, value) {
 
 
 function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
+    // FIXME put into rainbow_utils.js
     let num_lines = document.lineCount;
     let record_begin = null;
     let start_line_idx = dst_record_map.length ? get_last(dst_record_map)[1] : 0;
@@ -265,20 +268,6 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
 }
 
 
-function get_header_line(document) {
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
-    const num_lines = document.lineCount;
-    for (let lnum = 0; lnum < num_lines; ++lnum) {
-        const line_text = document.lineAt(lnum).text;
-        if (!comment_prefix || !line_text.startsWith(comment_prefix)) {
-            return line_text;
-        }
-    }
-    return null;
-}
-
-
 function make_header_key(file_path) {
     return 'rbql_header:' + file_path;
 }
@@ -295,7 +284,10 @@ function make_with_headers_key(file_path) {
 
 
 function get_header_from_document(document, delim, policy) {
-    return csv_utils.smart_split(get_header_line(document), delim, policy, false)[0];
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
+    let header_line = ll_rainbow_utils().get_header_line(document, comment_prefix);
+    return csv_utils.smart_split(header_line, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0];
 }
 
 
@@ -1326,13 +1318,6 @@ function adjust_webview_paths(paths_list, client_html) {
 
 
 function edit_rbql() {
-
-    //// FIXME this is just to test webview
-    //preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
-    //let client_html_dummy = '<!DOCTYPE html><html lang="en"><head></head><body><div>Hello RBQL!</div></body></html>';
-    //preview_panel.webview.html = client_html_dummy;
-    //return;
-
     let active_window = vscode.window;
     if (!active_window)
         return;
@@ -1397,6 +1382,10 @@ function edit_rbql() {
     if (!client_html_template) {
         if (is_web_ext) {
             client_html_template = client_html_template_web;
+            if (!client_html_template) {
+                show_single_line_error("Unable to run RBQL");
+                return;
+            }
         } else {
             // We can also try to use this, but this is an async function
             //client_html_template = vscode.workspace.fs.readFile(absolute_path_map['rbql_client.html']);
@@ -1640,16 +1629,25 @@ function register_csv_hover_info_provider(language_id, context) {
 function activate(context) {
     global_state = context.globalState;
 
-    // FIXME initialize conditionally / remove altogether
-    webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
-    webextension_dbg_output_channel.appendLine('starting the extension!');
+    if (is_web_ext) {
+        // FIXME cleanup webextension_dbg_output_channel logic
+        //webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
+        //webextension_dbg_output_channel.appendLine('starting the extension!');
+        let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html')
+        // FIXME use vscode.workspace.fs to read from rbql_client_uri and initialize the client_html_template_web
+        vscode.workspace.fs.readFile(rbql_client_uri).then((bytes) => { 
+            // TextDecoder should work fine in web extension
+            client_html_template_web = new TextDecoder().decode(bytes); 
+        });
+    }
 
     for (let local_path in absolute_path_map) {
         if (absolute_path_map.hasOwnProperty(local_path)) {
-            let adjusted_path = vscode.Uri.joinPath(context.extensionUri, local_path);
-            // FIXME this will break the node version without adjustment probably
-            //absolute_path_map[local_path] = context.asAbsolutePath(local_path);
-            absolute_path_map[local_path] = adjusted_path;
+            if (is_web_ext) {
+                absolute_path_map[local_path] = vscode.Uri.joinPath(context.extensionUri, local_path);
+            } else {
+                absolute_path_map[local_path] = context.asAbsolutePath(local_path);
+            }
         }
     }
 
