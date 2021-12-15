@@ -34,6 +34,8 @@ let webextension_dbg_output_channel = null;
 // 1. Run `npm install` - OK to run in WSL
 // 2. Run `npm run compile-web && npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 // 3. Point your browser to http://localhost:3000/
+//
+// It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
 
 
 // In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
