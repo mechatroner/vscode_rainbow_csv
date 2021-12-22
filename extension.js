@@ -65,6 +65,10 @@ let absolute_path_map = {
 
 
 function read_integration_test_config() {
+    if (is_web_ext) {
+        show_single_line_error('This command is currently unavailable in web mode.');
+        return;
+    }
     let config_path = path.join(path.dirname(absolute_path_map['rbql_client.js']), 'test', '.tmp_test_config.json');
     if (fs.existsSync(config_path)) {
         let data = fs.readFileSync(config_path, {encoding: 'utf8', flag: 'r'});
@@ -94,7 +98,7 @@ const max_preview_field_length = 250;
 
 var rbql_context = null;
 
-var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch
+var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
 
 var client_html_template = null;
 
@@ -150,7 +154,7 @@ function populate_optimistic_rfc_csv_record_map(document, requested_end_record, 
     for (let lnum = start_line_idx; lnum < num_lines && dst_record_map.length < requested_end_record; ++lnum) {
         let line_text = document.lineAt(lnum).text;
         if (lnum + 1 >= num_lines && line_text == "")
-            break; // Skip the last empty line
+            break; // Skip the last empty line.
         if (comment_prefix && line_text.startsWith(comment_prefix))
             continue;
         let match_list = line_text.match(/"/g);
@@ -258,7 +262,7 @@ function get_header(document, delim, policy) {
         if (raw_header) {
             try {
                 return JSON.parse(raw_header)
-            } catch (err) { // Prior versions stored the header as CSV
+            } catch (err) { // Prior versions stored the header as CSV.
                 return csv_utils.smart_split(header, ',', 'quoted', false)[0];
             }
         }
@@ -323,7 +327,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 
 function make_hover(document, position, language_id, cancellation_token) {
     if (last_statusbar_doc != document) {
-        refresh_status_bar_buttons(document); // Being paranoid and making sure that the buttons are visible
+        refresh_status_bar_buttons(document); // Being paranoid and making sure that the buttons are visible.
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
     if (!config)
@@ -339,7 +343,7 @@ function make_hover(document, position, language_id, cancellation_token) {
             mds = new vscode.MarkdownString();
             mds.appendCodeblock(hover_text, 'rainbow hover markup');
         } catch (e) {
-            mds = hover_text; // Older VSCode versions may not have MarkdownString/appendCodeblock functionality
+            mds = hover_text; // Older VSCode versions may not have MarkdownString/appendCodeblock functionality.
         }
         return new vscode.Hover(mds);
     } else {
@@ -454,11 +458,11 @@ function align_columns(active_doc, delim, policy, column_sizes) {
         }
         let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let i = 0; i < fields.length - 1; i++) {
-            if (i >= column_sizes.length) // Safeguard against async doc edit
+            if (i >= column_sizes.length) // Safeguard against async doc edit.
                 break;
             let adjusted = fields[i].trim();
             let delta_len = column_sizes[i] - adjusted.length;
-            if (delta_len >= 0) { // Safeguard against async doc edit
+            if (delta_len >= 0) { // Safeguard against async doc edit.
                 adjusted += ' '.repeat(delta_len + 1);
             }
             if (fields[i] != adjusted) {
@@ -592,7 +596,7 @@ function refresh_status_bar_buttons(active_doc=null) {
         return;
     }
     if (file_path.endsWith('.git')) {
-        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons
+        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
     }
     hide_status_bar_buttons();
     var language_id = active_doc.languageId;
@@ -629,7 +633,7 @@ function csv_lint(active_doc, is_manual_op) {
     if (!config)
         return null;
     lint_results.set(lint_cache_key, 'Processing...');
-    refresh_status_bar_buttons(active_doc); // Visual feedback
+    refresh_status_bar_buttons(active_doc); // Visual feedback.
     let [delim, policy] = dialect_map[language_id];
     var lint_report = produce_lint_report(active_doc, delim, policy, config);
     lint_results.set(lint_cache_key, lint_report);
@@ -638,9 +642,9 @@ function csv_lint(active_doc, is_manual_op) {
 
 
 function csv_lint_cmd() {
-    // TODO re-run on each file save with content change
+    // TODO re-run on each file save with content change.
     csv_lint(null, true);
-    // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback
+    // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
     setTimeout(refresh_status_bar_buttons, 500);
 }
 
@@ -911,6 +915,10 @@ function restore_original_language() {
 
 
 function set_join_table_name() {
+    if (is_web_ext) {
+        show_single_line_error('This command is currently unavailable in web mode.');
+        return;
+    }
     var active_doc = get_active_doc();
     if (!active_doc)
         return;
@@ -1091,6 +1099,10 @@ function do_copy_back(query_result_doc, active_editor) {
 
 
 function copy_back() {
+    if (is_web_ext) {
+        show_single_line_error('This command is currently unavailable in web mode.');
+        return;
+    }
     let result_doc = get_active_doc();
     if (!result_doc)
         return;
@@ -1190,7 +1202,7 @@ function handle_rbql_client_message(webview, message) {
         } else if (navig_direction == 'begin') {
             rbql_context.requested_start_record = 0;
         } else if (navig_direction == 'end') {
-            rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is just max possible value which is incorrect and will be adjusted later
+            rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is just max possible value which is incorrect and will be adjusted later.
         }
         let protocol_message = {'msg_type': 'navigate'};
         sample_preview_records_from_context(rbql_context, protocol_message);
@@ -1278,6 +1290,10 @@ function adjust_webview_paths(paths_list, client_html) {
 
 
 function edit_rbql() {
+    if (is_web_ext) {
+        show_single_line_error('RBQL is currently unavailable in web mode.');
+        return;
+    }
     let active_window = vscode.window;
     if (!active_window)
         return;
@@ -1343,12 +1359,10 @@ function edit_rbql() {
         if (is_web_ext) {
             client_html_template = client_html_template_web;
             if (!client_html_template) {
-                show_single_line_error("Unable to run RBQL");
+                show_single_line_error("Unable to run RBQL, please open a bug ticket.");
                 return;
             }
         } else {
-            // We can also try to use this, but this is an async function
-            //client_html_template = vscode.workspace.fs.readFile(absolute_path_map['rbql_client.html']);
             client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
         }
     }
@@ -1417,7 +1431,7 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators) {
         return best_dialect;
     for (let i = 0; i < candidate_separators.length; i++) {
         if (candidate_separators[i] == ' ' || candidate_separators[i] == '.')
-            continue; // Whitespace and dot have advantage over other separators in this algorithm, so we just skip them
+            continue; // Whitespace and dot have advantage over other separators in this algorithm, so we just skip them.
         let dialect_id = map_separator_to_language_id(candidate_separators[i]);
         let frequency = 0;
         for (let j = 0; j < 10000 && j < data.length; j++) {
@@ -1528,6 +1542,10 @@ function quoted_join(fields, delim) {
 
 
 function make_preview(uri, preview_mode) {
+    if (is_web_ext) {
+        show_single_line_error('This command is currently unavailable in web mode.');
+        return;
+    }
     var file_path = uri.fsPath;
     if (!file_path || !fs.existsSync(file_path)) {
         vscode.window.showErrorMessage('Invalid file');
@@ -1562,7 +1580,7 @@ function make_preview(uri, preview_mode) {
             }
 
             const buffer_str = buffer.toString();
-            // TODO handle old mac '\r' line endings - still used by Mac version of Excel
+            // TODO handle old mac '\r' line endings - still used by Mac version of Excel.
             let content = null;
             if (preview_mode == 'head') {
                 content = buffer_str.substr(0, buffer_str.lastIndexOf(buffer_str.includes('\r\n') ? '\r\n' : '\n'));
@@ -1615,22 +1633,22 @@ function activate(context) {
         }
     }
 
-    var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
-    var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
-    var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
-    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names);
-    var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name);
+    var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd); // WEB_TESTED
+    var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql); // WEB_DISABLED
+    var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line); // WEB_TESTED
+    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names); // WEB_TESTED
+    var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator); // WEB_TESTED
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
-    var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head'));
-    var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail'));
-    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
-    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
-    var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back);
-    var test_mode_cmd = vscode.commands.registerCommand('rainbow-csv.SetIntegrationTestMode', read_integration_test_config);
+    var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head')); // WEB_DISABLED
+    var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail')); // WEB_DISABLED
+    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table); // WEB_TESTED
+    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table); // WEB_TESTED
+    var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
+    var test_mode_cmd = vscode.commands.registerCommand('rainbow-csv.SetIntegrationTestMode', read_integration_test_config); // WEB_DISABLED
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1656,8 +1674,8 @@ function activate(context) {
     context.subscriptions.push(test_mode_cmd);
 
     setTimeout(function() {
-        // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document
-        // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus
+        // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
+        // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
         var active_doc = get_active_doc();
         handle_doc_open(active_doc);
     }, 1000);
@@ -1668,7 +1686,7 @@ function activate(context) {
 
 
 function deactivate() {
-    // This method is called when extension is deactivated
+    // This method is called when extension is deactivated.
 }
 
 
