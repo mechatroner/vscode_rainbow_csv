@@ -11,8 +11,6 @@ let client_html_template_web = null;
 // TODO make the `is_web_ext` check more reliable and explicit.
 let is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
-// let webextension_dbg_output_channel = null;
-
 // See DEV_README.md for instructions
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -1614,8 +1612,6 @@ function activate(context) {
     global_state = context.globalState;
 
     if (is_web_ext) {
-        //webextension_dbg_output_channel = vscode.window.createOutputChannel("rainbow_csv_debug_channel");
-        //webextension_dbg_output_channel.appendLine('Starting the Rainbow extension!');
         let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html')
         vscode.workspace.fs.readFile(rbql_client_uri).then((bytes) => { 
             // Using TextDecoder because it should work fine in web extension.
