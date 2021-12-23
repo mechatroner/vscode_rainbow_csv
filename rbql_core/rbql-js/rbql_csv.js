@@ -117,10 +117,17 @@ function get_index_record(index_path, key) {
 }
 
 
-function find_table_path(table_id) {
+function find_table_path(main_table_dir, table_id) {
+    // If table_id is a relative path it could be relative either to the current directory or to the main table dir.
     var candidate_path = expanduser(table_id);
     if (fs.existsSync(candidate_path)) {
         return candidate_path;
+    }
+    if (main_table_dir && !path.isAbsolute(candidate_path)) {
+        candidate_path = path.join(main_table_dir, candidate_path);
+        if (fs.existsSync(candidate_path)) {
+            return candidate_path;
+        }
     }
     let table_names_settings_path = path.join(os.homedir(), '.rbql_table_names');
     var name_record = get_index_record(table_names_settings_path, table_id);
@@ -624,8 +631,9 @@ class CSVWriter extends rbql.RBQLOutputWriter {
 
 
 class FileSystemCSVRegistry extends rbql.RBQLTableRegistry {
-    constructor(delim, policy, encoding, has_header=false, comment_prefix=null, options=null) {
+    constructor(input_file_dir, delim, policy, encoding, has_header=false, comment_prefix=null, options=null) {
         super();
+        this.input_file_dir = input_file_dir;
         this.delim = delim;
         this.policy = policy;
         this.encoding = encoding;
@@ -640,7 +648,7 @@ class FileSystemCSVRegistry extends rbql.RBQLTableRegistry {
     }
 
     get_iterator_by_table_id(table_id) {
-        this.table_path = find_table_path(table_id);
+        this.table_path = find_table_path(this.input_file_dir, table_id);
         if (this.table_path === null) {
             throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
         }
@@ -683,8 +691,8 @@ async function query_csv(query_text, input_path, input_delim, input_policy, outp
     if (user_init_code == '' && fs.existsSync(default_init_source_path)) {
         user_init_code = read_user_init_code(default_init_source_path);
     }
-
-    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, with_headers, comment_prefix, options);
+    let input_file_dir = input_path ? path.dirname(input_path) : null;
+    let join_tables_registry = new FileSystemCSVRegistry(input_file_dir, input_delim, input_policy, csv_encoding, with_headers, comment_prefix, options);
     let input_iterator = new CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy, with_headers, comment_prefix);
     let output_writer = new CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
 

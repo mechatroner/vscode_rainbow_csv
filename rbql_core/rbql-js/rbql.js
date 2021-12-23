@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.20.0';
+const RBQL_VERSION = '0.21.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {

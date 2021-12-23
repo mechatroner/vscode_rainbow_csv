@@ -75,9 +75,7 @@ RBQL for CSV files provides the following variables which you can use in your qu
 
 ### UPDATE statement
 
-_UPDATE_ query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query. This prevents accidental data loss from poorly written queries.  
-_UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.  
-
+_UPDATE_ query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query.
 
 ### Aggregate functions and queries
 
@@ -94,8 +92,8 @@ There is a workaround for the limitation above for _ARRAY_AGG_ function which su
 
 Join table B can be referenced either by its file path or by its name - an arbitrary string which the user should provide before executing the JOIN query.  
 RBQL supports _STRICT LEFT JOIN_ which is like _LEFT JOIN_, but generates an error if any key in the left table "A" doesn't have exactly one matching key in the right table "B".  
+Table B path can be either relative to the working dir, relative to the main table or absolute.  
 Limitation: _JOIN_ statements can't contain Python/JS expressions and must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON a... == b... [AND a... == b... [AND ... ]]_
-
 
 ### SELECT EXCEPT statement
 

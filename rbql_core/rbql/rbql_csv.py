@@ -129,10 +129,15 @@ def get_index_record(index_path, key):
     return None
 
 
-def find_table_path(table_id):
+def find_table_path(main_table_dir, table_id):
+    # If table_id is a relative path it could be relative either to the current directory or to the main table dir.
     candidate_path = os.path.expanduser(table_id)
     if os.path.exists(candidate_path):
         return candidate_path
+    if main_table_dir and not os.path.isabs(candidate_path):
+        candidate_path = os.path.join(main_table_dir, candidate_path)
+        if os.path.exists(candidate_path):
+            return candidate_path
     name_record = get_index_record(table_names_settings_path, table_id)
     if name_record is not None and len(name_record) > 1 and os.path.exists(name_record[1]):
         return name_record[1]
@@ -514,7 +519,8 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
 
 
 class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
-    def __init__(self, delim, policy, encoding, has_header, comment_prefix):
+    def __init__(self, input_file_dir, delim, policy, encoding, has_header, comment_prefix):
+        self.input_file_dir = input_file_dir
         self.delim = delim
         self.policy = policy
         self.encoding = encoding
@@ -525,7 +531,7 @@ class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
         self.table_path = None
 
     def get_iterator_by_table_id(self, table_id):
-        self.table_path = find_table_path(table_id)
+        self.table_path = find_table_path(self.input_file_dir, table_id)
         if self.table_path is None:
             raise rbql_engine.RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
         self.input_stream = open(self.table_path, 'rb')
@@ -566,7 +572,8 @@ def query_csv(query_text, input_path, input_delim, input_policy, output_path, ou
         if user_init_code == '' and os.path.exists(default_init_source_path):
             user_init_code = read_user_init_code(default_init_source_path)
 
-        join_tables_registry = FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, with_headers, comment_prefix)
+        input_file_dir = None if not input_path else os.path.dirname(input_path)
+        join_tables_registry = FileSystemCSVRegistry(input_file_dir, input_delim, input_policy, csv_encoding, with_headers, comment_prefix)
         input_iterator = CSVRecordIterator(input_stream, csv_encoding, input_delim, input_policy, with_headers, comment_prefix=comment_prefix)
         output_writer = CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy, colorize_output=colorize_output)
         if debug_mode:
