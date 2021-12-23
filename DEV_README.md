@@ -8,6 +8,9 @@ Running integration tests from windows cmd terminal. Example command:
 code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --extensionTestsPath="C:\wsl_share\vscode_rainbow_csv\test"
 You can also run this command from wsl terminal!
 
+It is also possible to use test/run_tests.sh script:
+`./run_tests.sh "C:\wsl_share\vscode_rainbow_csv" "C:\wsl_share\vscode_rainbow_csv\test"`
+
 
 ### Debugging the extension:
 1. Open rainbow_csv directory in VSCode  

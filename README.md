@@ -7,6 +7,7 @@
 * Automatic consistency check for csv files (CSVLint)
 * Multi-cursor column edit
 * Align columns with spaces and Shrink (trim spaces from fields)
+* Works in browser (vscode.dev) with limited functionality
 
 ![screenshot](https://i.imgur.com/6eJqeUN.png)
 

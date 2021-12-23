@@ -959,6 +959,12 @@ function edit_column_names() {
 
 
 function column_edit(edit_mode) {
+    if (is_web_ext) {
+        // This function creates multiple cursors in web mode as expected (except the very first one?!), but they are inactive for some reason. 
+        // TODO investigate and fix this.
+        show_single_line_error('This command is currently unavailable in web mode.');
+        return;
+    }
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -1638,11 +1644,11 @@ function activate(context) {
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line); // WEB_TESTED
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names); // WEB_TESTED
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
-    var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); });
-    var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); });
-    var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); });
+    var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); }); // WEB_DISABLED
+    var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); }); // WEB_DISABLED
+    var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); }); // WEB_DISABLED
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator); // WEB_TESTED
-    var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
+    var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language); //WEB_TESTED
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head')); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail')); // WEB_DISABLED
     var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table); // WEB_TESTED
