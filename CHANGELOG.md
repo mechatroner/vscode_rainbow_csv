@@ -2,6 +2,7 @@
 
 ## 2.0.0
 * Enable web/browser version for vscode.dev
+* RBQL: improve join table path handling.
 
 ## 1.10.0
 * RBQL update: improved console UI.
