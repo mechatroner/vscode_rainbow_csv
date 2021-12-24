@@ -25,6 +25,16 @@ It is also possible to use test/run_tests.sh script:
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
 
 
+### Running the browser version for vscode.dev
+The npx command `npx serve --cors -l 5000` failed in WSL with `cb.apply is not a function` error.
+The same command worked as expected from Windows cmd.
+Steps:
+1. Run `npx serve --cors -l 5000` - this may not work in WSL, in this case run in windows cmd. This local server uses `http` instead of `https` and because of that VSCode will not work with it directly, although the docs say otherwise (https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev) - it will just produce some cors/wss content security policy related errors in the log. So you need to do step 2.
+2. In another cmd tab run another commmand: `npx localtunnel -p 5000` - this will create a "tunnel" server pointing to the server from the first command - this will produce a link like `https://rotten-snake-42.loca.lt/`
+3. Follow the `https://rotten-snake-42.loca.lt/` link and press the button - this will show the content of your extension folder - https server is working.
+4. Go to vscode.dev -> Ctrl+Shift+P -> run Developer: Install Web Extension... -> Copy the `https://rotten-snake-42.loca.lt/` link. In my experience this will work only with https urls. If you use http, the extension will be sort of "installed" - it will be listed in the installed extension pannel but the main extension.js won't be loaded so all the logic will be missing from it.
+
+
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
