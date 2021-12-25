@@ -35,6 +35,11 @@ Steps:
 4. Go to vscode.dev -> Ctrl+Shift+P -> run Developer: Install Web Extension... -> Copy the `https://rotten-snake-42.loca.lt/` link. In my experience this will work only with https urls. If you use http, the extension will be sort of "installed" - it will be listed in the installed extension pannel but the main extension.js won't be loaded so all the logic will be missing from it.
 
 
+### Publishing
+1. Make sure you have webpack installed: run `npm install --only=dev`
+2. Run vsce publish as usual. vsce will also automatically run `vscode:prepublish` / `npm run package-web` command.
+
+
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
