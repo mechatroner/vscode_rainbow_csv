@@ -66,11 +66,11 @@ class RBQLContext {
     }
 }
 
-var query_context = null; // Needs to be global for MIN(), MAX(), etc functions
+var query_context = null; // Needs to be global for MIN(), MAX(), etc functions. TODO find a way to make it local.
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.21.0';
+const RBQL_VERSION = '0.25.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -575,10 +575,10 @@ class TopWriter {
         this.top_count = top_count;
     }
 
-    write(record) {
+    async write(record) {
         if (this.top_count !== null && this.NW >= this.top_count)
             return false;
-        this.subwriter.write(record);
+        await this.subwriter.write(record);
         this.NW += 1;
         return true;
     }
@@ -595,10 +595,10 @@ class UniqWriter {
         this.seen = new Set();
     }
 
-    write(record) {
+    async write(record) {
         if (!add_to_set(this.seen, JSON.stringify(record)))
             return true;
-        if (!this.subwriter.write(record))
+        if (!await this.subwriter.write(record))
             return false;
         return true;
     }
@@ -615,7 +615,7 @@ class UniqCountWriter {
         this.records = new Map();
     }
 
-    write(record) {
+    async write(record) {
         var key = JSON.stringify(record);
         var old_val = this.records.get(key);
         if (old_val) {
@@ -630,7 +630,7 @@ class UniqCountWriter {
         for (var [key, value] of this.records) {
             let [count, record] = value;
             record.unshift(count);
-            if (!this.subwriter.write(record))
+            if (!await this.subwriter.write(record))
                 break;
         }
         await this.subwriter.finish();
@@ -645,7 +645,7 @@ class SortedWriter {
         this.unsorted_entries = [];
     }
 
-    write(stable_entry) {
+    async write(stable_entry) {
         this.unsorted_entries.push(stable_entry);
         return true;
     }
@@ -657,7 +657,7 @@ class SortedWriter {
             unsorted_entries.reverse();
         for (var i = 0; i < unsorted_entries.length; i++) {
             var entry = unsorted_entries[i];
-            if (!this.subwriter.write(entry[entry.length - 1]))
+            if (!await this.subwriter.write(entry[entry.length - 1]))
                 break;
         }
         await this.subwriter.finish();
@@ -681,7 +681,7 @@ class AggregateWriter {
             for (var ag of this.aggregators) {
                 out_fields.push(ag.get_final(key));
             }
-            if (!this.subwriter.write(out_fields))
+            if (!await this.subwriter.write(out_fields))
                 break;
         }
         await this.subwriter.finish();
@@ -741,13 +741,13 @@ function select_except(src, except_fields) {
 }
 
 
-function select_simple(sort_key, NR, out_fields) {
+async function select_simple(sort_key, NR, out_fields) {
     if (query_context.sort_key_expression !== null) {
         var sort_entry = sort_key.concat([NR, out_fields]);
-        if (!query_context.writer.write(sort_entry))
+        if (!await query_context.writer.write(sort_entry))
             return false;
     } else {
-        if (!query_context.writer.write(out_fields))
+        if (!await query_context.writer.write(out_fields))
             return false;
     }
     return true;
@@ -789,12 +789,12 @@ function select_aggregated(key, transparent_values) {
 }
 
 
-function select_unnested(sort_key, NR, folded_fields) {
+async function select_unnested(sort_key, NR, folded_fields) {
     let out_fields = folded_fields.slice();
     let unnest_pos = folded_fields.findIndex(val => val instanceof UnnestMarker);
     for (var i = 0; i < query_context.unnest_list.length; i++) {
         out_fields[unnest_pos] = query_context.unnest_list[i];
-        if (!select_simple(sort_key, NR, out_fields.slice()))
+        if (!await select_simple(sort_key, NR, out_fields.slice()))
             return false;
     }
     return true;
@@ -811,10 +811,10 @@ if (__RBQLMP__where_expression) {
     } else {
         let sort_key = [__RBQLMP__sort_key_expression];
         if (query_context.unnest_list !== null) {
-            if (!select_unnested(sort_key, NR, out_fields))
+            if (!await select_unnested(sort_key, NR, out_fields))
                 stop_flag = true;
         } else {
-            if (!select_simple(sort_key, NR, out_fields))
+            if (!await select_simple(sort_key, NR, out_fields))
                 stop_flag = true;
         }
     }
@@ -855,7 +855,7 @@ if (join_matches.length == 1 && (__RBQLMP__where_expression)) {
     NU += 1;
     __RBQLMP__update_expressions
 }
-if (!query_context.writer.write(up_fields))
+if (!await query_context.writer.write(up_fields))
     stop_flag = true;
 `;
 
@@ -867,7 +867,7 @@ if (__RBQLMP__where_expression) {
     NU += 1;
     __RBQLMP__update_expressions
 }
-if (!query_context.writer.write(up_fields))
+if (!await query_context.writer.write(up_fields))
     stop_flag = true;
 `;
 
@@ -972,7 +972,7 @@ async function compile_and_run(query_context) {
             if (lower_case_query.indexOf(' like ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... "); // UT JSON
             if (lower_case_query.indexOf(' from ') != -1)
-                throw new SyntaxError(e.message + "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM"); // UT JSON
+                throw new SyntaxError(e.message + "\nTip: If input table is defined by the environment, RBQL query should not have \"FROM\" keyword"); // UT JSON
             if (e && e.message && String(e.message).toLowerCase().indexOf('unexpected identifier') != -1) {
                 if (lower_case_query.indexOf(' and ') != -1)
                     throw new SyntaxError(e.message + "\nDid you use 'and' keyword in your query?\nJavaScript backend doesn't support 'and' keyword, use '&&' operator instead!");
@@ -1559,7 +1559,7 @@ class HashJoinMap {
 
 
 function cleanup_query(query_text) {
-    return query_text.split('\n').map(strip_comments).filter(line => line.length).join(' ');
+    return query_text.split('\n').map(strip_comments).filter(line => line.length).join(' ').replace(/;+$/g, '');
 }
 
 
@@ -1652,7 +1652,7 @@ class RBQLInputIterator {
 class RBQLOutputWriter {
     constructor(){}
 
-    write(fields) {
+    async write(fields) {
         throw new Error("Unable to call the interface method");
     }
 
@@ -1751,7 +1751,7 @@ class TableWriter extends RBQLOutputWriter {
         this.header = null;
     }
 
-    write(fields) {
+    async write(fields) {
         this.table.push(fields);
         return true;
     };

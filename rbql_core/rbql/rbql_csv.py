@@ -13,24 +13,12 @@ from . import csv_utils
 
 
 PY3 = sys.version_info[0] == 3
-
-default_csv_encoding = 'utf-8'
-
-user_home_dir = os.path.expanduser('~')
-table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
-
-
-# TODO performance improvement: replace smart_split() with polymorphic_split()
-
-
 polymorphic_xrange = range if PY3 else xrange
 
-
-debug_mode = False
-
-
+default_csv_encoding = 'utf-8'
 ansi_reset_color_code = '\u001b[0m'
 
+debug_mode = False
 
 try:
     broken_pipe_exception = BrokenPipeError
@@ -138,6 +126,8 @@ def find_table_path(main_table_dir, table_id):
         candidate_path = os.path.join(main_table_dir, candidate_path)
         if os.path.exists(candidate_path):
             return candidate_path
+    user_home_dir = os.path.expanduser('~')
+    table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
     name_record = get_index_record(table_names_settings_path, table_id)
     if name_record is not None and len(name_record) > 1 and os.path.exists(name_record[1]):
         return name_record[1]
@@ -530,12 +520,12 @@ class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
         self.comment_prefix = comment_prefix
         self.table_path = None
 
-    def get_iterator_by_table_id(self, table_id):
+    def get_iterator_by_table_id(self, table_id, single_char_alias):
         self.table_path = find_table_path(self.input_file_dir, table_id)
         if self.table_path is None:
             raise rbql_engine.RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
         self.input_stream = open(self.table_path, 'rb')
-        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.has_header, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix='b')
+        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.has_header, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix=single_char_alias)
         return self.record_iterator
 
     def finish(self):

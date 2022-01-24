@@ -73,8 +73,8 @@ class SqliteDbRegistry(rbql_engine.RBQLTableRegistry):
     def __init__(self, db_connection):
         self.db_connection = db_connection
 
-    def get_iterator_by_table_id(self, table_id):
-        self.record_iterator = SqliteRecordIterator(self.db_connection, table_id, 'b')
+    def get_iterator_by_table_id(self, table_id, single_char_alias):
+        self.record_iterator = SqliteRecordIterator(self.db_connection, table_id, single_char_alias)
         return self.record_iterator
 
 

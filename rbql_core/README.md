@@ -2,7 +2,7 @@
 
 RBQL is an eval-based SQL-like query engine for (not only) CSV file processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  
 RBQL is best suited for data transformation, data cleaning, and analytical queries.  
-RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries.  
+RBQL is distributed with CLI apps, text editor plugins, IPython/Jupyter magic command, Python and JS libraries.  
 
 [Official Site](https://rbql.org/)
 
@@ -13,8 +13,9 @@ Matrix of data formats that RBQL supports out of the box. R=Read, W=Write
 |Data Format            | Python   | JS      |
 |-----------------------|----------|---------|
 |CSV, TSV, etc          | **RW**   | **RW**  |
-|Sqlite databases       | **R**    |         |
 |Native 2D arrays/lists | **RW**   | **RW**  |
+|Pandas dataframe       | **RW**   |         |
+|Sqlite databases       | **R**    |         |
 
 If you use RBQL as a library you can write implementation for a couple of classes to support additional formats.  
 
@@ -23,7 +24,7 @@ If you use RBQL as a library you can write implementation for a couple of classe
 * Use Python or JavaScript expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
 * Supports multiple input formats
 * Result set of any query immediately becomes a first-class table on its own
-* No need to provide FROM statement in the query - input table is defined by the current context
+* No need to provide FROM statement in the query when the input table is defined by the current context.
 * Supports all main SQL keywords
 * Supports aggregate functions and GROUP BY queries
 * Supports user-defined functions (UDF)
@@ -173,7 +174,7 @@ The diagram below gives an overview of the main RBQL components and data flow:
 * Supports input tables with inconsistent number of fields per record
 * Allows to generate result sets with variable number of fields per record e.g. by using split() function and unpack operator (Python) / destructuring assignment (JS)
 * UPDATE is a special case of SELECT query - this prevents accidental data loss
-* No need to use FROM statement - the table name is defined by the context. This improves query typing speed and allows immediate autocomplete for variables inside SELECT statement (in traditional SQL engines autocomplete will not work until you write FROM statement, which goes after SELECT statement)
+* No need to use FROM statement when the table name is defined by the context. This improves query typing speed and allows immediate autocomplete for variables inside SELECT statement (in traditional SQL engines autocomplete will not work until you write FROM statement, which goes after SELECT statement)
 * SELECT, WHERE, ORDER BY, and other statements can be rearranged in any way you like
 * Supports EXCEPT statement
 * Provides a fully-functional client-side browser demo application
@@ -192,5 +193,6 @@ The diagram below gives an overview of the main RBQL components and data flow:
 
 * [RBQL: Official Site](https://rbql.org/)
 * RBQL is integrated with Rainbow CSV extensions in [Vim](https://github.com/mechatroner/rainbow_csv), [VSCode](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv), [Sublime Text](https://packagecontrol.io/packages/rainbow_csv) and [Atom](https://atom.io/packages/rainbow-csv) editors.
+* [Demo Google Colab notebook](https://colab.research.google.com/drive/1_cFPtnQUxILP0RE2_DBlqIfXaEzT-oZ6?usp=sharing)
 * [RBQL in npm](https://www.npmjs.com/package/rbql): `$ npm install -g rbql`
-* [RBQL in PyPI](https://pypi.org/project/rbql/): `$ pip install rbql`
+* [RBQL in PyPI](https://pypi.org/project/rbql/): `$ pip install rbql` - the module also provides `%rbql` magic command for IPython/Jupyter.

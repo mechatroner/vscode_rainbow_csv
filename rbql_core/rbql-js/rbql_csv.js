@@ -213,8 +213,11 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         this.partially_decoded_line = '';
         this.partially_decoded_line_ends_with_cr = false;
 
+        // Holds an external "resolve" function which is called when everything is fine.
         this.resolve_current_record = null;
+        // Holds an external "reject" function which is called when error has occured.
         this.reject_current_record = null;
+        // Holds last exception if we don't have any reject callbacks from clients yet.
         this.current_exception = null;
 
         this.produced_records_queue = new RecordQueue();
@@ -236,17 +239,30 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
     }
 
 
-    handle_exception(exception) {
-        if (this.reject_current_record) {
-            let reject = this.reject_current_record;
-            this.reject_current_record = null;
-            this.resolve_current_record = null;
-            reject(exception);
-        } else {
-            this.current_exception = exception;
-        }
-
+    reset_external_callbacks() {
+        // Drop external callbacks simultaneously since promises can only resolve once, see: https://stackoverflow.com/a/18218542/2898283
+        this.reject_current_record = null;
+        this.resolve_current_record = null;
     }
+
+    try_propagate_exception() {
+        if (this.current_exception && this.reject_current_record) {
+            let reject = this.reject_current_record;
+            let exception = this.current_exception;
+            this.reset_external_callbacks();
+            this.current_exception = null;
+            reject(exception);
+        }
+    }
+
+
+    store_or_propagate_exception(exception) {
+        if (this.current_exception === null)
+            // Ignore subsequent exceptions if we already have an unreported error. This way we prioritize earlier errors over the more recent ones.
+            this.current_exception = exception;
+        this.try_propagate_exception();
+    }
+
 
     async preread_first_record() {
         if (this.header_preread_complete)
@@ -282,6 +298,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
 
 
     try_resolve_next_record() {
+        this.try_propagate_exception();
         if (this.resolve_current_record === null)
             return;
 
@@ -296,8 +313,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         if (record === null && !this.input_exhausted)
             return;
         let resolve = this.resolve_current_record;
-        this.resolve_current_record = null;
-        this.reject_current_record = null;
+        this.reset_external_callbacks();
         resolve(record);
     };
 
@@ -313,9 +329,6 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             parent_iterator.resolve_current_record = resolve;
             parent_iterator.reject_current_record = reject;
         });
-        if (this.current_exception) {
-            this.reject_current_record(this.current_exception);
-        }
         this.try_resolve_next_record();
         return current_record_promise;
     };
@@ -346,7 +359,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             if (this.first_defective_line === null) {
                 this.first_defective_line = this.NL;
                 if (this.policy == 'quoted_rfc')
-                    this.handle_exception(new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}, line ${this.NL}`));
+                    this.store_or_propagate_exception(new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}, line ${this.NL}`));
             }
         }
         let num_fields = record.length;
@@ -397,9 +410,9 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
                 decoded_string = this.decoder.decode(data_chunk);
             } catch (e) {
                 if (e instanceof TypeError) {
-                    this.handle_exception(new RbqlIOHandlingError(utf_decoding_error));
+                    this.store_or_propagate_exception(new RbqlIOHandlingError(utf_decoding_error));
                 } else {
-                    this.handle_exception(e);
+                    this.store_or_propagate_exception(e);
                 }
                 return;
             }
@@ -426,7 +439,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             // TODO get rid of this once TextDecoder is really fixed or when alternative method of reliable decoding appears
             let control_buffer = Buffer.from(decoded_string, 'utf-8');
             if (Buffer.compare(data_chunk, control_buffer) != 0) {
-                this.handle_exception(new RbqlIOHandlingError(utf_decoding_error));
+                this.store_or_propagate_exception(new RbqlIOHandlingError(utf_decoding_error));
                 return;
             }
         }
@@ -507,6 +520,7 @@ class CSVWriter extends rbql.RBQLOutputWriter {
         this.encoding = encoding;
         if (encoding)
             this.stream.setDefaultEncoding(encoding);
+        this.stream.on('error', (error_obj) => { this.store_first_error(error_obj); })
         this.delim = delim;
         this.policy = policy;
         this.line_separator = line_separator;
@@ -517,6 +531,7 @@ class CSVWriter extends rbql.RBQLOutputWriter {
         this.null_in_output = false;
         this.delim_in_simple_output = false;
         this.header_len = null;
+        this.first_error = null;
 
         if (policy == 'simple') {
             this.polymorphic_join = this.simple_join;
@@ -533,6 +548,12 @@ class CSVWriter extends rbql.RBQLOutputWriter {
         }
     }
 
+
+    store_first_error(error_obj) {
+        // Store only first error because it is typically more important than the subsequent ones.
+        if (this.first_error === null)
+            this.first_error = error_obj;
+    }
 
     set_header(header) {
         if (header !== null) {
@@ -586,13 +607,20 @@ class CSVWriter extends rbql.RBQLOutputWriter {
     };
 
 
-    write(fields) {
+    async write(fields) {
         if (this.header_len !== null && fields.length != this.header_len)
             throw new RbqlIOHandlingError(`Inconsistent number of columns in output header and the current record: ${this.header_len} != ${fields.length}`);
         this.normalize_fields(fields);
         this.stream.write(this.polymorphic_join(fields));
         this.stream.write(this.line_separator);
-        return true;
+        let writer_error = this.first_error;
+        return new Promise(function(resolve, reject) {
+            if (writer_error !== null) {
+                reject(writer_error);
+            } else {
+                resolve(true);
+            }
+        });
     };
 
 
@@ -607,7 +635,11 @@ class CSVWriter extends rbql.RBQLOutputWriter {
         let close_stream_on_finish = this.close_stream_on_finish;
         let output_stream = this.stream;
         let output_encoding = this.encoding;
+        let writer_error = this.first_error;
         let finish_promise = new Promise(function(resolve, reject) {
+            if (writer_error !== null) {
+                reject(writer_error);
+            }
             if (close_stream_on_finish) {
                 output_stream.end('', output_encoding, () => { resolve(); });
             } else {

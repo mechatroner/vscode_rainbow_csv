@@ -4,56 +4,24 @@ from __future__ import print_function
 
 import sys
 import re
-import random
-import time
 import ast
 from collections import OrderedDict, defaultdict, namedtuple
 
-import datetime # For date operations inside user queries
-import os # For system operations inside user queries
-import math # For math operations inside user queries
+import random # For usage inside user queries only.
+import datetime # For usage inside user queries only.
+import os # For usage inside user queries only.
+import math # For usage inside user queries only.
+import time # For usage inside user queries only.
 
 from ._version import __version__
 
-
-# This module must be both python2 and python3 compatible
-
-
+# This module must be both python2 and python3 compatible.
 # This module works with records only. It is CSV-agnostic.
-# Do not add CSV-related logic or variables/functions/objects like "delim", "separator" etc
+# Do not add CSV-related logic or variables/functions/objects like "delim", "separator" etc.
+# See DEV_README.md for additional info.
 
-
-# UT JSON - means json Unit Test exists for this case
-# UT JSON CSV - means json csv Unit Test exists for this case
-
-
-# TODO we can do good-enough header autodetection in CSV files to show warnings when we have a high degree of confidence that the file has header but user didn't skip it and vise versa
-
-# TODO catch exceptions in user expression to report the exact place where it occured: "SELECT" expression, "WHERE" expression, etc
-
-# TODO consider supporting explicit column names variables like "host" or "name" or "surname" - just parse all variable-looking sequences from the query and match them against available column names from the header, but skip all symbol defined in rbql_engine.py/rbql.js, user init code and python/js builtin keywords (show warning on intersection)
-
-# TODO optimize performance: optional compilation depending on python2/python3
-
-# TODO gracefuly handle unknown encoding: generate RbqlIOHandlingError
-
-# TODO show warning when csv fields contain trailing spaces, at least in join mode
-
-# TODO support custom (virtual) headers for CSV version
-
-# TODO allow to use NL in RBQL queries for CSV version
-
-# TODO add "inconsistent number of fields in output table" warning. Useful for queries like this: `*a1.split("|")` or `...a1.split("|")`, where num of fields in a1 is variable
-
-# TODO add RBQL iterators for json lines ( https://jsonlines.org/ ) and xml-by-line files
-# TODO add RBQL file-system iterator to be able to query files like fselect does
-
-# TODO use ast module to improve parsing of parse_attribute_variables / parse_dictionary_variables, like it was done for select parsing
-
-# TODO support 'AS' keyword
-
-# TODO Consider disabling a1, a2 etc variables when header is enabled. This is to make sure that the user knows what query mode they are in.
-
+# UT JSON - means json Unit Test exists for this case.
+# UT JSON CSV - means json csv Unit Test exists for this case.
 
 GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
@@ -68,9 +36,18 @@ WHERE = 'WHERE'
 LIMIT = 'LIMIT'
 EXCEPT = 'EXCEPT'
 WITH = 'WITH'
+FROM = 'FROM'
+
+default_statement_groups = [[STRICT_LEFT_JOIN, LEFT_OUTER_JOIN, LEFT_JOIN, INNER_JOIN, JOIN], [SELECT], [ORDER_BY], [WHERE], [UPDATE], [GROUP_BY], [LIMIT], [EXCEPT], [FROM]]
 
 ambiguous_error_msg = 'Ambiguous variable name: "{}" is present both in input and in join tables'
 invalid_keyword_in_aggregate_query_error_msg = '"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries'
+wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside Python expressions is not allowed, see the docs'
+numeric_conversion_error = 'Unable to convert value "{}" to int or float. MIN, MAX, SUM, AVG, MEDIAN and VARIANCE aggregate functions convert their string arguments to numeric values'
+
+PY3 = sys.version_info[0] == 3
+
+RBQL_VERSION = __version__
 
 debug_mode = False
 
@@ -125,19 +102,6 @@ class RBQLContext:
         self.update_expressions = None
 
         self.variables_init_code = None
-
-
-query_context = None # Needs to be global for MIN(), MAX(), etc functions
-
-
-RBQL_VERSION = __version__
-
-
-wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside Python expressions is not allowed, see the docs'
-numeric_conversion_error = 'Unable to convert value "{}" to int or float. MIN, MAX, SUM, AVG, MEDIAN and VARIANCE aggregate functions convert their string arguments to numeric values'
-
-
-PY3 = sys.version_info[0] == 3
 
 
 def is_str6(val):
@@ -286,15 +250,6 @@ def like_to_regex(pattern):
     return '^' + converted + '$'
 
 
-def like(text, pattern):
-    matcher = query_context.like_regex_cache.get(pattern, None)
-    if matcher is None:
-        matcher = re.compile(like_to_regex(pattern))
-        query_context.like_regex_cache[pattern] = matcher
-    return matcher.match(text) is not None
-LIKE = like
-
-
 class RBQLAggregationToken(object):
     def __init__(self, marker_id, value):
         self.marker_id = marker_id
@@ -302,20 +257,6 @@ class RBQLAggregationToken(object):
 
     def __str__(self):
         raise TypeError('RBQLAggregationToken')
-
-
-class UNNEST:
-    def __init__(self, vals):
-        if query_context.unnest_list is not None:
-            # Technically we can support multiple UNNEST's but the implementation/algorithm is more complex and just doesn't worth it
-            raise RbqlParsingError('Only one UNNEST is allowed per query') # UT JSON
-        query_context.unnest_list = vals
-
-    def __str__(self):
-        raise TypeError('UNNEST')
-
-unnest = UNNEST
-Unnest = UNNEST
 
 
 class NumHandler:
@@ -353,7 +294,7 @@ class MinAggregator:
         if cur_aggr is None:
             self.stats[key] = val
         else:
-            self.stats[key] = builtin_min(cur_aggr, val)
+            self.stats[key] = min(cur_aggr, val)
 
     def get_final(self, key):
         return self.stats[key]
@@ -370,7 +311,7 @@ class MaxAggregator:
         if cur_aggr is None:
             self.stats[key] = val
         else:
-            self.stats[key] = builtin_max(cur_aggr, val)
+            self.stats[key] = max(cur_aggr, val)
 
     def get_final(self, key):
         return self.stats[key]
@@ -490,120 +431,6 @@ class ConstGroupVerifier:
         return self.const_values[key]
 
 
-def init_aggregator(generator_name, val, post_proc=None):
-    query_context.aggregation_stage = 1
-    res = RBQLAggregationToken(len(query_context.functional_aggregators), val)
-    if post_proc is not None:
-        query_context.functional_aggregators.append(generator_name(post_proc))
-    else:
-        query_context.functional_aggregators.append(generator_name())
-    return res
-
-
-def MIN(val):
-    return init_aggregator(MinAggregator, val) if query_context.aggregation_stage < 2 else val
-
-Min = MIN
-
-
-def MAX(val):
-    return init_aggregator(MaxAggregator, val) if query_context.aggregation_stage < 2 else val
-
-Max = MAX
-
-
-def COUNT(_val):
-    return init_aggregator(CountAggregator, 1) if query_context.aggregation_stage < 2 else 1
-
-count = COUNT
-Count = COUNT
-
-
-def SUM(val):
-    return init_aggregator(SumAggregator, val) if query_context.aggregation_stage < 2 else val
-
-Sum = SUM
-
-
-def AVG(val):
-    return init_aggregator(AvgAggregator, val) if query_context.aggregation_stage < 2 else val
-
-avg = AVG
-Avg = AVG
-
-
-def VARIANCE(val):
-    return init_aggregator(VarianceAggregator, val) if query_context.aggregation_stage < 2 else val
-
-variance = VARIANCE
-Variance = VARIANCE
-
-
-def MEDIAN(val):
-    return init_aggregator(MedianAggregator, val) if query_context.aggregation_stage < 2 else val
-
-median = MEDIAN
-Median = MEDIAN
-
-
-def ARRAY_AGG(val, post_proc=None):
-    # TODO consider passing array to output writer
-    return init_aggregator(ArrayAggAggregator, val, post_proc) if query_context.aggregation_stage < 2 else val
-
-array_agg = ARRAY_AGG
-
-
-# Redefining builtin max, min and sum
-builtin_max = max
-builtin_min = min
-builtin_sum = sum
-
-
-def max(*args, **kwargs):
-    single_arg = len(args) == 1 and not kwargs
-    if single_arg:
-        if PY3 and isinstance(args[0], str):
-            return MAX(args[0])
-        if not PY3 and isinstance(args[0], basestring):
-            return MAX(args[0])
-        if isinstance(args[0], int) or isinstance(args[0], float):
-            return MAX(args[0])
-    try:
-        return builtin_max(*args, **kwargs)
-    except TypeError:
-        if single_arg:
-            return MAX(args[0])
-        raise
-
-
-def min(*args, **kwargs):
-    single_arg = len(args) == 1 and not kwargs
-    if single_arg:
-        if PY3 and isinstance(args[0], str):
-            return MIN(args[0])
-        if not PY3 and isinstance(args[0], basestring):
-            return MIN(args[0])
-        if isinstance(args[0], int) or isinstance(args[0], float):
-            return MIN(args[0])
-    try:
-        return builtin_min(*args, **kwargs)
-    except TypeError:
-        if single_arg:
-            return MIN(args[0])
-        raise
-
-
-def sum(*args):
-    try:
-        return builtin_sum(*args)
-    except TypeError:
-        if len(args) == 1:
-            return SUM(args[0])
-        raise
-
-
-
-
 def add_to_set(dst_set, value):
     len_before = len(dst_set)
     dst_set.add(value)
@@ -611,12 +438,13 @@ def add_to_set(dst_set, value):
 
 
 class TopWriter(object):
-    def __init__(self, subwriter):
+    def __init__(self, subwriter, top_count):
         self.subwriter = subwriter
         self.NW = 0
+        self.top_count = top_count
 
     def write(self, record):
-        if query_context.top_count is not None and self.NW >= query_context.top_count:
+        if self.NW >= self.top_count:
             return False
         success = self.subwriter.write(record)
         if success:
@@ -740,7 +568,7 @@ def select_except(src, except_fields):
     return result
 
 
-def select_simple(sort_key, out_fields):
+def select_simple(query_context, sort_key, out_fields):
     if query_context.sort_key_expression is not None:
         if not query_context.writer.write(sort_key, out_fields):
             return False
@@ -750,7 +578,7 @@ def select_simple(sort_key, out_fields):
     return True
 
 
-def select_aggregated(key, transparent_values):
+def select_aggregated(query_context, key, transparent_values):
     if query_context.aggregation_stage == 1:
         if type(query_context.writer) is SortedWriter or type(query_context.writer) is UniqWriter or type(query_context.writer) is UniqCountWriter:
             raise RbqlParsingError(invalid_keyword_in_aggregate_query_error_msg) # UT JSON
@@ -773,35 +601,20 @@ def select_aggregated(key, transparent_values):
     query_context.writer.aggregation_keys.add(key)
 
 
-def select_unnested(sort_key, folded_fields):
-    unnest_pos = None
-    for i, trans_value in enumerate(folded_fields):
-        if isinstance(trans_value, UNNEST):
-            unnest_pos = i
-            break
-    assert unnest_pos is not None
-    for v in query_context.unnest_list:
-        out_fields = folded_fields[:]
-        out_fields[unnest_pos] = v
-        if not select_simple(sort_key, out_fields):
-            return False
-    return True
-
-
 PROCESS_SELECT_COMMON = '''
 __RBQLMP__variables_init_code
 if __RBQLMP__where_expression:
     out_fields = __RBQLMP__select_expression
     if query_context.aggregation_stage > 0:
         key = __RBQLMP__aggregation_key_expression
-        select_aggregated(key, out_fields)
+        select_aggregated(query_context, key, out_fields)
     else:
         sort_key = __RBQLMP__sort_key_expression
         if query_context.unnest_list is not None:
             if not select_unnested(sort_key, out_fields):
                 stop_flag = True
         else:
-            if not select_simple(sort_key, out_fields):
+            if not select_simple(query_context, sort_key, out_fields):
                 stop_flag = True
 '''
 
@@ -851,14 +664,36 @@ if not query_context.writer.write(up_fields):
     stop_flag = True
 '''
 
-# We need dummy_wrapper_for_exec function in MAIN_LOOP_BODY because otherwise "import" statements won't work as expected, see: https://github.com/mechatroner/sublime_rainbow_csv/issues/22
+# We need dummy_wrapper_for_exec function because otherwise "import" statements won't work as expected if used inside user-defined functions, see: https://github.com/mechatroner/sublime_rainbow_csv/issues/22
 MAIN_LOOP_BODY = '''
-def dummy_wrapper_for_exec():
+def dummy_wrapper_for_exec(query_context, user_namespace, LIKE, UNNEST, MIN, MAX, COUNT, SUM, AVG, VARIANCE, MEDIAN, ARRAY_AGG, mad_max, mad_min, mad_sum, select_unnested):
+
     try:
         pass
         __USER_INIT_CODE__
     except Exception as e:
         raise RuntimeError('Exception while executing user-provided init code: {}'.format(e))
+
+    like = LIKE
+    unnest = UNNEST
+    Unnest = UNNEST
+    Min = MIN
+    Max = MAX
+    count = COUNT
+    Count = COUNT
+    Sum = SUM
+    avg = AVG
+    Avg = AVG
+    variance = VARIANCE
+    Variance = VARIANCE
+    median = MEDIAN
+    Median = MEDIAN
+    array_agg = ARRAY_AGG
+    max = mad_max
+    min = mad_min
+    sum = mad_sum
+
+    udf = user_namespace
 
     NR = 0
     NU = 0
@@ -885,7 +720,8 @@ def dummy_wrapper_for_exec():
             if str(e).find('RBQLAggregationToken') != -1:
                 raise RbqlParsingError(wrong_aggregation_usage_error) # UT JSON
             raise RbqlRuntimeError('At record ' + str(NR) + ', Details: ' + str(e)) # UT JSON
-dummy_wrapper_for_exec()
+
+dummy_wrapper_for_exec(query_context, user_namespace, LIKE, UNNEST, MIN, MAX, COUNT, SUM, AVG, VARIANCE, MEDIAN, ARRAY_AGG, mad_max, mad_min, mad_sum, select_unnested)
 '''
 
 
@@ -912,7 +748,7 @@ def embed_code(parent_code, child_placeholder, child_code):
     assert False
 
 
-def generate_main_loop_code():
+def generate_main_loop_code(query_context):
     is_select_query = query_context.select_expression is not None
     is_join_query = query_context.join_map is not None
     where_expression = 'True' if query_context.where_expression is None else query_context.where_expression
@@ -942,12 +778,132 @@ def generate_main_loop_code():
     return python_code
 
 
-def compile_and_run():
-    # TODO consider putting mad_max stuff here instead of keeping it in the global scope
-    main_loop_body = generate_main_loop_code()
-    compiled_main_loop = compile(main_loop_body, '<main loop>', 'exec')
-    exec(compiled_main_loop)
+builtin_max = max
+builtin_min = min
+builtin_sum = sum
 
+
+def compile_and_run(query_context, user_namespace, unit_test_mode=False):
+    def LIKE(text, pattern):
+        matcher = query_context.like_regex_cache.get(pattern, None)
+        if matcher is None:
+            matcher = re.compile(like_to_regex(pattern))
+            query_context.like_regex_cache[pattern] = matcher
+        return matcher.match(text) is not None
+
+    class UNNEST:
+        def __init__(self, vals):
+            if query_context.unnest_list is not None:
+                # Technically we can support multiple UNNEST's but the implementation/algorithm is more complex and just doesn't worth it
+                raise RbqlParsingError('Only one UNNEST is allowed per query') # UT JSON
+            query_context.unnest_list = vals
+
+        def __str__(self):
+            raise TypeError('UNNEST')
+
+    def select_unnested(sort_key, folded_fields):
+        unnest_pos = None
+        for i, trans_value in enumerate(folded_fields):
+            if isinstance(trans_value, UNNEST):
+                unnest_pos = i
+                break
+        assert unnest_pos is not None
+        for v in query_context.unnest_list:
+            out_fields = folded_fields[:]
+            out_fields[unnest_pos] = v
+            if not select_simple(query_context, sort_key, out_fields):
+                return False
+        return True
+
+    def init_aggregator(generator_name, val, post_proc=None):
+        query_context.aggregation_stage = 1
+        res = RBQLAggregationToken(len(query_context.functional_aggregators), val)
+        if post_proc is not None:
+            query_context.functional_aggregators.append(generator_name(post_proc))
+        else:
+            query_context.functional_aggregators.append(generator_name())
+        return res
+
+
+    def MIN(val):
+        return init_aggregator(MinAggregator, val) if query_context.aggregation_stage < 2 else val
+
+
+
+    def MAX(val):
+        return init_aggregator(MaxAggregator, val) if query_context.aggregation_stage < 2 else val
+
+
+    def COUNT(_val):
+        return init_aggregator(CountAggregator, 1) if query_context.aggregation_stage < 2 else 1
+
+    def SUM(val):
+        return init_aggregator(SumAggregator, val) if query_context.aggregation_stage < 2 else val
+
+    def AVG(val):
+        return init_aggregator(AvgAggregator, val) if query_context.aggregation_stage < 2 else val
+
+    def VARIANCE(val):
+        return init_aggregator(VarianceAggregator, val) if query_context.aggregation_stage < 2 else val
+
+    def MEDIAN(val):
+        return init_aggregator(MedianAggregator, val) if query_context.aggregation_stage < 2 else val
+
+    def ARRAY_AGG(val, post_proc=None):
+        # TODO consider passing array to output writer
+        return init_aggregator(ArrayAggAggregator, val, post_proc) if query_context.aggregation_stage < 2 else val
+
+
+    # We use `mad_` prefix with the function names to avoid ovewriting global min/max/sum just yet - this might interfere with logic inside user-defined functions in the init code.
+    def mad_max(*args, **kwargs):
+        single_arg = len(args) == 1 and not kwargs
+        if single_arg:
+            if PY3 and isinstance(args[0], str):
+                return MAX(args[0])
+            if not PY3 and isinstance(args[0], basestring):
+                return MAX(args[0])
+            if isinstance(args[0], int) or isinstance(args[0], float):
+                return MAX(args[0])
+        try:
+            return max(*args, **kwargs)
+        except TypeError:
+            if single_arg:
+                return MAX(args[0])
+            raise
+
+
+    def mad_min(*args, **kwargs):
+        single_arg = len(args) == 1 and not kwargs
+        if single_arg:
+            if PY3 and isinstance(args[0], str):
+                return MIN(args[0])
+            if not PY3 and isinstance(args[0], basestring):
+                return MIN(args[0])
+            if isinstance(args[0], int) or isinstance(args[0], float):
+                return MIN(args[0])
+        try:
+            return min(*args, **kwargs)
+        except TypeError:
+            if single_arg:
+                return MIN(args[0])
+            raise
+
+
+    def mad_sum(*args):
+        try:
+            return sum(*args)
+        except TypeError:
+            if len(args) == 1:
+                return SUM(args[0])
+            raise
+
+    if unit_test_mode:
+        # Return these 3 functions to be able to unit test them from outside
+        return (mad_max, mad_min, mad_sum)
+
+    main_loop_body = generate_main_loop_code(query_context)
+    compiled_main_loop = compile(main_loop_body, '<main loop>', 'exec')
+    exec(compiled_main_loop, globals(), locals())
 
 
 def exception_to_error_info(e):
@@ -968,7 +924,7 @@ def exception_to_error_info(e):
         if re.search(' like[ (]', error_msg, flags=re.IGNORECASE) is not None:
             error_msg += "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... " # UT JSON
         if error_msg.lower().find(' from ') != -1:
-            error_msg += "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM" # UT JSON
+            error_msg += "\nTip: If input table is defined by the environment, RBQL query should not have \"FROM\" keyword" # UT JSON
         return ('syntax error', error_msg)
     error_type = 'unexpected'
     error_msg = str(e)
@@ -1245,17 +1201,7 @@ def separate_string_literals(rbql_expression):
     return (format_expression, string_literals)
 
 
-def locate_statements(rbql_expression):
-    statement_groups = list()
-    statement_groups.append([STRICT_LEFT_JOIN, LEFT_OUTER_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
-    statement_groups.append([SELECT])
-    statement_groups.append([ORDER_BY])
-    statement_groups.append([WHERE])
-    statement_groups.append([UPDATE])
-    statement_groups.append([GROUP_BY])
-    statement_groups.append([LIMIT])
-    statement_groups.append([EXCEPT])
-
+def locate_statements(statement_groups, rbql_expression):
     result = list()
     for st_group in statement_groups:
         for statement in st_group:
@@ -1272,7 +1218,7 @@ def locate_statements(rbql_expression):
     return sorted(result)
 
 
-def separate_actions(rbql_expression):
+def separate_actions(statement_groups, rbql_expression):
     # TODO add more checks:
     # make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
     rbql_expression = rbql_expression.strip(' ')
@@ -1282,7 +1228,7 @@ def separate_actions(rbql_expression):
     if mobj is not None:
         rbql_expression = mobj.group(1)
         result[WITH] = mobj.group(2)
-    ordered_statements = locate_statements(rbql_expression)
+    ordered_statements = locate_statements(statement_groups, rbql_expression)
     for i in range(len(ordered_statements)):
         statement_start = ordered_statements[i][0]
         span_start = ordered_statements[i][1]
@@ -1399,7 +1345,7 @@ class HashJoinMap:
                 break
             nr += 1
             nf = len(fields)
-            self.max_record_len = builtin_max(self.max_record_len, nf)
+            self.max_record_len = max(self.max_record_len, nf)
             key = self.polymorphic_get_key(nr, fields)
             self.hash_map[key].append((nr, nf, fields))
 
@@ -1416,7 +1362,7 @@ def cleanup_query(query_text):
     rbql_lines = query_text.split('\n')
     rbql_lines = [strip_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
-    return ' '.join(rbql_lines)
+    return ' '.join(rbql_lines).rstrip(';')
 
 
 def remove_redundant_input_table_name(query_text):
@@ -1457,11 +1403,29 @@ def select_output_header(input_header, join_header, query_column_infos):
     return output_header
 
 
-def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, query_context):
+def shallow_parse_input_query(query_text, input_iterator, tables_registry, query_context):
     query_text = cleanup_query(query_text)
     format_expression, string_literals = separate_string_literals(query_text)
-    format_expression = remove_redundant_input_table_name(format_expression)
-    rb_actions = separate_actions(format_expression)
+    statement_groups = default_statement_groups[:]
+    if input_iterator is not None:
+        # In case if input_iterator i.e. input table is already fixed RBQL assumes that the only valid table name is "A" or "a".
+        format_expression = remove_redundant_input_table_name(format_expression)
+        statement_groups.remove([FROM])
+    else:
+        assert tables_registry is not None
+    rb_actions = separate_actions(statement_groups, format_expression)
+
+    if FROM in rb_actions:
+        assert input_iterator is None
+        input_table_id = rb_actions[FROM]['text']
+        input_iterator = tables_registry.get_iterator_by_table_id(input_table_id, 'a')
+        if input_iterator is None:
+            raise RbqlParsingError('Unable to find input table: "{}"'.format(input_table_id))
+        query_context.input_iterator = input_iterator
+
+    if input_iterator is None:
+        raise RbqlParsingError('Queries without context-based input table must contain "FROM" statement')
+
     if WITH in rb_actions:
         input_iterator.handle_query_modifier(rb_actions[WITH])
     input_variables_map = input_iterator.get_variables_map(query_text)
@@ -1479,15 +1443,16 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
     join_header = None
     if JOIN in rb_actions:
         rhs_table_id, variable_pairs = parse_join_expression(rb_actions[JOIN]['text'])
-        if join_tables_registry is None:
+        if tables_registry is None:
             raise RbqlParsingError('JOIN operations are not supported by the application') # UT JSON
-        join_record_iterator = join_tables_registry.get_iterator_by_table_id(rhs_table_id)
+        join_record_iterator = tables_registry.get_iterator_by_table_id(rhs_table_id, 'b')
         if join_record_iterator is None:
             raise RbqlParsingError('Unable to find join table: "{}"'.format(rhs_table_id)) # UT JSON CSV
         if WITH in rb_actions:
             join_record_iterator.handle_query_modifier(rb_actions[WITH])
         join_variables_map = join_record_iterator.get_variables_map(query_text)
         join_header = join_record_iterator.get_header()
+        # TODO check ambiguous column names here instead of external check.
 
         lhs_variables, rhs_indices = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals)
         joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_OUTER_JOIN: LeftJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
@@ -1527,7 +1492,8 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
         query_context.select_expression = select_expression
         query_context.writer.set_header(output_header)
 
-        query_context.writer = TopWriter(query_context.writer)
+        if query_context.top_count is not None:
+            query_context.writer = TopWriter(query_context.writer, query_context.top_count)
         if 'distinct_count' in rb_actions[SELECT]:
             query_context.writer = UniqCountWriter(query_context.writer)
         elif 'distinct' in rb_actions[SELECT]:
@@ -1549,13 +1515,12 @@ def make_inconsistent_num_fields_warning(table_name, inconsistent_records_info):
     return warn_msg
 
 
-def query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry=None, user_init_code=''):
-    global query_context
+def query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry=None, user_init_code='', user_namespace=None):
     query_context = RBQLContext(input_iterator, output_writer, user_init_code)
     shallow_parse_input_query(query_text, input_iterator, join_tables_registry, query_context)
-    compile_and_run()
+    compile_and_run(query_context, user_namespace)
     query_context.writer.finish()
-    output_warnings.extend(input_iterator.get_warnings())
+    output_warnings.extend(query_context.input_iterator.get_warnings())
     if query_context.join_map_impl is not None:
         output_warnings.extend(query_context.join_map_impl.get_warnings())
     output_warnings.extend(output_writer.get_warnings())
@@ -1594,7 +1559,9 @@ class RBQLOutputWriter:
 
 
 class RBQLTableRegistry:
-    def get_iterator_by_table_id(self, table_id):
+    # table_id - external table identifier like filename for csv files or variable name for pandas dataframes.
+    # single_char_alias - either `a` (for input table) or `b` (for join table)
+    def get_iterator_by_table_id(self, table_id, single_char_alias):
         raise NotImplementedError('Unable to call the interface method')
 
     def finish(self):
@@ -1659,17 +1626,20 @@ class TableWriter(RBQLOutputWriter):
         self.header = header
 
 
-class SingleTableRegistry(RBQLTableRegistry):
-    def __init__(self, table, column_names=None, normalize_column_names=True, table_name='b'):
-        self.table = table
-        self.column_names = column_names
-        self.normalize_column_names = normalize_column_names
-        self.table_name = table_name
+ListTableInfo = namedtuple('ListTableInfo', ['table_id', 'table', 'column_names'])
 
-    def get_iterator_by_table_id(self, table_id):
-        if table_id.lower() != self.table_name:
-            raise RbqlParsingError('Unable to find join table: "{}"'.format(table_id)) # UT JSON
-        return TableIterator(self.table, self.column_names, self.normalize_column_names, 'b')
+
+class ListTableRegistry(RBQLTableRegistry):
+    # Here table_infos is a list of ListTableInfo
+    def __init__(self, table_infos, normalize_column_names=True):
+        self.table_infos = table_infos
+        self.normalize_column_names = normalize_column_names
+
+    def get_iterator_by_table_id(self, table_id, single_char_alias):
+        for table_info in self.table_infos: 
+            if table_info.table_id == table_id:
+                return TableIterator(table_info.table, table_info.column_names, self.normalize_column_names, single_char_alias)
+        return None
 
 
 def query_table(query_text, input_table, output_table, output_warnings, join_table=None, input_column_names=None, join_column_names=None, output_column_names=None, normalize_column_names=True, user_init_code=''):
@@ -1677,7 +1647,7 @@ def query_table(query_text, input_table, output_table, output_warnings, join_tab
         ensure_no_ambiguous_variables(query_text, input_column_names, join_column_names)
     input_iterator = TableIterator(input_table, input_column_names, normalize_column_names)
     output_writer = TableWriter(output_table)
-    join_tables_registry = None if join_table is None else SingleTableRegistry(join_table, join_column_names, normalize_column_names)
+    join_tables_registry = None if join_table is None else ListTableRegistry([ListTableInfo('b', join_table, join_column_names), ListTableInfo('B', join_table, join_column_names)], normalize_column_names)
     query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code=user_init_code)
     if output_column_names is not None:
         assert len(output_column_names) == 0, '`output_column_names` param must be an empty list or None'
