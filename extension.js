@@ -769,7 +769,11 @@ function get_dst_table_name(input_path, output_delim) {
     } else if (orig_extension.length > 1) {
         dst_extension = orig_extension;
     }
-    return table_name + dst_extension;
+    let result_table_name = table_name + dst_extension;
+    if (result_table_name == table_name) { // Just being paranoid to avoid overwriting input table accidentally when output dir configured to be the same as input.
+        result_table_name += '.txt';
+    }
+    return result_table_name;
 }
 
 
@@ -782,6 +786,20 @@ function handle_worker_success(output_path, warnings, webview_report_handler) {
 
 function file_path_to_query_key(file_path) {
     return (file_path && file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : file_path;
+}
+
+function get_dst_table_dir(input_table_path) {
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    if (!config)
+        return os.tmpdir();
+    if (config.get('rbql_output_dir') == 'TMP') {
+        return os.tmpdir()
+    } else if (config.get('rbql_output_dir') == 'INPUT') {
+        return path.dirname(input_table_path)
+    } else {
+        // If the directory does not exist or isn't writable RBQL itself will report more or less clear error.
+        return config.get('rbql_output_dir');
+    }
 }
 
 
@@ -801,9 +819,7 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
         [output_delim, output_policy] = ['\t', 'simple'];
     rbql_context.output_delim = output_delim;
 
-    let tmp_dir = os.tmpdir();
-    let output_file_name = get_dst_table_name(input_path, output_delim);
-    let output_path = path.join(tmp_dir, output_file_name);
+    let output_path = path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
 
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {

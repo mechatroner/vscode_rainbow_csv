@@ -84,6 +84,11 @@
                     "default": false,
                     "description": "RBQL treats the first line as header by default"
                 },
+                "rainbow_csv.rbql_output_dir": {
+                    "type": "string",
+                    "default": "TMP",
+                    "description": "Output directory for RBQL result sets, can be `TMP`, `INPUT` or a custom absolute path. `TMP` - output in system tmp dir(default), `INPUT` - output in the same dir as input file, otherwise use provided path as the output directory e.g. `/path/to/custom/dir`"
+                },
                 "rainbow_csv.enable_tooltip_warnings": {
                     "type": "boolean",
                     "default": true,
