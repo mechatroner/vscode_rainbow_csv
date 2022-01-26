@@ -59,3 +59,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Consider replacing the RBQL query text input with scrollable textarea - it has a drawback that on enter it will go to the next line instead running the query.
 
 * Figure out if it is possible to convert to a web extension.
+
+* Make the `is_web_ext` check more reliable and explicit.

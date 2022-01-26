@@ -8,7 +8,6 @@ const child_process = require('child_process'); // For RBQL
 
 let client_html_template_web = null;
 
-// TODO make the `is_web_ext` check more reliable and explicit.
 let is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
 // See DEV_README.md for instructions
@@ -803,7 +802,7 @@ function get_dst_table_dir(input_table_path) {
 }
 
 
-function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler) {
+async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler) {
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
@@ -831,14 +830,14 @@ function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, 
     }
     if (backend_language == 'js') {
         let warnings = [];
-        var handle_success = function() {
+        try {
+            await ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', {'bulk_read': true});
             result_set_parent_map.set(output_path.toLowerCase(), input_path);
             handle_worker_success(output_path, warnings, webview_report_handler);
-        };
-        ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', {'bulk_read': true}).then(handle_success).catch(e => {
+        } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
-        });
+        }
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
