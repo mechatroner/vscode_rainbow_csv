@@ -681,21 +681,23 @@ function try_change_document_language(active_doc, language_id, is_manual_op, cal
 }
 
 
-function handle_rbql_result_file(text_doc, warnings) {
+async function handle_rbql_result_file(text_doc, warnings) {
     var out_delim = rbql_context.output_delim;
     let language_id = map_separator_to_language_id(out_delim);
     var active_window = vscode.window;
     if (!active_window)
         return;
-    var handle_success = function(_editor) {
-        if (language_id && text_doc.language_id != language_id) {
-            console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
-            try_change_document_language(text_doc, language_id, false, null);
-        }
-        show_warnings(warnings);
-    };
-    var handle_failure = function(_reason) { show_single_line_error('Unable to open document'); };
-    active_window.showTextDocument(text_doc).then(handle_success, handle_failure);
+    try {
+        await active_window.showTextDocument(text_doc);
+    } catch (error) {
+        show_single_line_error('Unable to open RBQL result document');
+        return;
+    }
+    if (language_id && text_doc.language_id != language_id) {
+        console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
+        try_change_document_language(text_doc, language_id, false, null);
+    }
+    show_warnings(warnings);
 }
 
 
@@ -725,7 +727,7 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 }
 
 
-function handle_command_result(src_table_path, dst_table_path, error_code, stdout, stderr, webview_report_handler) {
+async function handle_command_result(src_table_path, dst_table_path, error_code, stdout, stderr, webview_report_handler) {
     let json_report = stdout;
     let error_type = null;
     let error_msg = null;
@@ -754,7 +756,8 @@ function handle_command_result(src_table_path, dst_table_path, error_code, stdou
     // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
     autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
-    vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
+    let doc = await vscode.workspace.openTextDocument(dst_table_path);
+    await handle_rbql_result_file(doc, warnings);
 }
 
 
@@ -773,13 +776,6 @@ function get_dst_table_name(input_path, output_delim) {
         result_table_name += '.txt';
     }
     return result_table_name;
-}
-
-
-function handle_worker_success(output_path, warnings, webview_report_handler) {
-    webview_report_handler(null, null);
-    autodetection_stoplist.add(output_path);
-    vscode.workspace.openTextDocument(output_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
 
@@ -830,14 +826,29 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     }
     if (backend_language == 'js') {
         let warnings = [];
+        let result_doc = null;
+        // FIXME why aren't we using comment_prefix here?
+        // FIXME add comment_prefix handling and add unit test with this case.
         try {
-            await ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', {'bulk_read': true});
-            result_set_parent_map.set(output_path.toLowerCase(), input_path);
-            handle_worker_success(output_path, warnings, webview_report_handler);
+            if (is_web_ext) {
+            //if (true) { // FIXME just to test new functionality
+                let result_lines = await ll_rainbow_utils().query_vscode(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
+                let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
+                result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
+            } else {
+                let csv_options = {'bulk_read': true};
+                await ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', csv_options);
+                result_set_parent_map.set(output_path.toLowerCase(), input_path);
+                autodetection_stoplist.add(output_path);
+                result_doc = await vscode.workspace.openTextDocument(output_path);
+            }
         } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
+            return;
         }
+        webview_report_handler(null, null);
+        await handle_rbql_result_file(result_doc, warnings);
     } else {
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];

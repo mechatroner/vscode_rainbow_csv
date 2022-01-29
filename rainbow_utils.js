@@ -228,11 +228,10 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
 
 
 class VSCodeWriter extends rbql.RBQLOutputWriter {
-    constructor(delim, policy, vscode_language_name) {
+    constructor(delim, policy) {
         super();
         this.delim = delim;
         this.policy = policy;
-        this.vscode_language_name = vscode_language_name; // Completely determined by the (delim, policy) pair.
         this.header_len = null;
         this.null_in_output = false;
         this.delim_in_simple_output = false;
@@ -313,8 +312,6 @@ class VSCodeWriter extends rbql.RBQLOutputWriter {
     };
 
     async finish() {
-        let output_doc_cfg = {content: this.output_lines.join('\n'), language: this.vscode_language_name};
-        vscode.workspace.openTextDocument(output_doc_cfg).then(doc => vscode.window.showTextDocument(doc));
     }
 
     get_warnings() {
@@ -328,12 +325,13 @@ class VSCodeWriter extends rbql.RBQLOutputWriter {
 }
 
 
-async function query_vscode(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_vscode_language_name, output_warnings, with_headers, comment_prefix=null) {
+async function query_vscode(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
     let user_init_code = ''; // TODO find a way to have init code.
     let join_tables_registry = null; // TODO find a way to have join registry.
     let input_iterator = VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
-    let output_writer = VSCodeWriter(output_delim, output_policy, output_vscode_language_name);
+    let output_writer = VSCodeWriter(output_delim, output_policy);
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
+    return output_writer.output_lines;
 }
 
 
