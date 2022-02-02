@@ -61,6 +61,14 @@ let absolute_path_map = {
 };
 
 
+function show_single_line_error(error_msg) {
+    var active_window = vscode.window;
+    if (!active_window)
+        return;
+    active_window.showErrorMessage(error_msg);
+}
+
+
 function read_integration_test_config() {
     if (is_web_ext) {
         show_single_line_error('This command is currently unavailable in web mode.');
@@ -538,9 +546,6 @@ function show_align_shrink_button(file_path) {
 
 
 function show_rainbow_off_status_bar_button() {
-    if (typeof vscode.languages.setTextDocumentLanguage == "undefined") {
-        return;
-    }
     if (!rainbow_off_status_bar_button)
         rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     rainbow_off_status_bar_button.text = 'Rainbow OFF';
@@ -658,29 +663,6 @@ function show_warnings(warnings) {
 }
 
 
-function show_single_line_error(error_msg) {
-    var active_window = vscode.window;
-    if (!active_window)
-        return;
-    active_window.showErrorMessage(error_msg);
-}
-
-
-function try_change_document_language(active_doc, language_id, is_manual_op, callback_func) {
-    try {
-        vscode.languages.setTextDocumentLanguage(active_doc, language_id).then((doc) => {
-            if (callback_func !== null)
-                callback_func(doc);
-        });
-    } catch (error) {
-        if (is_manual_op)
-            show_single_line_error("Unable to proceed. Minimal VSCode version required: 1.28");
-        return false;
-    }
-    return true;
-}
-
-
 async function handle_rbql_result_file(text_doc, warnings) {
     var out_delim = rbql_context.output_delim;
     let language_id = map_separator_to_language_id(out_delim);
@@ -695,7 +677,7 @@ async function handle_rbql_result_file(text_doc, warnings) {
     }
     if (language_id && text_doc.language_id != language_id) {
         console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
-        try_change_document_language(text_doc, language_id, false, null);
+        await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
     }
     show_warnings(warnings);
 }
@@ -886,7 +868,7 @@ function set_header_line() {
     save_to_global_state(make_header_key(file_path), JSON.stringify(header));
 }
 
-function set_rainbow_separator() {
+async function set_rainbow_separator() {
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -909,15 +891,15 @@ function set_rainbow_separator() {
         show_single_line_error("Selected separator is not supported");
         return;
     }
-    try_change_document_language(active_doc, language_id, true, (doc) => {
-        original_language_ids.set(doc.fileName, original_language_id);
-        csv_lint(doc, false);
-        refresh_status_bar_buttons(doc);
-    });
+
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
+    original_language_ids.set(doc.fileName, original_language_id);
+    csv_lint(doc, false);
+    refresh_status_bar_buttons(doc);
 }
 
 
-function restore_original_language() {
+async function restore_original_language() {
     var active_doc = get_active_doc();
     if (!active_doc)
         return;
@@ -931,10 +913,10 @@ function restore_original_language() {
         show_single_line_error("Unable to restore original language");
         return;
     }
-    try_change_document_language(active_doc, original_language_id, true, (doc) => {
-        original_language_ids.delete(file_path);
-        refresh_status_bar_buttons(doc);
-    });
+
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
+    original_language_ids.delete(file_path);
+    refresh_status_bar_buttons(doc);
 }
 
 
@@ -1477,7 +1459,7 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators) {
 }
 
 
-function autoenable_rainbow_csv(active_doc) {
+async function autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return;
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -1499,15 +1481,15 @@ function autoenable_rainbow_csv(active_doc) {
     }
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return;
-    try_change_document_language(active_doc, rainbow_csv_language_id, false, (doc) => {
-        original_language_ids.set(file_path, original_language_id);
-        csv_lint(doc, false);
-        refresh_status_bar_buttons(doc);
-    });
+
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
+    original_language_ids.set(file_path, original_language_id);
+    csv_lint(doc, false);
+    refresh_status_bar_buttons(doc);
 }
 
 
-function handle_doc_edit(change_event) {
+async function handle_doc_edit(change_event) {
     if (!change_event)
         return;
     if (doc_edit_subscription) {
@@ -1522,10 +1504,9 @@ function handle_doc_edit(change_event) {
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id)
         return;
-    try_change_document_language(active_doc, rainbow_csv_language_id, false, (doc) => {
-        csv_lint(doc, false);
-        refresh_status_bar_buttons(doc);
-    });
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
+    csv_lint(doc, false);
+    refresh_status_bar_buttons(doc);
 }
 
 
@@ -1549,8 +1530,8 @@ function handle_editor_switch(editor) {
 }
 
 
-function handle_doc_open(active_doc) {
-    autoenable_rainbow_csv(active_doc);
+async function handle_doc_open(active_doc) {
+    await autoenable_rainbow_csv(active_doc);
     register_csv_copy_paste(active_doc);
     csv_lint(active_doc, false);
     refresh_status_bar_buttons(active_doc);
