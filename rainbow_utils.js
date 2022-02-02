@@ -8,6 +8,19 @@ const vscode = require('vscode');
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 
+class AssertionError extends Error {}
+
+
+function assert(condition, message=null) {
+    if (!condition) {
+        if (!message) {
+            message = 'Assertion error';
+        }
+        throw new AssertionError(message);
+    }
+}
+
+
 function update_records(records, record_key, new_record) {
     for (var i = 0; i < records.length; i++) {
         if (records[i].length && records[i][0] == record_key) {
@@ -113,7 +126,7 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
         entries.push([record_id, key]);
     }
     entries.sort(function(a, b) { return a[0] - b[0]; });
-    rbql.assert(entries.length > 1);
+    assert(entries.length > 1);
     let [record_1, num_fields_1] = entries[0];
     let [record_2, num_fields_2] = entries[1];
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
@@ -328,8 +341,8 @@ class VSCodeWriter extends rbql.RBQLOutputWriter {
 async function query_vscode(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
     let user_init_code = ''; // TODO find a way to have init code.
     let join_tables_registry = null; // TODO find a way to have join registry.
-    let input_iterator = VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
-    let output_writer = VSCodeWriter(output_delim, output_policy);
+    let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
+    let output_writer = new VSCodeWriter(output_delim, output_policy);
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
     return output_writer.output_lines;
 }
