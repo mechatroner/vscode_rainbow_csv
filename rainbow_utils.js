@@ -21,6 +21,164 @@ function assert(condition, message=null) {
 }
 
 
+function get_default_js_udf_content() {
+    let default_content = `// This file can be used to store RBQL UDFs. Example:
+    //
+    // function foo(value) {
+    //     return 'foo ' + String(value.length);
+    // }
+    // 
+    // Functions defined in this file can be used in RBQL queries e.g. 
+    // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
+    //
+    // Don't forget to save this file after editing!
+    //
+    // Write your own functions bellow this line:
+    `.replace(new RegExp(/^  */, 'mg'), '');
+    return default_content;
+}
+
+
+function get_default_python_udf_content() {
+    let default_content = `# This file can be used to store RBQL UDFs. Example:
+    #
+    # def foo(value):
+    #     return 'foo ' + str(len(value))
+    # 
+    # 
+    # Functions defined in this file can be used in RBQL queries e.g. 
+    # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
+    #
+    # Don't forget to save this file after editing!
+    #
+    # Write your own functions bellow this line:
+    `.replace(new RegExp(/^  */, 'mg'), '');
+    return default_content;
+}
+
+
+function calc_column_sizes(active_doc, delim, policy) {
+    let result = [];
+    let num_lines = active_doc.lineCount;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
+        if (warning) {
+            return [null, lnum + 1];
+        }
+        for (let i = 0; i < fields.length; i++) {
+            if (result.length <= i)
+                result.push(0);
+            result[i] = Math.max(result[i], (fields[i].trim()).length);
+        }
+    }
+    return [result, null];
+}
+
+
+function align_columns(active_doc, delim, policy, column_sizes) {
+    let result_lines = [];
+    let num_lines = active_doc.lineCount;
+    let has_edit = false;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            result_lines.push(line_text);
+            continue;
+        }
+        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
+        for (let i = 0; i < fields.length - 1; i++) {
+            if (i >= column_sizes.length) // Safeguard against async doc edit.
+                break;
+            let adjusted = fields[i].trim();
+            let delta_len = column_sizes[i] - adjusted.length;
+            if (delta_len >= 0) { // Safeguard against async doc edit.
+                adjusted += ' '.repeat(delta_len + 1);
+            }
+            if (fields[i] != adjusted) {
+                fields[i] = adjusted;
+                has_edit = true;
+            }
+        }
+        result_lines.push(fields.join(delim));
+    }
+    if (!has_edit)
+        return null;
+    return result_lines.join('\n');
+}
+
+
+function shrink_columns(active_doc, delim, policy) {
+    let result_lines = [];
+    let num_lines = active_doc.lineCount;
+    let has_edit = false;
+    const config = vscode.workspace.getConfiguration('rainbow_csv');
+    let comment_prefix = config ? config.get('comment_prefix') : '';
+    for (let lnum = 0; lnum < num_lines; lnum++) {
+        let line_text = active_doc.lineAt(lnum).text;
+        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+            result_lines.push(line_text);
+            continue;
+        }
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
+        if (warning) {
+            return [null, lnum + 1];
+        }
+        for (let i = 0; i < fields.length; i++) {
+            let adjusted = fields[i].trim();
+            if (fields[i].length != adjusted.length) {
+                fields[i] = adjusted;
+                has_edit = true;
+            }
+        }
+        result_lines.push(fields.join(delim));
+    }
+    if (!has_edit)
+        return [null, null];
+    return [result_lines.join('\n'), null];
+}
+
+
+function get_last(arr) {
+    return arr[arr.length - 1];
+}
+
+
+function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
+    let num_lines = document.lineCount;
+    let record_begin = null;
+    let start_line_idx = dst_record_map.length ? get_last(dst_record_map)[1] : 0;
+    for (let lnum = start_line_idx; lnum < num_lines && dst_record_map.length < requested_end_record; ++lnum) {
+        let line_text = document.lineAt(lnum).text;
+        if (lnum + 1 >= num_lines && line_text == "")
+            break; // Skip the last empty line.
+        if (comment_prefix && line_text.startsWith(comment_prefix))
+            continue;
+        let match_list = line_text.match(/"/g);
+        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        if (record_begin === null && !has_unbalanced_double_quote) {
+            dst_record_map.push([lnum, lnum + 1]);
+        } else if (record_begin === null && has_unbalanced_double_quote) {
+            record_begin = lnum;
+        } else if (!has_unbalanced_double_quote) {
+            continue;
+        } else {
+            dst_record_map.push([record_begin, lnum + 1]);
+            record_begin = null;
+        }
+    }
+    if (record_begin !== null) {
+        dst_record_map.push([record_begin, num_lines]);
+    }
+}
+
+
 function update_records(records, record_key, new_record) {
     for (var i = 0; i < records.length; i++) {
         if (records[i].length && records[i][0] == record_key) {
@@ -353,3 +511,9 @@ module.exports.read_table_path = read_table_path;
 module.exports.read_header = read_header;
 module.exports.query_vscode = query_vscode;
 module.exports.get_header_line = get_header_line;
+module.exports.populate_optimistic_rfc_csv_record_map = populate_optimistic_rfc_csv_record_map;
+module.exports.get_default_js_udf_content = get_default_js_udf_content;
+module.exports.get_default_python_udf_content = get_default_python_udf_content;
+module.exports.align_columns = align_columns;
+module.exports.shrink_columns = shrink_columns;
+module.exports.calc_column_sizes = calc_column_sizes;

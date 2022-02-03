@@ -1,24 +1,15 @@
 const vscode = require('vscode');
 
-const path = require('path'); // For RBQL and preview
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const child_process = require('child_process');
 
-const fs = require('fs'); // For RBQL and preview
-const os = require('os'); // For RBQL and preview
-const child_process = require('child_process'); // For RBQL
-
-let client_html_template_web = null;
-
-let is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
-
-// See DEV_README.md for instructions
+// See DEV_README.md for instructions.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
-var rbql_csv = null; // Using lazy load to improve startup performance
-var rainbow_utils = null; // Using lazy load to improve startup performance
 
-var integration_test_config = null;
-
-
+var rbql_csv = null; // Using lazy load to improve startup performance.
 function ll_rbql_csv() {
     if (rbql_csv === null)
         rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
@@ -26,11 +17,17 @@ function ll_rbql_csv() {
 }
 
 
+var rainbow_utils = null; // Using lazy load to improve startup performance.
 function ll_rainbow_utils() {
     if (rainbow_utils === null)
         rainbow_utils = require('./rainbow_utils.js');
     return rainbow_utils;
 }
+
+
+let client_html_template_web = null;
+const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
+var integration_test_config = null;
 
 
 const dialect_map = {
@@ -127,11 +124,6 @@ function map_separator_to_language_id(separator) {
 }
 
 
-function get_last(arr) {
-    return arr[arr.length - 1];
-}
-
-
 function get_from_global_state(key, default_value) {
     if (global_state) {
         var value = global_state.get(key);
@@ -148,36 +140,6 @@ function save_to_global_state(key, value) {
         return true;
     }
     return false;
-}
-
-
-function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
-    // FIXME put into rainbow_utils.js
-    let num_lines = document.lineCount;
-    let record_begin = null;
-    let start_line_idx = dst_record_map.length ? get_last(dst_record_map)[1] : 0;
-    for (let lnum = start_line_idx; lnum < num_lines && dst_record_map.length < requested_end_record; ++lnum) {
-        let line_text = document.lineAt(lnum).text;
-        if (lnum + 1 >= num_lines && line_text == "")
-            break; // Skip the last empty line.
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let match_list = line_text.match(/"/g);
-        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-        if (record_begin === null && !has_unbalanced_double_quote) {
-            dst_record_map.push([lnum, lnum + 1]);
-        } else if (record_begin === null && has_unbalanced_double_quote) {
-            record_begin = lnum;
-        } else if (!has_unbalanced_double_quote) {
-            continue;
-        } else {
-            dst_record_map.push([record_begin, lnum + 1]);
-            record_begin = null;
-        }
-    }
-    if (record_begin !== null) {
-        dst_record_map.push([record_begin, num_lines]);
-    }
 }
 
 
@@ -200,7 +162,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     let preview_records = [];
     if (rbql_context.enable_rfc_newlines) {
         let requested_end_record = rbql_context.requested_start_record + preview_window_size;
-        populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
+        ll_rainbow_utils().populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
         for (let nr = rbql_context.requested_start_record; nr < rbql_context.rfc_record_map.length && preview_records.length < preview_window_size; nr++) {
             let [record_start, record_end] = rbql_context.rfc_record_map[nr];
@@ -392,94 +354,6 @@ function produce_lint_report(active_doc, delim, policy, config) {
         return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
     }
     return 'OK';
-}
-
-
-function calc_column_sizes(active_doc, delim, policy) {
-    let result = [];
-    let num_lines = active_doc.lineCount;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning) {
-            return [null, lnum + 1];
-        }
-        for (let i = 0; i < fields.length; i++) {
-            if (result.length <= i)
-                result.push(0);
-            result[i] = Math.max(result[i], (fields[i].trim()).length);
-        }
-    }
-    return [result, null];
-}
-
-
-function shrink_columns(active_doc, delim, policy) {
-    let result_lines = [];
-    let num_lines = active_doc.lineCount;
-    let has_edit = false;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            result_lines.push(line_text);
-            continue;
-        }
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning) {
-            return [null, lnum + 1];
-        }
-        for (let i = 0; i < fields.length; i++) {
-            let adjusted = fields[i].trim();
-            if (fields[i].length != adjusted.length) {
-                fields[i] = adjusted;
-                has_edit = true;
-            }
-        }
-        result_lines.push(fields.join(delim));
-    }
-    if (!has_edit)
-        return [null, null];
-    return [result_lines.join('\n'), null];
-}
-
-
-function align_columns(active_doc, delim, policy, column_sizes) {
-    let result_lines = [];
-    let num_lines = active_doc.lineCount;
-    let has_edit = false;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            result_lines.push(line_text);
-            continue;
-        }
-        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
-        for (let i = 0; i < fields.length - 1; i++) {
-            if (i >= column_sizes.length) // Safeguard against async doc edit.
-                break;
-            let adjusted = fields[i].trim();
-            let delta_len = column_sizes[i] - adjusted.length;
-            if (delta_len >= 0) { // Safeguard against async doc edit.
-                adjusted += ' '.repeat(delta_len + 1);
-            }
-            if (fields[i] != adjusted) {
-                fields[i] = adjusted;
-                has_edit = true;
-            }
-        }
-        result_lines.push(fields.join(delim));
-    }
-    if (!has_edit)
-        return null;
-    return result_lines.join('\n');
 }
 
 
@@ -812,8 +686,8 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         // FIXME why aren't we using comment_prefix here?
         // FIXME add comment_prefix handling and add unit test with this case.
         try {
-            if (is_web_ext) {
-            //if (true) { // FIXME just to test new functionality
+            //if (is_web_ext) {
+            if (true) { // FIXME just to test new functionality
                 let result_lines = await ll_rainbow_utils().query_vscode(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -848,6 +722,7 @@ function get_dialect(document) {
     return dialect_map[language_id];
 }
 
+
 function set_header_line() {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -867,6 +742,7 @@ function set_header_line() {
     let header = csv_utils.smart_split(raw_header, delim, policy, false)[0];
     save_to_global_state(make_header_key(file_path), JSON.stringify(header));
 }
+
 
 async function set_rainbow_separator() {
     let active_editor = get_active_editor();
@@ -1056,7 +932,7 @@ function shrink_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let [shrinked_doc_text, first_failed_line] = shrink_columns(active_doc, delim, policy);
+    let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy);
     if (first_failed_line) {
         show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
         return;
@@ -1081,12 +957,12 @@ function align_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let [column_sizes, first_failed_line] = calc_column_sizes(active_doc, delim, policy);
+    let [column_sizes, first_failed_line] = ll_rainbow_utils().calc_column_sizes(active_doc, delim, policy);
     if (first_failed_line) {
         show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
-    let aligned_doc_text = align_columns(active_doc, delim, policy, column_sizes);
+    let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, column_sizes);
     aligned_files.add(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (aligned_doc_text === null) {
@@ -1241,39 +1117,16 @@ function handle_rbql_client_message(webview, message) {
     }
 
     if (message_type == 'edit_udf') {
+        // FIXME show error in web mode and test this.
         let backend_language = message['backend_language'];
         let udf_file_path = null;
         let default_content = '';
         if (backend_language == 'js') {
             udf_file_path = path.join(os.homedir(), '.rbql_init_source.js');
-            default_content = `// This file can be used to store RBQL UDFs. Example:
-            //
-            // function foo(value) {
-            //     return 'foo ' + String(value.length);
-            // }
-            // 
-            // Functions defined in this file can be used in RBQL queries e.g. 
-            // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
-            //
-            // Don't forget to save this file after editing!
-            //
-            // Write your own functions bellow this line:
-            `.replace(new RegExp(/^  */, 'mg'), '');
+            default_content = ll_rainbow_utils().get_default_js_udf_content();
         } else {
             udf_file_path = path.join(os.homedir(), '.rbql_init_source.py');
-            default_content = `# This file can be used to store RBQL UDFs. Example:
-            #
-            # def foo(value):
-            #     return 'foo ' + str(len(value))
-            # 
-            # 
-            # Functions defined in this file can be used in RBQL queries e.g. 
-            # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
-            #
-            # Don't forget to save this file after editing!
-            #
-            # Write your own functions bellow this line:
-            `.replace(new RegExp(/^  */, 'mg'), '');
+            default_content = ll_rainbow_utils().get_default_python_udf_content();
         }
         if (!fs.existsSync(udf_file_path)) {
             fs.writeFileSync(udf_file_path, default_content);
@@ -1692,8 +1545,6 @@ function activate(context) {
 }
 
 
-
-
 function deactivate() {
     // This method is called when extension is deactivated.
 }
@@ -1701,6 +1552,5 @@ function deactivate() {
 
 exports.activate = activate;
 exports.deactivate = deactivate;
-
 // Export some functions for integration tests:
 exports.csv_lint = csv_lint; // TODO do not expose the method, use command instead
