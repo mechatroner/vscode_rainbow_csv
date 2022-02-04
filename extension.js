@@ -227,11 +227,7 @@ function get_header(document, delim, policy) {
     if (file_path) {
         let raw_header = get_from_global_state(make_header_key(file_path), null);
         if (raw_header) {
-            try {
-                return JSON.parse(raw_header)
-            } catch (err) { // Prior versions stored the header as CSV.
-                return csv_utils.smart_split(header, ',', 'quoted', false)[0];
-            }
+            return JSON.parse(raw_header);
         }
     }
     return get_header_from_document(document, delim, policy);
@@ -644,9 +640,9 @@ function get_dst_table_dir(input_table_path) {
     if (!config)
         return os.tmpdir();
     if (config.get('rbql_output_dir') == 'TMP') {
-        return os.tmpdir()
+        return os.tmpdir();
     } else if (config.get('rbql_output_dir') == 'INPUT') {
-        return path.dirname(input_table_path)
+        return path.dirname(input_table_path);
     } else {
         // If the directory does not exist or isn't writable RBQL itself will report more or less clear error.
         return config.get('rbql_output_dir');
@@ -842,7 +838,7 @@ function edit_column_names() {
 
 function column_edit(edit_mode) {
     if (is_web_ext) {
-        // This function creates multiple cursors in web mode as expected (except the very first one?!), but they are inactive for some reason. 
+        // This function creates multiple cursors in web mode as expected (except the very first one?!), but they are inactive for some reason.
         // TODO investigate and fix this.
         show_single_line_error('This command is currently unavailable in web mode.');
         return;
@@ -1223,10 +1219,6 @@ function edit_rbql() {
     if (!client_html_template) {
         if (is_web_ext) {
             client_html_template = client_html_template_web;
-            if (!client_html_template) {
-                show_single_line_error("Unable to run RBQL, please open a bug ticket.");
-                return;
-            }
         } else {
             client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
         }
@@ -1468,15 +1460,14 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
-function activate(context) {
+async function activate(context) {
     global_state = context.globalState;
 
     if (is_web_ext) {
-        let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html')
-        vscode.workspace.fs.readFile(rbql_client_uri).then((bytes) => { 
-            // Using TextDecoder because it should work fine in web extension.
-            client_html_template_web = new TextDecoder().decode(bytes); 
-        });
+        let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html');
+        let bytes = await vscode.workspace.fs.readFile(rbql_client_uri);
+        // Using TextDecoder because it should work fine in web extension.
+        client_html_template_web = new TextDecoder().decode(bytes);
     }
 
     for (let local_path in absolute_path_map) {
