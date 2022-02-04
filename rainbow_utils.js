@@ -341,12 +341,16 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
     }
 
     get_line_rfc() {
-        // FIXME
-        //let rfc_line_buffer = 0;
-        //if (this.comment_prefix !== null && this.rfc_line_buffer.length == 0 && line.startsWith(this.comment_prefix))
-        //    return; // Just skip the line
-        //let match_list = line.match(/"/g);
-        //let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        let rfc_line_buffer = [];
+        const num_lines = this.document.lineCount;
+        while (this.NL < num_lines) {
+            let line = this.document.lineAt(this.NL).text;
+            this.NL += 1;
+            let record_line = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line, this.comment_prefix);
+            if (record_line !== null)
+                return record_line;
+        }
+        return null;
     }
 
     get_line_simple() {
