@@ -34,6 +34,7 @@ def extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_external
 
 
 def split_quoted_str(src, dlm, preserve_quotes_and_whitespaces=False):
+    # This function is newline-agnostic i.e. it can also split records with multiline fields.
     assert dlm != '"'
     if src.find('"') == -1: # Optimization for most common case
         return (src.split(dlm), False)

@@ -39,6 +39,7 @@ function extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_ext
 
 
 function split_quoted_str(src, dlm, preserve_quotes_and_whitespaces=false) {
+    // This function is newline-agnostic i.e. it can also split records with multiline fields.
     if (src.indexOf('"') == -1) // Optimization for most common case
         return [src.split(dlm), false];
     var result = [];
@@ -116,6 +117,28 @@ function smart_split(src, dlm, policy, preserve_quotes_and_whitespaces) {
 }
 
 
+function accumulate_rfc_line_into_record(external_rfc_line_buffer, current_line, comment_prefix=null) {
+    // Return null if the current line yields no record.
+    // Return a record string if the current line yields the record and cleans the external line buffer.
+    if (comment_prefix !== null && external_rfc_line_buffer.length == 0 && current_line.startsWith(comment_prefix))
+        return null;
+    let match_list = current_line.match(/"/g);
+    let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+    if (external_rfc_line_buffer.length == 0 && !has_unbalanced_double_quote) {
+        return current_line;
+    } else if (external_rfc_line_buffer.length == 0 && has_unbalanced_double_quote) {
+        external_rfc_line_buffer.push(current_line);
+    } else if (!has_unbalanced_double_quote) {
+        external_rfc_line_buffer.push(current_line);
+    } else {
+        external_rfc_line_buffer.push(current_line);
+        let multiline_row = external_rfc_line_buffer.join('\n');
+        external_rfc_line_buffer.splice(0, external_rfc_line_buffer.length); // Cleanup the external buffer.
+        return multiline_row;
+    }
+    return null;
+}
+
 
 module.exports.split_quoted_str = split_quoted_str;
 module.exports.split_whitespace_separated_str = split_whitespace_separated_str;
@@ -125,3 +148,4 @@ module.exports.rfc_quote_field = rfc_quote_field;
 module.exports.unquote_field = unquote_field;
 module.exports.unquote_fields = unquote_fields;
 module.exports.split_lines = split_lines;
+module.exports.accumulate_rfc_line_into_record = accumulate_rfc_line_into_record;

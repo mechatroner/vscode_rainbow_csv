@@ -371,22 +371,9 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
 
 
     process_partial_rfc_record_line(line) {
-        if (this.comment_prefix !== null && this.rfc_line_buffer.length == 0 && line.startsWith(this.comment_prefix))
-            return; // Just skip the line
-        let match_list = line.match(/"/g);
-        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-        if (this.rfc_line_buffer.length == 0 && !has_unbalanced_double_quote) {
-            this.process_record_line(line);
-        } else if (this.rfc_line_buffer.length == 0 && has_unbalanced_double_quote) {
-            this.rfc_line_buffer.push(line);
-        } else if (!has_unbalanced_double_quote) {
-            this.rfc_line_buffer.push(line);
-        } else {
-            this.rfc_line_buffer.push(line);
-            let multiline_row = this.rfc_line_buffer.join('\n');
-            this.rfc_line_buffer = [];
-            this.process_record_line(multiline_row);
-        }
+        let record_line = csv_utils.accumulate_rfc_line_into_record(this.rfc_line_buffer, line, this.comment_prefix);
+        if (record_line !== null)
+            this.process_record_line(record_line);
     };
 
 
