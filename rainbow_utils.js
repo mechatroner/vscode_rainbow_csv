@@ -373,7 +373,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
             if (this.first_defective_line === null) {
                 this.first_defective_line = this.NL;
                 if (this.policy == 'quoted_rfc')
-                    this.handle_exception(new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}, line ${this.NL}`));
+                    throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}, line ${this.NL}`);
             }
         }
         let num_fields = record.length;
@@ -396,7 +396,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         if (this.first_defective_line !== null)
             result.push(`Inconsistent double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line}`);
         if (Object.keys(this.fields_info).length > 1)
-            result.push(make_inconsistent_num_fields_warning('input', this.fields_info));
+            result.push(make_inconsistent_num_fields_warning(this.table_name, this.fields_info));
         return result;
     }
 }
@@ -499,10 +499,21 @@ class VSCodeWriter extends rbql.RBQLOutputWriter {
     };
 }
 
+class VSCodeTableRegistry {
+    constructor(){}
+
+    get_iterator_by_table_id(_table_id) {
+        throw new RbqlIOHandlingError("JOIN queries are currently not supported in vscode.dev web version.");
+    }
+
+    get_warnings() {
+        return [];
+    };
+}
 
 async function query_vscode(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
     let user_init_code = ''; // TODO find a way to have init code.
-    let join_tables_registry = null; // TODO find a way to have join registry.
+    let join_tables_registry = new VSCodeTableRegistry(); // TODO find a way to have join registry.
     let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
     let output_writer = new VSCodeWriter(output_delim, output_policy);
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);

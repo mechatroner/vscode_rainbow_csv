@@ -494,7 +494,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         if (this.utf8_bom_removed)
             result.push(`UTF-8 Byte Order Mark (BOM) was found and skipped in ${this.table_name} table`);
         if (Object.keys(this.fields_info).length > 1)
-            result.push(make_inconsistent_num_fields_warning('input', this.fields_info));
+            result.push(make_inconsistent_num_fields_warning(this.table_name, this.fields_info));
         return result;
     };
 }
