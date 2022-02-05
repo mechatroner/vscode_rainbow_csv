@@ -1,11 +1,13 @@
 ## Instructions
 
 ### Running unit tests for the extension inside VSCode:
-1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including vscode/lib/testrunner
+1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
-Or alternative way to launch it (use double quotes for both Win and Linux compatibilty): code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --wait
+Or alternative way to launch it (use double quotes for both Win and Linux compatibilty): `code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --wait`
 Running integration tests from windows cmd terminal. Example command:
+```
 code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --extensionTestsPath="C:\wsl_share\vscode_rainbow_csv\test"
+```
 You can also run this command from wsl terminal!
 
 It is also possible to use test/run_tests.sh script:
@@ -23,6 +25,26 @@ It is also possible to use test/run_tests.sh script:
 2. Run `npm run compile-web && npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 3. Point your browser to http://localhost:3000/
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
+The difference between running in win and in WSL is that in WSL it would only run with `--browser=none` option and this option doesn't run unit tests automatically which could be an issue if you want to run tests instead of manual debugging.
+
+
+#### Debuging
+Looks like it is possible to directly run scripts from package.json with `npx` like this:
+```
+npx vscode-test-web --help
+```
+
+Options available for vscode-test-web
+* version
+`'insiders' | 'stable' | 'sources' [Optional, default 'insiders']`
+
+* browser
+`'chromium' | 'firefox' | 'webkit' | 'none': The browser to launch. [Optional, defaults to 'chromium']`
+If `none` is provided it wouldn't run unit test and it wouldn't kill the server when the browser window is closed.
+
+
+#### Issues
+* FS mount not working: https://github.com/microsoft/vscode-test-web/issues/16
 
 
 ### Running the browser version for vscode.dev

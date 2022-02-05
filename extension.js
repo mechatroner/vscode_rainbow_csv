@@ -679,8 +679,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     if (backend_language == 'js') {
         let warnings = [];
         let result_doc = null;
-        // FIXME why aren't we using comment_prefix here?
-        // FIXME add comment_prefix handling and add unit test with this case.
+        // FIXME add comment prefix handling in RBQL, unit tests (and web_ui entry?)
         try {
             //if (is_web_ext) {
             if (true) { // FIXME just to test new functionality
