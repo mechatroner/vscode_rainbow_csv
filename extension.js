@@ -701,6 +701,10 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         webview_report_handler(null, null);
         await handle_rbql_result_file(result_doc, warnings);
     } else {
+        if (is_web_ext) {
+            webview_report_handler('Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
+            return;
+        }
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding];
         if (with_headers)
@@ -1013,6 +1017,15 @@ function update_query_history(query) {
 function handle_rbql_client_message(webview, message) {
     let message_type = message['msg_type'];
 
+    let webview_report_handler = function(error_type, error_msg) {
+        let report_msg = {'msg_type': 'rbql_report'};
+        if (error_type)
+            report_msg["error_type"] = error_type;
+        if (error_msg)
+            report_msg["error_msg"] = error_msg;
+        webview.postMessage(report_msg);
+    };
+
     if (message_type == 'handshake') {
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
@@ -1027,6 +1040,7 @@ function handle_rbql_client_message(webview, message) {
         init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
         init_msg['with_headers'] = rbql_context.with_headers;
         init_msg['header'] = rbql_context.header;
+        init_msg['is_web_ext'] = is_web_ext;
         if (integration_test_config) {
             init_msg['integration_test_language'] = integration_test_config.rbql_backend;
             init_msg['integration_test_query'] = integration_test_config.rbql_query;
@@ -1099,20 +1113,15 @@ function handle_rbql_client_message(webview, message) {
         let output_dialect = message['output_dialect'];
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let with_headers = message['with_headers'];
-        var webview_report_handler = function(error_type, error_msg) {
-            let report_msg = {'msg_type': 'rbql_report'};
-            if (error_type)
-                report_msg["error_type"] = error_type;
-            if (error_msg)
-                report_msg["error_msg"] = error_msg;
-            webview.postMessage(report_msg);
-        };
         update_query_history(rbql_query);
         run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler);
     }
 
     if (message_type == 'edit_udf') {
-        // FIXME show error in web mode and test this.
+        if (is_web_ext) {
+            webview_report_handler('Input error', 'UDFs are currently not supported in web version');
+            return;
+        }
         let backend_language = message['backend_language'];
         let udf_file_path = null;
         let default_content = '';
@@ -1162,7 +1171,6 @@ function edit_rbql() {
     let orig_uri = active_doc.uri;
     if (!orig_uri)
         return;
-    // FIXME test with an untitled file in the web extension
     // FIXME test with an unsaved but named file with modifications in the web extension
     // For web orig_uri.scheme can have other valid values e.g. `vscode-test-web` when testing the browser integration.
     if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)

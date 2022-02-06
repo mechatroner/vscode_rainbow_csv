@@ -14,6 +14,7 @@ var adjust_join_table_header_callback = null;
 
 var global_header = null;
 
+var is_web_ext = null;
 
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
@@ -303,6 +304,7 @@ function handle_message(msg_event) {
             query_history = message['query_history'];
         }
         global_header = message['header'];
+        is_web_ext = message['is_web_ext'];
         let with_headers = message['with_headers'];
         let header = with_headers ? global_header : null;
         rbql_suggest.initialize_suggest('rbql_input', 'query_suggest', 'history_button', apply_suggest_callback, header, fetch_join_header_callback);
