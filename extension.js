@@ -666,7 +666,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         [output_delim, output_policy] = ['\t', 'simple'];
     rbql_context.output_delim = output_delim;
 
-    let output_path = path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
+    let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
 
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
@@ -681,8 +681,8 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let result_doc = null;
         // FIXME add comment prefix handling in RBQL, unit tests (and web_ui entry?)
         try {
-            //if (is_web_ext) {
-            if (true) { // FIXME just to test new functionality
+            if (is_web_ext) {
+            //if (true) { // FIXME just to test new functionality
                 let result_lines = await ll_rainbow_utils().query_vscode(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -1150,10 +1150,6 @@ function adjust_webview_paths(paths_list, client_html) {
 
 
 function edit_rbql() {
-    if (is_web_ext) {
-        show_single_line_error('RBQL is currently unavailable in web mode.');
-        return;
-    }
     let active_window = vscode.window;
     if (!active_window)
         return;
@@ -1486,7 +1482,7 @@ async function activate(context) {
     }
 
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd); // WEB_TESTED
-    var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql); // WEB_DISABLED
+    var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line); // WEB_TESTED
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names); // WEB_TESTED
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED

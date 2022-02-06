@@ -42,6 +42,8 @@ Options available for vscode-test-web
 `'chromium' | 'firefox' | 'webkit' | 'none': The browser to launch. [Optional, defaults to 'chromium']`
 If `none` is provided it wouldn't run unit test and it wouldn't kill the server when the browser window is closed.
 
+If exceptions happens in extension.js you will be able to see it in the browser console (but the line number would be wrong).
+
 
 #### Issues
 * FS mount not working: https://github.com/microsoft/vscode-test-web/issues/16
