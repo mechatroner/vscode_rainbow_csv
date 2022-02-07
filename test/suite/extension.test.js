@@ -9,11 +9,12 @@ const path = require('path');
 const fs = require('fs');
 
 const vscode = require('vscode');
-const rainbow_csv = require('../extension');
+const rainbow_csv = require('../../extension');
 
 const crypto = require('crypto');
 
-const log_file_path = path.join(__dirname, 'rainbow_csv.test.log');
+const test_dir =  path.resolve(__dirname, '..')
+const log_file_path = path.join(test_dir, 'rainbow_csv.test.log');
 
 
 function sleep(ms) {
@@ -31,14 +32,14 @@ function log_message(msg) {
 }
 
 
-
 async function test_rbql() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
-    let test_config_path = path.join(__dirname, '.tmp_test_config.json')
+    let test_config_path = path.join(test_dir, '.tmp_test_config.json')
 
     let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
+    // FIXME can we use something like rainbow_csv.set_debug_config() instead?
     fs.writeFileSync(test_config_path, JSON.stringify(test_config));
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
@@ -63,7 +64,7 @@ async function test_rbql() {
 
 
 async function test_align_shrink_lint() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking.csv'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -98,7 +99,7 @@ async function test_align_shrink_lint() {
 
 
 async function test_column_edit() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'movies.txt'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'movies.txt'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -125,7 +126,7 @@ async function test_column_edit() {
 
 
 async function test_no_autodetection() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum.txt'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'lorem_ipsum.txt'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -139,7 +140,7 @@ async function test_no_autodetection() {
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
     
-    uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'lorem_ipsum'));
+    uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'lorem_ipsum'));
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -149,7 +150,7 @@ async function test_no_autodetection() {
 
 
 async function test_autodetection() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'university_ranking_semicolon.txt'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking_semicolon.txt'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`)
@@ -159,7 +160,7 @@ async function test_autodetection() {
 
 
 async function test_manual_enable_disable() {
-    let uri = vscode.Uri.file(path.join(__dirname, 'csv_files', 'small_movies.pipe'));
+    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'small_movies.pipe'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for small_movies.pipe: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');

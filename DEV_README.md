@@ -1,5 +1,12 @@
 ## Instructions
 
+
+### Running unit tests for the extension inside VSCode:
+1. **IMPORTANT** Make sure you have no open VSCode instances running!
+2. run `npm install` in Windows.
+3. run `npm run test` in Windows.
+
+
 ### Running unit tests for the extension inside VSCode:
 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
@@ -12,6 +19,11 @@ You can also run this command from wsl terminal!
 
 It is also possible to use test/run_tests.sh script:
 `./run_tests.sh "C:\wsl_share\vscode_rainbow_csv" "C:\wsl_share\vscode_rainbow_csv\test"`
+
+`typescript` dependency was added only to compile the typescript test runners.
+
+Example of minimalistic test setup:
+https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-sample
 
 
 ### Debugging the extension:
@@ -32,6 +44,10 @@ The difference between running in win and in WSL is that in WSL it would only ru
 Looks like it is possible to directly run scripts from package.json with `npx` like this:
 ```
 npx vscode-test-web --help
+```
+Apparently another option to execute this command is (never tested):
+```
+npx @vscode/test-web --extensionDevelopmentPath=$extensionFolderPath $testDataPath
 ```
 
 Options available for vscode-test-web

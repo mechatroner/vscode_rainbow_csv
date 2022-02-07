@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const child_process = require('child_process');
 
-// See DEV_README.md for instructions.
+// Please see DEV_README.md file for additional info.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -63,6 +63,11 @@ function show_single_line_error(error_msg) {
     if (!active_window)
         return;
     active_window.showErrorMessage(error_msg);
+}
+
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 
@@ -1171,7 +1176,6 @@ function edit_rbql() {
     let orig_uri = active_doc.uri;
     if (!orig_uri)
         return;
-    // FIXME test with an unsaved but named file with modifications in the web extension
     // For web orig_uri.scheme can have other valid values e.g. `vscode-test-web` when testing the browser integration.
     if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)
         return;
@@ -1509,7 +1513,6 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
@@ -1529,13 +1532,11 @@ async function activate(context) {
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(test_mode_cmd);
 
-    setTimeout(function() {
-        // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
-        // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
-        var active_doc = get_active_doc();
-        handle_doc_open(active_doc);
-    }, 1000);
-
+    // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
+    // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
+    await sleep(1000);
+    let active_doc = get_active_doc();
+    handle_doc_open(active_doc);
 }
 
 
