@@ -1531,5 +1531,3 @@ function deactivate() {
 
 exports.activate = activate;
 exports.deactivate = deactivate;
-// Export some functions for integration tests:
-exports.csv_lint = csv_lint; // TODO do not expose the method, use command instead

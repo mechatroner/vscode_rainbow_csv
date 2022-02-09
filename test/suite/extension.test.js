@@ -62,7 +62,7 @@ async function test_align_shrink_lint() {
     let length_aligned = active_doc.getText().length;
     log_message(`Aligned length: ${length_aligned}`)
     assert(length_aligned > length_original);
-    let lint_report = rainbow_csv.csv_lint(active_doc, true); // FIXME this is not reliable to call this method, use command instead, we are actually using non-activated version of rainbow_csv here
+    let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert.equal(lint_report, 'OK');
     await sleep(2000);
     
@@ -74,7 +74,7 @@ async function test_align_shrink_lint() {
     
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
-    lint_report = rainbow_csv.csv_lint(active_doc, true); // FIXME this is not reliable to call this method, use command instead, we are actually using non-activated version of rainbow_csv here
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert(lint_report.indexOf('Number of fields is not consistent') != -1);
     await sleep(500);
     
