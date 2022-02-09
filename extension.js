@@ -27,7 +27,6 @@ function ll_rainbow_utils() {
 
 let client_html_template_web = null;
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
-var integration_test_config = null;
 
 
 const dialect_map = {
@@ -68,21 +67,6 @@ function show_single_line_error(error_msg) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-function read_integration_test_config() {
-    if (is_web_ext) {
-        show_single_line_error('This command is currently unavailable in web mode.');
-        return;
-    }
-    let config_path = path.join(path.dirname(absolute_path_map['rbql_client.js']), 'test', '.tmp_test_config.json');
-    if (fs.existsSync(config_path)) {
-        let data = fs.readFileSync(config_path, {encoding: 'utf8', flag: 'r'});
-        integration_test_config = JSON.parse(data);
-    } else {
-        integration_test_config = null;
-    }
 }
 
 
@@ -518,11 +502,13 @@ function csv_lint(active_doc, is_manual_op) {
 }
 
 
-function csv_lint_cmd() {
+async function csv_lint_cmd() {
     // TODO re-run on each file save with content change.
-    csv_lint(null, true);
+    let lint_report = csv_lint(null, true);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
-    setTimeout(refresh_status_bar_buttons, 500);
+    await sleep(500);
+    refresh_status_bar_buttons();
+    return lint_report;
 }
 
 
@@ -1019,7 +1005,7 @@ function update_query_history(query) {
 }
 
 
-function handle_rbql_client_message(webview, message) {
+function handle_rbql_client_message(webview, message, integration_test_options=null) {
     let message_type = message['msg_type'];
 
     let webview_report_handler = function(error_type, error_msg) {
@@ -1046,9 +1032,9 @@ function handle_rbql_client_message(webview, message) {
         init_msg['with_headers'] = rbql_context.with_headers;
         init_msg['header'] = rbql_context.header;
         init_msg['is_web_ext'] = is_web_ext;
-        if (integration_test_config) {
-            init_msg['integration_test_language'] = integration_test_config.rbql_backend;
-            init_msg['integration_test_query'] = integration_test_config.rbql_query;
+        if (integration_test_options) {
+            init_msg['integration_test_language'] = integration_test_options.rbql_backend;
+            init_msg['integration_test_query'] = integration_test_options.rbql_query;
         }
         webview.postMessage(init_msg);
     }
@@ -1163,7 +1149,7 @@ function adjust_webview_paths(paths_list, client_html) {
 }
 
 
-function edit_rbql() {
+async function edit_rbql(integration_test_options=null) {
     let active_window = vscode.window;
     if (!active_window)
         return;
@@ -1233,7 +1219,7 @@ function edit_rbql() {
     let client_html = client_html_template;
     client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'rbql_logo.svg'], client_html);
     preview_panel.webview.html = client_html;
-    preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message); });
+    preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message, integration_test_options); });
 }
 
 
@@ -1493,22 +1479,21 @@ async function activate(context) {
         }
     }
 
-    var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd); // WEB_TESTED
+    var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
-    var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line); // WEB_TESTED
-    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names); // WEB_TESTED
+    var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
+    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); }); // WEB_DISABLED
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); }); // WEB_DISABLED
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); }); // WEB_DISABLED
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator); // WEB_TESTED
-    var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language); //WEB_TESTED
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
+    var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head')); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail')); // WEB_DISABLED
-    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table); // WEB_TESTED
-    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table); // WEB_TESTED
+    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
+    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
-    var test_mode_cmd = vscode.commands.registerCommand('rainbow-csv.SetIntegrationTestMode', read_integration_test_config); // WEB_DISABLED
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1530,7 +1515,6 @@ async function activate(context) {
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
-    context.subscriptions.push(test_mode_cmd);
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.

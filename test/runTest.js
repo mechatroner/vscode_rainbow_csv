@@ -1,4 +1,5 @@
 "use strict";
+// This file was generated from runTests.ts file taken from vscode-extension-samples/helloworld-test-sample.
 Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const test_electron_1 = require("@vscode/test-electron");

@@ -2,7 +2,7 @@
 
 // This test uses Mocha test framework
 
-// Example command to run from terminal (works in WSL too): code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --extensionTestsPath="C:\wsl_share\vscode_rainbow_csv\test" --wait
+// Example command to run tests from terminal: `npm run test`
 
 const assert = require('assert');
 const path = require('path');
@@ -22,11 +22,6 @@ function sleep(ms) {
 }
 
 
-function calc_str_md5(str) {
-    return crypto.createHash('md5').update(str, 'utf-8').digest('hex');
-}
-
-
 function log_message(msg) {
     fs.appendFileSync(log_file_path, msg + '\n');
 }
@@ -36,25 +31,17 @@ async function test_rbql() {
     let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
-    let test_config_path = path.join(test_dir, '.tmp_test_config.json')
 
-    let test_config = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
-    // FIXME can we use something like rainbow_csv.set_debug_config() instead?
-    fs.writeFileSync(test_config_path, JSON.stringify(test_config));
-    await sleep(1000);
-    await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
-    await vscode.commands.executeCommand('rainbow-csv.RBQL');
+    let test_task = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(6000);
     active_doc = vscode.window.activeTextEditor.document;
     let length_after_query = active_doc.getText().length;
     log_message(`Lenght after python query: ${length_after_query}`)
     assert.equal(805, length_after_query); // wc -c gives 785 characters length. Probably VSCode uses '\r\n' as line ends
 
-    test_config = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
-    fs.writeFileSync(test_config_path, JSON.stringify(test_config));
-    await sleep(1000);
-    await vscode.commands.executeCommand('rainbow-csv.SetIntegrationTestMode');
-    await vscode.commands.executeCommand('rainbow-csv.RBQL');
+    test_task = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(6000);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
@@ -92,7 +79,7 @@ async function test_align_shrink_lint() {
     await sleep(500);
     
     for (let i = 0; i < text_with_comma.length; i++) {
-        vscode.commands.executeCommand("deleteLeft");
+        await vscode.commands.executeCommand("deleteLeft");
     }
     await sleep(500);
 }
@@ -105,10 +92,10 @@ async function test_column_edit() {
     let length_original = active_doc.getText().length;
     log_message(`Original length: ${length_original}`)
     for (let i = 0; i < 10; i++) {
-        vscode.commands.executeCommand("cursorRight");
+        await vscode.commands.executeCommand("cursorRight");
     }
     await sleep(1000);
-    vscode.commands.executeCommand("rainbow-csv.ColumnEditAfter");
+    await vscode.commands.executeCommand("rainbow-csv.ColumnEditAfter");
     await sleep(1000);
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
@@ -117,7 +104,7 @@ async function test_column_edit() {
     assert.equal(length_original + active_doc.lineCount * text_with_comma.length, length_after_column_edit);
     await sleep(1000);
     for (let i = 0; i < text_with_comma.length; i++) {
-        vscode.commands.executeCommand("deleteLeft");
+        await vscode.commands.executeCommand("deleteLeft");
     }
     await sleep(1000);
     let length_after_delete = active_doc.getText().length;
@@ -167,9 +154,9 @@ async function test_manual_enable_disable() {
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
     for (let i = 0; i < 6; i++) {
-        vscode.commands.executeCommand("cursorRight");
+        await vscode.commands.executeCommand("cursorRight");
     }
-    vscode.commands.executeCommand("cursorRightSelect");
+    await vscode.commands.executeCommand("cursorRightSelect");
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(2000);

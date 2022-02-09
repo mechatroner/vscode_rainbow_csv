@@ -26,6 +26,10 @@ Example of minimalistic test setup:
 https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-sample
 
 
+#### Unit test instrumentation
+To add additional instrumentation for unit test you can register a custom command the only point of which is to get test task from the test script and returns some value as the result (calling command with an async callback that returns a value will return this value in the test script).
+
+
 ### Debugging the extension:
 1. Open rainbow_csv directory in VSCode  
 2. Make sure you have "Extension" run mode enabled
@@ -107,3 +111,7 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Store VSCode documents instead of file paths in result_set_parent_map so that the map can be used in web version. And the autodetection_stoplist also should be doc based to work in web.
 
 * Support JOIN queries in web version.
+
+* Get rid of run_tests.sh and expected_test_log.txt or find a way to use them for web-version tests.
+
+* Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.

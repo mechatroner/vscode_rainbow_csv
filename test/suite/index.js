@@ -1,4 +1,7 @@
 "use strict";
+
+// This file was generated from index.ts file taken from vscode-extension-samples/helloworld-test-sample.
+
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.run = void 0;
 const path = require("path");
