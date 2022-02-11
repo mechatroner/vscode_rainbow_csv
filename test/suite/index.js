@@ -49,7 +49,7 @@ async function test_align_shrink_lint() {
     let length_original = active_doc.getText().length;
     log_message(`Original length: ${length_original}`)
     await sleep(2000);
-    
+
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
     log_message(`Aligned length: ${length_aligned}`)
@@ -57,19 +57,19 @@ async function test_align_shrink_lint() {
     let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert.equal(lint_report, 'OK');
     await sleep(2000);
-    
+
     await vscode.commands.executeCommand('rainbow-csv.Shrink');
     let length_shrinked = active_doc.getText().length;
     log_message(`Shrinked length: ${length_shrinked}`)
     assert.equal(length_original, length_shrinked);
     await sleep(500);
-    
+
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
     lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert(lint_report.indexOf('Number of fields is not consistent') != -1);
     await sleep(500);
-    
+
     for (let i = 0; i < text_with_comma.length; i++) {
         await vscode.commands.executeCommand("deleteLeft");
     }
@@ -112,13 +112,13 @@ async function test_no_autodetection() {
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
-    uri = vscode.Uri.file(path.join(__dirname, 'extension.test.js'));
+    uri = vscode.Uri.file(path.join(__dirname, 'index.js'));
     active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for extension.test.js: ${active_doc.languageId}`)
+    log_message(`languageId for index.js: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'javascript');
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
-    
+
     uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'lorem_ipsum'));
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)

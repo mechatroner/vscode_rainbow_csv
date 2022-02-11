@@ -406,7 +406,6 @@
         "test": "node ./test/runTest.js"
     },
     "devDependencies": {
-        "@types/vscode": "^1.38.0",
         "@vscode/test-web": "^0.0.22",
         "@vscode/test-electron": "^1.6.1",
         "webpack": "^5.64.0",
