@@ -1,11 +1,10 @@
 const assert = require('assert');
 const path = require('path');
-//const fs = require('fs');
 
 const vscode = require('vscode');
 
-const test_dir =  path.resolve(__dirname, '..')
-//const log_file_path = path.join(test_dir, 'rainbow_csv.test.log');
+const is_web_ext = (path.resolve === undefined); // Runs as web extension in browser.
+const test_dir = is_web_ext ? null : path.resolve(__dirname, '..');
 
 
 function sleep(ms) {
@@ -14,8 +13,7 @@ function sleep(ms) {
 
 
 function log_message(msg) {
-    console.log(msg);
-    //fs.appendFileSync(log_file_path, msg + '\n');
+    console.log('###RAINBOW_CSV_UNIT_TEST_MESSAGE### ' + msg);
 }
 
 
@@ -164,22 +162,18 @@ async function test_manual_enable_disable() {
 
 async function run() {
     try {
-        //fs.unlinkSync(log_file_path);
-    } catch (e) {
-        if (String(e).indexOf('no such file') == -1)
-            throw e;
-    }
-    try {
         log_message('Starting tests');
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
-
-        await test_rbql();
-        await test_align_shrink_lint();
-        await test_column_edit();
-        await test_no_autodetection();
-        await test_autodetection();
-        await test_manual_enable_disable();
+        
+        if (!is_web_ext) {
+            await test_rbql();
+            await test_align_shrink_lint();
+            await test_column_edit();
+            await test_no_autodetection();
+            await test_autodetection();
+            await test_manual_enable_disable();
+        }
 
         log_message('Finishing tests');
     } catch (e) {

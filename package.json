@@ -402,15 +402,17 @@
         "watch-web": "webpack --watch",
         "package-web": "webpack --mode production --devtool hidden-source-map",
         "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
-        "run-test-in-browser": "vscode-test-web --version stable --extensionDevelopmentPath=. .",
+        "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",
         "test": "node ./test/runTest.js"
     },
     "devDependencies": {
+        "@types/vscode": "^1.62.0",
         "@vscode/test-web": "^0.0.22",
         "@vscode/test-electron": "^1.6.1",
         "webpack": "^5.64.0",
         "webpack-cli": "^4.9.1",
         "assert": "^2.0.0",
+        "process": "^0.11.10",
         "eslint": "^7.21.0"
     },
     "repository": {

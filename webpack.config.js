@@ -32,8 +32,7 @@ const webExtensionConfig = {
       os: false,
       child_process: false,
       readline: false, // For read_header in rainbow_utils.js
-      util: false, // For util.TextDecoder in rbql_csv.js
-      process: false // For process in rbql_csv.js
+      util: false // For util.TextDecoder in rbql_csv.js
     }
   },
   module: {
