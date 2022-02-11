@@ -401,21 +401,17 @@
         "compile-web": "webpack",
         "watch-web": "webpack --watch",
         "package-web": "webpack --mode production --devtool hidden-source-map",
-        "open-in-browser": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
-        "compile": "tsc -p ./",
-        "test": "node ./test/runTest.js",
-        "test_ts": "node ./out/runTest.js"
+        "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
+        "run-test-in-browser": "vscode-test-web --version stable --extensionDevelopmentPath=. .",
+        "test": "node ./test/runTest.js"
     },
     "devDependencies": {
         "@types/vscode": "^1.38.0",
-        "@types/mocha": "^5.2.6",
-        "@types/glob": "^7.1.1",
         "@vscode/test-web": "^0.0.22",
         "@vscode/test-electron": "^1.6.1",
         "webpack": "^5.64.0",
-        "glob": "^7.1.4",
         "webpack-cli": "^4.9.1",
-        "mocha": "^6.1.4",
+        "assert": "^2.0.0",
         "eslint": "^7.21.0"
     },
     "repository": {

@@ -8,6 +8,7 @@ const webExtensionConfig = {
   target: 'webworker', // extensions run in a webworker context
   entry: {
     extension: './extension.js', // source of the web extension main file
+    'test/suite/index': './test/suite/index.js' // Source of web extension test runner.
   },
   output: {
     filename: '[name].js', // The name will be replaced with the key from the `entry` section i.e. by `extension` - because it is the only key in entry for this particular config.

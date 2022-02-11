@@ -3,12 +3,12 @@
 
 ### Running unit tests for the extension inside VSCode:
 1. **IMPORTANT** Make sure you have no open VSCode instances running!
-2. run `npm install` in Windows.
+2. run `npm install --only=dev` in Windows.
 3. run `npm run test` in Windows.
 
 
 ### Running unit tests for the extension inside VSCode:
-1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
+1. In console in rainbow_csv directory run `npm install --only=dev` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
 Or alternative way to launch it (use double quotes for both Win and Linux compatibilty): `code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --wait`
 Running integration tests from windows cmd terminal. Example command:
@@ -37,7 +37,7 @@ To add additional instrumentation for unit test you can register a custom comman
 
 
 ### Running the browser version
-1. Run `npm install` - OK to run in WSL
+1. Run `npm install --only=dev` - OK to run in WSL
 2. Run `npm run compile-web && npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 3. Point your browser to http://localhost:3000/
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
@@ -114,4 +114,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Get rid of run_tests.sh and expected_test_log.txt or find a way to use them for web-version tests.
 
+* Add comment prefix handling in RBQL.
+
 * Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.
+
+* Try to get rid of `@types/vscode` dev dependency.
