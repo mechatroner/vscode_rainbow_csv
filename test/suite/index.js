@@ -18,6 +18,7 @@ function log_message(msg) {
 
 
 async function test_rbql() {
+    //let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html');
     let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
@@ -173,6 +174,24 @@ async function run() {
             await test_no_autodetection();
             await test_autodetection();
             await test_manual_enable_disable();
+        } else {
+            // Options to get current directory:
+            // Store extension.uri inside the extension activate function and return it through a helper command.
+
+
+            //let extension = vscode.getExtension('mechatroner.rainbow-csv');
+            //log_message(extension.extensionUri.fsPath);
+            //log_message('dirname: ' + __dirname);
+            for (let f of vscode.workspace.workspaceFolders) {
+                log_message('workspace');
+                log_message(JSON.stringify(f.uri));
+                let uri = vscode.Uri.joinPath(f.uri, 'test', 'csv_files', 'lorem_ipsum.txt');
+                let active_doc = await vscode.workspace.openTextDocument(uri);
+                let editor = await vscode.window.showTextDocument(active_doc);
+                await sleep(10000);
+            }
+            //let active_doc = await vscode.workspace.openTextDocument(uri);
+            //await sleep(10000);
         }
 
         log_message('Finishing tests');
