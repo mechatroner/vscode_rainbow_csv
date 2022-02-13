@@ -402,8 +402,7 @@
         "watch-web": "webpack --watch",
         "package-web": "webpack --mode production --devtool hidden-source-map",
         "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
-        "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",
-        "test-in-browser-with-workspace": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js .",
+        "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js .",
         "test": "node ./test/runTest.js"
     },
     "devDependencies": {

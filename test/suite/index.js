@@ -1,10 +1,9 @@
 const assert = require('assert');
-const path = require('path');
+const os = require('os');
 
 const vscode = require('vscode');
 
-const is_web_ext = (path.resolve === undefined); // Runs as web extension in browser.
-const test_dir = is_web_ext ? null : path.resolve(__dirname, '..');
+const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
 
 function sleep(ms) {
@@ -17,9 +16,8 @@ function log_message(msg) {
 }
 
 
-async function test_rbql() {
-    //let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html');
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
+async function test_rbql(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
 
@@ -41,8 +39,8 @@ async function test_rbql() {
 }
 
 
-async function test_align_shrink_lint() {
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking.csv'));
+async function test_align_shrink_lint(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -76,8 +74,8 @@ async function test_align_shrink_lint() {
 }
 
 
-async function test_column_edit() {
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'movies.txt'));
+async function test_column_edit(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'movies.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -103,22 +101,22 @@ async function test_column_edit() {
 }
 
 
-async function test_no_autodetection() {
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'lorem_ipsum.txt'));
+async function test_no_autodetection(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'lorem_ipsum.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
-    uri = vscode.Uri.file(path.join(__dirname, 'index.js'));
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'suite', 'index.js');
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for index.js: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'javascript');
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
-    uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'lorem_ipsum'));
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'lorem_ipsum');
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -127,8 +125,8 @@ async function test_no_autodetection() {
 }
 
 
-async function test_autodetection() {
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'university_ranking_semicolon.txt'));
+async function test_autodetection(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking_semicolon.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`)
@@ -137,8 +135,8 @@ async function test_autodetection() {
 }
 
 
-async function test_manual_enable_disable() {
-    let uri = vscode.Uri.file(path.join(test_dir, 'csv_files', 'small_movies.pipe'));
+async function test_manual_enable_disable(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'small_movies.pipe');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for small_movies.pipe: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -167,32 +165,21 @@ async function run() {
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
         
+        assert(vscode.workspace.workspaceFolders);
+        assert.equal(1, vscode.workspace.workspaceFolders.length);
+        let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
         if (!is_web_ext) {
-            await test_rbql();
-            await test_align_shrink_lint();
-            await test_column_edit();
-            await test_no_autodetection();
-            await test_autodetection();
-            await test_manual_enable_disable();
-        } else {
-            // Options to get current directory:
-            // Store extension.uri inside the extension activate function and return it through a helper command.
-
-
-            //let extension = vscode.getExtension('mechatroner.rainbow-csv');
-            //log_message(extension.extensionUri.fsPath);
-            //log_message('dirname: ' + __dirname);
-            for (let f of vscode.workspace.workspaceFolders) {
-                log_message('workspace');
-                log_message(JSON.stringify(f.uri));
-                let uri = vscode.Uri.joinPath(f.uri, 'test', 'csv_files', 'lorem_ipsum.txt');
-                let active_doc = await vscode.workspace.openTextDocument(uri);
-                let editor = await vscode.window.showTextDocument(active_doc);
-                await sleep(10000);
-            }
-            //let active_doc = await vscode.workspace.openTextDocument(uri);
-            //await sleep(10000);
+            // FIXME create a similar test without Python for web rbql.
+            await test_rbql(workspace_folder_uri);
         }
+        await test_align_shrink_lint(workspace_folder_uri);
+        if (!is_web_ext) {
+            // FIXME enable the command in web version.
+            await test_column_edit(workspace_folder_uri);
+        }
+        await test_no_autodetection(workspace_folder_uri);
+        await test_autodetection(workspace_folder_uri);
+        await test_manual_enable_disable(workspace_folder_uri);
 
         log_message('Finishing tests');
     } catch (e) {

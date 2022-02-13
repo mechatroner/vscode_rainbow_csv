@@ -119,3 +119,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.
 
 * Try to get rid of `@types/vscode` dev dependency.
+
+* Support all commands in web version, especially column edits
