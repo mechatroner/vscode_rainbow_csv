@@ -173,10 +173,7 @@ async function run() {
             await test_rbql(workspace_folder_uri);
         }
         await test_align_shrink_lint(workspace_folder_uri);
-        if (!is_web_ext) {
-            // FIXME enable the command in web version.
-            await test_column_edit(workspace_folder_uri);
-        }
+        await test_column_edit(workspace_folder_uri);
         await test_no_autodetection(workspace_folder_uri);
         await test_autodetection(workspace_folder_uri);
         await test_manual_enable_disable(workspace_folder_uri);

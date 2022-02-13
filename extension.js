@@ -57,11 +57,11 @@ let absolute_path_map = {
 };
 
 
-function show_single_line_error(error_msg) {
+async function show_single_line_error(error_msg) {
     var active_window = vscode.window;
     if (!active_window)
         return;
-    active_window.showErrorMessage(error_msg);
+    await active_window.showErrorMessage(error_msg);
 }
 
 
@@ -829,14 +829,7 @@ function edit_column_names() {
     vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
 }
 
-
-function column_edit(edit_mode) {
-    if (is_web_ext) {
-        // This function creates multiple cursors in web mode as expected (except the very first one?!), but they are inactive for some reason.
-        // TODO investigate and fix this.
-        show_single_line_error('This command is currently unavailable in web mode.');
-        return;
-    }
+async function column_edit(edit_mode) {
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -865,7 +858,7 @@ function column_edit(edit_mode) {
     let selections = [];
     let num_lines = active_doc.lineCount;
     if (num_lines >= 10000) {
-        show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
+        await show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
         return;
     }
     for (let lnum = 0; lnum < num_lines; lnum++) {
@@ -878,21 +871,21 @@ function column_edit(edit_mode) {
         let entries = report[0];
         quoting_warning = quoting_warning || report[1];
         if (col_num >= entries.length) {
-            show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
+            await show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
             return;
         }
         let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
         let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
         if (edit_mode == 'ce_before' && policy == 'quoted' && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
-            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            await show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
         if (edit_mode == 'ce_after' && policy == 'quoted' && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
-            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            await show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
         if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
-            show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
+            await show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
             return;
         }
         let position_before = new vscode.Position(lnum, char_pos_before);
@@ -909,8 +902,10 @@ function column_edit(edit_mode) {
     }
     active_editor.selections = selections;
     if (quoting_warning) {
-        vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
+        await vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
     }
+    // Call showTextDocument so that the editor will gain focus and the cursors will become active and blinking. This is a critical step here!
+    await vscode.window.showTextDocument(active_doc);
 }
 
 
@@ -1484,9 +1479,9 @@ async function activate(context) {
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
-    var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', function() { column_edit('ce_before'); }); // WEB_DISABLED
-    var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', function() { column_edit('ce_after'); }); // WEB_DISABLED
-    var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', function() { column_edit('ce_select'); }); // WEB_DISABLED
+    var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
+    var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
+    var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head')); // WEB_DISABLED

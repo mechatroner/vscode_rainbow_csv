@@ -120,4 +120,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Try to get rid of `@types/vscode` dev dependency.
 
-* Support all commands in web version, especially column edits
+* Support all commands in web version
+
+* Use `await show_single_line_error()` everywhere.
+
+* Use `await vscode.window.showWarningMessage()` everywhere.
