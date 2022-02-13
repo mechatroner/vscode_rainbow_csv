@@ -533,7 +533,7 @@ async function handle_rbql_result_file(text_doc, warnings) {
     try {
         await active_window.showTextDocument(text_doc);
     } catch (error) {
-        show_single_line_error('Unable to open RBQL result document');
+        await show_single_line_error('Unable to open RBQL result document');
         return;
     }
     if (language_id && text_doc.language_id != language_id) {
@@ -744,17 +744,17 @@ async function set_rainbow_separator() {
     let original_language_id = active_doc.languageId;
     let selection = active_editor.selection;
     if (!selection) {
-        show_single_line_error("Selection is empty");
+        await show_single_line_error("Selection is empty");
         return;
     }
     if (selection.start.line != selection.end.line || selection.start.character + 1 != selection.end.character) {
-        show_single_line_error("Selection must contain exactly one separator character");
+        await show_single_line_error("Selection must contain exactly one separator character");
         return;
     }
     let separator = active_doc.lineAt(selection.start.line).text.charAt(selection.start.character);
     let language_id = map_separator_to_language_id(separator);
     if (!language_id) {
-        show_single_line_error("Selected separator is not supported");
+        await show_single_line_error("Selected separator is not supported");
         return;
     }
 
@@ -776,7 +776,7 @@ async function restore_original_language() {
         original_language_id = original_language_ids.get(file_path);
     }
     if (!original_language_id || original_language_id == active_doc.languageId) {
-        show_single_line_error("Unable to restore original language");
+        await show_single_line_error("Unable to restore original language");
         return;
     }
 
@@ -786,9 +786,9 @@ async function restore_original_language() {
 }
 
 
-function set_join_table_name() {
+async function set_join_table_name() {
     if (is_web_ext) {
-        show_single_line_error('This command is currently unavailable in web mode.');
+        await show_single_line_error('This command is currently unavailable in web mode.');
         return;
     }
     var active_doc = get_active_doc();
@@ -796,12 +796,13 @@ function set_join_table_name() {
         return;
     let file_path = active_doc.fileName;
     if (!file_path) {
-        show_single_line_error('Unable to use this document as join table');
+        await show_single_line_error('Unable to use this document as join table');
         return;
     }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
     var input_box_props = {"prompt": title, "value": 'b'};
-    vscode.window.showInputBox(input_box_props).then(table_name => ll_rainbow_utils().write_table_name(file_path, table_name));
+    let table_name = await vscode.window.showInputBox(input_box_props);
+    ll_rainbow_utils().write_table_name(file_path, table_name);
 }
 
 
