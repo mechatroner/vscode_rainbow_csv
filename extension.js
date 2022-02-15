@@ -512,14 +512,14 @@ async function csv_lint_cmd() {
 }
 
 
-function show_warnings(warnings) {
+async function show_warnings(warnings) {
     if (!warnings || !warnings.length)
         return;
     var active_window = vscode.window;
     if (!active_window)
         return null;
     for (var i = 0; i < warnings.length; i++) {
-        active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
+        await active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
     }
 }
 
@@ -540,7 +540,7 @@ async function handle_rbql_result_file(text_doc, warnings) {
         console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
         await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
     }
-    show_warnings(warnings);
+    await show_warnings(warnings);
 }
 
 
@@ -920,7 +920,7 @@ async function column_edit(edit_mode) {
 }
 
 
-function shrink_table(active_editor, edit_builder) {
+async function shrink_table(active_editor, edit_builder) {
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
@@ -930,13 +930,13 @@ function shrink_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy);
     if (first_failed_line) {
-        show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
+        await show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
     aligned_files.delete(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (shrinked_doc_text === null) {
-        vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
+        await vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
         return;
     }
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
@@ -945,7 +945,7 @@ function shrink_table(active_editor, edit_builder) {
 }
 
 
-function align_table(active_editor, edit_builder) {
+async function align_table(active_editor, edit_builder) {
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
@@ -955,14 +955,14 @@ function align_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let [column_sizes, first_failed_line] = ll_rainbow_utils().calc_column_sizes(active_doc, delim, policy);
     if (first_failed_line) {
-        show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
+        await show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
     let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, column_sizes);
     aligned_files.add(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (aligned_doc_text === null) {
-        vscode.window.showWarningMessage('Table is already aligned, skipping');
+        await vscode.window.showWarningMessage('Table is already aligned, skipping');
         return;
     }
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
@@ -982,9 +982,9 @@ function do_copy_back(query_result_doc, active_editor) {
 }
 
 
-function copy_back() {
+async function copy_back() {
     if (is_web_ext) {
-        show_single_line_error('This command is currently unavailable in web mode.');
+        await show_single_line_error('This command is currently unavailable in web mode.');
         return;
     }
     let result_doc = get_active_doc();
@@ -1172,7 +1172,7 @@ async function edit_rbql(integration_test_options=null) {
     if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)
         return;
     if (orig_uri.scheme == 'file' && active_doc.isDirty && !is_web_ext) {
-        show_single_line_error("Unable to run RBQL: file has unsaved changes");
+        await show_single_line_error("Unable to run RBQL: file has unsaved changes");
         return;
     }
     let input_path = null;
@@ -1188,7 +1188,7 @@ async function edit_rbql(integration_test_options=null) {
     }
 
     if (!input_path) {
-        show_single_line_error("Unable to run RBQL for this file");
+        await show_single_line_error("Unable to run RBQL for this file");
         return;
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -1396,21 +1396,21 @@ function quoted_join(fields, delim) {
 }
 
 
-function make_preview(uri, preview_mode) {
+async function make_preview(uri, preview_mode) {
     if (is_web_ext) {
         show_single_line_error('This command is currently unavailable in web mode.');
         return;
     }
     var file_path = uri.fsPath;
     if (!file_path || !fs.existsSync(file_path)) {
-        vscode.window.showErrorMessage('Invalid file');
+        await vscode.window.showErrorMessage('Invalid file');
         return;
     }
 
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes <= size_limit) {
-        vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
+        await vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
         vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
         return;
     }
@@ -1495,8 +1495,8 @@ async function activate(context) {
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
-    var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', uri => make_preview(uri, 'head')); // WEB_DISABLED
-    var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', uri => make_preview(uri, 'tail')); // WEB_DISABLED
+    var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
+    var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
     var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
     var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
