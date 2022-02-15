@@ -998,7 +998,7 @@ async function copy_back() {
 }
 
 
-function update_query_history(query) {
+async function update_query_history(query) {
     let history_list = get_from_global_state('rbql_query_history', []);
     let old_index = history_list.indexOf(query);
     if (old_index != -1) {
@@ -1007,11 +1007,11 @@ function update_query_history(query) {
         history_list.splice(0, 1);
     }
     history_list.push(query);
-    save_to_global_state('rbql_query_history', history_list);
+    await save_to_global_state('rbql_query_history', history_list);
 }
 
 
-function handle_rbql_client_message(webview, message, integration_test_options=null) {
+async function handle_rbql_client_message(webview, message, integration_test_options=null) {
     let message_type = message['msg_type'];
 
     let webview_report_handler = function(error_type, error_msg) {
@@ -1020,7 +1020,7 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
             report_msg["error_type"] = error_type;
         if (error_msg)
             report_msg["error_msg"] = error_msg;
-        webview.postMessage(report_msg);
+        await webview.postMessage(report_msg);
     };
 
     if (message_type == 'handshake') {
@@ -1042,7 +1042,7 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
             init_msg['integration_test_query'] = integration_test_options.rbql_query;
         }
-        webview.postMessage(init_msg);
+        await webview.postMessage(init_msg);
     }
 
     if (message_type == 'fetch_table_header') {
@@ -1055,7 +1055,7 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
             let process_header_line = function(header_line) {
                 let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
                 if (!warning) {
-                    webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
+                    await webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
                 }
             };
             ll_rainbow_utils().read_header(table_path, encoding, process_header_line);
@@ -1075,16 +1075,16 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
     if (message_type == 'newlines_policy_change') {
         rbql_context.enable_rfc_newlines = message['enable_rfc_newlines'];
         if (rbql_context.input_document_path)
-            save_to_global_state(make_rfc_policy_key(rbql_context.input_document_path), rbql_context.enable_rfc_newlines);
+            await save_to_global_state(make_rfc_policy_key(rbql_context.input_document_path), rbql_context.enable_rfc_newlines);
         let protocol_message = {'msg_type': 'resample'};
         sample_preview_records_from_context(rbql_context, protocol_message);
-        webview.postMessage(protocol_message);
+        await webview.postMessage(protocol_message);
     }
 
     if (message_type == 'with_headers_change') {
         rbql_context.with_headers = message['with_headers'];
         if (rbql_context.input_document_path)
-            save_to_global_state(make_with_headers_key(rbql_context.input_document_path), rbql_context.with_headers);
+            await save_to_global_state(make_with_headers_key(rbql_context.input_document_path), rbql_context.with_headers);
     }
 
     if (message_type == 'navigate') {
@@ -1100,7 +1100,7 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
         }
         let protocol_message = {'msg_type': 'navigate'};
         sample_preview_records_from_context(rbql_context, protocol_message);
-        webview.postMessage(protocol_message);
+        await webview.postMessage(protocol_message);
     }
 
     if (message_type == 'run') {
@@ -1110,8 +1110,8 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
         let output_dialect = message['output_dialect'];
         let enable_rfc_newlines = message['enable_rfc_newlines'];
         let with_headers = message['with_headers'];
-        update_query_history(rbql_query);
-        run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler);
+        await update_query_history(rbql_query);
+        await run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler);
     }
 
     if (message_type == 'edit_udf') {
@@ -1136,7 +1136,7 @@ function handle_rbql_client_message(webview, message, integration_test_options=n
     }
 
     if (message_type == 'global_param_change') {
-        save_to_global_state(message['key'], message['value']);
+        await save_to_global_state(message['key'], message['value']);
     }
 }
 
