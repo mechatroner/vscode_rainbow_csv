@@ -131,3 +131,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Use `await vscode.workspace.openTextDocument` everywhere.
 
 * Get rid of `then` entirely
+
+* make read_header in rainbow_utils.js async function

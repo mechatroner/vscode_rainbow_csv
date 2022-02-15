@@ -971,14 +971,14 @@ async function align_table(active_editor, edit_builder) {
 }
 
 
-function do_copy_back(query_result_doc, active_editor) {
+async function do_copy_back(query_result_doc, active_editor) {
     let data = query_result_doc.getText();
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
-    active_editor.edit(edit => edit.replace(full_range, data));
+    await active_editor.edit(edit => edit.replace(full_range, data));
 }
 
 
@@ -994,7 +994,9 @@ async function copy_back() {
     let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
     if (!parent_table_path)
         return;
-    vscode.workspace.openTextDocument(parent_table_path).then(doc => vscode.window.showTextDocument(doc).then(active_editor => do_copy_back(result_doc, active_editor)));
+    let parent_doc = await vscode.workspace.openTextDocument(parent_table_path);
+    let parent_editor = await vscode.window.showTextDocument(parent_doc);
+    await do_copy_back(result_doc, parent_editor);
 }
 
 
@@ -1014,7 +1016,7 @@ async function update_query_history(query) {
 async function handle_rbql_client_message(webview, message, integration_test_options=null) {
     let message_type = message['msg_type'];
 
-    let webview_report_handler = function(error_type, error_msg) {
+    let webview_report_handler = async function(error_type, error_msg) {
         let report_msg = {'msg_type': 'rbql_report'};
         if (error_type)
             report_msg["error_type"] = error_type;
@@ -1055,7 +1057,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             let process_header_line = function(header_line) {
                 let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
                 if (!warning) {
-                    await webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
+                    webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
                 }
             };
             ll_rainbow_utils().read_header(table_path, encoding, process_header_line);
@@ -1132,7 +1134,8 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         if (!fs.existsSync(udf_file_path)) {
             fs.writeFileSync(udf_file_path, default_content);
         }
-        vscode.workspace.openTextDocument(udf_file_path).then(doc => vscode.window.showTextDocument(doc));
+        let udf_doc = await vscode.workspace.openTextDocument(udf_file_path);
+        await vscode.window.showTextDocument(udf_doc);
     }
 
     if (message_type == 'global_param_change') {
@@ -1411,7 +1414,8 @@ async function make_preview(uri, preview_mode) {
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes <= size_limit) {
         await vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
-        vscode.workspace.openTextDocument(file_path).then(doc => vscode.window.showTextDocument(doc));
+        let full_orig_doc = await vscode.workspace.openTextDocument(file_path);
+        await vscode.window.showTextDocument(full_orig_doc);
         return;
     }
 
