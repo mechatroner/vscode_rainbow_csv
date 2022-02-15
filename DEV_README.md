@@ -125,3 +125,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Use `await show_single_line_error()` everywhere.
 
 * Use `await vscode.window.showWarningMessage()` everywhere.
+
+* Use `await save_to_global_state()` everywhere.

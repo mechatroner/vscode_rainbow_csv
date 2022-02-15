@@ -123,9 +123,9 @@ function get_from_global_state(key, default_value) {
 }
 
 
-function save_to_global_state(key, value) {
+async function save_to_global_state(key, value) {
     if (global_state && key) {
-        global_state.update(key, value);
+        await global_state.update(key, value);
         return true;
     }
     return false;
@@ -673,7 +673,6 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         // FIXME add comment prefix handling in RBQL, unit tests (and web_ui entry?)
         try {
             if (is_web_ext) {
-            //if (true) { // FIXME just to test new functionality
                 let result_lines = await ll_rainbow_utils().query_vscode(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -713,7 +712,7 @@ function get_dialect(document) {
 }
 
 
-function set_header_line() {
+async function set_header_line() {
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -724,13 +723,20 @@ function set_header_line() {
     var dialect = get_dialect(active_doc);
     var delim = dialect[0];
     var policy = dialect[1];
-
+    if (policy == 'monocolumn') {
+        await show_single_line_error('Unable to set header line: no separator specified');
+        return;
+    }
     let file_path = active_doc.fileName;
+    if (!file_path) {
+        await show_single_line_error('Unable to set header line for non-file documents');
+        return;
+    }
     let selection = active_editor.selection;
     let raw_header = active_doc.lineAt(selection.start.line).text;
 
     let header = csv_utils.smart_split(raw_header, delim, policy, false)[0];
-    save_to_global_state(make_header_key(file_path), JSON.stringify(header));
+    await save_to_global_state(make_header_key(file_path), JSON.stringify(header));
 }
 
 
@@ -802,33 +808,37 @@ async function set_join_table_name() {
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
     var input_box_props = {"prompt": title, "value": 'b'};
     let table_name = await vscode.window.showInputBox(input_box_props);
+    if (!table_name)
+        return; // User pressed Esc and closed the input box.
     ll_rainbow_utils().write_table_name(file_path, table_name);
 }
 
 
-function edit_column_names() {
+async function set_virtual_header() {
     var active_doc = get_active_doc();
     var dialect = get_dialect(active_doc);
     var delim = dialect[0];
     var policy = dialect[1];
     var file_path = active_doc.fileName;
     if (!file_path) {
-        show_single_line_error('Unable to edit column names for non-file documents');
+        await show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
-    if (policy == 'monocolumn')
+    if (policy == 'monocolumn') {
+        await show_single_line_error('Unable to set virtual header: no separator specified');
         return;
+    }
     var old_header = get_header(active_doc, delim, policy);
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = quoted_join(old_header, delim);
     var input_box_props = {"prompt": title, "value": old_header_str};
-    var handle_success = function (raw_new_header) {
-        let new_header = csv_utils.smart_split(raw_new_header, delim, policy, false)[0];
-        save_to_global_state(make_header_key(file_path), JSON.stringify(new_header));
-    };
-    var handle_failure = function(reason) { show_single_line_error('Unable to create input box: ' + reason); };
-    vscode.window.showInputBox(input_box_props).then(handle_success, handle_failure);
+    let raw_new_header = await vscode.window.showInputBox(input_box_props);
+    if (!raw_new_header)
+        return; // User pressed Esc and closed the input box.
+    let new_header = csv_utils.smart_split(raw_new_header, delim, policy, false)[0];
+    await save_to_global_state(make_header_key(file_path), JSON.stringify(new_header));
 }
+
 
 async function column_edit(edit_mode) {
     let active_editor = get_active_editor();
@@ -1478,7 +1488,7 @@ async function activate(context) {
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
-    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', edit_column_names);
+    var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', set_virtual_header);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
