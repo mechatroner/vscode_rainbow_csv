@@ -1054,15 +1054,13 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             let table_path = ll_rainbow_utils().read_table_path(table_id);
             if (!table_path)
                 return;
-            let process_header_line = function(header_line) {
-                let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
-                if (!warning) {
-                    webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
-                }
-            };
-            ll_rainbow_utils().read_header(table_path, encoding, process_header_line);
+            let header_line = await ll_rainbow_utils().read_header(table_path, encoding);
+            let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
+            if (!warning) {
+                webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
+            }
         } catch (e) {
-            console.error('Unable to get join table path: ' + String(e));
+            console.error('Unable to get join table header: ' + String(e));
         }
     }
 

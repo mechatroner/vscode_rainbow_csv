@@ -133,3 +133,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Get rid of `then` entirely
 
 * make read_header in rainbow_utils.js async function
+
+* fix `read_table_path()` - search for table path relative to the base table path.

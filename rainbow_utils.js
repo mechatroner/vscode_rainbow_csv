@@ -247,19 +247,29 @@ function read_table_path(table_name) {
 }
 
 
-function read_header(table_path, encoding, process_header_line_callback) {
+async function read_header(table_path, encoding) {
     if (encoding == 'latin-1')
         encoding = 'binary';
     let readline = require('readline');
     let input_reader = readline.createInterface({ input: fs.createReadStream(table_path, {encoding: encoding}) });
     let closed = false;
+    let promise_resolve = null;
+    let promise_reject = null;
+    let output_promise = new Promise(function(resolve, reject) {
+        promise_resolve = resolve;
+        promise_reject = reject;
+    });
     input_reader.on('line', line => {
         if (!closed) {
             closed = true;
             input_reader.close();
-            process_header_line_callback(line);
+            promise_resolve(line);
         }
     });
+    input_reader.on('error', error => {
+        promise_reject(error);
+    });
+    return output_promise;
 }
 
 
