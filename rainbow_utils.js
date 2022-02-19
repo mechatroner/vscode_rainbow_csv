@@ -2,6 +2,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const rbql = require('./rbql_core/rbql-js/rbql.js');
+const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
 
 const vscode = require('vscode');
 
@@ -179,70 +180,35 @@ function populate_optimistic_rfc_csv_record_map(document, requested_end_record, 
 }
 
 
-function update_records(records, record_key, new_record) {
-    for (var i = 0; i < records.length; i++) {
-        if (records[i].length && records[i][0] == record_key) {
-            records[i] = new_record;
-            return;
+function make_table_name_key(file_path) {
+    return 'rbql_table_name:' + file_path;
+}
+
+
+function expanduser(filepath) {
+    if (filepath.charAt(0) === '~') {
+        return path.join(os.homedir(), filepath.slice(1));
+    }
+    return filepath;
+}
+
+
+function find_table_path(vscode_global_state, main_table_dir, table_id) {
+    // If table_id is a relative path it could be relative either to the current directory or to the main table dir.
+    var candidate_path = expanduser(table_id);
+    if (fs.existsSync(candidate_path)) {
+        return candidate_path;
+    }
+    if (main_table_dir && !path.isAbsolute(candidate_path)) {
+        candidate_path = path.join(main_table_dir, candidate_path);
+        if (fs.existsSync(candidate_path)) {
+            return candidate_path;
         }
     }
-    records.push(new_record);
-}
-
-
-function try_read_index(index_path) {
-    var content = null;
-    try {
-        content = fs.readFileSync(index_path, 'utf-8');
-    } catch (e) {
-        return [];
+    let table_path = vscode_global_state ? vscode_global_state.get(make_table_name_key(table_id)) : null;
+    if (table_path && fs.existsSync(table_path)) {
+        return table_path;
     }
-    var lines = content.split('\n');
-    var records = [];
-    for (var i = 0; i < lines.length; i++) {
-        if (!lines[i])
-            continue;
-        var record = lines[i].split('\t');
-        records.push(record);
-    }
-    return records;
-}
-
-
-function write_index(records, index_path) {
-    var lines = [];
-    for (var i = 0; i < records.length; i++) {
-        lines.push(records[i].join('\t'));
-    }
-    fs.writeFileSync(index_path, lines.join('\n'));
-}
-
-
-function write_table_name(table_path, table_name) {
-    // TODO use VSCode "globalState" persistent storage instead with new RBQL version
-    let home_dir = os.homedir();
-    let index_path = path.join(home_dir, '.rbql_table_names');
-    let records = try_read_index(index_path);
-    let new_record = [table_name, table_path];
-    update_records(records, table_name, new_record);
-    if (records.length > 100) {
-        records.splice(0, 1);
-    }
-    write_index(records, index_path);
-}
-
-
-function read_table_path(table_name) {
-    let home_dir = os.homedir();
-    let index_path = path.join(home_dir, '.rbql_table_names');
-    let records = try_read_index(index_path);
-    for (let record of records) {
-        if (record.length > 1 && record[0] === table_name) {
-            return record[1];
-        }
-    }
-    if (fs.existsSync(table_name))
-        return table_name;
     return null;
 }
 
@@ -521,7 +487,7 @@ class VSCodeTableRegistry {
     };
 }
 
-async function query_vscode(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
+async function rbql_query_web(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
     let user_init_code = ''; // TODO find a way to have init code.
     let join_tables_registry = new VSCodeTableRegistry(); // TODO find a way to have join registry.
     let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
@@ -531,10 +497,83 @@ async function query_vscode(query_text, input_document, input_delim, input_polic
 }
 
 
-module.exports.write_table_name = write_table_name;
-module.exports.read_table_path = read_table_path;
+class VSCodeFileSystemCSVRegistry extends rbql.RBQLTableRegistry {
+    constructor(vscode_global_state, input_file_dir, delim, policy, encoding, has_header=false, comment_prefix=null, options=null) {
+        super();
+        this.vscode_global_state = vscode_global_state;
+        this.input_file_dir = input_file_dir;
+        this.delim = delim;
+        this.policy = policy;
+        this.encoding = encoding;
+        this.has_header = has_header;
+        this.comment_prefix = comment_prefix;
+        this.stream = null;
+        this.record_iterator = null;
+
+        this.options = options;
+        this.bulk_input_path = null;
+        this.table_path = null;
+    }
+
+    get_iterator_by_table_id(table_id) {
+        this.table_path = find_table_path(this.vscode_global_state, this.input_file_dir, table_id);
+        if (this.table_path === null) {
+            throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
+        }
+        if (this.options && this.options['bulk_read']) {
+            this.bulk_input_path = this.table_path;
+        } else {
+            this.stream = fs.createReadStream(this.table_path);
+        }
+        this.record_iterator = new rbql_csv.CSVRecordIterator(this.stream, this.bulk_input_path, this.encoding, this.delim, this.policy, this.has_header, this.comment_prefix, table_id, 'b');
+        return this.record_iterator;
+    };
+
+    get_warnings(output_warnings) {
+        if (this.record_iterator && this.has_header) {
+            output_warnings.push(`The first record in JOIN file ${path.basename(this.table_path)} was also treated as header (and skipped)`);
+        }
+    }
+}
+
+
+async function rbql_query_node(vscode_global_state, query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, with_headers=false, comment_prefix=null, user_init_code='', options=null) {
+    let input_stream = null;
+    let bulk_input_path = null;
+    if (options && options['bulk_read'] && input_path) {
+        bulk_input_path = input_path;
+    } else {
+        input_stream = input_path === null ? process.stdin : fs.createReadStream(input_path);
+    }
+    let [output_stream, close_output_on_finish] = output_path === null ? [process.stdout, false] : [fs.createWriteStream(output_path), true];
+    if (input_delim == '"' && input_policy == 'quoted')
+        throw new RbqlIOHandlingError('Double quote delimiter is incompatible with "quoted" policy');
+    if (csv_encoding == 'latin-1')
+        csv_encoding = 'binary';
+    if (!rbql_csv.is_ascii(query_text) && csv_encoding == 'binary')
+        throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
+    if ((!rbql_csv.is_ascii(input_delim) || !rbql_csv.is_ascii(output_delim)) && csv_encoding == 'binary')
+        throw new RbqlIOHandlingError('To use non-ascii characters in query enable UTF-8 encoding instead of latin-1/binary');
+
+    let default_init_source_path = path.join(os.homedir(), '.rbql_init_source.js');
+    if (user_init_code == '' && fs.existsSync(default_init_source_path)) {
+        user_init_code = rbql_csv.read_user_init_code(default_init_source_path);
+    }
+    let input_file_dir = input_path ? path.dirname(input_path) : null;
+    let join_tables_registry = new VSCodeFileSystemCSVRegistry(vscode_global_state, input_file_dir, input_delim, input_policy, csv_encoding, with_headers, comment_prefix, options);
+    let input_iterator = new rbql_csv.CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy, with_headers, comment_prefix);
+    let output_writer = new rbql_csv.CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
+
+    await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
+    join_tables_registry.get_warnings(output_warnings);
+}
+
+
+module.exports.make_table_name_key = make_table_name_key;
+module.exports.find_table_path = find_table_path;
 module.exports.read_header = read_header;
-module.exports.query_vscode = query_vscode;
+module.exports.rbql_query_web = rbql_query_web;
+module.exports.rbql_query_node = rbql_query_node;
 module.exports.get_header_line = get_header_line;
 module.exports.populate_optimistic_rfc_csv_record_map = populate_optimistic_rfc_csv_record_map;
 module.exports.get_default_js_udf_content = get_default_js_udf_content;

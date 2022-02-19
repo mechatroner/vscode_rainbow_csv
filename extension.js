@@ -673,12 +673,12 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         // FIXME add comment prefix handling in RBQL, unit tests (and web_ui entry?)
         try {
             if (is_web_ext) {
-                let result_lines = await ll_rainbow_utils().query_vscode(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
+                let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
             } else {
                 let csv_options = {'bulk_read': true};
-                await ll_rbql_csv().query_csv(rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', csv_options);
+                await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, null, '', csv_options);
                 result_set_parent_map.set(output_path.toLowerCase(), input_path);
                 autodetection_stoplist.add(output_path);
                 result_doc = await vscode.workspace.openTextDocument(output_path);
@@ -810,7 +810,7 @@ async function set_join_table_name() {
     let table_name = await vscode.window.showInputBox(input_box_props);
     if (!table_name)
         return; // User pressed Esc and closed the input box.
-    ll_rainbow_utils().write_table_name(file_path, table_name);
+    save_to_global_state(ll_rainbow_utils().make_table_name_key(table_name), file_path);
 }
 
 
@@ -1051,7 +1051,9 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         try {
             let table_id = message['table_id'];
             let encoding = message['encoding'];
-            let table_path = ll_rainbow_utils().read_table_path(table_id);
+
+            let input_table_dir = rbql_context.input_document_path ? path.dirname(rbql_context.input_document_path) : null;
+            let table_path = ll_rainbow_utils().find_table_path(global_state, input_table_dir, table_id);
             if (!table_path)
                 return;
             let header_line = await ll_rainbow_utils().read_header(table_path, encoding);
