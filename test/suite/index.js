@@ -16,7 +16,7 @@ function log_message(msg) {
 }
 
 
-async function test_rbql(workspace_folder_uri) {
+async function test_rbql_node(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
@@ -36,6 +36,31 @@ async function test_rbql(workspace_folder_uri) {
     length_after_query = active_doc.getText().length;
     log_message(`Lenght after js query: ${length_after_query}`)
     assert.equal(268, length_after_query);
+}
+
+
+async function test_rbql_web(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+
+    let test_task = {"rbql_backend": "js", "rbql_query": "select top 20 a1, Math.ceil(parseFloat(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(6000);
+    active_doc = vscode.window.activeTextEditor.document;
+    let length_after_query = active_doc.getText().length;
+    log_message(`Lenght after first js query: ${length_after_query}`)
+    // 784 instead of 785 because no trailing '\n' at the end of file.
+    assert.equal(784, length_after_query);
+
+    test_task = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(6000);
+    active_doc = vscode.window.activeTextEditor.document;
+    length_after_query = active_doc.getText().length;
+    log_message(`Lenght after second js query: ${length_after_query}`)
+    // 267 instead of 268 because no trailing '\n' at the end of file.
+    assert.equal(267, length_after_query);
 }
 
 
@@ -168,9 +193,10 @@ async function run() {
         assert(vscode.workspace.workspaceFolders);
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
-        if (!is_web_ext) {
-            // FIXME create a similar test without Python for web rbql.
-            await test_rbql(workspace_folder_uri);
+        if (is_web_ext) {
+            await test_rbql_web(workspace_folder_uri);
+        } else {
+            await test_rbql_node(workspace_folder_uri);
         }
         await test_align_shrink_lint(workspace_folder_uri);
         await test_column_edit(workspace_folder_uri);
