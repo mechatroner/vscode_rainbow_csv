@@ -1,47 +1,39 @@
 ## Instructions
 
-
-### Running unit tests for the extension inside VSCode:
-1. **IMPORTANT** Make sure you have no open VSCode instances running!
-2. run `npm install --only=dev` in Windows.
-3. run `npm run test` in Windows.
-
-
-### Running unit tests for the extension inside VSCode:
-1. In console in rainbow_csv directory run `npm install --only=dev` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
-2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
-Or alternative way to launch it (use double quotes for both Win and Linux compatibilty): `code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --wait`
-Running integration tests from windows cmd terminal. Example command:
-```
-code --extensionDevelopmentPath="C:\wsl_share\vscode_rainbow_csv" --extensionTestsPath="C:\wsl_share\vscode_rainbow_csv\test"
-```
-You can also run this command from wsl terminal!
-
-It is also possible to use test/run_tests.sh script:
-`./run_tests.sh "C:\wsl_share\vscode_rainbow_csv" "C:\wsl_share\vscode_rainbow_csv\test"`
-
-`typescript` dependency was added only to compile the typescript test runners.
-
-Example of minimalistic test setup:
-https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-sample
-
-
-#### Unit test instrumentation
-To add additional instrumentation for unit test you can register a custom command the only point of which is to get test task from the test script and returns some value as the result (calling command with an async callback that returns a value will return this value in the test script).
-
-
 ### Debugging the extension:
+#### For standard VSCode:
 1. Open rainbow_csv directory in VSCode  
 2. Make sure you have "Extension" run mode enabled
 3. Click "Run" or F5
 
 
-### Running the browser version
+#### For web-based VSCode:
 1. Run `npm install --only=dev` - OK to run in WSL
-2. Run `npm run compile-web && npm run open-in-browser` - OK to run in WSL. - This should start a local server at http://localhost:3000/
+2. Run `npm run compile-web && npm run start-web-server` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 3. Point your browser to http://localhost:3000/
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
 The difference between running in win and in WSL is that in WSL it would only run with `--browser=none` option and this option doesn't run unit tests automatically which could be an issue if you want to run tests instead of manual debugging.
+
+
+### Running unit tests for the extension inside VSCode:
+#### For standard VSCode:
+1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed!
+2. run `npm install --only=dev` (If you have WSL - run in Windows, don't run in WSL).
+3. run `npm run test` in Windows (If you have WSL - run in Windows, don't run in WSL). Make sure that the tests are successful.
+
+#### For web-based VSCode:
+1. run `npm install` (If you have WSL - run in Windows, don't run in WSL).
+2. run `compile-web` (If you have WSL - run in Windows, don't run in WSL). This will combine all scripts into a single web script and put it into the `dist` folder.
+3. run `npm run test-in-browser` (If you have WSL - run in Windows, don't run in WSL). This will open a new browser windows and run all the unit tests. Make sure that the tests are successful.
+
+
+### Running unit tests for the extension inside VSCode:
+1. In console in rainbow_csv directory run `npm install --only=dev` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
+2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
+
+Example of minimalistic test setup:
+https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-sample
+
 
 
 #### Debuging
@@ -49,7 +41,7 @@ Looks like it is possible to directly run scripts from package.json with `npx` l
 ```
 npx vscode-test-web --help
 ```
-Apparently another option to execute this command is (never tested):
+And apparently another option to execute this command is (never tested):
 ```
 npx @vscode/test-web --extensionDevelopmentPath=$extensionFolderPath $testDataPath
 ```
@@ -129,9 +121,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Use `await vscode.workspace.openTextDocument` everywhere.
 
 * Get rid of `then` entirely
-
-* make read_header in rainbow_utils.js async function
-
-* fix `read_table_path()` - search for table path relative to the base table path.
 
 * Merge rbql_query_web and rbql_query_node
