@@ -1,5 +1,11 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 2.1.0
+* Support RBQL and column edit mode in web version of VSCode.
+* Support RBQL result set output dir customization [#101](https://github.com/mechatroner/vscode_rainbow_csv/issues/101).
+* Slightly reduce startup time by moving non-critical code into a lazy-loaded module.
+* Internal code refactoring.
+
 ## 2.0.0
 * Enable web/browser version for vscode.dev
 * RBQL: improve join table path handling.
