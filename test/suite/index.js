@@ -6,6 +6,10 @@ const vscode = require('vscode');
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
 
+// TODO make RBQL command wait for the result to reduce the timeout.
+const poor_rbql_async_design_workaround_timeout = 6000;
+
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -23,7 +27,7 @@ async function test_rbql_node(workspace_folder_uri) {
 
     let test_task = {"rbql_backend": "python", "rbql_query": "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
-    await sleep(6000);
+    await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     let length_after_query = active_doc.getText().length;
     log_message(`Lenght after python query: ${length_after_query}`)
@@ -31,7 +35,7 @@ async function test_rbql_node(workspace_folder_uri) {
 
     test_task = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
-    await sleep(6000);
+    await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
     log_message(`Lenght after js query: ${length_after_query}`)
@@ -46,7 +50,7 @@ async function test_rbql_web(workspace_folder_uri) {
 
     let test_task = {"rbql_backend": "js", "rbql_query": "select top 20 a1, Math.ceil(parseFloat(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
-    await sleep(6000);
+    await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     let length_after_query = active_doc.getText().length;
     log_message(`Lenght after first js query: ${length_after_query}`)
@@ -55,7 +59,7 @@ async function test_rbql_web(workspace_folder_uri) {
 
     test_task = {"rbql_backend": "js", "rbql_query": "select a2 * 10, a3, a3.length order by a3.length limit 10"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
-    await sleep(6000);
+    await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
     log_message(`Lenght after second js query: ${length_after_query}`)
@@ -70,11 +74,13 @@ async function test_align_shrink_lint(workspace_folder_uri) {
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
     log_message(`Original length: ${length_original}`)
+    assert.equal(12538, length_original);
     await sleep(2000);
 
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
     log_message(`Aligned length: ${length_aligned}`)
+    assert.equal(25896, length_aligned);
     assert(length_aligned > length_original);
     let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert.equal(lint_report, 'OK');
@@ -83,6 +89,7 @@ async function test_align_shrink_lint(workspace_folder_uri) {
     await vscode.commands.executeCommand('rainbow-csv.Shrink');
     let length_shrinked = active_doc.getText().length;
     log_message(`Shrinked length: ${length_shrinked}`)
+    // This is to ensure that after original -> align -> shrink sequence we get back to original doc.
     assert.equal(length_original, length_shrinked);
     await sleep(500);
 
@@ -104,7 +111,7 @@ async function test_column_edit(workspace_folder_uri) {
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
-    log_message(`Original length: ${length_original}`)
+    assert.equal(9986, length_original);
     for (let i = 0; i < 10; i++) {
         await vscode.commands.executeCommand("cursorRight");
     }
@@ -114,7 +121,6 @@ async function test_column_edit(workspace_folder_uri) {
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
     let length_after_column_edit = active_doc.getText().length;
-    log_message(`Length after column edit: ${length_after_column_edit}`)
     assert.equal(length_original + active_doc.lineCount * text_with_comma.length, length_after_column_edit);
     await sleep(1000);
     for (let i = 0; i < text_with_comma.length; i++) {
@@ -122,6 +128,7 @@ async function test_column_edit(workspace_folder_uri) {
     }
     await sleep(1000);
     let length_after_delete = active_doc.getText().length;
+    // Ensure that after multicursor deletion of the added `text_with_comma` text we get back to the original doc.
     assert.equal(length_original, length_after_delete);
 }
 
