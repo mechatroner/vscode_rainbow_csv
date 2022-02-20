@@ -200,16 +200,41 @@ async function run() {
         assert(vscode.workspace.workspaceFolders);
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+
+        await test_no_autodetection(workspace_folder_uri);
+        if (!is_web_ext) {
+            // Ensure that opening non-csv files doesn't cause rainbow csv to import relatively heavy lazy-loaded code.
+            // There is no point to check this in web since all of the files are bundled into a single script anyway.
+            let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_initialization_state: true});
+            assert(state_report.initialized);
+            assert(!state_report.lazy_loaded);
+        }
+
+        await test_autodetection(workspace_folder_uri);
+        await test_manual_enable_disable(workspace_folder_uri);
+
+        if (!is_web_ext) {
+            // Ensure that basic operations don't cause rainbow csv to lazy load unnecessary code.
+            let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_initialization_state: true});
+            assert(state_report.initialized);
+            assert(!state_report.lazy_loaded);
+        }
+
         if (is_web_ext) {
             await test_rbql_web(workspace_folder_uri);
         } else {
             await test_rbql_node(workspace_folder_uri);
         }
+
+        if (!is_web_ext) {
+            // Sanity check that after using advanced functionality such as RBQL, the non-basic code is lazy loaded.
+            let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_initialization_state: true});
+            assert(state_report.initialized);
+            assert(state_report.lazy_loaded);
+        }
+
         await test_align_shrink_lint(workspace_folder_uri);
         await test_column_edit(workspace_folder_uri);
-        await test_no_autodetection(workspace_folder_uri);
-        await test_autodetection(workspace_folder_uri);
-        await test_manual_enable_disable(workspace_folder_uri);
 
         log_message('Finishing tests');
     } catch (e) {

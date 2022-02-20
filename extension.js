@@ -25,8 +25,38 @@ function ll_rainbow_utils() {
 }
 
 
-let client_html_template_web = null;
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
+const preview_window_size = 100;
+const max_preview_field_length = 250;
+const scratch_buf_marker = 'vscode_rbql_scratch';
+
+let client_html_template_web = null;
+
+var lint_results = new Map();
+var aligned_files = new Set();
+var autodetection_stoplist = new Set();
+var original_language_ids = new Map();
+var result_set_parent_map = new Map();
+
+var lint_status_bar_button = null;
+var rbql_status_bar_button = null;
+var align_shrink_button = null;
+var rainbow_off_status_bar_button = null;
+var copy_back_button = null;
+
+let last_statusbar_doc = null;
+
+var rbql_context = null;
+
+var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
+
+var client_html_template = null;
+
+var global_state = null;
+
+var preview_panel = null;
+
+var doc_edit_subscription = null;
 
 
 const dialect_map = {
@@ -68,38 +98,6 @@ async function show_single_line_error(error_msg) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-
-var lint_results = new Map();
-var aligned_files = new Set();
-var autodetection_stoplist = new Set();
-var original_language_ids = new Map();
-var result_set_parent_map = new Map();
-
-var lint_status_bar_button = null;
-var rbql_status_bar_button = null;
-var align_shrink_button = null;
-var rainbow_off_status_bar_button = null;
-var copy_back_button = null;
-
-let last_statusbar_doc = null;
-
-const preview_window_size = 100;
-const max_preview_field_length = 250;
-
-var rbql_context = null;
-
-var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
-
-var client_html_template = null;
-
-var global_state = null;
-
-var preview_panel = null;
-
-var doc_edit_subscription = null;
-
-const scratch_buf_marker = 'vscode_rbql_scratch';
 
 
 function map_separator_to_language_id(separator) {
@@ -509,6 +507,16 @@ async function csv_lint_cmd() {
     await sleep(500);
     refresh_status_bar_buttons();
     return lint_report;
+}
+
+
+async function run_internal_test_cmd(integration_test_options) {
+    if (integration_test_options && integration_test_options.check_initialization_state) {
+        // This mode is to ensure that the most basic operations do not cause rainbow csv to load extra (potentially heavy) code.
+        // Vim uses the same approach with its plugin/autoload folder layout design.
+        return {initialized: global_state !== null, lazy_loaded: rainbow_utils !== null};
+    }
+    return null;
 }
 
 
@@ -1504,6 +1512,7 @@ async function activate(context) {
     var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
     var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
+    var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
@@ -1525,6 +1534,7 @@ async function activate(context) {
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
+    context.subscriptions.push(internal_test_cmd);
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.

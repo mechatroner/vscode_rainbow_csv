@@ -96,8 +96,6 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * DEBUG: Add a huge no-op loop on startup in order to reproduce/emulate high-cpu load error from #55.
 
-* Consider moving more code into a separate lazy-loaded module to improve startup time, see #55.
-
 * Support virtual header for rbql_csv.
 
 * Consider replacing the RBQL query text input with scrollable textarea - it has a drawback that on enter it will go to the next line instead running the query.
