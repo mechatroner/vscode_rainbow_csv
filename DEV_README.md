@@ -102,8 +102,6 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Support JOIN queries in web version.
 
-* Get rid of run_tests.sh and expected_test_log.txt or find a way to use them for web-version tests.
-
 * Add comment prefix handling in RBQL.
 
 * Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.
@@ -123,3 +121,11 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Get rid of `then` entirely
 
 * Merge rbql_query_web and rbql_query_node
+
+* Add unit test RBQL query with error to test error propagation.
+
+* Add unit test query on multiline records.
+
+* Add unit test copy back.
+
+* Add unit test join.
