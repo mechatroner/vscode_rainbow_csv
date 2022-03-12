@@ -1051,6 +1051,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         if (integration_test_options) {
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
             init_msg['integration_test_query'] = integration_test_options.rbql_query;
+            init_msg['integration_test_enable_rfc_newlines'] = integration_test_options.enable_rfc_newlines || false;
         }
         await webview.postMessage(init_msg);
     }

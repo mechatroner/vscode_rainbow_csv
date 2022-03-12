@@ -323,6 +323,10 @@ function handle_message(msg_event) {
         let integration_test_query = message['integration_test_query'];
         let integration_test_language = message['integration_test_language'];
         if (integration_test_query && integration_test_language) {
+            if (message['integration_test_enable_rfc_newlines']) {
+                document.getElementById("enable_rfc_newlines").checked = true;
+                report_rfc_fields_policy_change();
+            }
             document.getElementById("select_backend_language").value = integration_test_language;
             assign_backend_lang_selection_title();
             document.getElementById('rbql_input').value = integration_test_query;

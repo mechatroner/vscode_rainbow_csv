@@ -1,0 +1,23 @@
+value1,value2,value3
+foo11,bar12,foo13
+"foo11, ""bar11"",
+foo11, bar11, foo11
+","foo12, ""foo12"",
+bar12 "", bar12", "foo13, bar13,bar15,bar20
+foo13, foo13,
+"
+foo31,bar32,"
+bar33, foo33,
+"
+foo41,bar42,foo43
+foo41,bar42,foo43
+foo41,bar42,foo43
+foo41,bar42,foo43
+foo41,bar42,foo43
+foo31,bar32,"
+bar33, foo33,
+"
+foo41,bar42,foo43
+foo41,bar42,foo43
+foo41,bar50,foo43
+foo41,bar42 bar moo,foo43

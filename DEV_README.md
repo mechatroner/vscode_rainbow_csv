@@ -124,8 +124,6 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Add unit test RBQL query with error to test error propagation.
 
-* Add unit test query on multiline records.
-
 * Add unit test copy back.
 
 * Add unit test join.
