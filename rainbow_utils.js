@@ -322,6 +322,8 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         while (this.NL < num_lines) {
             let line = this.document.lineAt(this.NL).text;
             this.NL += 1;
+            if (this.NL == num_lines && line.length == 0)
+                return null; // Skip the last line if it is empty - this can happen due to trailing newline.
             let record_line = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line, this.comment_prefix);
             if (record_line !== null)
                 return record_line;
@@ -334,6 +336,8 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         while (this.NL < num_lines) {
             let line = this.document.lineAt(this.NL).text;
             this.NL += 1;
+            if (this.NL == num_lines && line.length == 0)
+                return null; // Skip the last line if it is empty - this can happen due to trailing newline.
             if (this.comment_prefix === null || !line.startsWith(this.comment_prefix))
                 return line;
         }
