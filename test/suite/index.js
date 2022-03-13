@@ -26,28 +26,31 @@ async function test_rbql_node(workspace_folder_uri) {
     let editor = await vscode.window.showTextDocument(active_doc);
 
     // Test Python query.
-    let test_task = {rbql_backend: "python", rbql_query: "select top 20 a1, math.ceil(float(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
+    let test_task = {rbql_backend: "python", with_headers: true, rbql_query: "select top 20 a1, math.ceil(float(a.total_score) * 100), a['university_name'], None, 'foo bar' order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
+    // Indirectly check reported warnings.
+    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_warnings: true});
+    assert.equal('["None values in output were replaced by empty strings"]', JSON.stringify(state_report.warnings));
     active_doc = vscode.window.activeTextEditor.document;
     let length_after_query = active_doc.getText().length;
-    log_message(`Lenght after python query: ${length_after_query}`)
-    assert.equal(805, length_after_query); // wc -c gives 785 characters length. Probably VSCode uses '\r\n' as line ends
+    log_message(`Length after python query: ${length_after_query}`);
+    assert.equal(868, length_after_query); // wc -c gives smaller value. Probably VSCode uses '\r\n' as line ends.
 
     // Test JS query.
-    test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length order by a3.length limit 10"};
+    test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length where NR > 1 order by a3.length limit 10"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
-    log_message(`Lenght after js query: ${length_after_query}`)
+    log_message(`Length after js query: ${length_after_query}`);
     assert.equal(268, length_after_query);
 
     // Test RBQL query error reporting.
     test_task = {rbql_backend: "python", rbql_query: "select nonexistent_function(a1)"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
-    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
+    state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
     assert.equal('query execution', state_report.error_type);
     assert.equal("At record 1, Details: name 'nonexistent_function' is not defined", state_report.error_msg);
 
@@ -62,7 +65,7 @@ async function test_rbql_node(workspace_folder_uri) {
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
-    log_message(`Lenght after js multiline-record query: ${length_after_query}`)
+    log_message(`Length after js multiline-record query: ${length_after_query}`);
     assert.equal(645, length_after_query);
 }
 
@@ -72,21 +75,23 @@ async function test_rbql_web(workspace_folder_uri) {
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
 
-    let test_task = {rbql_backend: "js", rbql_query: "select top 20 a1, Math.ceil(parseFloat(a4) * 100), a2, 'foo bar' where NR > 1 order by a2"};
+    let test_task = {rbql_backend: "js", with_headers: true, rbql_query: "select top 20 a1, Math.ceil(parseFloat(a.total_score) * 100), a['university_name'], null, 'foo bar' order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
+    // Indirectly check reported warnings.
+    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_warnings: true});
+    assert.equal('["null values in output were replaced by empty strings"]', JSON.stringify(state_report.warnings));
     active_doc = vscode.window.activeTextEditor.document;
     let length_after_query = active_doc.getText().length;
-    log_message(`Lenght after first js query: ${length_after_query}`)
-    // 784 instead of 785 because no trailing '\n' at the end of file.
-    assert.equal(784, length_after_query);
+    log_message(`Length after first js query: ${length_after_query}`);
+    assert.equal(846, length_after_query);
 
-    test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length order by a3.length limit 10"};
+    test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length where NR > 1 order by a3.length limit 10"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
-    log_message(`Lenght after second js query: ${length_after_query}`)
+    log_message(`Length after second js query: ${length_after_query}`);
     // 267 instead of 268 because no trailing '\n' at the end of file.
     assert.equal(267, length_after_query);
 
@@ -94,7 +99,7 @@ async function test_rbql_web(workspace_folder_uri) {
     test_task = {rbql_backend: "js", rbql_query: "select nonexistent_function(a1)"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
-    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
+    state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
     assert.equal('query execution', state_report.error_type);
     assert.equal("At record 1, Details: nonexistent_function is not defined", state_report.error_msg);
 
@@ -109,7 +114,7 @@ async function test_rbql_web(workspace_folder_uri) {
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
-    log_message(`Lenght after js multiline-record query: ${length_after_query}`)
+    log_message(`Length after js multiline-record query: ${length_after_query}`);
     // 644 instead of 645 because no trailing '\n' at the end of file.
     assert.equal(644, length_after_query);
 }

@@ -59,6 +59,7 @@ var preview_panel = null;
 var doc_edit_subscription = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
+var _unit_test_last_warnings = null; // For unit tests only.
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -520,6 +521,9 @@ async function run_internal_test_cmd(integration_test_options) {
     if (integration_test_options && integration_test_options.check_last_rbql_report) {
         return _unit_test_last_rbql_report;
     }
+    if (integration_test_options && integration_test_options.check_last_rbql_warnings) {
+        return {'warnings': _unit_test_last_warnings};
+    }
     return null;
 }
 
@@ -530,6 +534,7 @@ async function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
+    _unit_test_last_warnings = warnings;
     for (var i = 0; i < warnings.length; i++) {
         await active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
     }
@@ -1055,6 +1060,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         if (integration_test_options) {
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
             init_msg['integration_test_query'] = integration_test_options.rbql_query;
+            init_msg['integration_test_with_headers'] = integration_test_options.with_headers || false;
             init_msg['integration_test_enable_rfc_newlines'] = integration_test_options.enable_rfc_newlines || false;
         }
         await webview.postMessage(init_msg);

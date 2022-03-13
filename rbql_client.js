@@ -327,6 +327,10 @@ function handle_message(msg_event) {
                 document.getElementById("enable_rfc_newlines").checked = true;
                 report_rfc_fields_policy_change();
             }
+            if (message['integration_test_with_headers']) {
+                document.getElementById("with_headers").checked = true;
+                process_with_headers_change();
+            }
             document.getElementById("select_backend_language").value = integration_test_language;
             assign_backend_lang_selection_title();
             document.getElementById('rbql_input').value = integration_test_query;
