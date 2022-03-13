@@ -102,8 +102,6 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Support JOIN queries in web version.
 
-* Add comment prefix handling in RBQL.
-
 * Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.
 
 * Try to get rid of `@types/vscode` dev dependency.
@@ -121,6 +119,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Get rid of `then` entirely
 
 * Merge rbql_query_web and rbql_query_node
+
+* Add comment prefix handling in RBQL, unit tests (and web_ui entry?)
 
 * Add unit test copy back.
 

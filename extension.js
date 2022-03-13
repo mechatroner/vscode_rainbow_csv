@@ -682,7 +682,6 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     if (backend_language == 'js') {
         let warnings = [];
         let result_doc = null;
-        // FIXME add comment prefix handling in RBQL, unit tests (and web_ui entry?)
         try {
             if (is_web_ext) {
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, null);

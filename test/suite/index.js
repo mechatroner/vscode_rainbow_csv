@@ -273,9 +273,6 @@ async function run() {
             await test_rbql_node(workspace_folder_uri);
         }
 
-        // FIXME test copy back.
-        // FIXME test join.
-
         if (!is_web_ext) {
             // Sanity check that after using advanced functionality such as RBQL, the non-basic code is lazy loaded.
             let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_initialization_state: true});
