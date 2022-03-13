@@ -43,6 +43,14 @@ async function test_rbql_node(workspace_folder_uri) {
     log_message(`Lenght after js query: ${length_after_query}`)
     assert.equal(268, length_after_query);
 
+    // Test RBQL query error reporting.
+    test_task = {rbql_backend: "python", rbql_query: "select nonexistent_function(a1)"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
+    assert.equal('query execution', state_report.error_type);
+    assert.equal("At record 1, Details: name 'nonexistent_function' is not defined", state_report.error_msg);
+
     // Test with multiline records.
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'synthetic_rfc_newline_data.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
@@ -81,6 +89,14 @@ async function test_rbql_web(workspace_folder_uri) {
     log_message(`Lenght after second js query: ${length_after_query}`)
     // 267 instead of 268 because no trailing '\n' at the end of file.
     assert.equal(267, length_after_query);
+
+    // Test RBQL query error reporting.
+    test_task = {rbql_backend: "js", rbql_query: "select nonexistent_function(a1)"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
+    assert.equal('query execution', state_report.error_type);
+    assert.equal("At record 1, Details: nonexistent_function is not defined", state_report.error_msg);
 
     // Test with multiline records.
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'synthetic_rfc_newline_data.csv');
@@ -227,7 +243,7 @@ async function run() {
         log_message('Starting tests');
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
-        
+
         assert(vscode.workspace.workspaceFolders);
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
@@ -257,7 +273,6 @@ async function run() {
             await test_rbql_node(workspace_folder_uri);
         }
 
-        // FIXME test RBQL query with error to test error propagation.
         // FIXME test copy back.
         // FIXME test join.
 

@@ -58,6 +58,7 @@ var preview_panel = null;
 
 var doc_edit_subscription = null;
 
+var _unit_test_last_rbql_report = null; // For unit tests only.
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -515,6 +516,9 @@ async function run_internal_test_cmd(integration_test_options) {
         // This mode is to ensure that the most basic operations do not cause rainbow csv to load extra (potentially heavy) code.
         // Vim uses the same approach with its plugin/autoload folder layout design.
         return {initialized: global_state !== null, lazy_loaded: rainbow_utils !== null};
+    }
+    if (integration_test_options && integration_test_options.check_last_rbql_report) {
+        return _unit_test_last_rbql_report;
     }
     return null;
 }
@@ -1030,6 +1034,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             report_msg["error_type"] = error_type;
         if (error_msg)
             report_msg["error_msg"] = error_msg;
+        _unit_test_last_rbql_report = report_msg;
         await webview.postMessage(report_msg);
     };
 
