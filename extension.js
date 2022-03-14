@@ -89,11 +89,12 @@ let absolute_path_map = {
 };
 
 
-async function show_single_line_error(error_msg) {
+function show_single_line_error(error_msg) {
     var active_window = vscode.window;
     if (!active_window)
         return;
-    await active_window.showErrorMessage(error_msg);
+    // Do not "await" error messages because the promise gets resolved only on error dismissal.
+    active_window.showErrorMessage(error_msg);
 }
 
 
@@ -534,10 +535,11 @@ async function show_warnings(warnings) {
     var active_window = vscode.window;
     if (!active_window)
         return null;
-    _unit_test_last_warnings = warnings;
     for (var i = 0; i < warnings.length; i++) {
-        await active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
+        // Do not "await" warning messages because the promise gets resolved only on warning dismissal.
+        active_window.showWarningMessage('RBQL warning: ' + warnings[i]);
     }
+    _unit_test_last_warnings = warnings;
 }
 
 
@@ -550,7 +552,7 @@ async function handle_rbql_result_file(text_doc, warnings) {
     try {
         await active_window.showTextDocument(text_doc);
     } catch (error) {
-        await show_single_line_error('Unable to open RBQL result document');
+        show_single_line_error('Unable to open RBQL result document');
         return;
     }
     if (language_id && text_doc.language_id != language_id) {
@@ -740,12 +742,12 @@ async function set_header_line() {
     var delim = dialect[0];
     var policy = dialect[1];
     if (policy == 'monocolumn') {
-        await show_single_line_error('Unable to set header line: no separator specified');
+        show_single_line_error('Unable to set header line: no separator specified');
         return;
     }
     let file_path = active_doc.fileName;
     if (!file_path) {
-        await show_single_line_error('Unable to set header line for non-file documents');
+        show_single_line_error('Unable to set header line for non-file documents');
         return;
     }
     let selection = active_editor.selection;
@@ -766,17 +768,17 @@ async function set_rainbow_separator() {
     let original_language_id = active_doc.languageId;
     let selection = active_editor.selection;
     if (!selection) {
-        await show_single_line_error("Selection is empty");
+        show_single_line_error("Selection is empty");
         return;
     }
     if (selection.start.line != selection.end.line || selection.start.character + 1 != selection.end.character) {
-        await show_single_line_error("Selection must contain exactly one separator character");
+        show_single_line_error("Selection must contain exactly one separator character");
         return;
     }
     let separator = active_doc.lineAt(selection.start.line).text.charAt(selection.start.character);
     let language_id = map_separator_to_language_id(separator);
     if (!language_id) {
-        await show_single_line_error("Selected separator is not supported");
+        show_single_line_error("Selected separator is not supported");
         return;
     }
 
@@ -798,7 +800,7 @@ async function restore_original_language() {
         original_language_id = original_language_ids.get(file_path);
     }
     if (!original_language_id || original_language_id == active_doc.languageId) {
-        await show_single_line_error("Unable to restore original language");
+        show_single_line_error("Unable to restore original language");
         return;
     }
 
@@ -810,7 +812,7 @@ async function restore_original_language() {
 
 async function set_join_table_name() {
     if (is_web_ext) {
-        await show_single_line_error('This command is currently unavailable in web mode.');
+        show_single_line_error('This command is currently unavailable in web mode.');
         return;
     }
     var active_doc = get_active_doc();
@@ -818,7 +820,7 @@ async function set_join_table_name() {
         return;
     let file_path = active_doc.fileName;
     if (!file_path) {
-        await show_single_line_error('Unable to use this document as join table');
+        show_single_line_error('Unable to use this document as join table');
         return;
     }
     var title = "Input table name to use in RBQL JOIN expressions instead of table path";
@@ -837,11 +839,11 @@ async function set_virtual_header() {
     var policy = dialect[1];
     var file_path = active_doc.fileName;
     if (!file_path) {
-        await show_single_line_error('Unable to edit column names for non-file documents');
+        show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
     if (policy == 'monocolumn') {
-        await show_single_line_error('Unable to set virtual header: no separator specified');
+        show_single_line_error('Unable to set virtual header: no separator specified');
         return;
     }
     var old_header = get_header(active_doc, delim, policy);
@@ -885,7 +887,7 @@ async function column_edit(edit_mode) {
     let selections = [];
     let num_lines = active_doc.lineCount;
     if (num_lines >= 10000) {
-        await show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
+        show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
         return;
     }
     for (let lnum = 0; lnum < num_lines; lnum++) {
@@ -898,21 +900,21 @@ async function column_edit(edit_mode) {
         let entries = report[0];
         quoting_warning = quoting_warning || report[1];
         if (col_num >= entries.length) {
-            await show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
+            show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
             return;
         }
         let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
         let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
         if (edit_mode == 'ce_before' && policy == 'quoted' && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
-            await show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
         if (edit_mode == 'ce_after' && policy == 'quoted' && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
-            await show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
+            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
         if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
-            await show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
+            show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
             return;
         }
         let position_before = new vscode.Position(lnum, char_pos_before);
@@ -929,7 +931,7 @@ async function column_edit(edit_mode) {
     }
     active_editor.selections = selections;
     if (quoting_warning) {
-        await vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
+        vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
     }
     // Call showTextDocument so that the editor will gain focus and the cursors will become active and blinking. This is a critical step here!
     await vscode.window.showTextDocument(active_doc);
@@ -946,13 +948,13 @@ async function shrink_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy);
     if (first_failed_line) {
-        await show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
+        show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
     aligned_files.delete(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (shrinked_doc_text === null) {
-        await vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
+        vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
         return;
     }
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
@@ -971,14 +973,14 @@ async function align_table(active_editor, edit_builder) {
     let [delim, policy] = dialect_map[language_id];
     let [column_sizes, first_failed_line] = ll_rainbow_utils().calc_column_sizes(active_doc, delim, policy);
     if (first_failed_line) {
-        await show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
+        show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
     let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, column_sizes);
     aligned_files.add(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (aligned_doc_text === null) {
-        await vscode.window.showWarningMessage('Table is already aligned, skipping');
+        vscode.window.showWarningMessage('Table is already aligned, skipping');
         return;
     }
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
@@ -1000,7 +1002,7 @@ async function do_copy_back(query_result_doc, active_editor) {
 
 async function copy_back() {
     if (is_web_ext) {
-        await show_single_line_error('This command is currently unavailable in web mode.');
+        show_single_line_error('This command is currently unavailable in web mode.');
         return;
     }
     let result_doc = get_active_doc();
@@ -1194,7 +1196,7 @@ async function edit_rbql(integration_test_options=null) {
     if (orig_uri.scheme != 'file' && orig_uri.scheme != 'untitled' && !is_web_ext)
         return;
     if (orig_uri.scheme == 'file' && active_doc.isDirty && !is_web_ext) {
-        await show_single_line_error("Unable to run RBQL: file has unsaved changes");
+        show_single_line_error("Unable to run RBQL: file has unsaved changes");
         return;
     }
     let input_path = null;
@@ -1210,7 +1212,7 @@ async function edit_rbql(integration_test_options=null) {
     }
 
     if (!input_path) {
-        await show_single_line_error("Unable to run RBQL for this file");
+        show_single_line_error("Unable to run RBQL for this file");
         return;
     }
     const config = vscode.workspace.getConfiguration('rainbow_csv');
@@ -1425,14 +1427,14 @@ async function make_preview(uri, preview_mode) {
     }
     var file_path = uri.fsPath;
     if (!file_path || !fs.existsSync(file_path)) {
-        await vscode.window.showErrorMessage('Invalid file');
+        vscode.window.showErrorMessage('Invalid file');
         return;
     }
 
     var size_limit = 1024000; // ~1MB
     var file_size_in_bytes = fs.statSync(file_path)['size'];
     if (file_size_in_bytes <= size_limit) {
-        await vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
+        vscode.window.showWarningMessage('Rainbow CSV: The file is not big enough, showing the full file instead. Use this preview for files larger than 1MB');
         let full_orig_doc = await vscode.workspace.openTextDocument(file_path);
         await vscode.window.showTextDocument(full_orig_doc);
         return;
