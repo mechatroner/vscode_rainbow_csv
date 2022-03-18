@@ -117,6 +117,3 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Merge rbql_query_web and rbql_query_node
 
 * Add comment prefix handling in RBQL, unit tests (and web_ui entry?)
-
-* Add unit tests: we need them because of the async refactoring:
-    - Add unit test copy back. (+ update query maybe?)

@@ -85,6 +85,40 @@ async function test_rbql_node(workspace_folder_uri) {
     assert.equal(11592, length_after_query);
     // We have 202 not 201 because the trailing '\n' maps to a trailing empty line in VSCode.
     assert.equal(202, active_doc.lineCount);
+
+    // Test UPDATE, no warnings and copy back.
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    let filename_before = active_doc.fileName;
+    let length_before_query = active_doc.getText().length;
+    editor = await vscode.window.showTextDocument(active_doc);
+    assert(active_doc.getText().indexOf('oceania') == -1);
+    assert(active_doc.getText().indexOf('OCEANIA') > 0);
+
+    await sleep(1000);
+    test_task = {rbql_backend: "python", with_headers: true, rbql_query: "UPDATE set a.Region = a.Region.lower()"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_warnings: true});
+    assert.equal('[]', JSON.stringify(state_report.warnings));
+    active_doc = vscode.window.activeTextEditor.document;
+    let filename_after = active_doc.fileName;
+    length_after_query = active_doc.getText().length;
+    log_message(`Length after update query: ${length_after_query}`);
+    // Changing column to lowercase should not affect the doc length if we account for the '\r\n' line endings.
+    assert.equal(length_before_query, length_after_query - active_doc.lineCount + 1);
+    assert(active_doc.getText().indexOf('OCEANIA') == -1);
+    assert(active_doc.getText().indexOf('oceania') > 0);
+
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.CopyBack');
+    await sleep(1000);
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    let filename_after_copy_back = active_doc.fileName;
+    // Make sure that the name stays the same as the original doc but the content has changed.
+    assert.equal(filename_before, filename_after_copy_back);
+    assert(active_doc.getText().indexOf('OCEANIA') == -1);
+    assert(active_doc.getText().indexOf('oceania') > 0);
 }
 
 

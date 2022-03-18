@@ -530,6 +530,7 @@ async function run_internal_test_cmd(integration_test_options) {
 
 
 async function show_warnings(warnings) {
+    _unit_test_last_warnings = [];
     if (!warnings || !warnings.length)
         return;
     var active_window = vscode.window;
