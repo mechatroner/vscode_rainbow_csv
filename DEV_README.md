@@ -120,4 +120,3 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Add unit tests: we need them because of the async refactoring:
     - Add unit test copy back. (+ update query maybe?)
-    - Add unit test join.

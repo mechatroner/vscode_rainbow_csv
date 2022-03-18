@@ -67,6 +67,24 @@ async function test_rbql_node(workspace_folder_uri) {
     length_after_query = active_doc.getText().length;
     log_message(`Length after js multiline-record query: ${length_after_query}`);
     assert.equal(645, length_after_query);
+
+    // Test RBQL JOIN query.
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
+    test_task = {rbql_backend: "python", with_headers: true, rbql_query: "select a.university_name, b.Country, b.Population, b['GDP per capita'] JOIN countries.csv on a.country == b.Country order by int(b.Population) desc"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_warnings: true});
+    assert.equal('["The first record in JOIN file countries.csv was also treated as header (and skipped)"]', JSON.stringify(state_report.warnings));
+    active_doc = vscode.window.activeTextEditor.document;
+    length_after_query = active_doc.getText().length;
+    log_message(`Length after join query: ${length_after_query}`);
+    // Not sure why it is 11592 and not 11610, when saving the file `wc -c` gives 11610.
+    assert.equal(11592, length_after_query);
+    // We have 202 not 201 because the trailing '\n' maps to a trailing empty line in VSCode.
+    assert.equal(202, active_doc.lineCount);
 }
 
 
