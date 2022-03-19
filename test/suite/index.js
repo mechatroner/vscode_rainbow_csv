@@ -158,6 +158,7 @@ async function test_rbql_web(workspace_folder_uri) {
     assert.equal("At record 1, Details: nonexistent_function is not defined", state_report.error_msg);
 
     // Test with multiline records.
+    log_message('Starting multiline records test');
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'synthetic_rfc_newline_data.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
