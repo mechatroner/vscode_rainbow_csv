@@ -72,7 +72,8 @@ Steps:
 
 
 ### Publishing
-1. Make sure you have webpack installed: run `npm install --only=dev`
+1. Make sure you have webpack installed: run `npm install --only=dev` (Better to avoid running this in WSL).
+   Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
 2. Run vsce publish as usual. vsce will also automatically run `vscode:prepublish` / `npm run package-web` command.
 
 
