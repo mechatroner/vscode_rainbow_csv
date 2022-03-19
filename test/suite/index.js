@@ -24,6 +24,7 @@ async function test_rbql_node(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
 
     // Test Python query.
     let test_task = {rbql_backend: "python", with_headers: true, rbql_query: "select top 20 a1, math.ceil(float(a.total_score) * 100), a['university_name'], None, 'foo bar' order by a2"};
@@ -94,8 +95,8 @@ async function test_rbql_node(workspace_folder_uri) {
     editor = await vscode.window.showTextDocument(active_doc);
     assert(active_doc.getText().indexOf('oceania') == -1);
     assert(active_doc.getText().indexOf('OCEANIA') > 0);
-
     await sleep(1000);
+
     test_task = {rbql_backend: "python", with_headers: true, rbql_query: "UPDATE set a.Region = a.Region.lower()"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
@@ -126,6 +127,7 @@ async function test_rbql_web(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
 
     let test_task = {rbql_backend: "js", with_headers: true, rbql_query: "select top 20 a1, Math.ceil(parseFloat(a.total_score) * 100), a['university_name'], null, 'foo bar' order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
