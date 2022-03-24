@@ -124,12 +124,12 @@
         "menus": {
             "editor/context": [
                 {
-                    "when": "editorHasSelection",
+                    "when": "editorHasSelection && editorLangId =~ /^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },
                 {
-                    "when": "editorTextFocus",
+                    "when": "editorTextFocus && editorLangId =~ /^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
                     "group": "rainbow_csv"
                 }
