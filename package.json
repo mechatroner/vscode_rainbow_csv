@@ -124,7 +124,7 @@
         "menus": {
             "editor/context": [
                 {
-                    "when": "editorHasSelection",
+                    "when": "editorHasSelection && editorLangId == plaintext",
                     "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },
