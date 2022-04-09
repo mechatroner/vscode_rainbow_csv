@@ -1,16 +1,15 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+
 const rbql = require('./rbql_core/rbql-js/rbql.js');
 const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-
-const vscode = require('vscode');
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
+const non_numeric_sentinel = -1;
+const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
 class AssertionError extends Error {}
-
 
 function assert(condition, message=null) {
     if (!condition) {
@@ -58,11 +57,36 @@ function get_default_python_udf_content() {
 }
 
 
-function calc_column_sizes(active_doc, delim, policy) {
-    let result = [];
+function update_subcomponent_stats(field, is_first_line, max_field_components_lens) {
+    // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
+    // Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
+    if (field.length > max_field_components_lens[0]) {
+        max_field_components_lens[0] = field.length;
+    }
+    if (max_field_components_lens[1] == non_numeric_sentinel) {
+        // Column is not a number, early return.
+        return;
+    }
+    let match_result = number_regex.exec(field);
+    if (match_result === null) {
+        if (!is_first_line && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+            // We only mark the column as non-header if we know that this is not a header line.
+            max_field_components_lens[1] = non_numeric_sentinel;
+            max_field_components_lens[2] = non_numeric_sentinel;
+        }
+        return;
+    }
+    let cur_integer_part_length = match_result[1].length;
+    max_field_components_lens[1] = Math.max(max_field_components_lens[1], cur_integer_part_length);
+    let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
+    max_field_components_lens[2] = Math.max(max_field_components_lens[2], cur_fractional_part_length);
+}
+
+
+function calc_column_stats(active_doc, delim, policy, comment_prefix) {
+    let column_stats = [];
     let num_lines = active_doc.lineCount;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
+    let is_first_line = true;
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix))
@@ -71,42 +95,105 @@ function calc_column_sizes(active_doc, delim, policy) {
         if (warning) {
             return [null, lnum + 1];
         }
-        for (let i = 0; i < fields.length; i++) {
-            if (result.length <= i)
-                result.push(0);
-            result[i] = Math.max(result[i], (fields[i].trim()).length);
+        for (let fnum = 0; fnum < fields.length; fnum++) {
+            let field = fields[fnum].trim();
+            if (column_stats.length <= fnum) {
+                column_stats.push([0, 0, 0]);
+            }
+            update_subcomponent_stats(field, is_first_line, column_stats[fnum]);
         }
+        is_first_line = false;
     }
-    return [result, null];
+    return [column_stats, null];
 }
 
 
-function align_columns(active_doc, delim, policy, column_sizes) {
+function adjust_column_stats(column_stats) {
+    // Ensure that numeric components max widths are consistent with non-numeric (header) width.
+    let adjusted_stats = [];
+    for (let column_stat of column_stats) {
+        if (column_stat[1] <= 0) {
+            column_stat[1] = -1;
+            column_stat[2] = -1;
+        }
+        if (column_stat[1] > 0) {
+            // The sum of integer and float parts can be bigger than the max width, e.g. here:
+            // value
+            // 0.12
+            // 1234
+            if (column_stat[1] + column_stat[2] > column_stat[0]) {
+                column_stat[0] = column_stat[1] + column_stat[2];
+            }
+            // This is needed when the header is wider than numeric components and/or their sum.
+            if (column_stat[0] - column_stat[2] > column_stat[1]) {
+                column_stat[1] = column_stat[0] - column_stat[2];
+            }
+            // Sanity check.
+            if (column_stat[0] != column_stat[1] + column_stat[2]) {
+                // Assertion Error, this can never happen.
+                return null;
+            }
+        }
+        adjusted_stats.push(column_stat);
+    }
+    return adjusted_stats;
+}
+
+
+function align_field(field, is_first_line, max_field_components_lens, is_last_column) {
+    // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
+    const extra_readability_whitespace_length = 1;
+    field = field.trim();
+    if (max_field_components_lens[1] == non_numeric_sentinel) {
+        let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
+        return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+    }
+    if (is_first_line) {
+        if (number_regex.exec(field) === null) {
+            // The line must be a header - align it using max_width rule.
+            let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
+            return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+        }
+    }
+    let dot_pos = field.indexOf('.');
+    let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
+    // Here cur_fractional_part_length includes the leading dot too.
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
+    let integer_delta_length = Math.max(max_field_components_lens[1] - cur_integer_part_length, 0);
+    let fractional_delta_length = Math.max(max_field_components_lens[2] - cur_fractional_part_length);
+    let trailing_spaces = is_last_column ? '' : ' '.repeat(fractional_delta_length + extra_readability_whitespace_length);
+    return ' '.repeat(integer_delta_length) + field + trailing_spaces;
+}
+
+
+function align_columns(active_doc, delim, policy, comment_prefix, column_stats) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
     let has_edit = false;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
+    let is_first_line = true;
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
             result_lines.push(line_text);
             continue;
         }
+        if (lnum + 1 == num_lines && line_text == '') {
+            // Skip the last empty line which corresponds to the trailing newline character.
+            result_lines.push(line_text);
+            continue;
+        }
         let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
-        for (let i = 0; i < fields.length - 1; i++) {
-            if (i >= column_sizes.length) // Safeguard against async doc edit.
+        for (let fnum = 0; fnum < fields.length; fnum++) {
+            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
-            let adjusted = fields[i].trim();
-            let delta_len = column_sizes[i] - adjusted.length;
-            if (delta_len >= 0) { // Safeguard against async doc edit.
-                adjusted += ' '.repeat(delta_len + 1);
-            }
-            if (fields[i] != adjusted) {
-                fields[i] = adjusted;
+            let is_last_column = fnum + 1 == column_stats.length;
+            let adjusted = align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column);
+            if (fields[fnum] != adjusted) {
+                fields[fnum] = adjusted;
                 has_edit = true;
             }
         }
+        is_first_line = false;
         result_lines.push(fields.join(delim));
     }
     if (!has_edit)
@@ -115,12 +202,10 @@ function align_columns(active_doc, delim, policy, column_sizes) {
 }
 
 
-function shrink_columns(active_doc, delim, policy) {
+function shrink_columns(active_doc, delim, policy, comment_prefix) {
     let result_lines = [];
     let num_lines = active_doc.lineCount;
     let has_edit = false;
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
-    let comment_prefix = config ? config.get('comment_prefix') : '';
     for (let lnum = 0; lnum < num_lines; lnum++) {
         let line_text = active_doc.lineAt(lnum).text;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
@@ -584,4 +669,7 @@ module.exports.get_default_js_udf_content = get_default_js_udf_content;
 module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
-module.exports.calc_column_sizes = calc_column_sizes;
+module.exports.calc_column_stats = calc_column_stats;
+module.exports.adjust_column_stats = adjust_column_stats;
+module.exports.update_subcomponent_stats = update_subcomponent_stats;
+module.exports.align_field = align_field;
