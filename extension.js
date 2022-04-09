@@ -940,7 +940,8 @@ async function shrink_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy);
+    let comment_prefix = get_from_config('comment_prefix', '');
+    let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy, comment_prefix);
     if (first_failed_line) {
         show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
         return;
@@ -965,12 +966,18 @@ async function align_table(active_editor, edit_builder) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = dialect_map[language_id];
-    let [column_sizes, first_failed_line] = ll_rainbow_utils().calc_column_sizes(active_doc, delim, policy);
+    let comment_prefix = get_from_config('comment_prefix', '');
+    let [column_stats, first_failed_line] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
     if (first_failed_line) {
         show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
         return;
     }
-    let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, column_sizes);
+    column_stats = ll_rainbow_utils().adjust_column_stats(column_stats);
+    if (column_stats === null) {
+        show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
+        return;
+    }
+    let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
     aligned_files.add(active_doc.fileName);
     refresh_status_bar_buttons(active_doc);
     if (aligned_doc_text === null) {
