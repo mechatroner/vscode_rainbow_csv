@@ -74,6 +74,7 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
             max_field_components_lens[1] = non_numeric_sentinel;
             max_field_components_lens[2] = non_numeric_sentinel;
         }
+        return;
     }
     let cur_integer_part_length = match_result[1].length;
     max_field_components_lens[1] = Math.max(max_field_components_lens[1], cur_integer_part_length);
@@ -115,7 +116,7 @@ function adjust_column_stats(column_stats) {
             column_stat[1] = -1;
             column_stat[2] = -1;
         }
-        if (column_stats[1] > 0) {
+        if (column_stat[1] > 0) {
             // The sum of integer and float parts can be bigger than the max width, e.g. here:
             // value
             // 0.12
@@ -142,7 +143,7 @@ function adjust_column_stats(column_stats) {
 function align_field(field, is_first_line, max_field_components_lens) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     const extra_readability_whitespace_length = 1;
-    let field = field.trim();
+    field = field.trim();
     if (max_field_components_lens[1] == non_numeric_sentinel) {
         let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
         return field + ' '.repeat(delta_length + extra_readability_whitespace_length);
@@ -155,9 +156,9 @@ function align_field(field, is_first_line, max_field_components_lens) {
         }
     }
     let dot_pos = field.indexOf('.');
-    let cur_integer_part_length = field.length if dot_pos == -1 else dot_pos;
+    let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
     // Here cur_fractional_part_length includes the leading dot too.
-    let cur_fractional_part_length = 0 if dot_pos == -1 else field_length - dot_pos;
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
     let integer_delta_length = Math.max(max_field_components_lens[1] - cur_integer_part_length, 0);
     let fractional_delta_length = Math.max(max_field_components_lens[2] - cur_fractional_part_length);
     return ' '.repeat(integer_delta_length) + field + ' '.repeat(fractional_delta_length + extra_readability_whitespace_length);
@@ -176,8 +177,9 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
             continue;
         }
         let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
-        for (let fnum = 0; fnum < fields.length - 1; fnum++) {
-            if (fnum >= column_sizes.length) // Safeguard against async doc edit.
+        for (let fnum = 0; fnum < fields.length; fnum++) {
+            // FIXME make sure that we don't pad the last column with spaces, also check this in Vim
+            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
             let adjusted = align_field(fields[fnum], is_first_line, column_stats[fnum]);
             if (fields[fnum] != adjusted) {
@@ -187,6 +189,9 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
         }
         is_first_line = false;
         result_lines.push(fields.join(delim));
+        if (lnum > 2) {
+            break;
+        }
     }
     if (!has_edit)
         return null;
@@ -661,5 +666,5 @@ module.exports.get_default_js_udf_content = get_default_js_udf_content;
 module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
-module.exports.calc_column_sizes = calc_column_sizes;
 module.exports.calc_column_stats = calc_column_stats;
+module.exports.adjust_column_stats = adjust_column_stats;
