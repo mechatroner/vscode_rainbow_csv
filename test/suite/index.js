@@ -3,6 +3,8 @@ const os = require('os');
 
 const vscode = require('vscode');
 
+const rainbow_utils = require('../../rainbow_utils.js');
+
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
 
@@ -298,6 +300,24 @@ async function test_manual_enable_disable(workspace_folder_uri) {
 }
 
 
+function test_align_stats() {
+    // Previous fields are numbers but the current one is not - mark the column as non-numeric.
+    let field = 'foobar';
+    let is_first_line = 0;
+    let field_components = [5, 2, 3];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [6, -1, -1]);
+    
+    // FIXME add remaining tests (copy from Vim)
+}
+
+
+function unit_test_align_logic() {
+    test_align_stats();
+    // FIXME write unit tests (copy from Vim)
+}
+
+
 async function run() {
     try {
         log_message('Starting tests');
@@ -307,6 +327,8 @@ async function run() {
         assert(vscode.workspace.workspaceFolders);
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+
+        await unit_test_align_logic();
 
         await test_no_autodetection(workspace_folder_uri);
         if (!is_web_ext) {
