@@ -140,19 +140,19 @@ function adjust_column_stats(column_stats) {
 }
 
 
-function align_field(field, is_first_line, max_field_components_lens) {
+function align_field(field, is_first_line, max_field_components_lens, is_last_column) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     const extra_readability_whitespace_length = 1;
     field = field.trim();
     if (max_field_components_lens[1] == non_numeric_sentinel) {
         let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
-        return field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+        return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
     }
     if (is_first_line) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
             let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
-            return field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+            return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
         }
     }
     let dot_pos = field.indexOf('.');
@@ -161,7 +161,8 @@ function align_field(field, is_first_line, max_field_components_lens) {
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
     let integer_delta_length = Math.max(max_field_components_lens[1] - cur_integer_part_length, 0);
     let fractional_delta_length = Math.max(max_field_components_lens[2] - cur_fractional_part_length);
-    return ' '.repeat(integer_delta_length) + field + ' '.repeat(fractional_delta_length + extra_readability_whitespace_length);
+    let trailing_spaces = is_last_column ? '' : ' '.repeat(fractional_delta_length + extra_readability_whitespace_length);
+    return ' '.repeat(integer_delta_length) + field + trailing_spaces;
 }
 
 
@@ -178,10 +179,10 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
         }
         let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let fnum = 0; fnum < fields.length; fnum++) {
-            // FIXME make sure that we don't pad the last column with spaces, also check this in Vim
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
-            let adjusted = align_field(fields[fnum], is_first_line, column_stats[fnum]);
+            let is_last_column = fnum + 1 == column_stats.length;
+            let adjusted = align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column);
             if (fields[fnum] != adjusted) {
                 fields[fnum] = adjusted;
                 has_edit = true;
@@ -189,9 +190,6 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
         }
         is_first_line = false;
         result_lines.push(fields.join(delim));
-        if (lnum > 2) {
-            break;
-        }
     }
     if (!has_edit)
         return null;
