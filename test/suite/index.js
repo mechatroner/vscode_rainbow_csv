@@ -308,7 +308,47 @@ function test_align_stats() {
     rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
     assert.deepEqual(field_components, [6, -1, -1]);
     
-    // FIXME add remaining tests (copy from Vim)
+    // The field is non-numeric but it is at the first line so could be a header - do not mark the column as non-numeric just yet.
+    field = 'foobar';
+    is_first_line = 1;
+    field_components = [0, 0, 0];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [6, 0, 0]);
+
+    // The field is a number but the column is already marked as non-numeric so we just update the max string width.
+    field = '100000';
+    is_first_line = 0;
+    field_components = [2, -1, -1];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [6, -1, -1]);
+
+    // Empty field should not mark a potentially numeric column as non-numeric.
+    field = '';
+    is_first_line = 0;
+    field_components = [5, 2, 3];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [5, 2, 3]);
+
+    // The field doesn't change stats because all of 3 components are smaller than the current maximums.
+    field = '100.3';
+    is_first_line = 0;
+    field_components = [7, 4, 3];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [7, 4, 3]);
+
+    // Integer update example.
+    field = '100000';
+    is_first_line = 0;
+    field_components = [5, 2, 3];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [6, 6, 3]);
+
+    // Float update example.
+    field = '1000.23';
+    is_first_line = 0;
+    field_components = [3, 3, 0];
+    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
+    assert.deepEqual(field_components, [7, 4, 3]);
 }
 
 
