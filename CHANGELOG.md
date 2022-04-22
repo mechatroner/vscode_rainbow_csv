@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 2.3.0
+* Improve alignment algorithm: special handling of numeric columns, see [#106](https://github.com/mechatroner/vscode_rainbow_csv/issues/106).
+
 ## 2.2.0
 * UI and UX improvements by [@anthroid](https://github.com/anthroid).
 
