@@ -667,3 +667,4 @@ module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
+module.exports.align_field = align_field;
