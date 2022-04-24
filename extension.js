@@ -103,6 +103,11 @@ function sleep(ms) {
 }
 
 
+async function push_current_stack_to_js_callback_queue_to_allow_ui_update() {
+    await sleep(0);
+}
+
+
 function map_separator_to_language_id(separator) {
     for (let language_id in dialect_map) {
         if (!dialect_map.hasOwnProperty(language_id))
@@ -139,6 +144,13 @@ function get_rfc_record_text(document, record_start, record_end) {
         result.push(document.lineAt(i).text);
     }
     return result.join('\n');
+}
+
+
+async function replace_doc_content(active_editor, active_doc, new_content) {
+    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
+    let full_range = active_doc.validateRange(invalid_range);
+    await active_editor.edit(edit => edit.replace(full_range, new_content));
 }
 
 
@@ -932,7 +944,8 @@ async function column_edit(edit_mode) {
 }
 
 
-async function shrink_table(active_editor, edit_builder) {
+async function shrink_table() {
+    let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
@@ -941,24 +954,30 @@ async function shrink_table(active_editor, edit_builder) {
         return;
     let [delim, policy] = dialect_map[language_id];
     let comment_prefix = get_from_config('comment_prefix', '');
-    let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy, comment_prefix);
-    if (first_failed_line) {
-        show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
-        return;
-    }
-    aligned_files.delete(active_doc.fileName);
-    refresh_status_bar_buttons(active_doc);
-    if (shrinked_doc_text === null) {
-        vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
-        return;
-    }
-    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
-    let full_range = active_doc.validateRange(invalid_range);
-    edit_builder.replace(full_range, shrinked_doc_text);
+    let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
+    await vscode.window.withProgress(progress_options, async (progress) => {
+        progress.report({message: 'Preparing'});
+        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy, comment_prefix);
+        if (first_failed_line) {
+            show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
+            return;
+        }
+        aligned_files.delete(active_doc.fileName);
+        refresh_status_bar_buttons(active_doc);
+        if (shrinked_doc_text === null) {
+            vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
+            return;
+        }
+        progress.report({message: 'Shrinking columns'});
+        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await replace_doc_content(active_editor, active_doc, shrinked_doc_text);
+    });
 }
 
 
-async function align_table(active_editor, edit_builder) {
+async function align_table() {
+    let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
@@ -967,26 +986,34 @@ async function align_table(active_editor, edit_builder) {
         return;
     let [delim, policy] = dialect_map[language_id];
     let comment_prefix = get_from_config('comment_prefix', '');
-    let [column_stats, first_failed_line] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
-    if (first_failed_line) {
-        show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
-        return;
-    }
-    column_stats = ll_rainbow_utils().adjust_column_stats(column_stats);
-    if (column_stats === null) {
-        show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
-        return;
-    }
-    let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
-    aligned_files.add(active_doc.fileName);
-    refresh_status_bar_buttons(active_doc);
-    if (aligned_doc_text === null) {
-        vscode.window.showWarningMessage('Table is already aligned, skipping');
-        return;
-    }
-    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
-    let full_range = active_doc.validateRange(invalid_range);
-    edit_builder.replace(full_range, aligned_doc_text);
+    let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
+    await vscode.window.withProgress(progress_options, async (progress) => {
+        progress.report({message: 'Calculating column statistics'});
+        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        let [column_stats, first_failed_line] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
+        if (first_failed_line) {
+            show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
+            return;
+        }
+        column_stats = ll_rainbow_utils().adjust_column_stats(column_stats);
+        if (column_stats === null) {
+            show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
+            return;
+        }
+        progress.report({message: 'Preparing final alignment'});
+        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
+        aligned_files.add(active_doc.fileName);
+        refresh_status_bar_buttons(active_doc);
+        if (aligned_doc_text === null) {
+            vscode.window.showWarningMessage('Table is already aligned, skipping');
+            return;
+        }
+        // The last stage of actually applying the edits takes almost 80% of the whole alignment runtime.
+        progress.report({message: 'Aligning columns'});
+        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await replace_doc_content(active_editor, active_doc, aligned_doc_text);
+    });
 }
 
 
@@ -995,9 +1022,7 @@ async function do_copy_back(query_result_doc, active_editor) {
     let active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
-    let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
-    let full_range = active_doc.validateRange(invalid_range);
-    await active_editor.edit(edit => edit.replace(full_range, data));
+    await replace_doc_content(active_editor, active_doc, data);
 }
 
 
@@ -1517,8 +1542,8 @@ async function activate(context) {
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
-    var align_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Align', align_table);
-    var shrink_cmd = vscode.commands.registerTextEditorCommand('rainbow-csv.Shrink', shrink_table);
+    var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', align_table);
+    var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
