@@ -177,6 +177,11 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
             result_lines.push(line_text);
             continue;
         }
+        if (lnum + 1 == num_lines && line_text == '') {
+            // Skip the last empty line which corresponds to the trailing newline character.
+            result_lines.push(line_text);
+            continue;
+        }
         let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
         for (let fnum = 0; fnum < fields.length; fnum++) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.

@@ -307,7 +307,7 @@ function test_align_stats() {
     let field_components = [5, 2, 3];
     rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components);
     assert.deepEqual(field_components, [6, -1, -1]);
-    
+
     // The field is non-numeric but it is at the first line so could be a header - do not mark the column as non-numeric just yet.
     field = 'foobar';
     is_first_line = 1;
