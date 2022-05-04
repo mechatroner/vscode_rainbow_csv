@@ -111,13 +111,13 @@
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",
-                    "default": true,
-                    "description": "Enable \"Preview CSV head\" option in File Explorer context menu"
+                    "default": false,
+                    "description": "Enable \"Preview CSV head\" option in File Explorer context menu for all files"
                 },
                 "rainbow_csv.enable_context_menu_tail": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Enable \"Preview CSV tail\" option in File Explorer context menu"
+                    "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files"
                 }
             }
         },
@@ -137,7 +137,7 @@
             "explorer/context": [
                 {
                     "command": "rainbow-csv.SampleHead",
-                    "when": "config.rainbow_csv.enable_context_menu_head",
+                    "when": "config.rainbow_csv.enable_context_menu_head || resourceLangId =~ /^[ct]sv/",
                     "group": "rainbow_csv"
                 },
                 {
