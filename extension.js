@@ -43,6 +43,7 @@ var rbql_status_bar_button = null;
 var align_shrink_button = null;
 var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
+var column_info_button = null;
 
 let last_statusbar_doc = null;
 
@@ -60,6 +61,8 @@ var doc_edit_subscription = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
 var _unit_test_last_warnings = null; // For unit tests only.
+
+let cursor_timeout_handle = null;
 
 const dialect_map = {
     'csv': [',', 'quoted'],
@@ -284,6 +287,8 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
         result += ', Header: "' + short_column_label + '"';
     }
     if (enable_tooltip_warnings) {
+        // FIXME This should be in the info button/item tooltip, not in the button/item itself.
+        // FIXME plus we need to change color: ERR - red, warning - Yellow, like in lint
         if (warning) {
             result += '; ERR: Inconsistent double quotes in line';
         } else if (header.length != entries.length) {
@@ -294,9 +299,36 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 }
 
 
+function refresh_status_bar_items(active_doc=null) {
+    // FIXME add selection subscription here and/or dispose the previous one.
+    if (!active_doc)
+        active_doc = get_active_doc();
+    last_statusbar_doc = active_doc;
+    var file_path = active_doc ? active_doc.fileName : null;
+    if (!active_doc || !file_path) {
+        // FIXME make sure that this works for scratch docs as expected i.e. buttons are not hidden for csv scratch docs when cycling through docs.
+        hide_status_bar_buttons();
+        return;
+    }
+    if (file_path.endsWith('.git')) {
+        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
+    }
+    hide_status_bar_buttons();
+    var language_id = active_doc.languageId;
+    if (!dialect_map.hasOwnProperty(language_id))
+        return;
+    show_lint_status_bar_button(file_path, language_id);
+    show_rbql_status_bar_button();
+    show_align_shrink_button(file_path);
+    show_rainbow_off_status_bar_button();
+    show_rbql_copy_to_source_button(file_path);
+    show_column_info_button();
+}
+
+
 function make_hover(document, position, language_id, cancellation_token) {
     if (last_statusbar_doc != document) {
-        refresh_status_bar_buttons(document); // Being paranoid and making sure that the buttons are visible.
+        refresh_status_bar_items(document); // Being paranoid and making sure that the buttons are visible.
     }
     if (!get_from_config('enable_tooltip', false)) {
         return;
@@ -419,6 +451,43 @@ function show_align_shrink_button(file_path) {
 }
 
 
+function do_show_column_info_button(column_info) {
+    if (!column_info)
+        return;
+    if (!column_info_button)
+        column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    const max_len = 25;
+    let short_info = column_info.length > max_len ? column_info.substring(0, max_len - '...'.length + 1) + '...' : column_info;
+    column_info_button.text = short_info;
+    column_info_button.tooltip = column_info;
+    column_info_button.show();
+}
+
+
+function show_column_info_button() {
+    let active_editor = get_active_editor();
+    let selections = active_editor.selections;
+    if (!selections || selections.length != 1) {
+        // Support only single-cursor info reporting.
+        return;
+    }
+    let selection = selections[0];
+    let position = selection.active;
+    if (!position.isEqual(selection.anchor)) {
+        // Do not report CSV columns for selections.
+        return;
+    }
+    let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
+    let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
+    let active_doc = get_active_doc(active_editor);
+    let language_id = active_doc.languageId;
+    // FIXME consider getting rid of meaningless and annoying "Header" in regular tooltips too.
+    // FIXME make sure to format properly in a shorter form.
+    let hover_text = make_hover_text(active_doc, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings);
+    do_show_column_info_button(hover_text);
+}
+
+
 function show_rainbow_off_status_bar_button() {
     if (!rainbow_off_status_bar_button)
         rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
@@ -440,7 +509,7 @@ function show_rbql_status_bar_button() {
 
 
 function hide_status_bar_buttons() {
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button];
+    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -459,30 +528,6 @@ function show_rbql_copy_to_source_button(file_path) {
     copy_back_button.tooltip = `Copy to parent table: ${parent_basename}`;
     copy_back_button.command = 'rainbow-csv.CopyBack';
     copy_back_button.show();
-}
-
-
-function refresh_status_bar_buttons(active_doc=null) {
-    if (!active_doc)
-        active_doc = get_active_doc();
-    last_statusbar_doc = active_doc;
-    var file_path = active_doc ? active_doc.fileName : null;
-    if (!active_doc || !file_path) {
-        hide_status_bar_buttons();
-        return;
-    }
-    if (file_path.endsWith('.git')) {
-        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
-    }
-    hide_status_bar_buttons();
-    var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return;
-    show_lint_status_bar_button(file_path, language_id);
-    show_rbql_status_bar_button();
-    show_align_shrink_button(file_path);
-    show_rainbow_off_status_bar_button();
-    show_rbql_copy_to_source_button(file_path);
 }
 
 
@@ -505,7 +550,7 @@ function csv_lint(active_doc, is_manual_op) {
             return null;
     }
     lint_results.set(lint_cache_key, 'Processing...');
-    refresh_status_bar_buttons(active_doc); // Visual feedback.
+    refresh_status_bar_items(active_doc); // Visual feedback.
     let [delim, policy] = dialect_map[language_id];
     var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
@@ -518,7 +563,7 @@ async function csv_lint_cmd() {
     let lint_report = csv_lint(null, true);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
     await sleep(500);
-    refresh_status_bar_buttons();
+    refresh_status_bar_items();
     return lint_report;
 }
 
@@ -657,7 +702,7 @@ function file_path_to_query_key(file_path) {
 }
 
 function get_dst_table_dir(input_table_path) {
-    let rbql_output_dir = get_from_config('rbql_output_dir', 'TMP')
+    let rbql_output_dir = get_from_config('rbql_output_dir', 'TMP');
     if (rbql_output_dir == 'TMP') {
         return os.tmpdir();
     } else if (rbql_output_dir == 'INPUT') {
@@ -794,7 +839,7 @@ async function set_rainbow_separator() {
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
     csv_lint(doc, false);
-    refresh_status_bar_buttons(doc);
+    refresh_status_bar_items(doc);
 }
 
 
@@ -815,7 +860,7 @@ async function restore_original_language() {
 
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     original_language_ids.delete(file_path);
-    refresh_status_bar_buttons(doc);
+    refresh_status_bar_items(doc);
 }
 
 
@@ -964,7 +1009,7 @@ async function shrink_table() {
             return;
         }
         aligned_files.delete(active_doc.fileName);
-        refresh_status_bar_buttons(active_doc);
+        refresh_status_bar_items(active_doc);
         if (shrinked_doc_text === null) {
             vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
             return;
@@ -1002,9 +1047,9 @@ async function align_table() {
         }
         progress.report({message: 'Preparing final alignment'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
+        let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
         aligned_files.add(active_doc.fileName);
-        refresh_status_bar_buttons(active_doc);
+        refresh_status_bar_items(active_doc);
         if (aligned_doc_text === null) {
             vscode.window.showWarningMessage('Table is already aligned, skipping');
             return;
@@ -1375,11 +1420,11 @@ async function autoenable_rainbow_csv(active_doc) {
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     original_language_ids.set(file_path, original_language_id);
     csv_lint(doc, false);
-    refresh_status_bar_buttons(doc);
+    refresh_status_bar_items(doc);
 }
 
 
-async function handle_doc_edit(change_event) {
+async function handle_first_empty_doc_edit(change_event) {
     if (!change_event)
         return;
     if (doc_edit_subscription) {
@@ -1395,18 +1440,18 @@ async function handle_doc_edit(change_event) {
         return;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     csv_lint(doc, false);
-    refresh_status_bar_buttons(doc);
+    refresh_status_bar_items(doc);
 }
 
 
-function register_csv_copy_paste(active_doc) {
+function register_csv_copy_paste_for_empty_doc(active_doc) {
     if (!get_from_config('enable_separator_autodetection', false))
         return;
     if (!active_doc || doc_edit_subscription)
         return;
     if (!active_doc.isUntitled && active_doc.lineCount != 0)
         return;
-    doc_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_doc_edit);
+    doc_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_empty_doc_edit);
     return;
 }
 
@@ -1414,15 +1459,32 @@ function register_csv_copy_paste(active_doc) {
 function handle_editor_switch(editor) {
     let active_doc = get_active_doc(editor);
     csv_lint(active_doc, false);
-    refresh_status_bar_buttons(active_doc);
+    // Calling `refresh_status_bar_items` is required for non-csv documents too to ensure that they have csv-related status items cleared.
+    refresh_status_bar_items(active_doc);
+}
+
+
+function do_handle_cursor_movement() {
+    if (column_info_button)
+        column_info_button.hide();
+    show_column_info_button();
+}
+
+
+function handle_cursor_movement(_unused_cursor_event) {
+    if (cursor_timeout_handle !== null) {
+        clearTimeout(cursor_timeout_handle);
+    }
+    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 10);
 }
 
 
 async function handle_doc_open(active_doc) {
+    register_csv_copy_paste_for_empty_doc(active_doc);
     await autoenable_rainbow_csv(active_doc);
-    register_csv_copy_paste(active_doc);
-    csv_lint(active_doc, false);
-    refresh_status_bar_buttons(active_doc);
+    // Explanation: we don't need csv_lint/refresh both here and in autoenable_rainbow_csv. FIXME unit test?
+    //csv_lint(active_doc, false);
+    //refresh_status_bar_items(active_doc);
 }
 
 
@@ -1505,6 +1567,7 @@ function register_csv_hover_info_provider(language_id, context) {
 
 
 async function activate(context) {
+    // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
 
     if (is_web_ext) {
@@ -1524,9 +1587,11 @@ async function activate(context) {
         }
     }
 
-    for (let language_id in dialect_map) {
-        if (dialect_map.hasOwnProperty(language_id)) {
-            register_csv_hover_info_provider(language_id, context);
+    if (get_from_config('enable_tooltip', false)) {
+        for (let language_id in dialect_map) {
+            if (dialect_map.hasOwnProperty(language_id)) {
+                register_csv_hover_info_provider(language_id, context);
+            }
         }
     }
 
@@ -1550,6 +1615,7 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
+    // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
     context.subscriptions.push(edit_column_names_cmd);
@@ -1568,6 +1634,13 @@ async function activate(context) {
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(internal_test_cmd);
+
+    if (get_from_config('enable_cursor_position_info', false)) {
+        // FIXME consider adding and removing the subscription when switching in and out of the csv document
+        // FIXME you can enable this on demand and dispose when needed for each doc, see register_csv_copy_paste_for_empty_doc
+        let cursor_event = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+        context.subscriptions.push(cursor_event);
+    }
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.

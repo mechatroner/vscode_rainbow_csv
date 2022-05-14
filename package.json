@@ -74,6 +74,11 @@
                     "default": true,
                     "description": "Enable column-info tooltip on hover"
                 },
+                "rainbow_csv.enable_cursor_position_info": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Keyboard input text cursor: show info about the cursor CSV column in the status bar."
+                },
                 "rainbow_csv.enable_tooltip_column_names": {
                     "type": "boolean",
                     "default": true,
