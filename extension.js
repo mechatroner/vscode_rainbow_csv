@@ -455,7 +455,7 @@ function do_show_column_info_button(column_info) {
     if (!column_info)
         return;
     if (!column_info_button)
-        column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+        column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
     const max_len = 25;
     let short_info = column_info.length > max_len ? column_info.substring(0, max_len - '...'.length + 1) + '...' : column_info;
     column_info_button.text = short_info;
@@ -1482,9 +1482,10 @@ function handle_cursor_movement(_unused_cursor_event) {
 async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
     await autoenable_rainbow_csv(active_doc);
-    // Explanation: we don't need csv_lint/refresh both here and in autoenable_rainbow_csv. FIXME unit test?
-    //csv_lint(active_doc, false);
-    //refresh_status_bar_items(active_doc);
+    // We need to call csv_lint again here because it might not have been called in `autoenable_rainbow_csv` in case of early return.
+    // TODO refactor to call csv_lint and refresh_status_bar_items in a single place.
+    csv_lint(active_doc, false);
+    refresh_status_bar_items(active_doc);
 }
 
 
