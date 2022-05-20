@@ -275,7 +275,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 
     if (col_num == null)
         return null;
-    var result = 'Col #' + (col_num + 1);
+    var result = 'Col ' + (col_num + 1);
 
     var header = get_header(document, delim, policy);
     if (enable_tooltip_column_names && col_num < header.length) {
@@ -284,16 +284,48 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
         var short_column_label = column_label.substr(0, max_label_len);
         if (short_column_label != column_label)
             short_column_label = short_column_label + '...';
-        result += ', Header: "' + short_column_label + '"';
+        result += ', ' + short_column_label;
     }
     if (enable_tooltip_warnings) {
-        // FIXME This should be in the info button/item tooltip, not in the button/item itself.
-        // FIXME plus we need to change color: ERR - red, warning - Yellow, like in lint
         if (warning) {
             result += '; ERR: Inconsistent double quotes in line';
         } else if (header.length != entries.length) {
             result += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${entries.length}`;
         }
+    }
+    return result;
+}
+
+
+function make_status_info(document, position, language_id, enable_tooltip_column_names) {
+    let [delim, policy] = dialect_map[language_id];
+    var lnum = position.line;
+    var cnum = position.character;
+    var line = document.lineAt(lnum).text;
+
+    let comment_prefix = get_from_config('comment_prefix', '');
+    if (comment_prefix && line.startsWith(comment_prefix))
+        return null;
+
+    var report = csv_utils.smart_split(line, delim, policy, true);
+
+    var entries = report[0];
+    var warning = report[1];
+    if (warning)
+        return null;
+    var col_num = get_field_by_line_position(entries, cnum + 1);
+
+    if (col_num == null)
+        return null;
+    var result = 'CSV: ' + (col_num + 1);
+
+    var header = get_header(document, delim, policy);
+    if (header.length != entries.length)
+        return null;
+
+    if (enable_tooltip_column_names && col_num < header.length) {
+        let column_label = header[col_num].trim();
+        result += ', ' + column_label;
     }
     return result;
 }
@@ -451,15 +483,15 @@ function show_align_shrink_button(file_path) {
 }
 
 
-function do_show_column_info_button(column_info) {
-    if (!column_info)
+function do_show_column_info_button(status_text) {
+    if (!status_text)
         return;
     if (!column_info_button)
         column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
     const max_len = 25;
-    let short_info = column_info.length > max_len ? column_info.substring(0, max_len - '...'.length + 1) + '...' : column_info;
+    let short_info = status_text.length > max_len ? status_text.substring(0, max_len - '...'.length + 1) + '...' : status_text;
     column_info_button.text = short_info;
-    column_info_button.tooltip = column_info;
+    column_info_button.tooltip = status_text;
     column_info_button.show();
 }
 
@@ -478,13 +510,10 @@ function show_column_info_button() {
         return;
     }
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
     let active_doc = get_active_doc(active_editor);
     let language_id = active_doc.languageId;
-    // FIXME consider getting rid of meaningless and annoying "Header" in regular tooltips too.
-    // FIXME make sure to format properly in a shorter form.
-    let hover_text = make_hover_text(active_doc, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings);
-    do_show_column_info_button(hover_text);
+    let status_text = make_status_info(active_doc, position, language_id, enable_tooltip_column_names);
+    do_show_column_info_button(status_text);
 }
 
 
@@ -1397,30 +1426,29 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators) {
 
 async function autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
-        return;
+        return active_doc;
     if (!get_from_config('enable_separator_autodetection', false))
-        return;
+        return active_doc;
     let candidate_separators = get_from_config('autodetect_separators', []);
     var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
     if (!file_path || autodetection_stoplist.has(file_path)) {
-        return;
+        return active_doc;
     }
     let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
-        return;
+        return active_doc;
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id && is_default_csv) {
         // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one.
         rainbow_csv_language_id = autodetect_dialect_frequency_based(active_doc, candidate_separators);
     }
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
-        return;
+        return active_doc;
 
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     original_language_ids.set(file_path, original_language_id);
-    csv_lint(doc, false);
-    refresh_status_bar_items(doc);
+    return doc;
 }
 
 
@@ -1481,9 +1509,7 @@ function handle_cursor_movement(_unused_cursor_event) {
 
 async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
-    await autoenable_rainbow_csv(active_doc);
-    // We need to call csv_lint again here because it might not have been called in `autoenable_rainbow_csv` in case of early return.
-    // TODO refactor to call csv_lint and refresh_status_bar_items in a single place.
+    active_doc = await autoenable_rainbow_csv(active_doc);
     csv_lint(active_doc, false);
     refresh_status_bar_items(active_doc);
 }
