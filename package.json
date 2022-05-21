@@ -129,7 +129,7 @@
         "menus": {
             "editor/context": [
                 {
-                    "when": "editorHasSelection && editorLangId == plaintext",
+                    "when": "editorHasSelection && editorLangId =~ /plaintext|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },
