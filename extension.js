@@ -488,8 +488,6 @@ function show_align_shrink_button(file_path) {
 
 
 function do_show_column_info_button(status_text) {
-    if (!status_text)
-        return;
     if (!column_info_button)
         column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
     const max_len = 25;
@@ -517,6 +515,8 @@ function show_column_info_button() {
     let active_doc = get_active_doc(active_editor);
     let language_id = active_doc.languageId;
     let status_text = make_status_info(active_doc, position, language_id, enable_tooltip_column_names);
+    if (!status_text)
+        return false;
     do_show_column_info_button(status_text);
     return true;
 }
@@ -1502,7 +1502,6 @@ function handle_editor_switch(editor) {
 
 
 function do_handle_cursor_movement() {
-    // FIXME when breaking line e.g. by adding an unpaired double quote the last info status item is not hidden.
     if (!show_column_info_button())
         column_info_button.hide();
 }

@@ -118,3 +118,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Merge rbql_query_web and rbql_query_node
 
 * Add comment prefix handling in RBQL, unit tests (and web_ui entry?)
+
+* Show column info in statusline even when there are consistency issues, but highlight it in red/yellow
