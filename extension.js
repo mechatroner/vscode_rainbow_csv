@@ -500,6 +500,9 @@ function do_show_column_info_button(status_text) {
 
 function show_column_info_button() {
     let active_editor = get_active_editor();
+    if (!active_editor) {
+        return false;
+    }
     let selections = active_editor.selections;
     if (!selections || selections.length != 1) {
         // Support only single-cursor info reporting.
