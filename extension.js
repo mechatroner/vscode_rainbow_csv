@@ -505,19 +505,20 @@ function show_column_info_button() {
     let selections = active_editor.selections;
     if (!selections || selections.length != 1) {
         // Support only single-cursor info reporting.
-        return;
+        return false;
     }
     let selection = selections[0];
     let position = selection.active;
     if (!position.isEqual(selection.anchor)) {
         // Do not report CSV columns for selections.
-        return;
+        return false;
     }
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let active_doc = get_active_doc(active_editor);
     let language_id = active_doc.languageId;
     let status_text = make_status_info(active_doc, position, language_id, enable_tooltip_column_names);
     do_show_column_info_button(status_text);
+    return true;
 }
 
 
@@ -1501,10 +1502,9 @@ function handle_editor_switch(editor) {
 
 
 function do_handle_cursor_movement() {
-    // TODO avoid hide -> show cycle if the text hasn't changed.
-    if (column_info_button)
+    // FIXME when breaking line e.g. by adding an unpaired double quote the last info status item is not hidden.
+    if (!show_column_info_button())
         column_info_button.hide();
-    show_column_info_button();
 }
 
 
@@ -1513,7 +1513,7 @@ function handle_cursor_movement(_unused_cursor_event) {
         clearTimeout(cursor_timeout_handle);
     }
     // We need timeout delay here to deduplicate/debounce events from multiple consecutive movements, see https://stackoverflow.com/a/49050990/2898283.
-    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 100);
+    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 10);
 }
 
 
