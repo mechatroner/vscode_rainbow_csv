@@ -515,8 +515,6 @@ async function run() {
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
 
-        await unit_test_align_logic();
-
         await test_no_autodetection(workspace_folder_uri);
         if (!is_web_ext) {
             // Ensure that opening non-csv files doesn't cause rainbow csv to import relatively heavy lazy-loaded code.
@@ -526,15 +524,10 @@ async function run() {
             assert(!state_report.lazy_loaded);
         }
 
+
         await test_autodetection(workspace_folder_uri);
         await test_manual_enable_disable(workspace_folder_uri);
-
-        if (!is_web_ext) {
-            // Ensure that basic operations don't cause rainbow csv to lazy load unnecessary code.
-            let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_initialization_state: true});
-            assert(state_report.initialized);
-            assert(!state_report.lazy_loaded);
-        }
+        await unit_test_align_logic();
 
         if (is_web_ext) {
             await test_rbql_web(workspace_folder_uri);
