@@ -58,6 +58,7 @@ var global_state = null;
 var preview_panel = null;
 
 var doc_edit_subscription = null;
+var keyboard_cursor_subscription = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
 var _unit_test_last_warnings = null; // For unit tests only.
@@ -332,7 +333,6 @@ function make_status_info(document, position, language_id, enable_tooltip_column
 
 
 function refresh_status_bar_items(active_doc=null) {
-    // FIXME add selection subscription here and/or dispose the previous one.
     if (!active_doc)
         active_doc = get_active_doc();
     last_statusbar_doc = active_doc;
@@ -343,7 +343,8 @@ function refresh_status_bar_items(active_doc=null) {
         return;
     }
     if (file_path.endsWith('.git')) {
-        return; // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
+        // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
+        return;
     }
     hide_status_bar_buttons();
     var language_id = active_doc.languageId;
@@ -355,6 +356,9 @@ function refresh_status_bar_items(active_doc=null) {
     show_rainbow_off_status_bar_button();
     show_rbql_copy_to_source_button(file_path);
     show_column_info_button();
+    if (get_from_config('enable_cursor_position_info', false)) {
+        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    }
 }
 
 
@@ -542,6 +546,10 @@ function hide_status_bar_buttons() {
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
+    }
+    if (keyboard_cursor_subscription) {
+        keyboard_cursor_subscription.dispose();
+        keyboard_cursor_subscription = null;
     }
 }
 
@@ -1493,6 +1501,7 @@ function handle_editor_switch(editor) {
 
 
 function do_handle_cursor_movement() {
+    // TODO avoid hide -> show cycle if the text hasn't changed.
     if (column_info_button)
         column_info_button.hide();
     show_column_info_button();
@@ -1503,7 +1512,8 @@ function handle_cursor_movement(_unused_cursor_event) {
     if (cursor_timeout_handle !== null) {
         clearTimeout(cursor_timeout_handle);
     }
-    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 10);
+    // We need timeout delay here to deduplicate/debounce events from multiple consecutive movements, see https://stackoverflow.com/a/49050990/2898283.
+    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 100);
 }
 
 
@@ -1661,13 +1671,6 @@ async function activate(context) {
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(internal_test_cmd);
-
-    if (get_from_config('enable_cursor_position_info', false)) {
-        // FIXME consider adding and removing the subscription when switching in and out of the csv document
-        // FIXME you can enable this on demand and dispose when needed for each doc, see register_csv_copy_paste_for_empty_doc
-        let cursor_event = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
-        context.subscriptions.push(cursor_event);
-    }
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
