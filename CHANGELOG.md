@@ -1,5 +1,6 @@
 # Rainbow CSV for Visual Studio Code Change Log
 ## 2.4.0
+* Show cursor column info in the status line.
 * UI and UX improvements.
 
 ## 2.3.0
