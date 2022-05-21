@@ -338,7 +338,7 @@ function refresh_status_bar_items(active_doc=null) {
     last_statusbar_doc = active_doc;
     var file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc || !file_path) {
-        // FIXME make sure that this works for scratch docs as expected i.e. buttons are not hidden for csv scratch docs when cycling through docs.
+        // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
         hide_status_bar_buttons();
         return;
     }
@@ -574,7 +574,7 @@ function csv_lint(active_doc, is_manual_op) {
         active_doc = get_active_doc();
     if (!active_doc)
         return null;
-    var file_path = active_doc.fileName; // For new unitled scratch documents this would be "Untitled-1", "Untitled-2", etc...
+    var file_path = active_doc.fileName; // For new untitled scratch documents this would be "Untitled-1", "Untitled-2", etc...
     if (!file_path)
         return null;
     var language_id = active_doc.languageId;
