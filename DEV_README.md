@@ -81,7 +81,9 @@ Steps:
    Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
 2. Run `npx ovsx publish -p <openvsx_token>`
 
-See also docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
+Unlike vsce publishing for the official Microsoft VSCode marketplace, ovsx tool does not need to be provided with version increment specification (such as major/minor/fix), instead it will just use the version from package.json file which is very convenient. And it will also won't try to update that version value in package.json during the publishing process.
+
+See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
 
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
