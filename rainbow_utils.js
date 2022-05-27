@@ -28,12 +28,12 @@ function get_default_js_udf_content() {
     //     return 'foo ' + String(value.length);
     // }
     // 
-    // Functions defined in this file can be used in RBQL queries e.g. 
+    // Functions defined in this file can be used in RBQL queries e.g.
     // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     //
     // Don't forget to save this file after editing!
     //
-    // Write your own functions bellow this line:
+    // Write your own functions below this line:
     `.replace(new RegExp(/^  */, 'mg'), '');
     return default_content;
 }
@@ -46,12 +46,12 @@ function get_default_python_udf_content() {
     #     return 'foo ' + str(len(value))
     # 
     # 
-    # Functions defined in this file can be used in RBQL queries e.g. 
+    # Functions defined in this file can be used in RBQL queries e.g.
     # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     #
     # Don't forget to save this file after editing!
     #
-    # Write your own functions bellow this line:
+    # Write your own functions below this line:
     `.replace(new RegExp(/^  */, 'mg'), '');
     return default_content;
 }
