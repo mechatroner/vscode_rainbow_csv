@@ -76,6 +76,12 @@ Steps:
    Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
 2. Run vsce publish as usual. vsce will also automatically run `vscode:prepublish` / `npm run package-web` command.
 
+### Publishing to openvsx
+1. Make sure you have webpack installed: run `npm install --only=dev` (Better to avoid running this in WSL).
+   Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
+2. Run `npx ovsx publish -p <openvsx_token>`
+
+See also docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
 
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
