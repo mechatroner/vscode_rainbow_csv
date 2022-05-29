@@ -1504,6 +1504,40 @@ function handle_editor_switch(editor) {
 }
 
 
+function handle_visible_range_change(range_event) {
+    // FIXME we should also apply the same handling for active editor/doc switch because these events for some reason sometimes doesn't trigger visible_range_change.
+    // FIXME consider using event deduplication pattern with timer just like it was done for keyboard cursor movements.
+    if (!range_event) {
+        return;
+    }
+    let editor = range_event.textEditor;
+    let visible_ranges = range_event.visibleRanges;
+    //for (let vr of visible_ranges) {
+    //    console.log(JSON.stringify(vr));
+    //}
+    if (!visible_ranges || visible_ranges.length < 1) {
+        return;
+    }
+    // It is not clear whether it is possible for visible_ranges have more than 1 entry and what does this mean from UI perspective.
+    // TODO find out in which cases there could be more than 1 entry, ask SO question if needed.
+    let main_range = visible_ranges[0];
+    let first_line = main_range.start.line;
+    let last_line = main_range.end.line;
+    // FIXME find out if the decoration types could be pre-created.
+    // FIXME this color doesn't exist for some reason
+    //let test_theme_color = new vscode.ThemeColor('entity.name.function.rainbow3');
+    // FIXME find a way to get colors. Explore possibility of using semantic highlighting and also track https://github.com/microsoft/vscode/issues/32813
+    //let test_theme_color = new vscode.ThemeColor('Comment');
+    let test_decoration = vscode.window.createTextEditorDecorationType({color: "#ff0000"});
+    //console.log("test_decoration:" + test_decoration); //FOR_DEBUG
+    // FIXME what is the better way to specify range last character? use 1000000?
+    let test_line_range = new vscode.Range(first_line, 0, first_line, 1000000);
+    //console.log("test_line_range:" + test_line_range); //FOR_DEBUG
+    editor.setDecorations(test_decoration, [test_line_range]);
+    // FIXME test set docorations, clear decorations and reading the colors. Make sure it works with customized colors too.
+}
+
+
 function do_handle_cursor_movement() {
     if (!show_column_info_button())
         column_info_button.hide();
@@ -1654,6 +1688,9 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
+    // FIXME enable and dispose when needed only.
+    var visible_range_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_range_change);
+
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
     context.subscriptions.push(rbql_cmd);
@@ -1663,6 +1700,7 @@ async function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
+    context.subscriptions.push(visible_range_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
