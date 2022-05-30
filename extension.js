@@ -386,6 +386,23 @@ function make_hover(document, position, language_id, cancellation_token) {
     }
 }
 
+function parse_document_range_rfc(doc, range) {
+    // FIXME consider reusing some of this logic in hover info code for rfc case.
+
+    // Go from the top of the range down performing optimistic parsing.
+    // If we encounter an unpaired "closing" line we discard all the previously optimistically parsed records, and start from the next line.
+    // A "closing" line will have the following pattern: odd number of doublequotes and unpaired double quote right before a comma: `",` or at the very end: `"$`.
+    // An "opening" line will have the following pattern: odd number of doublequotes and unpaired double quote right after a comma: `,"` or at the beginning of line `^"`.
+}
+
+function parse_document_range(doc, range, is_rfc) {
+    if (is_rfc) {
+        return parse_document_range_rfc(doc, range);
+    } else {
+        return parse_document_range_simple(doc, range);
+    }
+}
+
 
 function produce_lint_report(active_doc, delim, policy) {
     let comment_prefix = get_from_config('comment_prefix', '');
