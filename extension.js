@@ -65,6 +65,8 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
+let rainbow_decorations = [];
+
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
@@ -249,6 +251,7 @@ function get_field_by_line_position(fields, query_pos) {
     if (!fields.length)
         return null;
     var col_num = 0;
+    // FIXME consider multi-character delimiters
     var cpos = fields[col_num].length + 1;
     while (query_pos > cpos && col_num + 1 < fields.length) {
         col_num += 1;
@@ -383,23 +386,6 @@ function make_hover(document, position, language_id, cancellation_token) {
         return new vscode.Hover(mds);
     } else {
         return null;
-    }
-}
-
-function parse_document_range_rfc(doc, range) {
-    // FIXME consider reusing some of this logic in hover info code for rfc case.
-
-    // Go from the top of the range down performing optimistic parsing.
-    // If we encounter an unpaired "closing" line we discard all the previously optimistically parsed records, and start from the next line.
-    // A "closing" line will have the following pattern: odd number of doublequotes and unpaired double quote right before a comma: `",` or at the very end: `"$`.
-    // An "opening" line will have the following pattern: odd number of doublequotes and unpaired double quote right after a comma: `,"` or at the beginning of line `^"`.
-}
-
-function parse_document_range(doc, range, is_rfc) {
-    if (is_rfc) {
-        return parse_document_range_rfc(doc, range);
-    } else {
-        return parse_document_range_simple(doc, range);
     }
 }
 
@@ -1521,6 +1507,108 @@ function handle_editor_switch(editor) {
 }
 
 
+function parse_document_range_rfc(doc, delim, range) {
+    // FIXME consider reusing some of this logic in hover info code for rfc case.
+
+    // Go from the top of the range down performing optimistic parsing.
+    // If we encounter an unpaired "closing" line we discard all the previously optimistically parsed records, and start from the next line.
+    // A "closing" line will have the following pattern: odd number of doublequotes and unpaired double quote right before a comma: `",` or at the very end: `"$`.
+    // An "opening" line will have the following pattern: odd number of doublequotes and unpaired double quote right after a comma: `,"` or at the beginning of line `^"`.
+}
+
+
+//function extend_range(doc, range, margin) {
+//    let begin_line = Math.max(0, range.start.line - margin);
+//    let end_line = Math.min(doc.lineCount, range.end.line + margin);
+//    return new vscode.Range(begin_line, 0, end_line, 100000);
+//}
+
+
+//function get_field_by_line_position(fields, query_pos) {
+//    if (!fields.length)
+//        return null;
+//    var col_num = 0;
+//    // FIXME consider multi-character delimiters
+//    var cpos = fields[col_num].length + 1;
+//    while (query_pos > cpos && col_num + 1 < fields.length) {
+//        col_num += 1;
+//        cpos = cpos + fields[col_num].length + 1;
+//    }
+//    return col_num;
+//}
+
+function parse_document_range_single_line(doc, delim, policy, range) {
+    let table_ranges = [];
+    const highlight_margin = 10;
+    let begin_line = Math.max(0, range.start.line - highlight_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + highlight_margin);
+    for (let lnum = begin_line; lnum < end_line; lnum++) {
+        let row_ranges = [];
+        let line_text = doc.lineAt(lnum).text;
+        if (lnum + 1 == doc.lineCount && !line_text)
+            break;
+        // FIXME handle comments too!
+        let split_result = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
+        // TODO consider handling warnings
+        let fields = split_result[0];
+        let cpos = 0;
+        let next_cpos = 0;
+        for (let i = 0; i < fields.length; i++) {
+            // Add +1 because the end character in range is exclusive.
+            next_cpos += fields[i].length + 1;
+            if (i + 1 < fields.length) {
+                next_cpos += delim.length;
+            }
+            row_ranges.push(new vscode.Range(lnum, cpos, lnum, next_cpos));
+            cpos = next_cpos;
+        }
+        table_ranges.push(row_ranges);
+    }
+    return table_ranges;
+}
+
+
+function parse_document_range(doc, delim, policy, range) {
+    if (policy == 'quoted_rfc') {
+        return parse_document_range_rfc(doc, delim, range);
+    } else {
+        // FIXME test with "quoted", "simple" (and "whitespace"?, although "whitespace" has its custom syntax file) policies.
+        return parse_document_range_single_line(doc, delim, policy, range);
+    }
+}
+
+
+function generate_decorations() {
+    // FIXME find a way to get colors. Explore possibility of using semantic highlighting and also track https://github.com/microsoft/vscode/issues/32813
+    let result = [];
+    result.push(vscode.window.createTextEditorDecorationType({color: "#E6194B"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#3CB44B"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#FFE119"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#0082C8"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#FABEBE"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#46F0F0"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#F032E6"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#008080"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#F58231"}));
+    result.push(vscode.window.createTextEditorDecorationType({color: "#FFFFFF"}));
+    return result;
+}
+
+
+function join_decorations_with_ranges(decorations, ranges) {
+    let result = [];
+    for (let decoration of decorations) {
+        result.push({'decoration': decoration, 'ranges': []});
+    }
+    for (let row of ranges) {
+        for (let i = 0; i < row.length; i++) {
+            result[i % 10].ranges.push(row[i]);
+        }
+    }
+    return result;
+}
+
+
 function handle_visible_range_change(range_event) {
     // FIXME we should also apply the same handling for active editor/doc switch because these events for some reason sometimes doesn't trigger visible_range_change.
     // FIXME consider using event deduplication pattern with timer just like it was done for keyboard cursor movements.
@@ -1529,29 +1617,32 @@ function handle_visible_range_change(range_event) {
     }
     let editor = range_event.textEditor;
     let visible_ranges = range_event.visibleRanges;
-    //for (let vr of visible_ranges) {
-    //    console.log(JSON.stringify(vr));
-    //}
     if (!visible_ranges || visible_ranges.length < 1) {
         return;
     }
     // It is not clear whether it is possible for visible_ranges have more than 1 entry and what does this mean from UI perspective.
     // TODO find out in which cases there could be more than 1 entry, ask SO question if needed.
     let main_range = visible_ranges[0];
-    let first_line = main_range.start.line;
-    let last_line = main_range.end.line;
-    // FIXME find out if the decoration types could be pre-created.
-    // FIXME this color doesn't exist for some reason
-    //let test_theme_color = new vscode.ThemeColor('entity.name.function.rainbow3');
-    // FIXME find a way to get colors. Explore possibility of using semantic highlighting and also track https://github.com/microsoft/vscode/issues/32813
-    //let test_theme_color = new vscode.ThemeColor('Comment');
-    let test_decoration = vscode.window.createTextEditorDecorationType({color: "#ff0000"});
-    //console.log("test_decoration:" + test_decoration); //FOR_DEBUG
-    // FIXME what is the better way to specify range last character? use 1000000?
-    let test_line_range = new vscode.Range(first_line, 0, first_line, 1000000);
-    //console.log("test_line_range:" + test_line_range); //FOR_DEBUG
-    editor.setDecorations(test_decoration, [test_line_range]);
-    // FIXME test set docorations, clear decorations and reading the colors. Make sure it works with customized colors too.
+    let active_doc = get_active_doc(editor);
+    let dialect = get_dialect(active_doc);
+    let delim = dialect[0];
+    let policy = dialect[1];
+    let table_ranges = parse_document_range(active_doc, delim, policy, main_range);
+    let joined_decorations = join_decorations_with_ranges(rainbow_decorations, table_ranges);
+    for (let dr_info of joined_decorations) {
+        editor.setDecorations(dr_info.decoration, dr_info.ranges);
+    }
+    //let first_line = main_range.start.line;
+    //// FIXME find out if the decoration types could be pre-created.
+    //// FIXME this color doesn't exist for some reason
+    ////let test_theme_color = new vscode.ThemeColor('entity.name.function.rainbow3');
+    ////let test_theme_color = new vscode.ThemeColor('Comment');
+    //let test_decoration = vscode.window.createTextEditorDecorationType({color: "#ff0000"});
+    ////console.log("test_decoration:" + test_decoration); //FOR_DEBUG
+    //// FIXME what is the better way to specify range last character? use 1000000?
+    //let test_line_range = new vscode.Range(first_line, 0, first_line, 1000000);
+    ////console.log("test_line_range:" + test_line_range); //FOR_DEBUG
+    //editor.setDecorations(test_decoration, [test_line_range]);
 }
 
 
@@ -1707,6 +1798,7 @@ async function activate(context) {
 
     // FIXME enable and dispose when needed only.
     var visible_range_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_range_change);
+    rainbow_decorations = generate_decorations();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
