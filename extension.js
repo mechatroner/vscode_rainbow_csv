@@ -1554,8 +1554,7 @@ function parse_document_range_single_line(doc, delim, policy, range) {
         let cpos = 0;
         let next_cpos = 0;
         for (let i = 0; i < fields.length; i++) {
-            // Add +1 because the end character in range is exclusive.
-            next_cpos += fields[i].length + 1;
+            next_cpos += fields[i].length;
             if (i + 1 < fields.length) {
                 next_cpos += delim.length;
             }
