@@ -1579,6 +1579,9 @@ function parse_document_range(doc, delim, policy, range) {
 
 function generate_decorations() {
     // FIXME find a way to get colors. Explore possibility of using semantic highlighting and also track https://github.com/microsoft/vscode/issues/32813
+    // Explore https://code.visualstudio.com/api/references/vscode-api#DocumentRangeSemanticTokensProvider API
+    // FIXME you can also find out token colors for the default VSCode colortheme in the worst case.
+    // See also https://github.com/microsoft/vscode/issues/86415 for range highlighting explanation.
     let result = [];
     result.push(vscode.window.createTextEditorDecorationType({color: "#E6194B"}));
     result.push(vscode.window.createTextEditorDecorationType({color: "#3CB44B"}));
@@ -1745,6 +1748,37 @@ function register_csv_hover_info_provider(language_id, context) {
     context.subscriptions.push(hover_provider);
 }
 
+class RainbowTokenProvider {
+    // We don't utilize typescript `implement` interface keyword, because TS doesn't seem to be exporting interfaces to JS (unlike classes).
+    constructor() {
+    }
+    async provideDocumentRangeSemanticTokens(document, range, token) {
+        console.log('semantic range: ' + JSON.stringify(range));
+        return null;
+    }
+}
+
+
+const tokenTypes = new Map();
+const tokenModifiers = new Map();
+
+const legend = (function () {
+	const tokenTypesLegend = [
+		'comment', 'string', 'keyword', 'number', 'regexp', 'operator', 'namespace',
+		'type', 'struct', 'class', 'interface', 'enum', 'typeParameter', 'function',
+		'method', 'decorator', 'macro', 'variable', 'parameter', 'property', 'label'
+	];
+	tokenTypesLegend.forEach((tokenType, index) => tokenTypes.set(tokenType, index));
+
+	const tokenModifiersLegend = [
+		'declaration', 'documentation', 'readonly', 'static', 'abstract', 'deprecated',
+		'modification', 'async'
+	];
+	tokenModifiersLegend.forEach((tokenModifier, index) => tokenModifiers.set(tokenModifier, index));
+
+	return new vscode.SemanticTokensLegend(tokenTypesLegend, tokenModifiersLegend);
+})();
+
 
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
@@ -1796,8 +1830,12 @@ async function activate(context) {
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
     // FIXME enable and dispose when needed only.
-    var visible_range_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_range_change);
+    // FIXME temporarily disable to try semantic approach.
+    //var visible_range_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_range_change);
     rainbow_decorations = generate_decorations();
+    let token_provider = new RainbowTokenProvider();
+    let document_selector = { language: 'csv', scheme: 'file' }; // FIXME adjust document selector, make it work for all docs, or make the provider dynamic.
+    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -1808,7 +1846,8 @@ async function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
-    context.subscriptions.push(visible_range_event);
+    //context.subscriptions.push(visible_range_event);
+    context.subscriptions.push(token_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
