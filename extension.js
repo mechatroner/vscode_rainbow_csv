@@ -1748,36 +1748,34 @@ function register_csv_hover_info_provider(language_id, context) {
     context.subscriptions.push(hover_provider);
 }
 
+
+const tokenTypes = ['class', 'comment', 'interface', 'enum', 'function', 'variable'];
+const tokenModifiers = ['declaration', 'documentation'];
+const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
+const builder = new vscode.SemanticTokensBuilder(legend);
+
+
 class RainbowTokenProvider {
     // We don't utilize typescript `implement` interface keyword, because TS doesn't seem to be exporting interfaces to JS (unlike classes).
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(document, range, token) {
-        console.log('semantic range: ' + JSON.stringify(range));
-        return null;
+        //console.log('semantic range: ' + JSON.stringify(range));
+        // This could still be better than the custom colors, try it anyway!
+        let dialect = get_dialect(document);
+        let delim = dialect[0];
+        let policy = dialect[1];
+        // FIXME extend the range using user config margin setting.
+        let table_ranges = parse_document_range(document, delim, policy, range);
+        for (let row of table_ranges) {
+            // FIXME handle multiline ranges. To do this, split multiline tokens into multiple single-line tokens of the same type.
+            for (let c = 0; c < row.length; c++) {
+                builder.push(row[c], tokenTypes[c % tokenTypes.length]);
+            }
+        }
+        return builder.build();
     }
 }
-
-
-const tokenTypes = new Map();
-const tokenModifiers = new Map();
-
-const legend = (function () {
-	const tokenTypesLegend = [
-		'comment', 'string', 'keyword', 'number', 'regexp', 'operator', 'namespace',
-		'type', 'struct', 'class', 'interface', 'enum', 'typeParameter', 'function',
-		'method', 'decorator', 'macro', 'variable', 'parameter', 'property', 'label'
-	];
-	tokenTypesLegend.forEach((tokenType, index) => tokenTypes.set(tokenType, index));
-
-	const tokenModifiersLegend = [
-		'declaration', 'documentation', 'readonly', 'static', 'abstract', 'deprecated',
-		'modification', 'async'
-	];
-	tokenModifiersLegend.forEach((tokenModifier, index) => tokenModifiers.set(tokenModifier, index));
-
-	return new vscode.SemanticTokensLegend(tokenTypesLegend, tokenModifiersLegend);
-})();
 
 
 async function activate(context) {
