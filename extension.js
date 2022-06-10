@@ -1749,10 +1749,10 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
-const tokenTypes = ['class', 'comment', 'interface', 'enum', 'function', 'variable'];
-const tokenModifiers = ['declaration', 'documentation'];
+//const tokenTypes = ['rainbow1', 'comment', 'interface', 'enum', 'function', 'variable'];
+const tokenTypes = ['rainbow1', 'keyword', 'entity', 'comment', 'string', 'variable', 'constant', 'entity', 'markup', 'invalid'];
+const tokenModifiers = ['declaration', 'documentation']; // FIXME we don't really need modifiers, get rid of them.
 const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
-const builder = new vscode.SemanticTokensBuilder(legend);
 
 
 class RainbowTokenProvider {
@@ -1767,6 +1767,8 @@ class RainbowTokenProvider {
         let policy = dialect[1];
         // FIXME extend the range using user config margin setting.
         let table_ranges = parse_document_range(document, delim, policy, range);
+        // Create a new builder to clear the previous tokens.
+        const builder = new vscode.SemanticTokensBuilder(legend);
         for (let row of table_ranges) {
             // FIXME handle multiline ranges. To do this, split multiline tokens into multiple single-line tokens of the same type.
             for (let c = 0; c < row.length; c++) {
