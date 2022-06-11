@@ -65,8 +65,6 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
-let rainbow_decorations = [];
-
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
@@ -1577,77 +1575,6 @@ function parse_document_range(doc, delim, policy, range) {
 }
 
 
-function generate_decorations() {
-    // FIXME find a way to get colors. Explore possibility of using semantic highlighting and also track https://github.com/microsoft/vscode/issues/32813
-    // Explore https://code.visualstudio.com/api/references/vscode-api#DocumentRangeSemanticTokensProvider API
-    // FIXME you can also find out token colors for the default VSCode colortheme in the worst case.
-    // See also https://github.com/microsoft/vscode/issues/86415 for range highlighting explanation.
-    let result = [];
-    result.push(vscode.window.createTextEditorDecorationType({color: "#E6194B"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#3CB44B"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#FFE119"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#0082C8"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#FABEBE"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#46F0F0"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#F032E6"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#008080"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#F58231"}));
-    result.push(vscode.window.createTextEditorDecorationType({color: "#FFFFFF"}));
-    return result;
-}
-
-
-function join_decorations_with_ranges(decorations, ranges) {
-    let result = [];
-    for (let decoration of decorations) {
-        result.push({'decoration': decoration, 'ranges': []});
-    }
-    for (let row of ranges) {
-        for (let i = 0; i < row.length; i++) {
-            result[i % 10].ranges.push(row[i]);
-        }
-    }
-    return result;
-}
-
-
-function handle_visible_range_change(range_event) {
-    // FIXME we should also apply the same handling for active editor/doc switch because these events for some reason sometimes doesn't trigger visible_range_change.
-    // FIXME consider using event deduplication pattern with timer just like it was done for keyboard cursor movements.
-    if (!range_event) {
-        return;
-    }
-    let editor = range_event.textEditor;
-    let visible_ranges = range_event.visibleRanges;
-    if (!visible_ranges || visible_ranges.length < 1) {
-        return;
-    }
-    // It is not clear whether it is possible for visible_ranges have more than 1 entry and what does this mean from UI perspective.
-    // TODO find out in which cases there could be more than 1 entry, ask SO question if needed.
-    let main_range = visible_ranges[0];
-    let active_doc = get_active_doc(editor);
-    let dialect = get_dialect(active_doc);
-    let delim = dialect[0];
-    let policy = dialect[1];
-    let table_ranges = parse_document_range(active_doc, delim, policy, main_range);
-    let joined_decorations = join_decorations_with_ranges(rainbow_decorations, table_ranges);
-    for (let dr_info of joined_decorations) {
-        editor.setDecorations(dr_info.decoration, dr_info.ranges);
-    }
-    //let first_line = main_range.start.line;
-    //// FIXME find out if the decoration types could be pre-created.
-    //// FIXME this color doesn't exist for some reason
-    ////let test_theme_color = new vscode.ThemeColor('entity.name.function.rainbow3');
-    ////let test_theme_color = new vscode.ThemeColor('Comment');
-    //let test_decoration = vscode.window.createTextEditorDecorationType({color: "#ff0000"});
-    ////console.log("test_decoration:" + test_decoration); //FOR_DEBUG
-    //// FIXME what is the better way to specify range last character? use 1000000?
-    //let test_line_range = new vscode.Range(first_line, 0, first_line, 1000000);
-    ////console.log("test_line_range:" + test_line_range); //FOR_DEBUG
-    //editor.setDecorations(test_decoration, [test_line_range]);
-}
-
-
 function do_handle_cursor_movement() {
     if (!show_column_info_button())
         column_info_button.hide();
@@ -1829,13 +1756,9 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    // FIXME enable and dispose when needed only.
-    // FIXME temporarily disable to try semantic approach.
-    //var visible_range_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_range_change);
-    rainbow_decorations = generate_decorations();
     let token_provider = new RainbowTokenProvider();
-    let document_selector = { language: 'csv', scheme: 'file' }; // FIXME adjust document selector, make it work for all docs, or make the provider dynamic.
-    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+    let document_selector = { language: '*' };
+    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME make the provider dynamic i.e. enable only for csv docs.
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
