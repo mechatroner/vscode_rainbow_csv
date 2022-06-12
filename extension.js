@@ -36,6 +36,7 @@ var lint_results = new Map();
 var aligned_files = new Set();
 var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
+var custom_document_dialects = new Map();
 var result_set_parent_map = new Map();
 
 var lint_status_bar_button = null;
@@ -65,6 +66,8 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
+const DYNAMIC_CSV = 'dynamic csv';
+
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
@@ -77,8 +80,21 @@ const dialect_map = {
     'csv (equals)': ['=', 'simple'],
     'csv (dot)': ['.', 'simple'],
     'csv (whitespace)': [' ', 'whitespace'],
-    'csv (hyphen)': ['-', 'simple']
+    'csv (hyphen)': ['-', 'simple'],
+    'dynamic csv': [null, null]
 };
+
+
+function get_default_policy(delim) {
+    // This function is most likely a temporal workaround, get rid of it when possible.
+    for (let language_id in dialect_map) {
+        if (!dialect_map.hasOwnProperty(language_id))
+            continue;
+        if (dialect_map[language_id][0] == separator)
+            return dialect_map[language_id][1];
+    }
+    return 'simple';
+}
 
 
 // This structure will get properly initialized during the startup.
@@ -119,7 +135,7 @@ function map_separator_to_language_id(separator) {
         if (dialect_map[language_id][0] == separator)
             return language_id;
     }
-    return null;
+    return DYNAMIC_CSV;
 }
 
 
@@ -245,22 +261,35 @@ function get_header(document, delim, policy) {
 }
 
 
-function get_field_by_line_position(fields, query_pos) {
+function get_field_by_line_position(fields, delim_length, query_pos) {
     if (!fields.length)
         return null;
     var col_num = 0;
     // FIXME consider multi-character delimiters
-    var cpos = fields[col_num].length + 1;
+    var cpos = fields[col_num].length + delim_length;
     while (query_pos > cpos && col_num + 1 < fields.length) {
         col_num += 1;
-        cpos = cpos + fields[col_num].length + 1;
+        cpos = cpos + fields[col_num].length + delim_length;
     }
     return col_num;
 }
 
 
+function get_dialect(document) {
+    var language_id = document.languageId;
+    // FIXME has() check can theorethically fail and [null, null] tuple could be returned, handle that in all callers!
+    if (language_id == 'dynamic csv' && custom_document_dialects.has(document.fileName)) {
+        let dialect_info = custom_document_dialects.get(document.fileName);
+        return [dialect_info.delim, dialect_info.policy];
+    }
+    if (!dialect_map.hasOwnProperty(language_id))
+        return ['monocolumn', 'monocolumn'];
+    return dialect_map[language_id];
+}
+
+
 function make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
-    let [delim, policy] = dialect_map[language_id];
+    let [delim, policy] = get_dialect(document);
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -273,7 +302,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 
     var entries = report[0];
     var warning = report[1];
-    var col_num = get_field_by_line_position(entries, cnum + 1);
+    var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
 
     if (col_num == null)
         return null;
@@ -299,8 +328,8 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 }
 
 
-function make_status_info(document, position, language_id, enable_tooltip_column_names) {
-    let [delim, policy] = dialect_map[language_id];
+function make_status_info(document, position, enable_tooltip_column_names) {
+    let [delim, policy] = get_dialect(document);
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -315,7 +344,7 @@ function make_status_info(document, position, language_id, enable_tooltip_column
     var warning = report[1];
     if (warning)
         return null;
-    var col_num = get_field_by_line_position(entries, cnum + 1);
+    var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
 
     if (col_num == null)
         return null;
@@ -363,7 +392,7 @@ function refresh_status_bar_items(active_doc=null) {
 }
 
 
-function make_hover(document, position, language_id, cancellation_token) {
+function make_hover(document, position, cancellation_token) {
     if (last_statusbar_doc != document) {
         refresh_status_bar_items(document); // Being paranoid and making sure that the buttons are visible.
     }
@@ -372,7 +401,7 @@ function make_hover(document, position, language_id, cancellation_token) {
     }
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
-    var hover_text = make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings);
+    var hover_text = make_hover_text(document, position, enable_tooltip_column_names, enable_tooltip_warnings);
     if (hover_text && !cancellation_token.isCancellationRequested) {
         let mds = null;
         try {
@@ -517,8 +546,7 @@ function show_column_info_button() {
     }
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let active_doc = get_active_doc(active_editor);
-    let language_id = active_doc.languageId;
-    let status_text = make_status_info(active_doc, position, language_id, enable_tooltip_column_names);
+    let status_text = make_status_info(active_doc, position, enable_tooltip_column_names);
     if (!status_text)
         return false;
     do_show_column_info_button(status_text);
@@ -593,7 +621,7 @@ function csv_lint(active_doc, is_manual_op) {
     }
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_items(active_doc); // Visual feedback.
-    let [delim, policy] = dialect_map[language_id];
+    let [delim, policy] = get_dialect(active_doc);
     var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
     return lint_report;
@@ -818,14 +846,6 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
 }
 
 
-function get_dialect(document) {
-    var language_id = document.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return ['monocolumn', 'monocolumn'];
-    return dialect_map[language_id];
-}
-
-
 async function set_header_line() {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -867,17 +887,15 @@ async function set_rainbow_separator() {
         show_single_line_error("Selection is empty");
         return;
     }
-    if (selection.start.line != selection.end.line || selection.start.character + 1 != selection.end.character) {
-        show_single_line_error("Selection must contain exactly one separator character");
+    if (selection.start.line != selection.end.line) {
+        show_single_line_error("Rainbow separator must not span multiple lines");
         return;
     }
-    let separator = active_doc.lineAt(selection.start.line).text.charAt(selection.start.character);
+    let separator = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
+    // TODO figure out a way for the user to specify the policy too instead of using default policy.
+    let policy = get_default_policy(separator);
     let language_id = map_separator_to_language_id(separator);
-    if (!language_id) {
-        show_single_line_error("Selected separator is not supported");
-        return;
-    }
-
+    custom_document_dialects.set(doc.fileName, {delim: separator, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
     csv_lint(doc, false);
@@ -955,6 +973,7 @@ async function set_virtual_header() {
 
 
 async function column_edit(edit_mode) {
+    // FIXME make sure this works with multichar delims
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -975,7 +994,7 @@ async function column_edit(edit_mode) {
 
     let entries = report[0];
     let quoting_warning = report[1];
-    let col_num = get_field_by_line_position(entries, cnum + 1);
+    let col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
 
     let selections = [];
     let num_lines = active_doc.lineCount;
@@ -1039,7 +1058,7 @@ async function shrink_table() {
     let language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    let [delim, policy] = dialect_map[language_id];
+    let [delim, policy] = get_dialect(active_doc);
     let comment_prefix = get_from_config('comment_prefix', '');
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
@@ -1071,7 +1090,7 @@ async function align_table() {
     let language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    let [delim, policy] = dialect_map[language_id];
+    let [delim, policy] = get_dialect(active_doc);
     let comment_prefix = get_from_config('comment_prefix', '');
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
@@ -1328,12 +1347,8 @@ async function edit_rbql(integration_test_options=null) {
         show_single_line_error("Unable to run RBQL for this file");
         return;
     }
-    let language_id = active_doc.languageId;
-    let delim = 'monocolumn';
-    let policy = 'monocolumn';
-    if (dialect_map.hasOwnProperty(language_id)) {
-        [delim, policy] = dialect_map[language_id];
-    }
+
+    let [delim, policy] = get_dialect(active_doc);
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
@@ -1515,26 +1530,6 @@ function parse_document_range_rfc(doc, delim, range) {
 }
 
 
-//function extend_range(doc, range, margin) {
-//    let begin_line = Math.max(0, range.start.line - margin);
-//    let end_line = Math.min(doc.lineCount, range.end.line + margin);
-//    return new vscode.Range(begin_line, 0, end_line, 100000);
-//}
-
-
-//function get_field_by_line_position(fields, query_pos) {
-//    if (!fields.length)
-//        return null;
-//    var col_num = 0;
-//    // FIXME consider multi-character delimiters
-//    var cpos = fields[col_num].length + 1;
-//    while (query_pos > cpos && col_num + 1 < fields.length) {
-//        col_num += 1;
-//        cpos = cpos + fields[col_num].length + 1;
-//    }
-//    return col_num;
-//}
-
 function parse_document_range_single_line(doc, delim, policy, range) {
     let table_ranges = [];
     const highlight_margin = 10;
@@ -1669,7 +1664,7 @@ async function make_preview(uri, preview_mode) {
 function register_csv_hover_info_provider(language_id, context) {
     let hover_provider = vscode.languages.registerHoverProvider(language_id, {
         provideHover(document, position, token) {
-            return make_hover(document, position, language_id, token);
+            return make_hover(document, position, token);
         }
     });
     context.subscriptions.push(hover_provider);
@@ -1687,11 +1682,7 @@ class RainbowTokenProvider {
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(document, range, token) {
-        //console.log('semantic range: ' + JSON.stringify(range));
-        // This could still be better than the custom colors, try it anyway!
-        let dialect = get_dialect(document);
-        let delim = dialect[0];
-        let policy = dialect[1];
+        let [delim, policy] = get_dialect(document);
         // FIXME extend the range using user config margin setting.
         let table_ranges = parse_document_range(document, delim, policy, range);
         // Create a new builder to clear the previous tokens.
@@ -1757,8 +1748,8 @@ async function activate(context) {
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
     let token_provider = new RainbowTokenProvider();
-    let document_selector = { language: '*' };
-    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME make the provider dynamic i.e. enable only for csv docs.
+    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
+    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work.
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -1769,7 +1760,6 @@ async function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
-    //context.subscriptions.push(visible_range_event);
     context.subscriptions.push(token_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);

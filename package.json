@@ -32,6 +32,8 @@
         "onLanguage:csv (equals)",
         "onLanguage:csv (dot)",
         "onLanguage:csv (hyphen)",
+        "onLanguage:csv dynamic",
+        "onLanguage:csv (pipe)",
         "onLanguage:plaintext",
         "onCommand:rainbow-csv.RBQL",
         "onCommand:rainbow-csv.RainbowSeparator",
@@ -129,12 +131,12 @@
         "menus": {
             "editor/context": [
                 {
-                    "when": "editorHasSelection && editorLangId =~ /plaintext|^[ct]sv/",
+                    "when": "editorHasSelection",
                     "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /^[ct]sv/",
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
                     "group": "rainbow_csv"
                 }
@@ -142,7 +144,7 @@
             "explorer/context": [
                 {
                     "command": "rainbow-csv.SampleHead",
-                    "when": "config.rainbow_csv.enable_context_menu_head || resourceLangId =~ /^[ct]sv/",
+                    "when": "config.rainbow_csv.enable_context_menu_head || resourceLangId =~ /plaintext|^[ct]sv/",
                     "group": "rainbow_csv"
                 },
                 {
@@ -251,6 +253,14 @@
                 "aliases": [
                     "CSV (semicolon)",
                     "csv (semicolon)"
+                ],
+                "extensions": []
+            },
+            {
+                "id": "dynamic csv",
+                "aliases": [
+                    "dynamic CSV",
+                    "dynamic csv"
                 ],
                 "extensions": []
             },
@@ -390,6 +400,11 @@
                 "language": "csv (semicolon)",
                 "scopeName": "text.scsv",
                 "path": "./syntaxes/scsv.tmLanguage.json"
+            },
+            {
+                "language": "dynamic csv",
+                "scopeName": "text.dynamiccsv",
+                "path": "./syntaxes/dynamic_csv.tmLanguage.json"
             },
             {
                 "language": "rainbow hover markup",
