@@ -68,6 +68,8 @@ let cursor_timeout_handle = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
 
+let token_event = null;
+
 const dialect_map = {
     'csv': [',', 'quoted'],
     'tsv': ['\t', 'simple'],
@@ -85,7 +87,7 @@ const dialect_map = {
 };
 
 
-function get_default_policy(delim) {
+function get_default_policy(separator) {
     // This function is most likely a temporal workaround, get rid of it when possible.
     for (let language_id in dialect_map) {
         if (!dialect_map.hasOwnProperty(language_id))
@@ -265,7 +267,6 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
     if (!fields.length)
         return null;
     var col_num = 0;
-    // FIXME consider multi-character delimiters
     var cpos = fields[col_num].length + delim_length;
     while (query_pos > cpos && col_num + 1 < fields.length) {
         col_num += 1;
@@ -282,8 +283,9 @@ function get_dialect(document) {
         let dialect_info = custom_document_dialects.get(document.fileName);
         return [dialect_info.delim, dialect_info.policy];
     }
-    if (!dialect_map.hasOwnProperty(language_id))
+    if (!dialect_map.hasOwnProperty(language_id)) {
         return ['monocolumn', 'monocolumn'];
+    }
     return dialect_map[language_id];
 }
 
@@ -895,9 +897,16 @@ async function set_rainbow_separator() {
     // TODO figure out a way for the user to specify the policy too instead of using default policy.
     let policy = get_default_policy(separator);
     let language_id = map_separator_to_language_id(separator);
-    custom_document_dialects.set(doc.fileName, {delim: separator, policy: policy});
+    custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
+    token_provider = new RainbowTokenProvider();
+    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
+    if (token_event !== null) {
+        token_event.dispose();
+    }
+    // Here we need to re-register the semantic token provider to explicitly trigger the highligthing. Otherwise the tokens don't get updated until user does some scrolling.
+    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
     csv_lint(doc, false);
     refresh_status_bar_items(doc);
 }
@@ -1749,7 +1758,10 @@ async function activate(context) {
 
     let token_provider = new RainbowTokenProvider();
     let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
-    let token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work.
+    if (token_event !== null) {
+        token_event.dispose();
+    }
+    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work.
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -1760,7 +1772,7 @@ async function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
-    context.subscriptions.push(token_event);
+    //context.subscriptions.push(token_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
