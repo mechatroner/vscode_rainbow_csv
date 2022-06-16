@@ -278,13 +278,12 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 function get_dialect(document) {
     var language_id = document.languageId;
-    // FIXME has() check can theorethically fail and [null, null] tuple could be returned, handle that in all callers!
     if (language_id == 'dynamic csv' && custom_document_dialects.has(document.fileName)) {
         let dialect_info = custom_document_dialects.get(document.fileName);
         return [dialect_info.delim, dialect_info.policy];
     }
     if (!dialect_map.hasOwnProperty(language_id)) {
-        return ['monocolumn', 'monocolumn'];
+        return [null, null];
     }
     return dialect_map[language_id];
 }
@@ -292,6 +291,8 @@ function get_dialect(document) {
 
 function make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
     let [delim, policy] = get_dialect(document);
+    if (policy === null)
+        return null;
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -332,6 +333,8 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
 
 function make_status_info(document, position, enable_tooltip_column_names) {
     let [delim, policy] = get_dialect(document);
+    if (policy === null)
+        return null;
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -624,6 +627,8 @@ function csv_lint(active_doc, is_manual_op) {
     lint_results.set(lint_cache_key, 'Processing...');
     refresh_status_bar_items(active_doc); // Visual feedback.
     let [delim, policy] = get_dialect(active_doc);
+    if (policy === null)
+        return null;
     var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
     return lint_report;
@@ -856,10 +861,8 @@ async function set_header_line() {
     if (!active_doc)
         return;
 
-    var dialect = get_dialect(active_doc);
-    var delim = dialect[0];
-    var policy = dialect[1];
-    if (policy == 'monocolumn') {
+    let [delim, policy] = get_dialect(active_doc);
+    if (policy === null)
         show_single_line_error('Unable to set header line: no separator specified');
         return;
     }
@@ -957,16 +960,14 @@ async function set_join_table_name() {
 
 async function set_virtual_header() {
     var active_doc = get_active_doc();
-    var dialect = get_dialect(active_doc);
-    var delim = dialect[0];
-    var policy = dialect[1];
+    let [delim, policy] = get_dialect(active_doc);
+    if (policy === null) {
+        show_single_line_error('Unable to set virtual header: no separator specified');
+        return;
+    }
     var file_path = active_doc.fileName;
     if (!file_path) {
         show_single_line_error('Unable to edit column names for non-file documents');
-        return;
-    }
-    if (policy == 'monocolumn') {
-        show_single_line_error('Unable to set virtual header: no separator specified');
         return;
     }
     var old_header = get_header(active_doc, delim, policy);
@@ -989,9 +990,10 @@ async function column_edit(edit_mode) {
     let active_doc = active_editor.document;
     if (!active_doc)
         return;
-    let dialect = get_dialect(active_doc);
-    let delim = dialect[0];
-    let policy = dialect[1];
+    let [delim, policy] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
     let comment_prefix = get_from_config('comment_prefix', '');
 
     let position = active_editor.selection.active;
@@ -1068,6 +1070,9 @@ async function shrink_table() {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
     let comment_prefix = get_from_config('comment_prefix', '');
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
@@ -1100,6 +1105,9 @@ async function align_table() {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
     let [delim, policy] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
     let comment_prefix = get_from_config('comment_prefix', '');
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
@@ -1358,6 +1366,11 @@ async function edit_rbql(integration_test_options=null) {
     }
 
     let [delim, policy] = get_dialect(active_doc);
+    if (policy === null) {
+        // FIXME test this
+        policy = 'monocolumn';
+        delim = 'monocolumn';
+    }
     let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
@@ -1692,6 +1705,9 @@ class RainbowTokenProvider {
     }
     async provideDocumentRangeSemanticTokens(document, range, token) {
         let [delim, policy] = get_dialect(document);
+        if (policy === null) {
+            return null; // FIXME test this. Just always return null for the test to make sure it doesn't throw or anything.
+        }
         // FIXME extend the range using user config margin setting.
         let table_ranges = parse_document_range(document, delim, policy, range);
         // Create a new builder to clear the previous tokens.
@@ -1761,7 +1777,7 @@ async function activate(context) {
     if (token_event !== null) {
         token_event.dispose();
     }
-    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work.
+    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work for this, making it dynamic would make sure that token generation happens immediately when needed even when not triggered by vscode itself which might not always happen actually.
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
