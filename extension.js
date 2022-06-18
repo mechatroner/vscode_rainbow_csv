@@ -66,24 +66,27 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
-const DYNAMIC_CSV = 'dynamic csv';
 
 let token_event = null;
 
+const DYNAMIC_CSV = 'dynamic csv';
+const QUOTED_POLICY = 'quoted';
+const WHITESPACE_POLICY = 'whitespace';
+const QUOTED_RFC_POLICY = 'quoted_rfc'
 const dialect_map = {
-    'csv': [',', 'quoted'],
-    'tsv': ['\t', 'simple'],
-    'csv (semicolon)': [';', 'quoted'],
-    'csv (pipe)': ['|', 'simple'],
-    'csv (tilde)': ['~', 'simple'],
-    'csv (caret)': ['^', 'simple'],
-    'csv (colon)': [':', 'simple'],
-    'csv (double quote)': ['"', 'simple'],
-    'csv (equals)': ['=', 'simple'],
-    'csv (dot)': ['.', 'simple'],
-    'csv (whitespace)': [' ', 'whitespace'],
-    'csv (hyphen)': ['-', 'simple'],
-    'dynamic csv': [null, null]
+    'csv': [',', QUOTED_POLICY],
+    'tsv': ['\t', SIMPLE_POLICY],
+    'csv (semicolon)': [';', QUOTED_POLICY],
+    'csv (pipe)': ['|', SIMPLE_POLICY],
+    'csv (tilde)': ['~', SIMPLE_POLICY],
+    'csv (caret)': ['^', SIMPLE_POLICY],
+    'csv (colon)': [':', SIMPLE_POLICY],
+    'csv (double quote)': ['"', SIMPLE_POLICY],
+    'csv (equals)': ['=', SIMPLE_POLICY],
+    'csv (dot)': ['.', SIMPLE_POLICY],
+    'csv (whitespace)': [' ', WHITESPACE_POLICY],
+    'csv (hyphen)': ['-', SIMPLE_POLICY],
+    DYNAMIC_CSV: [null, null]
 };
 
 
@@ -95,7 +98,7 @@ function get_default_policy(separator) {
         if (dialect_map[language_id][0] == separator)
             return dialect_map[language_id][1];
     }
-    return 'simple';
+    return SIMPLE_POLICY;
 }
 
 
@@ -278,7 +281,7 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 function get_dialect(document) {
     var language_id = document.languageId;
-    if (language_id == 'dynamic csv' && custom_document_dialects.has(document.fileName)) {
+    if (language_id == DYNAMIC_CSV && custom_document_dialects.has(document.fileName)) {
         let dialect_info = custom_document_dialects.get(document.fileName);
         return [dialect_info.delim, dialect_info.policy];
     }
@@ -411,7 +414,7 @@ function enable_semantic_tokenization() {
     if (token_event !== null) {
         token_event.dispose();
     }
-    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
+    let document_selector = { language: DYNAMIC_CSV }; // Use '*' to select all languages if needed.
     token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
 }
 
@@ -432,7 +435,7 @@ function enable_rainbow_features_if_csv(active_doc) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
     }
 
-    if (language_id == 'dynamic csv') {
+    if (language_id == DYNAMIC_CSV) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_semantic_tokenization();
     }
@@ -853,13 +856,13 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     let close_and_error_guard = {'process_reported': false};
 
     let [input_delim, input_policy] = [rbql_context.delim, rbql_context.policy];
-    if (input_policy == 'quoted' && enable_rfc_newlines)
-        input_policy = 'quoted_rfc';
+    if (input_policy == QUOTED_POLICY && enable_rfc_newlines)
+        input_policy = QUOTED_RFC_POLICY;
     let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
-        [output_delim, output_policy] = [',', 'quoted']; // XXX should it be "quoted_rfc" instead?
+        [output_delim, output_policy] = [',', QUOTED_POLICY]; // XXX should it be "quoted_rfc" instead?
     if (output_dialect == 'tsv')
-        [output_delim, output_policy] = ['\t', 'simple'];
+        [output_delim, output_policy] = ['\t', SIMPLE_POLICY];
     rbql_context.output_delim = output_delim;
 
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
@@ -1075,11 +1078,11 @@ async function column_edit(edit_mode) {
         }
         let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
         let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
-        if (edit_mode == 'ce_before' && policy == 'quoted' && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
+        if (edit_mode == 'ce_before' && policy == QUOTED_POLICY && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
             show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
-        if (edit_mode == 'ce_after' && policy == 'quoted' && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
+        if (edit_mode == 'ce_after' && policy == QUOTED_POLICY && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
             show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
@@ -1630,7 +1633,7 @@ function parse_document_range_single_line(doc, delim, policy, range) {
 
 
 function parse_document_range(doc, delim, policy, range) {
-    if (policy == 'quoted_rfc') {
+    if (policy == QUOTED_RFC_POLICY) {
         return parse_document_range_rfc(doc, delim, range);
     } else {
         // FIXME test with "quoted", "simple" (and "whitespace"?, although "whitespace" has its custom syntax file) policies.
