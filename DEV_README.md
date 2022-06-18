@@ -132,3 +132,5 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Try to use onDidChangeTextEditorVisibleRanges to redraw the decoration with rfc-aware colors.
 
 * Replace policy names such as 'simple', 'quoted', 'whitespace' with constants e.g. SIMPLE_POLICY, QUOTED_POLICY, etc
+
+* Add feature to decorate separators with a transparent box or different color or something, see the opened issue.

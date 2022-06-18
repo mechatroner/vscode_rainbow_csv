@@ -46,7 +46,7 @@ var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
 var column_info_button = null;
 
-let last_statusbar_doc = null;
+let last_enabled_doc = null;
 
 var rbql_context = null;
 
@@ -367,40 +367,106 @@ function make_status_info(document, position, enable_tooltip_column_names) {
 }
 
 
-function refresh_status_bar_items(active_doc=null) {
-    if (!active_doc)
-        active_doc = get_active_doc();
-    last_statusbar_doc = active_doc;
-    var file_path = active_doc ? active_doc.fileName : null;
-    if (!active_doc || !file_path) {
+function show_status_bar_items(active_doc) {
+    show_lint_status_bar_button(active_doc.fileName, active_doc.languageId);
+    show_rbql_status_bar_button();
+    show_align_shrink_button(active_doc.fileName);
+    show_rainbow_off_status_bar_button();
+    show_rbql_copy_to_source_button(active_doc.fileName);
+    show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
+}
+
+
+//function refresh_status_bar_items(active_doc=null) {
+//    if (!active_doc)
+//        active_doc = get_active_doc();
+//    last_enabled_doc = active_doc;
+//    var file_path = active_doc ? active_doc.fileName : null;
+//    if (!active_doc || !file_path) {
+//        // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
+//        hide_status_bar_buttons();
+//        return;
+//    }
+//    if (file_path.endsWith('.git')) {
+//        // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
+//        return;
+//    }
+//    hide_status_bar_buttons();
+//    var language_id = active_doc.languageId;
+//    if (!dialect_map.hasOwnProperty(language_id))
+//        return;
+//    show_status_bar_items(active_doc);
+//    //show_lint_status_bar_button(file_path, language_id);
+//    //show_rbql_status_bar_button();
+//    //show_align_shrink_button(file_path);
+//    //show_rainbow_off_status_bar_button();
+//    //show_rbql_copy_to_source_button(file_path);
+//    //show_column_info_button();
+//}
+
+// FIXME replace refresh_status_bar_items with enable_rainbow_features_if_csv
+
+function enable_semantic_tokenization() {
+    token_provider = new RainbowTokenProvider();
+    if (token_event !== null) {
+        token_event.dispose();
+    }
+    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
+    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+}
+
+
+function enable_rainbow_features_if_csv(active_doc) {
+    let file_path = active_doc ? active_doc.fileName : null;
+    if (!active_doc || !file_path || file_path.endsWith('.git')) {
         // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
-        hide_status_bar_buttons();
-        return;
+        // Sometimes for git-controlled dirs VSCode opens mysterious .git files - skip them.
     }
-    if (file_path.endsWith('.git')) {
-        // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
-        return;
-    }
-    hide_status_bar_buttons();
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-    show_lint_status_bar_button(file_path, language_id);
-    show_rbql_status_bar_button();
-    show_align_shrink_button(file_path);
-    show_rainbow_off_status_bar_button();
-    show_rbql_copy_to_source_button(file_path);
-    show_column_info_button();
+
+    last_enabled_doc = active_doc;
+
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    }
+
+    if (language_id == 'dynamic csv') {
+        // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
+        enable_semantic_tokenization();
+    }
+    show_status_bar_items(active_doc);
+    csv_lint(doc, false);
+}
+
+
+function disable_rainbow_features_if_non_csv(active_doc) {
+    let file_path = active_doc ? active_doc.fileName : null;
+    if (file_path && file_path.endsWith('.git')) {
+        // Sometimes for git-controlled dirs VSCode opens mysterious .git files which are not even present - skip them, don't disable features.
+        return;
+    }
+    var language_id = active_doc.languageId;
+    if (dialect_map.hasOwnProperty(language_id))
+        return;
+    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
+    for (let i = 0; i < all_buttons.length; i++) {
+        if (all_buttons[i])
+            all_buttons[i].hide();
+    }
+    if (keyboard_cursor_subscription) {
+        keyboard_cursor_subscription.dispose();
+        keyboard_cursor_subscription = null;
     }
 }
 
 
 function make_hover(document, position, cancellation_token) {
-    if (last_statusbar_doc != document) {
-        refresh_status_bar_items(document); // Being paranoid and making sure that the buttons are visible.
-    }
+    // FIXME test with paranoid logic commented out. if works - remove last_enabled_doc
+    //if (last_enabled_doc != document) {
+    //    refresh_status_bar_items(document); // Being paranoid and making sure that the buttons are visible.
+    //}
     if (!get_from_config('enable_tooltip', false)) {
         return;
     }
@@ -579,19 +645,6 @@ function show_rbql_status_bar_button() {
 }
 
 
-function hide_status_bar_buttons() {
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
-    for (let i = 0; i < all_buttons.length; i++) {
-        if (all_buttons[i])
-            all_buttons[i].hide();
-    }
-    if (keyboard_cursor_subscription) {
-        keyboard_cursor_subscription.dispose();
-        keyboard_cursor_subscription = null;
-    }
-}
-
-
 function show_rbql_copy_to_source_button(file_path) {
     let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
     if (!parent_table_path || parent_table_path.indexOf(scratch_buf_marker) != -1)
@@ -625,7 +678,8 @@ function csv_lint(active_doc, is_manual_op) {
             return null;
     }
     lint_results.set(lint_cache_key, 'Processing...');
-    refresh_status_bar_items(active_doc); // Visual feedback.
+    // FIXME test visual feedback.
+    show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     let [delim, policy] = get_dialect(active_doc);
     if (policy === null)
         return null;
@@ -637,11 +691,12 @@ function csv_lint(active_doc, is_manual_op) {
 
 async function csv_lint_cmd() {
     // TODO re-run on each file save with content change.
-    let lint_report = csv_lint(null, true);
+    let lint_report_for_unit_tests = csv_lint(null, true);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
     await sleep(500);
-    refresh_status_bar_items();
-    return lint_report;
+    active_doc = get_active_doc();
+    show_lint_status_bar_button(active_doc.fileName, active_doc.languageId);
+    return lint_report_for_unit_tests;
 }
 
 
@@ -903,15 +958,7 @@ async function set_rainbow_separator() {
     custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
-    token_provider = new RainbowTokenProvider();
-    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
-    if (token_event !== null) {
-        token_event.dispose();
-    }
-    // Here we need to re-register the semantic token provider to explicitly trigger the highligthing. Otherwise the tokens don't get updated until user does some scrolling.
-    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
-    csv_lint(doc, false);
-    refresh_status_bar_items(doc);
+    enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -932,7 +979,7 @@ async function restore_original_language() {
 
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     original_language_ids.delete(file_path);
-    refresh_status_bar_items(doc);
+    disable_rainbow_features_if_non_csv(doc);
 }
 
 
@@ -1084,7 +1131,8 @@ async function shrink_table() {
             return;
         }
         aligned_files.delete(active_doc.fileName);
-        refresh_status_bar_items(active_doc);
+        // FIXME why do we needed it here? Test without this and delete if no difference
+        //refresh_status_bar_items(active_doc);
         if (shrinked_doc_text === null) {
             vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
             return;
@@ -1127,7 +1175,8 @@ async function align_table() {
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
         let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
         aligned_files.add(active_doc.fileName);
-        refresh_status_bar_items(active_doc);
+        // FIXME why do we needed it here? Test without this and delete if no difference
+        // refresh_status_bar_items(active_doc);
         if (aligned_doc_text === null) {
             vscode.window.showWarningMessage('Table is already aligned, skipping');
             return;
@@ -1517,8 +1566,7 @@ async function handle_first_empty_doc_edit(change_event) {
     if (!rainbow_csv_language_id)
         return;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    csv_lint(doc, false);
-    refresh_status_bar_items(doc);
+    enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -1536,9 +1584,8 @@ function register_csv_copy_paste_for_empty_doc(active_doc) {
 
 function handle_editor_switch(editor) {
     let active_doc = get_active_doc(editor);
-    csv_lint(active_doc, false);
-    // Calling `refresh_status_bar_items` is required for non-csv documents too to ensure that they have csv-related status items cleared.
-    refresh_status_bar_items(active_doc);
+    disable_rainbow_features_if_non_csv(active_doc);
+    enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
 
 
@@ -1610,8 +1657,8 @@ function handle_cursor_movement(_unused_cursor_event) {
 async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await autoenable_rainbow_csv(active_doc);
-    csv_lint(active_doc, false);
-    refresh_status_bar_items(active_doc);
+    disable_rainbow_features_if_non_csv(active_doc);
+    enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
 
 
@@ -1772,12 +1819,7 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    let token_provider = new RainbowTokenProvider();
-    let document_selector = { language: 'dynamic csv' }; // Use '*' to select all languages if needed.
-    if (token_event !== null) {
-        token_event.dispose();
-    }
-    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend); // FIXME consider making the provider dynamic i.e. enable only for choosen csv docs? Although with the "dynamic csv" pseudo language trick this should already work for this, making it dynamic would make sure that token generation happens immediately when needed even when not triggered by vscode itself which might not always happen actually.
+    enable_semantic_tokenization();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
