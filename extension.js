@@ -1128,8 +1128,7 @@ async function shrink_table() {
             return;
         }
         aligned_files.delete(active_doc.fileName);
-        // FIXME why do we needed it here? Test without this and delete if no difference
-        //refresh_status_bar_items(active_doc);
+        show_align_shrink_button(active_doc.fileName);
         if (shrinked_doc_text === null) {
             vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
             return;
@@ -1172,8 +1171,7 @@ async function align_table() {
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
         let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
         aligned_files.add(active_doc.fileName);
-        // FIXME why do we needed it here? Test without this and delete if no difference
-        // refresh_status_bar_items(active_doc);
+        show_align_shrink_button(active_doc.fileName);
         if (aligned_doc_text === null) {
             vscode.window.showWarningMessage('Table is already aligned, skipping');
             return;
