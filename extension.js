@@ -46,7 +46,7 @@ var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
 var column_info_button = null;
 
-let last_enabled_doc = null;
+//let last_enabled_doc = null;
 
 var rbql_context = null;
 
@@ -72,7 +72,8 @@ let token_event = null;
 const DYNAMIC_CSV = 'dynamic csv';
 const QUOTED_POLICY = 'quoted';
 const WHITESPACE_POLICY = 'whitespace';
-const QUOTED_RFC_POLICY = 'quoted_rfc'
+const QUOTED_RFC_POLICY = 'quoted_rfc';
+const SIMPLE_POLICY = 'simple';
 const dialect_map = {
     'csv': [',', QUOTED_POLICY],
     'tsv': ['\t', SIMPLE_POLICY],
@@ -407,10 +408,8 @@ function show_status_bar_items(active_doc) {
 //    //show_column_info_button();
 //}
 
-// FIXME replace refresh_status_bar_items with enable_rainbow_features_if_csv
-
 function enable_semantic_tokenization() {
-    token_provider = new RainbowTokenProvider();
+    let token_provider = new RainbowTokenProvider();
     if (token_event !== null) {
         token_event.dispose();
     }
@@ -429,7 +428,7 @@ function enable_rainbow_features_if_csv(active_doc) {
     if (!dialect_map.hasOwnProperty(language_id))
         return;
 
-    last_enabled_doc = active_doc;
+    //last_enabled_doc = active_doc;
 
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
@@ -440,7 +439,7 @@ function enable_rainbow_features_if_csv(active_doc) {
         enable_semantic_tokenization();
     }
     show_status_bar_items(active_doc);
-    csv_lint(doc, false);
+    csv_lint(active_doc, false);
 }
 
 
@@ -466,10 +465,6 @@ function disable_rainbow_features_if_non_csv(active_doc) {
 
 
 function make_hover(document, position, cancellation_token) {
-    // FIXME test with paranoid logic commented out. if works - remove last_enabled_doc
-    //if (last_enabled_doc != document) {
-    //    refresh_status_bar_items(document); // Being paranoid and making sure that the buttons are visible.
-    //}
     if (!get_from_config('enable_tooltip', false)) {
         return;
     }
@@ -681,7 +676,6 @@ function csv_lint(active_doc, is_manual_op) {
             return null;
     }
     lint_results.set(lint_cache_key, 'Processing...');
-    // FIXME test visual feedback.
     show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     let [delim, policy] = get_dialect(active_doc);
     if (policy === null)
@@ -697,7 +691,7 @@ async function csv_lint_cmd() {
     let lint_report_for_unit_tests = csv_lint(null, true);
     // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
     await sleep(500);
-    active_doc = get_active_doc();
+    let active_doc = get_active_doc();
     show_lint_status_bar_button(active_doc.fileName, active_doc.languageId);
     return lint_report_for_unit_tests;
 }
@@ -920,7 +914,7 @@ async function set_header_line() {
         return;
 
     let [delim, policy] = get_dialect(active_doc);
-    if (policy === null)
+    if (policy === null) {
         show_single_line_error('Unable to set header line: no separator specified');
         return;
     }
@@ -1004,7 +998,7 @@ async function set_join_table_name() {
     let table_name = await vscode.window.showInputBox(input_box_props);
     if (!table_name)
         return; // User pressed Esc and closed the input box.
-    save_to_global_state(ll_rainbow_utils().make_table_name_key(table_name), file_path);
+    await save_to_global_state(ll_rainbow_utils().make_table_name_key(table_name), file_path);
 }
 
 
@@ -1753,10 +1747,10 @@ class RainbowTokenProvider {
     // We don't utilize typescript `implement` interface keyword, because TS doesn't seem to be exporting interfaces to JS (unlike classes).
     constructor() {
     }
-    async provideDocumentRangeSemanticTokens(document, range, token) {
+    async provideDocumentRangeSemanticTokens(document, range, _token) {
         let [delim, policy] = get_dialect(document);
         if (policy === null) {
-            return null; // FIXME test this. Just always return null for the test to make sure it doesn't throw or anything.
+            return null;
         }
         // FIXME extend the range using user config margin setting.
         let table_ranges = parse_document_range(document, delim, policy, range);
