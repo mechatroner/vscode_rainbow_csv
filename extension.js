@@ -85,7 +85,7 @@ const dialect_map = {
     'csv (dot)': ['.', SIMPLE_POLICY],
     'csv (whitespace)': [' ', WHITESPACE_POLICY],
     'csv (hyphen)': ['-', SIMPLE_POLICY],
-    DYNAMIC_CSV: [null, null]
+    [DYNAMIC_CSV]: [null, null]
 };
 
 
@@ -397,8 +397,9 @@ async function enable_rainbow_features_if_csv(active_doc) {
         return;
     }
     var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
+    if (!dialect_map.hasOwnProperty(language_id)) {
         return;
+    }
 
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
@@ -1385,7 +1386,6 @@ async function edit_rbql(integration_test_options=null) {
 
     let [delim, policy] = get_dialect(active_doc);
     if (policy === null) {
-        // FIXME test this
         policy = 'monocolumn';
         delim = 'monocolumn';
     }
