@@ -46,8 +46,6 @@ var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
 var column_info_button = null;
 
-//let last_enabled_doc = null;
-
 var rbql_context = null;
 
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
@@ -381,33 +379,6 @@ function show_status_bar_items(active_doc) {
 }
 
 
-//function refresh_status_bar_items(active_doc=null) {
-//    if (!active_doc)
-//        active_doc = get_active_doc();
-//    last_enabled_doc = active_doc;
-//    var file_path = active_doc ? active_doc.fileName : null;
-//    if (!active_doc || !file_path) {
-//        // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
-//        hide_status_bar_buttons();
-//        return;
-//    }
-//    if (file_path.endsWith('.git')) {
-//        // Sometimes for git-controlled dirs VSCode opens mysterious .git files. Skip them, don't hide buttons.
-//        return;
-//    }
-//    hide_status_bar_buttons();
-//    var language_id = active_doc.languageId;
-//    if (!dialect_map.hasOwnProperty(language_id))
-//        return;
-//    show_status_bar_items(active_doc);
-//    //show_lint_status_bar_button(file_path, language_id);
-//    //show_rbql_status_bar_button();
-//    //show_align_shrink_button(file_path);
-//    //show_rainbow_off_status_bar_button();
-//    //show_rbql_copy_to_source_button(file_path);
-//    //show_column_info_button();
-//}
-
 function enable_semantic_tokenization() {
     let token_provider = new RainbowTokenProvider();
     if (token_event !== null) {
@@ -418,17 +389,16 @@ function enable_semantic_tokenization() {
 }
 
 
-function enable_rainbow_features_if_csv(active_doc) {
+async function enable_rainbow_features_if_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc || !file_path || file_path.endsWith('.git')) {
         // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
         // Sometimes for git-controlled dirs VSCode opens mysterious .git files - skip them.
+        return;
     }
     var language_id = active_doc.languageId;
     if (!dialect_map.hasOwnProperty(language_id))
         return;
-
-    //last_enabled_doc = active_doc;
 
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
@@ -439,12 +409,15 @@ function enable_rainbow_features_if_csv(active_doc) {
         enable_semantic_tokenization();
     }
     show_status_bar_items(active_doc);
-    csv_lint(active_doc, false);
+    await csv_lint(active_doc, false);
 }
 
 
 function disable_rainbow_features_if_non_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
+    if (!active_doc) {
+        return;
+    }
     if (file_path && file_path.endsWith('.git')) {
         // Sometimes for git-controlled dirs VSCode opens mysterious .git files which are not even present - skip them, don't disable features.
         return;
@@ -657,7 +630,7 @@ function show_rbql_copy_to_source_button(file_path) {
 }
 
 
-function csv_lint(active_doc, is_manual_op) {
+async function csv_lint(active_doc, is_manual_op) {
     if (!active_doc)
         active_doc = get_active_doc();
     if (!active_doc)
@@ -682,17 +655,18 @@ function csv_lint(active_doc, is_manual_op) {
         return null;
     var lint_report = produce_lint_report(active_doc, delim, policy);
     lint_results.set(lint_cache_key, lint_report);
+    if (is_manual_op) {
+        // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
+        await sleep(500);
+    }
+    show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     return lint_report;
 }
 
 
 async function csv_lint_cmd() {
     // TODO re-run on each file save with content change.
-    let lint_report_for_unit_tests = csv_lint(null, true);
-    // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
-    await sleep(500);
-    let active_doc = get_active_doc();
-    show_lint_status_bar_button(active_doc.fileName, active_doc.languageId);
+    let lint_report_for_unit_tests = await csv_lint(null, true);
     return lint_report_for_unit_tests;
 }
 
@@ -955,7 +929,7 @@ async function set_rainbow_separator() {
     custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
-    enable_rainbow_features_if_csv(doc);
+    await enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -1561,7 +1535,7 @@ async function handle_first_empty_doc_edit(change_event) {
     if (!rainbow_csv_language_id)
         return;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    enable_rainbow_features_if_csv(doc);
+    await enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -1577,10 +1551,10 @@ function register_csv_copy_paste_for_empty_doc(active_doc) {
 }
 
 
-function handle_editor_switch(editor) {
+async function handle_editor_switch(editor) {
     let active_doc = get_active_doc(editor);
     disable_rainbow_features_if_non_csv(active_doc);
-    enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
+    await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
 
 
@@ -1653,7 +1627,7 @@ async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await autoenable_rainbow_csv(active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
-    enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
+    await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
 
 
