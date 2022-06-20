@@ -1709,10 +1709,9 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
-//const tokenTypes = ['rainbow1', 'comment', 'interface', 'enum', 'function', 'variable'];
-const tokenTypes = ['rainbow1', 'keyword', 'entity', 'comment', 'string', 'variable', 'constant', 'entity', 'markup', 'invalid'];
-const tokenModifiers = ['declaration', 'documentation']; // FIXME we don't really need modifiers, get rid of them.
-const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
+// FIXME "markup" and "invalid" don't really work / don't map to anything - same as "rainbow1"!
+const tokenTypes = ['rainbow1', 'keyword', 'function', 'comment', 'string', 'parameter', 'enumMember', 'type', 'markup', 'invalid'];
+const legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
 class RainbowTokenProvider {

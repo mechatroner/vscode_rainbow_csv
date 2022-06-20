@@ -132,3 +132,10 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Try to use onDidChangeTextEditorVisibleRanges to redraw the decoration with rfc-aware colors.
 
 * Add feature to decorate separators with a transparent box or different color or something, see the opened issue.
+
+## OTHER
+Token modifiers to use if needed:
+```
+const tokenModifiers = ['rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10', 'name', 'function', 'parameter', 'numeric', 'type', 'bold'];
+const modifier_sequences = [[], ['rainbow2'], ['name', 'function', 'rainbow3'], ['rainbow4'], ['rainbow5'], ['parameter', 'rainbow6'], ['numeric', 'rainbow7'], ['name', 'type', 'rainbow8'], ['bold', 'rainbow9'], 'rainbow10'];
+```
