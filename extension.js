@@ -907,6 +907,7 @@ async function set_header_line() {
 
 
 async function set_rainbow_separator() {
+    // FIXME the third color is white as the first color, fix it! - they should be different.
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -1002,7 +1003,6 @@ async function set_virtual_header() {
 
 
 async function column_edit(edit_mode) {
-    // FIXME make sure this works with multichar delims
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -1045,8 +1045,8 @@ async function column_edit(edit_mode) {
             show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
             return;
         }
-        let char_pos_before = entries.slice(0, col_num).join('').length + col_num;
-        let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num;
+        let char_pos_before = entries.slice(0, col_num).join('').length + col_num * delim.length;
+        let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num * delim.length;
         if (edit_mode == 'ce_before' && policy == QUOTED_POLICY && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
             show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
