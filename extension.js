@@ -64,7 +64,6 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
-
 let token_event = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
@@ -87,6 +86,9 @@ const dialect_map = {
     'csv (hyphen)': ['-', SIMPLE_POLICY],
     [DYNAMIC_CSV]: [null, null]
 };
+
+const tokenTypes = ['rainbow1', 'keyword', 'function', 'comment', 'string', 'parameter', 'enumMember', 'type', 'macro', 'regexp'];
+const legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
 function get_default_policy(separator) {
@@ -907,7 +909,6 @@ async function set_header_line() {
 
 
 async function set_rainbow_separator() {
-    // FIXME the third color is white as the first color, fix it! - they should be different.
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -1609,8 +1610,9 @@ function parse_document_range(doc, delim, policy, range) {
 
 
 function do_handle_cursor_movement() {
-    if (!show_column_info_button())
+    if (!show_column_info_button() && column_info_button) {
         column_info_button.hide();
+    }
 }
 
 
@@ -1707,11 +1709,6 @@ function register_csv_hover_info_provider(language_id, context) {
     });
     context.subscriptions.push(hover_provider);
 }
-
-
-// FIXME "markup" and "invalid" don't really work / don't map to anything - same as "rainbow1"!
-const tokenTypes = ['rainbow1', 'keyword', 'function', 'comment', 'string', 'parameter', 'enumMember', 'type', 'markup', 'invalid'];
-const legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
 class RainbowTokenProvider {
