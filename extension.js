@@ -87,7 +87,7 @@ const dialect_map = {
     [DYNAMIC_CSV]: [null, null]
 };
 
-const tokenTypes = ['rainbow1', 'keyword', 'function', 'comment', 'string', 'parameter', 'enumMember', 'type', 'macro', 'regexp'];
+const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
 const legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
@@ -440,7 +440,7 @@ function disable_rainbow_features_if_non_csv(active_doc) {
 }
 
 
-function make_hover(document, position, cancellation_token) {
+function make_hover(document, language_id, position, cancellation_token) {
     if (!get_from_config('enable_tooltip', false)) {
         return;
     }
@@ -449,11 +449,11 @@ function make_hover(document, position, cancellation_token) {
     var hover_text = make_hover_text(document, position, enable_tooltip_column_names, enable_tooltip_warnings);
     if (hover_text && !cancellation_token.isCancellationRequested) {
         let mds = null;
-        try {
+        if (language_id == DYNAMIC_CSV) {
+            mds = hover_text; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
+        } else {
             mds = new vscode.MarkdownString();
             mds.appendCodeblock(hover_text, 'rainbow hover markup');
-        } catch (e) {
-            mds = hover_text; // Older VSCode versions may not have MarkdownString/appendCodeblock functionality.
         }
         return new vscode.Hover(mds);
     } else {
@@ -1579,9 +1579,8 @@ function parse_document_range_single_line(doc, delim, policy, range) {
         let line_text = doc.lineAt(lnum).text;
         if (lnum + 1 == doc.lineCount && !line_text)
             break;
-        // FIXME handle comments too!
         let split_result = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
-        // TODO consider handling warnings
+        // TODO consider handling comments and warnings
         let fields = split_result[0];
         let cpos = 0;
         let next_cpos = 0;
@@ -1603,7 +1602,6 @@ function parse_document_range(doc, delim, policy, range) {
     if (policy == QUOTED_RFC_POLICY) {
         return parse_document_range_rfc(doc, delim, range);
     } else {
-        // FIXME test with "quoted", "simple" (and "whitespace"?, although "whitespace" has its custom syntax file) policies.
         return parse_document_range_single_line(doc, delim, policy, range);
     }
 }
@@ -1704,7 +1702,7 @@ async function make_preview(uri, preview_mode) {
 function register_csv_hover_info_provider(language_id, context) {
     let hover_provider = vscode.languages.registerHoverProvider(language_id, {
         provideHover(document, position, token) {
-            return make_hover(document, position, token);
+            return make_hover(document, language_id, position, token);
         }
     });
     context.subscriptions.push(hover_provider);
@@ -1719,6 +1717,9 @@ class RainbowTokenProvider {
         let [delim, policy] = get_dialect(document);
         if (policy === null) {
             return null;
+        }
+        if (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY) {
+            return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
         }
         // FIXME extend the range using user config margin setting.
         let table_ranges = parse_document_range(document, delim, policy, range);
@@ -1819,6 +1820,7 @@ function deactivate() {
     // This method is called when extension is deactivated.
 }
 
+// FIXME add unit tests to cover dynamic single-line dialects.
 
 exports.activate = activate;
 exports.deactivate = deactivate;

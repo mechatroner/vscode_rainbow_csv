@@ -133,6 +133,10 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Add feature to decorate separators with a transparent box or different color or something, see the opened issue.
 
+* Support dynamic dialects with quoted policies.
+
+* Consider handling comments in dynamic single-line csv dialects, although there are probably not many use cases for this.
+
 ## OTHER
 Token modifiers to use if needed:
 ```
