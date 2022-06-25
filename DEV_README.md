@@ -135,7 +135,7 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Support dynamic dialects with quoted policies.
 
-* Consider handling comments in dynamic single-line csv dialects, although there are probably not many use cases for this.
+* Use dynamic highlighting to color comment lines both for regular and dynamic csv.
 
 ## OTHER
 Token modifiers to use if needed:

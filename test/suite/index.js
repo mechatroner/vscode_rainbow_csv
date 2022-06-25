@@ -265,6 +265,31 @@ async function test_no_autodetection(workspace_folder_uri) {
     await sleep(1000);
 }
 
+async function test_dynamic_csv(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'movies_multichar_separator.txt');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    log_message(`languageId for movies_multichar_separator.txt: ${active_doc.languageId}`)
+    assert.equal(active_doc.languageId, 'plaintext');
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
+    for (let i = 0; i < 6; i++) {
+        await vscode.commands.executeCommand("cursorRight");
+    }
+    for (let i = 0; i < 3; i++) {
+        await vscode.commands.executeCommand("cursorRightSelect");
+    }
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
+    await sleep(2000);
+    log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`)
+    assert.equal(active_doc.languageId, 'dynamic csv');
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparatorOff');
+    await sleep(2000);
+    log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`)
+    assert.equal(active_doc.languageId, 'plaintext');
+    await sleep(1000);
+}
+
 
 async function test_autodetection(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking_semicolon.txt');
@@ -524,9 +549,11 @@ async function run() {
             assert(!state_report.lazy_loaded);
         }
 
-
         await test_autodetection(workspace_folder_uri);
         await test_manual_enable_disable(workspace_folder_uri);
+
+        await test_dynamic_csv(workspace_folder_uri);
+
         await unit_test_align_logic();
 
         if (is_web_ext) {
