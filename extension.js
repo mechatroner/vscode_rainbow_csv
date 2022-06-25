@@ -706,8 +706,8 @@ async function show_warnings(warnings) {
 
 
 async function handle_rbql_result_file(text_doc, warnings) {
-    var out_delim = rbql_context.output_delim;
-    let language_id = map_separator_to_language_id(out_delim);
+    var separator = rbql_context.output_delim;
+    let language_id = map_separator_to_language_id(separator);
     var active_window = vscode.window;
     if (!active_window)
         return;
@@ -718,7 +718,9 @@ async function handle_rbql_result_file(text_doc, warnings) {
         return;
     }
     if (language_id && text_doc.language_id != language_id) {
-        console.log('changing RBQL result language ' + text_doc.language_id + ' -> ' + language_id);
+        let policy = get_default_policy(separator);
+        let language_id = map_separator_to_language_id(separator);
+        custom_document_dialects.set(text_doc.fileName, {delim: separator, policy: policy});
         await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
     }
     await show_warnings(warnings);
@@ -915,7 +917,6 @@ async function set_rainbow_separator() {
     var active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
-    let original_language_id = active_doc.languageId;
     let selection = active_editor.selection;
     if (!selection) {
         show_single_line_error("Selection is empty");
@@ -930,9 +931,9 @@ async function set_rainbow_separator() {
     let policy = get_default_policy(separator);
     let language_id = map_separator_to_language_id(separator);
     custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
+    let original_language_id = active_doc.languageId;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     original_language_ids.set(doc.fileName, original_language_id);
-    await enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -1536,7 +1537,6 @@ async function handle_first_empty_doc_edit(change_event) {
     if (!rainbow_csv_language_id)
         return;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    await enable_rainbow_features_if_csv(doc);
 }
 
 
@@ -1820,7 +1820,7 @@ function deactivate() {
     // This method is called when extension is deactivated.
 }
 
-// FIXME add unit tests to cover dynamic single-line dialects.
+// FIXME add unit tests to cover dynamic single-line dialects - add RBQL query test.
 
 exports.activate = activate;
 exports.deactivate = deactivate;
