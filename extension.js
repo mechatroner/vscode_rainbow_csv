@@ -1796,7 +1796,6 @@ async function activate(context) {
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
-    //context.subscriptions.push(token_event);
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
@@ -1820,7 +1819,6 @@ function deactivate() {
     // This method is called when extension is deactivated.
 }
 
-// FIXME add unit tests to cover dynamic single-line dialects - add RBQL query test.
 
 exports.activate = activate;
 exports.deactivate = deactivate;

@@ -288,6 +288,17 @@ async function test_dynamic_csv(workspace_folder_uri) {
     log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
     await sleep(1000);
+
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
+    await sleep(1000);
+    test_task = {rbql_backend: "js", rbql_query: "select a1, a4 % 100, a5 order by a1 limit 20"};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    active_doc = vscode.window.activeTextEditor.document;
+    length_after_query = active_doc.getText().length;
+    log_message(`Length after js query: ${length_after_query}`);
+    await sleep(1000);
+    assert.equal(743, length_after_query);
 }
 
 
