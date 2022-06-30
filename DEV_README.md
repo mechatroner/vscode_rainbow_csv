@@ -137,6 +137,14 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Use dynamic highlighting to color comment lines both for regular and dynamic csv.
 
+* Autodetect rfc policies.
+
+## RFC Support plan
+We need:
+1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.
+2. Fragment tokenization (hover + highlighting) - best effort, fast, should use VSCode ranges.
+
+
 ## OTHER
 Token modifiers to use if needed:
 ```

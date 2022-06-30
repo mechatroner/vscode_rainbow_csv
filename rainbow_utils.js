@@ -231,37 +231,58 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
 }
 
 
-function get_last(arr) {
-    return arr[arr.length - 1];
-}
-
-
-function populate_optimistic_rfc_csv_record_map(document, requested_end_record, dst_record_map, comment_prefix=null) {
+function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false) {
+    // Returns list of records.
+    // TODO consider to map records to line numbers and return the mapping too.
+    // One line never maps to more than one record. One record can map to multiple lines i.e. multiple lines can map to one records.
+    // TODO consider returning field_info mapping of number of fields to the first line of occurence, needed both for rbql and csv lint.
     let num_lines = document.lineCount;
-    let record_begin = null;
-    let start_line_idx = dst_record_map.length ? get_last(dst_record_map)[1] : 0;
-    for (let lnum = start_line_idx; lnum < num_lines && dst_record_map.length < requested_end_record; ++lnum) {
+    let record_start_line = 0;
+    let rfc_line_buffer = [];
+    let first_defective_line = null;
+    let records = [];
+    for (let lnum = 0; lnum < num_lines; ++lnum) {
         let line_text = document.lineAt(lnum).text;
-        if (lnum + 1 >= num_lines && line_text == "")
+        if (lnum + 1 >= num_lines && line_text == "") {
             break; // Skip the last empty line.
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let match_list = line_text.match(/"/g);
-        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-        if (record_begin === null && !has_unbalanced_double_quote) {
-            dst_record_map.push([lnum, lnum + 1]);
-        } else if (record_begin === null && has_unbalanced_double_quote) {
-            record_begin = lnum;
-        } else if (!has_unbalanced_double_quote) {
-            continue;
-        } else {
-            dst_record_map.push([record_begin, lnum + 1]);
-            record_begin = null;
         }
+        let record_text = null;
+        if (policy == 'quoted_rfc') {
+            record_text = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line_text, comment_prefix);
+        } else if (comment_prefix === null || !line_text.startsWith(comment_prefix)) {
+            record_text = line_text;
+        }
+        if (record_text === null) {
+            continue;
+        }
+        let [record, warning] = csv_utils.smart_split(record_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false);
+        if (warning) {
+            if (first_defective_line === null) {
+                first_defective_line = record_start_line;
+                if (stop_on_warning) {
+                    return [records, first_defective_line];
+                }
+            }
+        }
+        record_start_line = lnum + 1;
+        records.push(record);
     }
-    if (record_begin !== null) {
-        dst_record_map.push([record_begin, num_lines]);
+    if (rfc_line_buffer.length > 0) {
+        assert(policy == 'quoted_rfc');
+        let record_text = rfc_line_buffer.join('\n');
+        let [record, warning] = csv_utils.smart_split(record_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false);
+        if (warning) {
+            if (first_defective_line === null) {
+                first_defective_line = record_start_line;
+                if (stop_on_warning) {
+                    return [records, first_defective_line];
+                }
+            }
+        }
+        records.push(record);
     }
+    // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
+    return [records, first_defective_line];
 }
 
 
@@ -361,38 +382,31 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
     constructor(document, delim, policy, has_header=false, comment_prefix=null, table_name='input', variable_prefix='a') {
         // We could have done a hack here actually: convert the document to stream/buffer and then use the standard reader.
         super();
-        this.document = document;
-        this.delim = delim;
-        this.policy = policy;
         this.has_header = has_header;
-        this.comment_prefix = comment_prefix;
         this.table_name = table_name;
         this.variable_prefix = variable_prefix;
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         this.fields_info = new Object();
-        this.first_defective_line = null;
-        this.first_record = this.get_first_record();
+        let fail_on_warning = policy == 'quoted_rfc';
+        [this.records, this.first_defective_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        if (fail_on_warning && this.first_defective_line !== null) {
+            throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
+        }
+        this.first_record = this.records.length ? this.records[0] : [];
+        this.next_record_index = 0;
     }
 
     stop() {
-    }
-
-    get_first_record() {
-        let header_line = get_header_line(this.document, this.comment_prefix);
-        let first_record = csv_utils.smart_split(header_line, this.delim, this.policy, /*preserve_quotes_and_whitespaces=*/false)[0];
-        return first_record;
     }
 
     async get_variables_map(query_text) {
         let variable_map = new Object();
         rbql.parse_basic_variables(query_text, this.variable_prefix, variable_map);
         rbql.parse_array_variables(query_text, this.variable_prefix, variable_map);
-        let header_line = get_header_line(this.document, this.comment_prefix);
-        let first_record = csv_utils.smart_split(header_line, this.delim, this.policy, /*preserve_quotes_and_whitespaces=*/false)[0];
         if (this.has_header) {
-            rbql.parse_attribute_variables(query_text, this.variable_prefix, first_record, 'CSV header line', variable_map);
-            rbql.parse_dictionary_variables(query_text, this.variable_prefix, first_record, variable_map);
+            rbql.parse_attribute_variables(query_text, this.variable_prefix, this.first_record, 'CSV header line', variable_map);
+            rbql.parse_dictionary_variables(query_text, this.variable_prefix, this.first_record, variable_map);
         }
         return variable_map;
     }
@@ -401,46 +415,12 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         return this.has_header ? this.first_record : null;
     }
 
-    get_line_rfc() {
-        let rfc_line_buffer = [];
-        const num_lines = this.document.lineCount;
-        while (this.NL < num_lines) {
-            let line = this.document.lineAt(this.NL).text;
-            this.NL += 1;
-            if (this.NL == num_lines && line.length == 0)
-                return null; // Skip the last line if it is empty - this can happen due to trailing newline.
-            let record_line = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line, this.comment_prefix);
-            if (record_line !== null)
-                return record_line;
-        }
-        return null;
-    }
-
-    get_line_simple() {
-        const num_lines = this.document.lineCount;
-        while (this.NL < num_lines) {
-            let line = this.document.lineAt(this.NL).text;
-            this.NL += 1;
-            if (this.NL == num_lines && line.length == 0)
-                return null; // Skip the last line if it is empty - this can happen due to trailing newline.
-            if (this.comment_prefix === null || !line.startsWith(this.comment_prefix))
-                return line;
-        }
-        return null;
-    }
-
     do_get_record() {
-        let line = (this.policy == 'quoted_rfc') ? this.get_line_rfc() : this.get_line_simple();
-        if (line === null)
+        if (this.next_record_index >= this.records.length) {
             return null;
-        let [record, warning] = csv_utils.smart_split(line, this.delim, this.policy, /*preserve_quotes_and_whitespaces=*/false);
-        if (warning) {
-            if (this.first_defective_line === null) {
-                this.first_defective_line = this.NL;
-                if (this.policy == 'quoted_rfc')
-                    throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.NR}, line ${this.NL}`);
-            }
         }
+        let record = this.records[this.next_record_index];
+        this.next_record_index += 1;
         let num_fields = record.length;
         if (!this.fields_info.hasOwnProperty(num_fields))
             this.fields_info[num_fields] = this.NR;
@@ -664,7 +644,6 @@ module.exports.read_header = read_header;
 module.exports.rbql_query_web = rbql_query_web;
 module.exports.rbql_query_node = rbql_query_node;
 module.exports.get_header_line = get_header_line;
-module.exports.populate_optimistic_rfc_csv_record_map = populate_optimistic_rfc_csv_record_map;
 module.exports.get_default_js_udf_content = get_default_js_udf_content;
 module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
@@ -673,3 +652,4 @@ module.exports.calc_column_stats = calc_column_stats;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
 module.exports.align_field = align_field;
+module.exports.parse_document_records = parse_document_records;

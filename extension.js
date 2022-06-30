@@ -38,6 +38,7 @@ var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
 var custom_document_dialects = new Map();
 var result_set_parent_map = new Map();
+var cached_rfc_parse_result = new Map();
 
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
@@ -164,15 +165,6 @@ async function save_to_global_state(key, value) {
 }
 
 
-function get_rfc_record_text(document, record_start, record_end) {
-    let result = [];
-    for (let i = record_start; i < record_end && i < document.lineCount; i++) {
-        result.push(document.lineAt(i).text);
-    }
-    return result.join('\n');
-}
-
-
 async function replace_doc_content(active_editor, active_doc, new_content) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
@@ -188,20 +180,20 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
 
     let preview_records = [];
+    // FIXME use document policy instead of enable_rfc_newlines from the context.
     if (rbql_context.enable_rfc_newlines) {
-        let requested_end_record = rbql_context.requested_start_record + preview_window_size;
-        ll_rainbow_utils().populate_optimistic_rfc_csv_record_map(document, requested_end_record, rbql_context.rfc_record_map);
-        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, rbql_context.rfc_record_map.length - preview_window_size));
-        for (let nr = rbql_context.requested_start_record; nr < rbql_context.rfc_record_map.length && preview_records.length < preview_window_size; nr++) {
-            let [record_start, record_end] = rbql_context.rfc_record_map[nr];
-            let record_text = get_rfc_record_text(document, record_start, record_end);
-            let [cur_record, warning] = csv_utils.smart_split(record_text, delim, policy, false);
-            if (warning) {
-                dst_message.preview_sampling_error = `Double quotes are not consistent in record ${nr + 1} which starts at line ${record_start + 1}`;
-                return;
-            }
-            preview_records.push(cur_record);
+        // FIXME populate cached_rfc_parse_result from csv lint too.
+        if (!cached_rfc_parse_result.has(document.fileName)) {
+            let comment_prefix = null; // TODO use comment prefix here and in the query.
+            let [records, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
         }
+        let [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
+        if (first_failed_line) {
+            dst_message.preview_sampling_error = `Double quotes are not consistent in record ${records.length} which starts at line ${first_failed_line + 1}`;
+            return;
+        }
+        preview_records = records.slice(rbql_context.requested_start_record, rbql_context.requested_start_record + preview_window_size);
     } else {
         let num_records = document.lineCount;
         if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
@@ -1401,7 +1393,6 @@ async function edit_rbql(integration_test_options=null) {
         "requested_start_record": 0,
         "delim": delim,
         "policy": policy,
-        "rfc_record_map": [],
         "enable_rfc_newlines": enable_rfc_newlines,
         "with_headers": with_headers,
         "header": header
@@ -1536,7 +1527,7 @@ async function handle_first_empty_doc_edit(change_event) {
     let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
     if (!rainbow_csv_language_id)
         return;
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
+    await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
 }
 
 
@@ -1548,7 +1539,6 @@ function register_csv_copy_paste_for_empty_doc(active_doc) {
     if (!active_doc.isUntitled && active_doc.lineCount != 0)
         return;
     doc_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_empty_doc_edit);
-    return;
 }
 
 
