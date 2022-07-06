@@ -231,16 +231,68 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
 }
 
 
-function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false) {
+
+function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
+    // FIXME this needs to be in extension.js because it is needed for autodetection. Pass this function to the iterator, or parse records externally.
     // Returns list of records.
+    // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
     // TODO consider to map records to line numbers and return the mapping too.
     // One line never maps to more than one record. One record can map to multiple lines i.e. multiple lines can map to one records.
-    // TODO consider returning field_info mapping of number of fields to the first line of occurence, needed both for rbql and csv lint.
     let num_lines = document.lineCount;
-    let record_start_line = 0;
     let rfc_line_buffer = [];
-    let first_defective_line = null;
-    let records = [];
+    let record_start_line = 0;
+
+    class RecordTextConsumer {
+        // Need this class to avoid code duplication when dealing with leftover lines in rfc_line_buffer.
+        constructor(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces) {
+            this.delim = delim;
+            this.policy = policy;
+            this.stop_on_warning = stop_on_warning
+            this.first_defective_line = null;
+            this.records = collect_records ? null : [];
+            this.num_records_parsed = 0;
+            this.fields_info = new Object();
+            this.first_trailing_space_line = null;
+            this.detect_trailing_spaces = detect_trailing_spaces;
+            this.preserve_quotes_and_whitespaces = !collect_records;
+        }
+
+        consume(record_text, record_start_line) {
+            let [record, warning] = csv_utils.smart_split(record_text, this.delim, this.policy, this.preserve_quotes_and_whitespaces);
+            if (warning) {
+                if (this.first_defective_line === null) {
+                    this.first_defective_line = record_start_line;
+                }
+            }
+            if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
+                for (let field of record) {
+                    if (field.length && (field.charAt(0) == ' ' || field.charAt(field.length - 1) == ' ')) {
+                        this.first_trailing_space_line = record_start_line;
+                    }
+                }
+            }
+            let need_stop = false;
+            if (!this.fields_info.hasOwnProperty(record.length)) {
+                this.fields_info[record.length] = this.num_records_parsed;
+                if (min_num_fields_for_autodetection != -1) {
+                    // FIXME test this!
+                    // Autodetection mode: stop on inconsistent records length and when there is not enough columns (typically less than 2 i.e. 1).
+                    need_stop = need_stop || record.length < min_num_fields_for_autodetection; // Too few columns.
+                    need_stop = need_stop || Object.keys(this.fields_info).length > 1; // Inconsistent number of columns in different rows.
+                }
+            }
+            if (this.collect_records) {
+                this.records.push(record);
+            }
+            this.num_records_parsed += 1;
+            // FIXME test warning early stopping both for rfc and basic quoted policies.
+            need_stop = need_stop || (warning && this.stop_on_warning);
+            return !need_stop;
+        }
+    }
+
+    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces);
+
     for (let lnum = 0; lnum < num_lines; ++lnum) {
         let line_text = document.lineAt(lnum).text;
         if (lnum + 1 >= num_lines && line_text == "") {
@@ -255,34 +307,23 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         if (record_text === null) {
             continue;
         }
-        let [record, warning] = csv_utils.smart_split(record_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false);
-        if (warning) {
-            if (first_defective_line === null) {
-                first_defective_line = record_start_line;
-                if (stop_on_warning) {
-                    return [records, first_defective_line];
-                }
-            }
+        if (!consumer.consume(record_text, record_start_line)) {
+            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
+
         record_start_line = lnum + 1;
-        records.push(record);
+        if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
+            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+        }
     }
     if (rfc_line_buffer.length > 0) {
         assert(policy == 'quoted_rfc');
         let record_text = rfc_line_buffer.join('\n');
-        let [record, warning] = csv_utils.smart_split(record_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false);
-        if (warning) {
-            if (first_defective_line === null) {
-                first_defective_line = record_start_line;
-                if (stop_on_warning) {
-                    return [records, first_defective_line];
-                }
-            }
+        if (!consumer.consume(record_text, record_start_line)) {
+            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
-        records.push(record);
     }
-    // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
-    return [records, first_defective_line];
+    return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
 }
 
 
@@ -370,7 +411,7 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
     let [record_1, num_fields_1] = entries[0];
     let [record_2, num_fields_2] = entries[1];
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
-    warn_msg += `e.g. record ${record_1} -> ${num_fields_1} fields, record ${record_2} -> ${num_fields_2} fields`;
+    warn_msg += `e.g. record ${record_1 + 1} -> ${num_fields_1} fields, record ${record_2 + 1} -> ${num_fields_2} fields`;
     return warn_msg;
 }
 
@@ -387,9 +428,9 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.variable_prefix = variable_prefix;
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
-        this.fields_info = new Object();
+        //this.fields_info = new Object();
         let fail_on_warning = policy == 'quoted_rfc';
-        [this.records, this.first_defective_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, this.fields_info, this.first_defective_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -422,8 +463,8 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         let record = this.records[this.next_record_index];
         this.next_record_index += 1;
         let num_fields = record.length;
-        if (!this.fields_info.hasOwnProperty(num_fields))
-            this.fields_info[num_fields] = this.NR;
+        //if (!this.fields_info.hasOwnProperty(num_fields))
+        //    this.fields_info[num_fields] = this.NR;
         return record;
     }
 

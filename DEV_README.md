@@ -85,6 +85,10 @@ Unlike vsce publishing for the official Microsoft VSCode marketplace, ovsx tool 
 
 See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
 
+### Pre-publishing checklist
+* Make sure that hover info shows hover information in different colors corresponding to the column color in classical csv mode.
+
+
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
@@ -138,6 +142,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Use dynamic highlighting to color comment lines both for regular and dynamic csv.
 
 * Autodetect rfc policies.
+
+* Consider speeding up autodetection by adding parse_rfc option. If it is false - we can only parse top N=10 lines and skip setting lint cache key until the actual lint.
 
 ## RFC Support plan
 We need:

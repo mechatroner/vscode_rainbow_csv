@@ -32,6 +32,7 @@ const scratch_buf_marker = 'vscode_rbql_scratch';
 
 let client_html_template_web = null;
 
+//FIXME store structs instead of strings to avoid re-parsing error strings.
 var lint_results = new Map();
 var aligned_files = new Set();
 var autodetection_stoplist = new Set();
@@ -91,7 +92,6 @@ const dialect_map = {
 const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
 const legend = new vscode.SemanticTokensLegend(tokenTypes);
 
-
 function get_default_policy(separator) {
     // This function is most likely a temporal workaround, get rid of it when possible.
     for (let language_id in dialect_map) {
@@ -135,11 +135,11 @@ async function push_current_stack_to_js_callback_queue_to_allow_ui_update() {
 }
 
 
-function map_separator_to_language_id(separator) {
+function map_separator_to_language_id(separator, policy=null) {
     for (let language_id in dialect_map) {
         if (!dialect_map.hasOwnProperty(language_id))
             continue;
-        if (dialect_map[language_id][0] == separator)
+        if (dialect_map[language_id][0] == separator && (policy === null || dialect_map[language_id][1] == policy))
             return language_id;
     }
     return DYNAMIC_CSV;
@@ -172,6 +172,26 @@ async function replace_doc_content(active_editor, active_doc, new_content) {
 }
 
 
+function sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record) {
+    let comment_prefix = null; // TODO use comment prefix here and in the query.
+    let records = [];
+    let first_failed_line = null;
+    if (end_record < 100) {
+        // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
+        let [records, _fields_info, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record);
+    } else {
+        // FIXME make sure to test this branch!
+        if (!cached_rfc_parse_result.has(document.fileName)) {
+            let [records, _fields_info, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
+        }
+        [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
+    }
+    let preview_records = records.slice(start_record, end_record);
+    return [preview_records, first_failed_line];
+}
+
+
 function sample_preview_records_from_context(rbql_context, dst_message) {
     let document = rbql_context.input_document;
     let delim = rbql_context.delim;
@@ -182,18 +202,15 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     let preview_records = [];
     // FIXME use document policy instead of enable_rfc_newlines from the context.
     if (rbql_context.enable_rfc_newlines) {
-        // FIXME populate cached_rfc_parse_result from csv lint too.
-        if (!cached_rfc_parse_result.has(document.fileName)) {
-            let comment_prefix = null; // TODO use comment prefix here and in the query.
-            let [records, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true);
-            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
-        }
-        let [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
-        if (first_failed_line) {
+        let first_failed_line = null;
+        let comment_prefix = null; // TODO use comment prefix here and in the query.
+        let start_record = rbql_context.requested_start_record;
+        let end_record = start_record + preview_window_size
+        [preview_records, first_failed_line] = sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record);
+        if (first_failed_line !=== null) {
             dst_message.preview_sampling_error = `Double quotes are not consistent in record ${records.length} which starts at line ${first_failed_line + 1}`;
             return;
         }
-        preview_records = records.slice(rbql_context.requested_start_record, rbql_context.requested_start_record + preview_window_size);
     } else {
         let num_records = document.lineCount;
         if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
@@ -454,44 +471,6 @@ function make_hover(document, language_id, position, cancellation_token) {
 }
 
 
-function produce_lint_report(active_doc, delim, policy) {
-    let comment_prefix = get_from_config('comment_prefix', '');
-    let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
-    let first_trailing_space_line = null;
-    var num_lines = active_doc.lineCount;
-    var num_fields = null;
-    for (var lnum = 0; lnum < num_lines; lnum++) {
-        var line_text = active_doc.lineAt(lnum).text;
-        if (lnum + 1 == num_lines && !line_text)
-            break;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        var split_result = csv_utils.smart_split(line_text, delim, policy, true);
-        if (split_result[1]) {
-            return 'Error. Line ' + (lnum + 1) + ' has formatting error: double quote chars are not consistent';
-        }
-        if (detect_trailing_spaces && first_trailing_space_line === null) {
-            let fields = split_result[0];
-            for (let i = 0; i < fields.length; i++) {
-                if (fields[i].length && (fields[i].charAt(0) == ' ' || fields[i].slice(-1) == ' ')) {
-                    first_trailing_space_line = lnum;
-                }
-            }
-        }
-        if (!num_fields) {
-            num_fields = split_result[0].length;
-        }
-        if (num_fields != split_result[0].length) {
-            return 'Error. Number of fields is not consistent: e.g. line 1 has ' + num_fields + ' fields, and line ' + (lnum + 1) + ' has ' + split_result[0].length + ' fields.';
-        }
-    }
-    if (first_trailing_space_line !== null) {
-        return 'Leading/Trailing spaces detected: e.g. at line ' + (first_trailing_space_line + 1) + '. Run "Shrink" command to remove them.';
-    }
-    return 'OK';
-}
-
-
 function get_active_editor() {
     var active_window = vscode.window;
     if (!active_window)
@@ -523,16 +502,27 @@ function show_lint_status_bar_button(file_path, language_id) {
     if (!lint_status_bar_button)
         lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     lint_status_bar_button.text = 'CSVLint';
-    if (lint_report === 'OK') {
-        lint_status_bar_button.color = '#62f442';
-    } else if (lint_report == 'Processing...') {
+    // FIXME test all error messages
+    let lint_report_msg = '';
+    if (lint_report.is_processing) {
         lint_status_bar_button.color = '#A0A0A0';
-    } else if (lint_report.indexOf('spaces detected') != -1) {
+        lint_report_msg = 'Processing';
+    } else if (Number.isInteger(lint_report.first_defective_line)) {
+        lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
+        lint_status_bar_button.color = '#f44242';
+    } else if (lint_report.fields_info && Object.keys(lint_report.fields_info).length > 1) {
+        let keys = Object.keys(lint_report.fields_info).sort((a, b) => a - b);
+        lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${keys[0] + 1} has ${lint_report.fields_info[keys[0]]} fields, and record ${keys[1] + 1} has ${lint_report.fields_info[keys[1]]} fields`;
+        lint_status_bar_button.color = '#f44242';
+    } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
+        lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
         lint_status_bar_button.color = '#ffff28';
     } else {
-        lint_status_bar_button.color = '#f44242';
+        assert(lint_report.is_ok);
+        lint_status_bar_button.color = '#62f442';
+        lint_report_msg = 'OK';
     }
-    lint_status_bar_button.tooltip = lint_report + '\nClick to recheck';
+    lint_status_bar_button.tooltip = lint_report_msg + '\nClick to recheck';
     lint_status_bar_button.command = 'rainbow-csv.CSVLint';
     lint_status_bar_button.show();
 }
@@ -643,19 +633,22 @@ async function csv_lint(active_doc, is_manual_op) {
         if (!get_from_config('enable_auto_csv_lint', false))
             return null;
     }
-    lint_results.set(lint_cache_key, 'Processing...');
+    lint_results.set(lint_cache_key, {is_processing: true});
     show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     let [delim, policy] = get_dialect(active_doc);
     if (policy === null)
         return null;
-    var lint_report = produce_lint_report(active_doc, delim, policy);
-    lint_results.set(lint_cache_key, lint_report);
+    let comment_prefix = get_from_config('comment_prefix', null);
+    let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
+    let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
+    let is_ok = (first_defective_line === null && Object.keys(fields_info).length <= 1);
+    lint_results.set(lint_cache_key, {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line});
     if (is_manual_op) {
         // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
         await sleep(500);
     }
     show_lint_status_bar_button(file_path, language_id); // Visual feedback.
-    return lint_report;
+    return null; // FIXME return proper report for unit tests
 }
 
 
@@ -902,7 +895,7 @@ async function set_header_line() {
 }
 
 
-async function set_rainbow_separator() {
+async function set_rainbow_separator(policy=null) {
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -919,9 +912,14 @@ async function set_rainbow_separator() {
         return;
     }
     let separator = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
-    // TODO figure out a way for the user to specify the policy too instead of using default policy.
-    let policy = get_default_policy(separator);
-    let language_id = map_separator_to_language_id(separator);
+    if (policy == QUOTED_RFC_POLICY && separator != ',' && separator != ';') {
+        show_single_line_error("Only comma and semicolon separators are currently supported to use with multiline fields.");
+        return;
+    }
+    if (policy === null) {
+        policy = get_default_policy(separator);
+    }
+    let language_id = map_separator_to_language_id(separator, policy);
     custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let original_language_id = active_doc.languageId;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
@@ -1005,6 +1003,10 @@ async function column_edit(edit_mode) {
         return;
     let [delim, policy] = get_dialect(active_doc);
     if (policy === null) {
+        return;
+    }
+    if (policy == QUOTED_RFC_POLICY) {
+        show_single_line_error('Column edit mode is not supported for rfc-compatible (multiline fields) dialects.');
         return;
     }
     let comment_prefix = get_from_config('comment_prefix', '');
@@ -1413,79 +1415,73 @@ async function edit_rbql(integration_test_options=null) {
 }
 
 
-function get_num_columns_if_delimited(active_doc, delim, policy, min_num_columns, min_num_lines) {
-    var num_lines = active_doc.lineCount;
-    let num_fields = 0;
-    let num_lines_checked = 0;
+function autodetect_dialect(active_doc, candidate_separators) {
+    let candidate_dialects = [];
+    for (let sp of candidate_separators) {
+        let dialect_id = map_separator_to_language_id(sp);
+        let policy = get_default_policy(separator);
+        if (!dialect_id || !policy)
+            continue;
+        //candidate_dialects.push({dialect_id: dialect_id, policy: policy, separator: separator});
+        candidate_dialects.push([dialect_id, separator, policy]);
+        // FIXME consider getting rid of auto_rfc setting if it is not used here.
+        if (separator == ',' || separator == ';') {
+            //candidate_dialects.push({dialect_id: DYNAMIC_CSV, policy: QUOTED_RFC_POLICY, separator: separator});
+            candidate_dialects.push([DYNAMIC_CSV, separator, QUOTED_RFC_POLICY]);
+        }
+    }
+    let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
+    let min_num_lines = get_from_config('autodetection_min_line_count', 10);
+    if (active_doc.lineCount < min_num_lines)
+        return [null, null, null];
+    let [best_dialect, best_separator, best_policy, best_dialect_first_trailing_space_line] = [null, null, null, null];
+    let best_dialect_num_columns = 1;
     let comment_prefix_for_autodetection = get_from_config('comment_prefix', '');
     if (!comment_prefix_for_autodetection)
         comment_prefix_for_autodetection = '#';
-    for (var lnum = 0; lnum < num_lines; lnum++) {
-        var line_text = active_doc.lineAt(lnum).text;
-        if (lnum + 1 == num_lines && !line_text)
-            break;
-        if (line_text.startsWith(comment_prefix_for_autodetection))
+    for (let candidate_dialect of candidate_dialects) {
+        let [dialect_id, separator, policy] = candidate_dialect;
+        // FIXME parse_document_records() should be local to this file? or maybe put it into a third external file to use in unit tests and allow easy inclussion into rainbow_utils.js.
+        let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, separator, policy, comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
+        if (first_defective_line !== null || Object.keys(fields_info).length != 1)
             continue;
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning)
-            return 0; // TODO don't fail on warnings?
-        if (!num_fields)
-            num_fields = fields.length;
-        if (num_fields < min_num_columns || num_fields != fields.length)
-            return 0;
-        num_lines_checked += 1;
-    }
-    return num_lines_checked >= min_num_lines ? num_fields : 0;
-}
-
-
-function autodetect_dialect(active_doc, candidate_separators) {
-    let min_num_lines = get_from_config('autodetection_min_line_count', 10);
-    if (active_doc.lineCount < min_num_lines)
-        return null;
-
-    let best_dialect = null;
-    let best_dialect_num_columns = 1;
-    for (let i = 0; i < candidate_separators.length; i++) {
-        let dialect_id = map_separator_to_language_id(candidate_separators[i]);
-        if (!dialect_id)
-            continue;
-        let [delim, policy] = dialect_map[dialect_id];
-        let cur_dialect_num_columns = get_num_columns_if_delimited(active_doc, delim, policy, best_dialect_num_columns + 1, min_num_lines);
-        if (cur_dialect_num_columns > best_dialect_num_columns) {
-            best_dialect_num_columns = cur_dialect_num_columns;
-            best_dialect = dialect_id;
+        let num_columns = Object.keys(fields_info)[0];
+        if (num_columns > best_dialect_num_columns) {
+            best_dialect_num_columns = num_columns;
+            [best_dialect, best_separator, best_policy] = candidate_dialect;
+            best_dialect_first_trailing_space_line = first_trailing_space_line;
         }
     }
-    return best_dialect;
+    return [best_dialect, best_separator, best_policy, best_dialect_first_trailing_space_line];
 }
 
 
-function autodetect_dialect_frequency_based(active_doc, candidate_separators) {
-    let best_dialect = 'csv';
+function autodetect_dialect_frequency_based(active_doc, candidate_separators, num_chars_to_test) {
+    // FIXME add unit tests?
+    let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_POLICY];
     let best_dialect_frequency = 0;
     let data = active_doc.getText();
     if (!data)
-        return best_dialect;
-    for (let i = 0; i < candidate_separators.length; i++) {
-        if (candidate_separators[i] == ' ' || candidate_separators[i] == '.')
+        return [best_dialect, best_separator, best_policy];
+    for (let separator of candidate_separators) {
+        if (separator == ' ' || separator == '.')
             continue; // Whitespace and dot have advantage over other separators in this algorithm, so we just skip them.
-        let dialect_id = map_separator_to_language_id(candidate_separators[i]);
         let frequency = 0;
-        for (let j = 0; j < 10000 && j < data.length; j++) {
-            if (data[j] == candidate_separators[i])
+        for (let j = 0; j < max_num_chars_to_test && j < data.length; j++) {
+            if (data[j] == separator)
                 frequency += 1;
         }
         if (frequency > best_dialect_frequency) {
-            best_dialect = dialect_id;
+            let policy = get_default_policy(separator);
+            let dialect_id = map_separator_to_language_id(separator);
+            [best_dialect, best_separator, best_policy] = [dialect_id, separator, policy];
             best_dialect_frequency = frequency;
         }
     }
-    return best_dialect;
+    return [best_dialect, best_separator, best_policy];
 }
 
-
-async function autoenable_rainbow_csv(active_doc) {
+async function try_autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return active_doc;
     if (!get_from_config('enable_separator_autodetection', false))
@@ -1499,14 +1495,18 @@ async function autoenable_rainbow_csv(active_doc) {
     let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
-    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
-    if (!rainbow_csv_language_id && is_default_csv) {
-        // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one.
-        rainbow_csv_language_id = autodetect_dialect_frequency_based(active_doc, candidate_separators);
+    let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(active_doc, candidate_separators);
+    if (rainbow_csv_language_id) {
+        // Add the file to lint results to avoid re-parsing it with CSV Lint later.
+        lint_results.set(`${active_doc.fileName}.${language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
+    } else if (!rainbow_csv_language_id && is_default_csv) {
+        // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one within the first N characters.
+        [rainbow_csv_language_id, delim, policy] = autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000);
     }
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return active_doc;
 
+    custom_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     original_language_ids.set(file_path, original_language_id);
     return doc;
@@ -1520,14 +1520,8 @@ async function handle_first_empty_doc_edit(change_event) {
         doc_edit_subscription.dispose();
         doc_edit_subscription = null;
     }
-    let active_doc = change_event.document;
-    if (!active_doc)
-        return;
-    let candidate_separators = get_from_config('autodetect_separators', []);
-    let rainbow_csv_language_id = autodetect_dialect(active_doc, candidate_separators);
-    if (!rainbow_csv_language_id)
-        return;
-    await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
+    // FIXME test that this works!
+    await try_autoenable_rainbow_csv(change_event.document);
 }
 
 
@@ -1615,7 +1609,7 @@ function handle_cursor_movement(_unused_cursor_event) {
 
 async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
-    active_doc = await autoenable_rainbow_csv(active_doc);
+    active_doc = await try_autoenable_rainbow_csv(active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
@@ -1763,7 +1757,8 @@ async function activate(context) {
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', set_rainbow_separator);
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { set_rainbow_separator(/*policy=*/null); });
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { set_rainbow_separator(QUOTED_RFC_POLICY); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
