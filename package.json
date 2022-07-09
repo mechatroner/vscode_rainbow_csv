@@ -76,11 +76,6 @@
                     "default": true,
                     "description": "Enable column-info tooltip on hover"
                 },
-                "rainbow_csv.auto_rfc": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Automatically switch to rfc4180-compatible dynamic highlighting when CSV Lint detects multiline fields"
-                },
                 "rainbow_csv.enable_cursor_position_info": {
                     "type": "boolean",
                     "default": true,

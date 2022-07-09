@@ -247,7 +247,7 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         constructor(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces) {
             this.delim = delim;
             this.policy = policy;
-            this.stop_on_warning = stop_on_warning
+            this.stop_on_warning = stop_on_warning;
             this.first_defective_line = null;
             this.records = collect_records ? null : [];
             this.num_records_parsed = 0;
@@ -462,9 +462,6 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         }
         let record = this.records[this.next_record_index];
         this.next_record_index += 1;
-        let num_fields = record.length;
-        //if (!this.fields_info.hasOwnProperty(num_fields))
-        //    this.fields_info[num_fields] = this.NR;
         return record;
     }
 
@@ -694,3 +691,4 @@ module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
 module.exports.align_field = align_field;
 module.exports.parse_document_records = parse_document_records;
+module.exports.assert = assert;

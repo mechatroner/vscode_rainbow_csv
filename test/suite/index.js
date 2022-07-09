@@ -192,7 +192,7 @@ async function test_align_shrink_lint(workspace_folder_uri) {
     assert.equal(25896, length_aligned);
     assert(length_aligned > length_original);
     let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
-    assert.equal(lint_report, 'OK');
+    assert(lint_report.is_ok);
     await sleep(2000);
 
     await vscode.commands.executeCommand('rainbow-csv.Shrink');
@@ -205,7 +205,7 @@ async function test_align_shrink_lint(workspace_folder_uri) {
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
     lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
-    assert(lint_report.indexOf('Number of fields is not consistent') != -1);
+    assert(Object.keys(lint_report.fields_info).length > 1);
     await sleep(500);
 
     for (let i = 0; i < text_with_comma.length; i++) {
