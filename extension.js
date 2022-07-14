@@ -314,6 +314,7 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
     if (comment_prefix && line.startsWith(comment_prefix))
         return 'Comment';
 
+    // FIXME support RFC policy properly
     var report = csv_utils.smart_split(line, delim, policy, true);
 
     var entries = report[0];
@@ -1542,13 +1543,103 @@ async function handle_editor_switch(editor) {
 }
 
 
-function parse_document_range_rfc(doc, delim, range) {
-    // FIXME consider reusing some of this logic in hover info code for rfc case.
+class MultilineRecordAggregator {
+    // FIXME Replace csv_utils.accumulate_rfc_line_into_record() with this class and backport to RBQL.
+    constructor(comment_prefix=null) {
+        this.comment_prefix = comment_prefix;
+        this.reset();
+    }
+    add_line(line_text) {
+        ll_rainbow_utils().assert(!this.has_full_record);
+        if (this.comment_prefix !== null && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix))
+            return false;
+        let match_list = line_text.match(/"/g);
+        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        this.rfc_line_buffer.push(line_text);
+        this.has_full_record = (!has_unbalanced_double_quote && this.rfc_line_buffer.length == 1) || (has_unbalanced_double_quote && this.rfc_line_buffer.length > 1);
+        return this.has_full_record;
+    }
+    is_inside_multiline_record() {
+        return this.rfc_line_buffer.length && !this.has_full_record;
+    }
+    get_full_line(line_separator) {
+        return this.rfc_line_buffer.join(line_separator);
+    }
+    get_num_lines_in_record() {
+        return this.rfc_line_buffer.length;
+    }
+    reset() {
+        this.rfc_line_buffer = [];
+        this.has_full_record = false;
+    }
+}
 
-    // Go from the top of the range down performing optimistic parsing.
-    // If we encounter an unpaired "closing" line we discard all the previously optimistically parsed records, and start from the next line.
-    // A "closing" line will have the following pattern: odd number of doublequotes and unpaired double quote right before a comma: `",` or at the very end: `"$`.
-    // An "opening" line will have the following pattern: odd number of doublequotes and unpaired double quote right after a comma: `,"` or at the beginning of line `^"`.
+
+function make_multiline_record_ranges(delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
+    // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
+    let record_ranges = [];
+    // FIXME add unit tests
+    let lnum_current = start_line;
+    let pos_in_editor_line = 0;
+    let next_pos_in_editor_line = 0;
+    for (let i = 0; i < fields.length; i++) {
+        let pos_in_logical_field = 0;
+        // Group tokens belonging to the same logical field.
+        let logical_field_tokens = [];
+        while (true) {
+            let sentinel_pos = fields[i].indexOf(sentinel_sequence, pos_in_logical_field);
+            if (sentinel_pos == -1)
+                break;
+            logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + sentinel_pos - pos_in_logical_field));
+            lnum_current += 1;
+            pos_in_editor_line = 0;
+            next_pos_in_editor_line = 0;
+            pos_in_logical_field = sentinel_pos + sentinel_sequence.length;
+        }
+        next_pos_in_editor_line += fields[i].length - pos_in_logical_field;
+        if (i + 1 < fields.length) {
+            next_pos_in_editor_line += delim_length;
+        }
+        logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
+        record_ranges.push(logical_field_tokens);
+        pos_in_editor_line = next_pos_in_editor_line;
+    }
+    ll_rainbow_utils().assert(lnum_current == expected_end_line_for_control);
+    return record_ranges;
+}
+
+
+function parse_document_range_rfc(doc, delim, comment_prefix, range) {
+    const highlight_margin = 50; // TODO make configurable
+    let begin_line = Math.max(0, range.start.line - highlight_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + highlight_margin);
+    let table_ranges = [];
+    let line_aggregator = new MultilineRecordAggregator(comment_prefix);
+    // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
+    for (let lnum = begin_line; lnum < end_line; lnum++) {
+        let line_text = doc.lineAt(lnum).text;
+        if (lnum + 1 == doc.lineCount && !line_text)
+            break;
+        let inside_multiline_record = line_aggregator.is_inside_multiline_record();
+        let start_line = lnum - line_aggregator.get_num_lines_in_record();
+        if (line_aggregator.add_line(line_text)) {
+            const sentinel_sequence = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves.
+            let combined_line = line_aggregator.get_full_line(sentinel_sequence);
+            line_aggregator.reset();
+            let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
+            if (warning) {
+                if (inside_multiline_record) {
+                    // Try using this line as a start line inside multiline record, reset all previously parsed ranges.
+                    table_ranges = [];
+                    ll_rainbow_utils().assert(!line_aggregator.add_line(line_text));
+                    ll_rainbow_utils().assert(line_aggregator.is_inside_multiline_record());
+                }
+            } else {
+                table_ranges.push(make_multiline_record_ranges(delim.length, sentinel_sequence, fields, start_line, lnum));
+            }
+        }
+    }
+    return table_ranges;
 }
 
 
@@ -1558,7 +1649,7 @@ function parse_document_range_single_line(doc, delim, policy, range) {
     let begin_line = Math.max(0, range.start.line - highlight_margin);
     let end_line = Math.min(doc.lineCount, range.end.line + highlight_margin);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
-        let row_ranges = [];
+        let record_ranges = [];
         let line_text = doc.lineAt(lnum).text;
         if (lnum + 1 == doc.lineCount && !line_text)
             break;
@@ -1572,19 +1663,20 @@ function parse_document_range_single_line(doc, delim, policy, range) {
             if (i + 1 < fields.length) {
                 next_cpos += delim.length;
             }
-            row_ranges.push(new vscode.Range(lnum, cpos, lnum, next_cpos));
+            record_ranges.push([new vscode.Range(lnum, cpos, lnum, next_cpos)]);
             cpos = next_cpos;
         }
-        table_ranges.push(row_ranges);
+        table_ranges.push(record_ranges);
     }
     return table_ranges;
 }
 
 
-function parse_document_range(doc, delim, policy, range) {
+function parse_document_range(doc, delim, policy, comment_prefix, range) {
     if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(doc, delim, range);
+        return parse_document_range_rfc(doc, delim, comment_prefix, range);
     } else {
+        // FIXME use comment_prefix
         return parse_document_range_single_line(doc, delim, policy, range);
     }
 }
@@ -1705,13 +1797,18 @@ class RainbowTokenProvider {
             return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
         }
         // FIXME extend the range using user config margin setting.
-        let table_ranges = parse_document_range(document, delim, policy, range);
+        let comment_prefix = get_from_config('comment_prefix', '');
+        let table_ranges = parse_document_range(document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(legend);
         for (let row of table_ranges) {
             // FIXME handle multiline ranges. To do this, split multiline tokens into multiple single-line tokens of the same type.
             for (let c = 0; c < row.length; c++) {
-                builder.push(row[c], tokenTypes[c % tokenTypes.length]);
+                let field_tokens = row[c];
+                // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
+                for (let ft of field_tokens) {
+                    builder.push(ft, tokenTypes[c % tokenTypes.length]);
+                }
             }
         }
         return builder.build();

@@ -94,7 +94,8 @@ In order to generate RBQL documentation use showdown - based markdown_to_html.js
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
 
 
-## TODO LIST
+
+# TODO LIST
 * Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824.
 
 * Consider keeping only one open RBQL console at any time - if another one opens automatically close the previous one.
@@ -139,7 +140,7 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Support dynamic dialects with quoted policies.
 
-* Use dynamic highlighting to color comment lines both for regular and dynamic csv.
+* Use dynamic highlighting to color comment lines both for regular and dynamic csv: table_ranges will contain objects with both records and comments entries
 
 * Autodetect rfc policies.
 
