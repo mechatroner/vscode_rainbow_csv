@@ -146,6 +146,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider speeding up autodetection by adding parse_rfc option. If it is false - we can only parse top N=10 lines and skip setting lint cache key until the actual lint.
 
+* Add "set as comment prefix" context menu command for selected text in csv syntaxes, like it was done for the header.
+
 ## RFC Support plan
 We need:
 1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.
