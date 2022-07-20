@@ -139,6 +139,11 @@
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
                     "group": "rainbow_csv"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.SetCommentPrefix",
+                    "group": "rainbow_csv"
                 }
             ],
             "explorer/context": [
@@ -283,6 +288,11 @@
                 "command": "rainbow-csv.SetHeaderLine",
                 "category": "Rainbow CSV",
                 "title": "Set header line"
+            },
+            {
+                "command": "rainbow-csv.SetCommentPrefix",
+                "category": "Rainbow CSV",
+                "title": "Set the selection as comment prefix for this csv file"
             },
             {
                 "command": "rainbow-csv.RBQL",

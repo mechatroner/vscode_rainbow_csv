@@ -33,6 +33,8 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let client_html_template_web = null;
 
+let extension_context = null;
+
 var lint_results = new Map();
 var aligned_files = new Set();
 var autodetection_stoplist = new Set();
@@ -66,7 +68,9 @@ var _unit_test_last_warnings = null; // For unit tests only.
 
 let cursor_timeout_handle = null;
 
-let token_event = null;
+let rainbow_token_event = null;
+
+let comment_tokenization_enabled = false;
 
 const DYNAMIC_CSV = 'dynamic csv';
 const QUOTED_POLICY = 'quoted';
@@ -402,13 +406,32 @@ function show_status_bar_items(active_doc) {
 }
 
 
-function enable_semantic_tokenization() {
+function enable_dynamic_semantic_tokenization() {
     let token_provider = new RainbowTokenProvider();
-    if (token_event !== null) {
-        token_event.dispose();
+    if (rainbow_token_event !== null) {
+        rainbow_token_event.dispose();
     }
     let document_selector = { language: DYNAMIC_CSV }; // Use '*' to select all languages if needed.
-    token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+    rainbow_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+}
+
+
+function enable_comment_tokenization() {
+    if (comment_tokenization_enabled)
+        return;
+    let token_provider = new CommentTokenProvider();
+    let document_selector = [];
+    for (let language_id in dialect_map) {
+        if (dialect_map.hasOwnProperty(language_id) && language_id != DYNAMIC_CSV) {
+            // We skip DYNAMIC_CSV here because its provider already handles comment lines.
+            document_selector.push({language: language_id});
+        }
+    }
+    let comment_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+    if (extension_context && extension_context.subscriptions) {
+        extension_context.subscriptions.push(comment_token_event);
+    }
+    comment_tokenization_enabled = true;
 }
 
 
@@ -430,7 +453,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
 
     if (language_id == DYNAMIC_CSV) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
-        enable_semantic_tokenization();
+        enable_dynamic_semantic_tokenization();
     }
     show_status_bar_items(active_doc);
     await csv_lint(active_doc, false);
@@ -826,7 +849,6 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     let close_and_error_guard = {'process_reported': false};
 
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
-    // FIXME handle comment_prefix probably - use it!
     if (input_policy == QUOTED_POLICY && enable_rfc_newlines)
         input_policy = QUOTED_RFC_POLICY;
     let [output_delim, output_policy] = [input_delim, input_policy];
@@ -851,7 +873,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let result_doc = null;
         try {
             if (is_web_ext) {
-                // FIXME use comment_prefix here and in othe query modes and test it too.
+                // FIXME test comment_prefix usage in all modes
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -943,6 +965,34 @@ async function set_rainbow_separator(policy=null) {
     original_language_ids.set(doc.fileName, original_language_id);
 }
 
+
+async function set_comment_prefix() {
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+    let selection = active_editor.selection;
+    if (!selection) {
+        // FIXME make sure to test with empty-string comment prefix! This should actually allow this.
+        show_single_line_error("Selection is empty");
+        return;
+    }
+    let comment_prefix = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
+    let dialect_info = new Object();
+    if (custom_document_dialects.has(active_doc.fileName)) {
+        dialect_info = custom_document_dialects.get(active_doc.fileName);
+    }
+    dialect_info['comment_prefix'] = comment_prefix;
+    custom_document_dialects.set(active_doc.fileName, dialect_info);
+    if (active_doc.languageId == DYNAMIC_CSV) {
+        // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
+        enable_dynamic_semantic_tokenization();
+    } else {
+        enable_comment_tokenization();
+    }
+}
 
 async function restore_original_language() {
     var active_doc = get_active_doc();
@@ -1557,13 +1607,13 @@ async function handle_editor_switch(editor) {
 
 class MultilineRecordAggregator {
     // FIXME Replace csv_utils.accumulate_rfc_line_into_record() with this class and backport to RBQL.
-    constructor(comment_prefix=null) {
+    constructor(comment_prefix) {
         this.comment_prefix = comment_prefix;
         this.reset();
     }
     add_line(line_text) {
         ll_rainbow_utils().assert(!this.has_full_record && !this.has_comment_line);
-        if (this.comment_prefix !== null && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
+        if (this.comment_prefix && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
             this.has_comment_line = true;
             return false;
         }
@@ -1585,7 +1635,7 @@ class MultilineRecordAggregator {
     reset() {
         this.rfc_line_buffer = [];
         this.has_full_record = false;
-        this.has_comment_line = true;
+        this.has_comment_line = false;
     }
 }
 
@@ -1819,18 +1869,39 @@ class RainbowTokenProvider {
         let table_ranges = parse_document_range(document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(legend);
-        for (let row of table_ranges) {
-            for (let c = 0; c < row.length; c++) {
-                let row_info = row[c];
-                if (row_info.hasOwnProperty('comment_range')) {
-                    // FIXME test this
-                    builder.push(row_info.comment_range, 'comment');
-                } else {
-                    // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
-                    for (let ft of row_info.record_ranges) {
+        for (let row_info of table_ranges) {
+            if (row_info.hasOwnProperty('comment_range')) {
+                builder.push(row_info.comment_range, 'comment');
+            } else {
+                for (let c = 0; c < row_info.record_ranges.length; c++) {
+                    for (let ft of row_info.record_ranges[c]) {
+                        // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
                         builder.push(ft, tokenTypes[c % tokenTypes.length]);
                     }
                 }
+            }
+        }
+        return builder.build();
+    }
+}
+
+
+class CommentTokenProvider {
+    constructor() {
+    }
+    async provideDocumentRangeSemanticTokens(doc, range, _token) {
+        let [_delim, policy, comment_prefix] = get_dialect(doc);
+        if (!comment_prefix || policy === null || policy == QUOTED_RFC_POLICY) {
+            return null; // Sanity check: with QUOTED_RFC_POLICY we should be using a different tokenizer which also handles comments.
+        }
+        // Create a new builder to clear the previous tokens.
+        const builder = new vscode.SemanticTokensBuilder(legend);
+        let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
+        let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
+        for (let lnum = begin_line; lnum < end_line; lnum++) {
+            let line_text = doc.lineAt(lnum).text;
+            if (line_text.startsWith(comment_prefix)) {
+                builder.push(new vscode.Range(lnum, 0, lnum, line_text.length), 'comment');
             }
         }
         return builder.build();
@@ -1870,6 +1941,7 @@ async function activate(context) {
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
+    var set_comment_prefix_cmd = vscode.commands.registerCommand('rainbow-csv.SetCommentPrefix', set_comment_prefix);
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', set_virtual_header);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
@@ -1888,7 +1960,13 @@ async function activate(context) {
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
-    enable_semantic_tokenization();
+    extension_context = context;
+
+    enable_dynamic_semantic_tokenization();
+
+    if (get_from_config('comment_prefix', null)) {
+        enable_comment_tokenization();
+    }
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -1908,7 +1986,9 @@ async function activate(context) {
     context.subscriptions.push(shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
+    context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(internal_test_cmd);
+
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
