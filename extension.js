@@ -302,7 +302,7 @@ function get_dialect(document) {
         let dialect_info = custom_document_dialects.get(document.fileName);
         // FIXME test comment_prefix disable by setting it to an empty string while having a default one in config.
         // This check allows to override default comment_prefix with an empty string from user selection to disable comment prefix in selected files.
-        if (dialect_info.hasOwnProperty(comment_prefix) && dialect_info.comment_prefix != null) {
+        if (dialect_info.hasOwnProperty('comment_prefix') && dialect_info.comment_prefix !== null) {
             comment_prefix = dialect_info.comment_prefix;
         }
         delim = dialect_info.delim;
