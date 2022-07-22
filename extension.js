@@ -42,6 +42,7 @@ var original_language_ids = new Map();
 var custom_document_dialects = new Map();
 var result_set_parent_map = new Map();
 var cached_rfc_parse_result = new Map();
+var manual_comment_prefix_stoplist = new Set();
 
 var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
@@ -69,8 +70,7 @@ var _unit_test_last_warnings = null; // For unit tests only.
 let cursor_timeout_handle = null;
 
 let rainbow_token_event = null;
-
-let comment_tokenization_enabled = false;
+let comment_token_event = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
 const QUOTED_POLICY = 'quoted';
@@ -94,7 +94,7 @@ const dialect_map = {
 };
 
 const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
-const legend = new vscode.SemanticTokensLegend(tokenTypes);
+const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 function get_default_policy(separator) {
     // This function is most likely a temporal workaround, get rid of it when possible.
@@ -300,7 +300,6 @@ function get_dialect(document) {
     let comment_prefix = get_from_config('comment_prefix', '');
     if (custom_document_dialects.has(document.fileName)) {
         let dialect_info = custom_document_dialects.get(document.fileName);
-        // FIXME test comment_prefix disable by setting it to an empty string while having a default one in config.
         // This check allows to override default comment_prefix with an empty string from user selection to disable comment prefix in selected files.
         if (dialect_info.hasOwnProperty('comment_prefix') && dialect_info.comment_prefix !== null) {
             comment_prefix = dialect_info.comment_prefix;
@@ -412,14 +411,15 @@ function enable_dynamic_semantic_tokenization() {
         rainbow_token_event.dispose();
     }
     let document_selector = { language: DYNAMIC_CSV }; // Use '*' to select all languages if needed.
-    rainbow_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
+    rainbow_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, tokens_legend);
 }
 
 
 function enable_comment_tokenization() {
-    if (comment_tokenization_enabled)
-        return;
     let token_provider = new CommentTokenProvider();
+    if (comment_token_event !== null) {
+        comment_token_event.dispose();
+    }
     let document_selector = [];
     for (let language_id in dialect_map) {
         if (dialect_map.hasOwnProperty(language_id) && language_id != DYNAMIC_CSV) {
@@ -427,11 +427,7 @@ function enable_comment_tokenization() {
             document_selector.push({language: language_id});
         }
     }
-    let comment_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, legend);
-    if (extension_context && extension_context.subscriptions) {
-        extension_context.subscriptions.push(comment_token_event);
-    }
-    comment_tokenization_enabled = true;
+    comment_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, tokens_legend);
 }
 
 
@@ -986,10 +982,16 @@ async function set_comment_prefix() {
     }
     dialect_info['comment_prefix'] = comment_prefix;
     custom_document_dialects.set(active_doc.fileName, dialect_info);
+    if (!comment_prefix) {
+        manual_comment_prefix_stoplist.add(active_doc.fileName);
+    } else {
+        manual_comment_prefix_stoplist.delete(active_doc.fileName);
+    }
     if (active_doc.languageId == DYNAMIC_CSV) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     } else {
+        // Re-enable comment tokenization to explicitly adjust the comment highligthing (sometimes to disable it if comment prefix is set to an empty string).
         enable_comment_tokenization();
     }
 }
@@ -1498,13 +1500,13 @@ function autodetect_dialect(active_doc, candidate_separators) {
         return [null, null, null];
     let [best_dialect, best_separator, best_policy, best_dialect_first_trailing_space_line] = [null, null, null, null];
     let best_dialect_num_columns = 1;
-    let comment_prefix_for_autodetection = get_from_config('comment_prefix', '');
-    if (!comment_prefix_for_autodetection)
-        comment_prefix_for_autodetection = '#';
+    let weak_comment_prefix_for_autodetection = get_from_config('comment_prefix', '');
+    if (!weak_comment_prefix_for_autodetection)
+        weak_comment_prefix_for_autodetection = '#';
     for (let candidate_dialect of candidate_dialects) {
         let [dialect_id, separator, policy] = candidate_dialect;
         // FIXME parse_document_records() should be local to this file? or maybe put it into a third external file to use in unit tests and allow easy inclussion into rainbow_utils.js.
-        let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, separator, policy, comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
+        let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
         if (first_defective_line !== null || Object.keys(fields_info).length != 1)
             continue;
         let num_columns = Object.keys(fields_info)[0];
@@ -1868,7 +1870,7 @@ class RainbowTokenProvider {
         }
         let table_ranges = parse_document_range(document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
-        const builder = new vscode.SemanticTokensBuilder(legend);
+        const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {
             if (row_info.hasOwnProperty('comment_range')) {
                 builder.push(row_info.comment_range, 'comment');
@@ -1891,11 +1893,14 @@ class CommentTokenProvider {
     }
     async provideDocumentRangeSemanticTokens(doc, range, _token) {
         let [_delim, policy, comment_prefix] = get_dialect(doc);
+        if (manual_comment_prefix_stoplist.has(doc.fileName)) {
+            comment_prefix = '#####COMMENT_PREFIX_THAT_CAN_NOT_OCCURE_IN_A_NORMAL_FILE_AND_EVEN_IF_IT_OCCURES_NOT_A_BIG_DEAL####';
+        }
         if (!comment_prefix || policy === null || policy == QUOTED_RFC_POLICY) {
             return null; // Sanity check: with QUOTED_RFC_POLICY we should be using a different tokenizer which also handles comments.
         }
         // Create a new builder to clear the previous tokens.
-        const builder = new vscode.SemanticTokensBuilder(legend);
+        const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
         let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
         for (let lnum = begin_line; lnum < end_line; lnum++) {
