@@ -1,23 +1,39 @@
-{   "name": "csv syntax",
-    "scopeName": "text.csv",
-    "fileTypes": ["csv"],
-    "patterns": [
-        { "match": "((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:,|$))|(?:[^,]*(?:,|$)))?",
-          "name": "rainbowgroup",
-          "captures": {
-              "1": {"name": "rainbow1"},
-              "2": {"name": "keyword.rainbow2"},
-              "3": {"name": "entity.name.function.rainbow3"},
-              "4": {"name": "comment.rainbow4"},
-              "5": {"name": "string.rainbow5"},
-              "6": {"name": "variable.parameter.rainbow6"},
-              "7": {"name": "constant.numeric.rainbow7"},
-              "8": {"name": "entity.name.type.rainbow8"},
-              "9": {"name": "markup.bold.rainbow9"},
-              "10": {"name": "invalid.rainbow10"}
-          }
+{
+  "name": "csv syntax",
+  "scopeName": "text.csv",
+  "fileTypes": ["csv"],
+  "patterns": [
+    {
+      "name": "variable.other.rainbow1",
+      "begin": "^|\\,",
+      "end": "(?=\\n)",
+      "patterns": [
+        { "include": "#quotedvalue" },
+        {
+          "name": "keyword.rainbow2",
+          "begin": "\\,",
+          "end": "(?=\\n)",
+          "patterns": [
+            { "include": "#quotedvalue" },
+            {
+              "name": "entity.name.function.rainbow3",
+              "begin": "\\,",
+              "end": "(?=\\n)",
+              "patterns": [
+                { "include": "#quotedvalue" },
+                { "include": "$self" }
+              ]
+            }
+          ]
         }
-
-    ],
-    "uuid": "ca03e352-04ef-4340-9a6b-9b99aae1c418"
+      ]
+    }
+  ],
+  "repository": {
+    "quotedvalue": {
+      "begin": "\"",
+      "end": "\""
+    }
+  },
+  "uuid": "ca03e352-04ef-4340-9a6b-9b99aae1c418"
 }
