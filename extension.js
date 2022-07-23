@@ -106,7 +106,7 @@ function get_default_policy(separator) {
     }
     return SIMPLE_POLICY;
 }
-
+// FIXME move as much stuff as possible to lazy-loaded modules.
 
 // This structure will get properly initialized during the startup.
 let absolute_path_map = {
@@ -318,10 +318,51 @@ function get_dialect(document) {
 }
 
 
-function make_hover_text(document, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
-    let [delim, policy, comment_prefix] = get_dialect(document);
-    if (policy === null)
-        return null;
+function format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, num_fields, split_warning) {
+    let result = 'Col ' + (col_num + 1);
+    if (enable_tooltip_column_names && col_num < header.length) {
+        const max_label_len = 50;
+        let column_label = header[col_num].trim();
+        let short_column_label = column_label.substr(0, max_label_len);
+        if (short_column_label != column_label)
+            short_column_label = short_column_label + '...';
+        result += ', ' + short_column_label;
+    }
+    if (enable_tooltip_warnings) {
+        if (split_warning) {
+            result += '; ERR: Inconsistent double quotes in line';
+        } else if (header.length != num_fields) {
+            result += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${num_fields}`;
+        }
+    }
+    return result;
+}
+
+
+function make_hover_text_rfc(document, delim, comment_prefix, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
+    const hover_parse_margin = 20;
+    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + 1000, 0); // FIXME use hover_parse_margin instead of 1000
+    let table_ranges = parse_document_range_rfc(document, delim, comment_prefix, range);
+    for (let row_info of table_ranges) {
+        if (row_info.hasOwnProperty('comment_range') && row_info.comment_range.contains(position)) {
+            return 'Comment';
+        } else {
+            for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
+                // One logical field can map to multiple ranges if it spans multiple lines.
+                for (let record_range of row_info.record_ranges[col_num]) {
+                    // FIXME there is something odd here. Probably we don't take into account delim length or something like this.
+                    if (record_range.contains(position)) {
+                        let header = get_header(document, delim, QUOTED_RFC_POLICY, comment_prefix);
+                        return format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, row_info.record_ranges.length, /*split_warning=*/false);
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function make_hover_text_standard(document, delim, policy, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings) {
     var lnum = position.line;
     var cnum = position.character;
     var line = document.lineAt(lnum).text;
@@ -329,34 +370,24 @@ function make_hover_text(document, position, language_id, enable_tooltip_column_
     if (comment_prefix && line.startsWith(comment_prefix))
         return 'Comment';
 
-    // FIXME support RFC policy properly
-    var report = csv_utils.smart_split(line, delim, policy, true);
-
-    var entries = report[0];
-    var warning = report[1];
+    let [entries, warning] = csv_utils.smart_split(line, delim, policy, true);
     var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
-
     if (col_num == null)
         return null;
-    var result = 'Col ' + (col_num + 1);
+    let header = get_header(document, delim, policy, comment_prefix);
+    return format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, entries.length, warning);
+}
 
-    var header = get_header(document, delim, policy, comment_prefix);
-    if (enable_tooltip_column_names && col_num < header.length) {
-        const max_label_len = 50;
-        let column_label = header[col_num].trim();
-        var short_column_label = column_label.substr(0, max_label_len);
-        if (short_column_label != column_label)
-            short_column_label = short_column_label + '...';
-        result += ', ' + short_column_label;
+
+function make_hover_text(document, position, enable_tooltip_column_names, enable_tooltip_warnings) {
+    let [delim, policy, comment_prefix] = get_dialect(document);
+    if (policy === null)
+        return null;
+    if (policy == QUOTED_RFC_POLICY) {
+        return make_hover_text_rfc(document, delim, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings)
+    } else {
+        return make_hover_text_standard(document, delim, policy, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings)
     }
-    if (enable_tooltip_warnings) {
-        if (warning) {
-            result += '; ERR: Inconsistent double quotes in line';
-        } else if (header.length != entries.length) {
-            result += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${entries.length}`;
-        }
-    }
-    return result;
 }
 
 
@@ -377,6 +408,7 @@ function make_status_info(document, position, enable_tooltip_column_names) {
     var warning = report[1];
     if (warning)
         return null;
+    // FIXME support rfc policy? We can disable it for RFC for now and add support later on.
     var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
 
     if (col_num == null)
@@ -1156,6 +1188,7 @@ async function shrink_table() {
     if (policy === null) {
         return;
     }
+    // FIXME do not allow shrinking RFC tables for now (show error msg), implement it later on.
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Preparing'});
@@ -1190,6 +1223,7 @@ async function align_table() {
     if (policy === null) {
         return;
     }
+    // FIXME do not allow aligning RFC tables for now (show error msg), implement it later on.
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Calculating column statistics'});
@@ -1678,6 +1712,7 @@ function make_multiline_record_ranges(delim_length, sentinel_sequence, fields, s
 
 function parse_document_range_rfc(doc, delim, comment_prefix, range) {
     let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
+    // FIXME make sure that this works for the last line - both for hover text and highlighting
     let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
     let table_ranges = [];
     let line_aggregator = new MultilineRecordAggregator(comment_prefix);
@@ -1875,10 +1910,10 @@ class RainbowTokenProvider {
             if (row_info.hasOwnProperty('comment_range')) {
                 builder.push(row_info.comment_range, 'comment');
             } else {
-                for (let c = 0; c < row_info.record_ranges.length; c++) {
-                    for (let ft of row_info.record_ranges[c]) {
+                for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
+                    for (let record_range of row_info.record_ranges[col_num]) {
                         // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
-                        builder.push(ft, tokenTypes[c % tokenTypes.length]);
+                        builder.push(record_range, tokenTypes[col_num % tokenTypes.length]);
                     }
                 }
             }
@@ -1893,7 +1928,8 @@ class CommentTokenProvider {
     }
     async provideDocumentRangeSemanticTokens(doc, range, _token) {
         let [_delim, policy, comment_prefix] = get_dialect(doc);
-        if (manual_comment_prefix_stoplist.has(doc.fileName)) {
+        if (manual_comment_prefix_stoplist.has(doc.fileName) && !comment_prefix) {
+            // We can't use empty comment prefix (and early return) - in that case the previous highlighting would not go away due to a VSCode quirk, need to make an empty build instead to make sure that all previously highlighted lines were cleared.
             comment_prefix = '#####COMMENT_PREFIX_THAT_CAN_NOT_OCCURE_IN_A_NORMAL_FILE_AND_EVEN_IF_IT_OCCURES_NOT_A_BIG_DEAL####';
         }
         if (!comment_prefix || policy === null || policy == QUOTED_RFC_POLICY) {

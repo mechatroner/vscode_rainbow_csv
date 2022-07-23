@@ -140,13 +140,11 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Support dynamic dialects with quoted policies.
 
-* Use dynamic highlighting to color comment lines both for regular and dynamic csv: table_ranges will contain objects with both records and comments entries
-
-* Autodetect rfc policies.
-
 * Consider speeding up autodetection by adding parse_rfc option. If it is false - we can only parse top N=10 lines and skip setting lint cache key until the actual lint.
 
-* Add "set as comment prefix" context menu command for selected text in csv syntaxes, like it was done for the header.
+* Consider using RFC-like syntax by ajhyndman, see https://github.com/mechatroner/vscode_rainbow_csv/issues/4
+
+* Implement align/shrink for the RFC dialects too.
 
 ## RFC Support plan
 We need:
