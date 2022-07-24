@@ -175,18 +175,19 @@ async function replace_doc_content(active_editor, active_doc, new_content) {
     await active_editor.edit(edit => edit.replace(full_range, new_content));
 }
 
-// FIXME make sure that semantic tokens work reasonably well with document edits.
 function sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record) {
     let records = [];
-    let first_failed_line = null;
     let _fields_info = null;
-    if (end_record < 100) {
+    let first_failed_line = null;
+    let _first_trailing_space_line = null;
+    if (end_record < preview_window_size * 2) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record);
+        [records, _fields_info, first_failed_line, _first_trailing_space_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        console.log("record:" + JSON.stringify(records)); //FOR_DEBUG
     } else {
         // FIXME make sure to test this branch!
         if (!cached_rfc_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
             cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
         }
         [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
@@ -205,8 +206,7 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
     rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
 
     let preview_records = [];
-    // FIXME use document policy instead of enable_rfc_newlines from the context.
-    if (rbql_context.enable_rfc_newlines) {
+    if (policy == QUOTED_RFC_POLICY) {
         let first_failed_line = null;
         let start_record = rbql_context.requested_start_record;
         let end_record = start_record + preview_window_size;
@@ -243,11 +243,6 @@ function sample_preview_records_from_context(rbql_context, dst_message) {
 
 function make_header_key(file_path) {
     return 'rbql_header:' + file_path;
-}
-
-
-function make_rfc_policy_key(file_path) {
-    return 'enable_rfc_newlines:' + file_path;
 }
 
 
@@ -876,15 +871,13 @@ function get_dst_table_dir(input_table_path) {
 }
 
 
-async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler) {
+async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers, webview_report_handler) {
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
 
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
-    if (input_policy == QUOTED_POLICY && enable_rfc_newlines)
-        input_policy = QUOTED_RFC_POLICY;
     let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
         [output_delim, output_policy] = [',', QUOTED_POLICY]; // XXX should it be "quoted_rfc" instead?
@@ -924,6 +917,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             return;
         }
         webview_report_handler(null, null);
+        // FIXME output QUOTED_RFC_POLICY policy is not preserved when querying the test file.
         await handle_rbql_result_file(result_doc, warnings);
     } else {
         if (is_web_ext) {
@@ -1194,7 +1188,10 @@ async function shrink_table() {
     if (policy === null) {
         return;
     }
-    // FIXME do not allow shrinking RFC tables for now (show error msg), implement it later on.
+    if (policy == QUOTED_RFC_POLICY) {
+        show_single_line_error('Shrinking is not yet supported for files with multiline fields');
+        return;
+    }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Preparing'});
@@ -1229,7 +1226,10 @@ async function align_table() {
     if (policy === null) {
         return;
     }
-    // FIXME do not allow aligning RFC tables for now (show error msg), implement it later on.
+    if (policy == QUOTED_RFC_POLICY) {
+        show_single_line_error('Alignment is not yet supported for files with multiline fields');
+        return;
+    }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Calculating column statistics'});
@@ -1325,7 +1325,6 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         let history_list = get_from_global_state('rbql_query_history', []);
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
-        init_msg['enable_rfc_newlines'] = rbql_context.enable_rfc_newlines;
         init_msg['with_headers'] = rbql_context.with_headers;
         init_msg['header'] = rbql_context.header;
         init_msg['is_web_ext'] = is_web_ext;
@@ -1333,7 +1332,6 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
             init_msg['integration_test_query'] = integration_test_options.rbql_query;
             init_msg['integration_test_with_headers'] = integration_test_options.with_headers || false;
-            init_msg['integration_test_enable_rfc_newlines'] = integration_test_options.enable_rfc_newlines || false;
         }
         await webview.postMessage(init_msg);
     }
@@ -1365,15 +1363,6 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             last_rbql_queries.set(file_path_to_query_key(rbql_context.input_document_path), rbql_query);
     }
 
-    if (message_type == 'newlines_policy_change') {
-        rbql_context.enable_rfc_newlines = message['enable_rfc_newlines'];
-        if (rbql_context.input_document_path)
-            await save_to_global_state(make_rfc_policy_key(rbql_context.input_document_path), rbql_context.enable_rfc_newlines);
-        let protocol_message = {'msg_type': 'resample'};
-        sample_preview_records_from_context(rbql_context, protocol_message);
-        await webview.postMessage(protocol_message);
-    }
-
     if (message_type == 'with_headers_change') {
         rbql_context.with_headers = message['with_headers'];
         if (rbql_context.input_document_path)
@@ -1401,10 +1390,9 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         let backend_language = message['backend_language'];
         let encoding = message['encoding'];
         let output_dialect = message['output_dialect'];
-        let enable_rfc_newlines = message['enable_rfc_newlines'];
         let with_headers = message['with_headers'];
         await update_query_history(rbql_query);
-        await run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, enable_rfc_newlines, with_headers, webview_report_handler);
+        await run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, with_headers, webview_report_handler);
     }
 
     if (message_type == 'edit_udf') {
@@ -1491,7 +1479,6 @@ async function edit_rbql(integration_test_options=null) {
         policy = 'monocolumn';
         delim = 'monocolumn';
     }
-    let enable_rfc_newlines = get_from_global_state(make_rfc_policy_key(input_path), false);
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
     let header = get_header_from_document(active_doc, delim, policy, comment_prefix);
@@ -1502,7 +1489,6 @@ async function edit_rbql(integration_test_options=null) {
         "delim": delim,
         "policy": policy,
         "comment_prefix": comment_prefix,
-        "enable_rfc_newlines": enable_rfc_newlines,
         "with_headers": with_headers,
         "header": header
     };

@@ -63,6 +63,7 @@ async function test_rbql_node(workspace_folder_uri) {
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
+    // FIXME don't set enable_rfc_newlines
     test_task = {rbql_backend: "js", rbql_query: "select '<<<<<', a3, a2, a1, '>>>>> NR: ' + NR", enable_rfc_newlines: true};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);

@@ -249,7 +249,8 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
             this.policy = policy;
             this.stop_on_warning = stop_on_warning;
             this.first_defective_line = null;
-            this.records = collect_records ? null : [];
+            this.records = collect_records ? [] : null;
+            this.collect_records = collect_records;
             this.num_records_parsed = 0;
             this.fields_info = new Object();
             this.first_trailing_space_line = null;
@@ -428,9 +429,8 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.variable_prefix = variable_prefix;
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
-        //this.fields_info = new Object();
         let fail_on_warning = policy == 'quoted_rfc';
-        [this.records, this.fields_info, this.first_defective_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
