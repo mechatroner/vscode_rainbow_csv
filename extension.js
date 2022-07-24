@@ -339,19 +339,25 @@ function format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warn
 }
 
 
+function contains_custom(range, position) {
+    // Provides inclusive end line, Exclusive end character comparison logic.
+    // The standard Range.contains() returns true e.g. for char range [0, 7) and location 7.
+    return position.line >= range.start.line && position.line <= range.end.line && position.character >= range.start.character && position.character < range.end.character;
+}
+
+
 function make_hover_text_rfc(document, delim, comment_prefix, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
     const hover_parse_margin = 20;
     let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + 1000, 0); // FIXME use hover_parse_margin instead of 1000
     let table_ranges = parse_document_range_rfc(document, delim, comment_prefix, range);
     for (let row_info of table_ranges) {
-        if (row_info.hasOwnProperty('comment_range') && row_info.comment_range.contains(position)) {
+        if (row_info.hasOwnProperty('comment_range') && contains_custom(row_info.comment_range, position)) {
             return 'Comment';
         } else {
             for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
                 // One logical field can map to multiple ranges if it spans multiple lines.
                 for (let record_range of row_info.record_ranges[col_num]) {
-                    // FIXME there is something odd here. Probably we don't take into account delim length or something like this.
-                    if (record_range.contains(position)) {
+                    if (contains_custom(record_range, position)) {
                         let header = get_header(document, delim, QUOTED_RFC_POLICY, comment_prefix);
                         return format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, row_info.record_ranges.length, /*split_warning=*/false);
                     }
