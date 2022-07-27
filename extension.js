@@ -33,8 +33,6 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let client_html_template_web = null;
 
-let extension_context = null;
-
 var lint_results = new Map();
 var aligned_files = new Set();
 var autodetection_stoplist = new Set();
@@ -275,19 +273,6 @@ function get_header(document, delim, policy, comment_prefix) {
 }
 
 
-function get_field_by_line_position(fields, delim_length, query_pos) {
-    if (!fields.length)
-        return null;
-    var col_num = 0;
-    var cpos = fields[col_num].length + delim_length;
-    while (query_pos > cpos && col_num + 1 < fields.length) {
-        col_num += 1;
-        cpos = cpos + fields[col_num].length + delim_length;
-    }
-    return col_num;
-}
-
-
 function get_dialect(document) {
     let language_id = document.languageId;
     let delim = null;
@@ -310,121 +295,6 @@ function get_dialect(document) {
     }
     [delim, policy] = dialect_map[language_id];
     return [delim, policy, comment_prefix];
-}
-
-
-function format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, num_fields, split_warning) {
-    let result = 'Col ' + (col_num + 1);
-    if (enable_tooltip_column_names && col_num < header.length) {
-        const max_label_len = 50;
-        let column_label = header[col_num].trim();
-        let short_column_label = column_label.substr(0, max_label_len);
-        if (short_column_label != column_label)
-            short_column_label = short_column_label + '...';
-        result += ', ' + short_column_label;
-    }
-    if (enable_tooltip_warnings) {
-        if (split_warning) {
-            result += '; ERR: Inconsistent double quotes in line';
-        } else if (header.length != num_fields) {
-            result += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${num_fields}`;
-        }
-    }
-    return result;
-}
-
-
-function contains_custom(range, position) {
-    // Provides inclusive end line, Exclusive end character comparison logic.
-    // The standard Range.contains() returns true e.g. for char range [0, 7) and location 7.
-    return position.line >= range.start.line && position.line <= range.end.line && position.character >= range.start.character && position.character < range.end.character;
-}
-
-
-function make_hover_text_rfc(document, delim, comment_prefix, position, language_id, enable_tooltip_column_names, enable_tooltip_warnings) {
-    const hover_parse_margin = 20;
-    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + 1000, 0); // FIXME use hover_parse_margin instead of 1000
-    let table_ranges = parse_document_range_rfc(document, delim, comment_prefix, range);
-    for (let row_info of table_ranges) {
-        if (row_info.hasOwnProperty('comment_range') && contains_custom(row_info.comment_range, position)) {
-            return 'Comment';
-        } else {
-            for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
-                // One logical field can map to multiple ranges if it spans multiple lines.
-                for (let record_range of row_info.record_ranges[col_num]) {
-                    if (contains_custom(record_range, position)) {
-                        let header = get_header(document, delim, QUOTED_RFC_POLICY, comment_prefix);
-                        return format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, row_info.record_ranges.length, /*split_warning=*/false);
-                    }
-                }
-            }
-        }
-    }
-    return null;
-}
-
-function make_hover_text_standard(document, delim, policy, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings) {
-    var lnum = position.line;
-    var cnum = position.character;
-    var line = document.lineAt(lnum).text;
-
-    if (comment_prefix && line.startsWith(comment_prefix))
-        return 'Comment';
-
-    let [entries, warning] = csv_utils.smart_split(line, delim, policy, true);
-    var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
-    if (col_num == null)
-        return null;
-    let header = get_header(document, delim, policy, comment_prefix);
-    return format_tooltip(header, enable_tooltip_column_names, enable_tooltip_warnings, col_num, entries.length, warning);
-}
-
-
-function make_hover_text(document, position, enable_tooltip_column_names, enable_tooltip_warnings) {
-    let [delim, policy, comment_prefix] = get_dialect(document);
-    if (policy === null)
-        return null;
-    if (policy == QUOTED_RFC_POLICY) {
-        return make_hover_text_rfc(document, delim, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings)
-    } else {
-        return make_hover_text_standard(document, delim, policy, comment_prefix, position, enable_tooltip_column_names, enable_tooltip_warnings)
-    }
-}
-
-
-function make_status_info(document, position, enable_tooltip_column_names) {
-    let [delim, policy, comment_prefix] = get_dialect(document);
-    if (policy === null)
-        return null;
-    var lnum = position.line;
-    var cnum = position.character;
-    var line = document.lineAt(lnum).text;
-
-    if (comment_prefix && line.startsWith(comment_prefix))
-        return null;
-
-    var report = csv_utils.smart_split(line, delim, policy, true);
-
-    var entries = report[0];
-    var warning = report[1];
-    if (warning)
-        return null;
-    // FIXME support rfc policy? We can disable it for RFC for now and add support later on.
-    var col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
-
-    if (col_num == null)
-        return null;
-    var result = 'CSV: ' + (col_num + 1);
-
-    var header = get_header(document, delim, policy, comment_prefix);
-    if (header.length != entries.length)
-        return null;
-
-    if (enable_tooltip_column_names && col_num < header.length) {
-        let column_label = header[col_num].trim();
-        result += ', ' + column_label;
-    }
-    return result;
 }
 
 
@@ -513,28 +383,6 @@ function disable_rainbow_features_if_non_csv(active_doc) {
 }
 
 
-function make_hover(document, language_id, position, cancellation_token) {
-    if (!get_from_config('enable_tooltip', false)) {
-        return;
-    }
-    let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
-    var hover_text = make_hover_text(document, position, enable_tooltip_column_names, enable_tooltip_warnings);
-    if (hover_text && !cancellation_token.isCancellationRequested) {
-        let mds = null;
-        if (language_id == DYNAMIC_CSV) {
-            mds = hover_text; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
-        } else {
-            mds = new vscode.MarkdownString();
-            mds.appendCodeblock(hover_text, 'rainbow hover markup');
-        }
-        return new vscode.Hover(mds);
-    } else {
-        return null;
-    }
-}
-
-
 function get_active_editor() {
     var active_window = vscode.window;
     if (!active_window)
@@ -608,14 +456,35 @@ function show_align_shrink_button(file_path) {
 }
 
 
-function do_show_column_info_button(status_text) {
+function do_show_column_info_button(full_report, short_report) {
     if (!column_info_button)
         column_info_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
-    const max_len = 25;
-    let short_info = status_text.length > max_len ? status_text.substring(0, max_len - '...'.length + 1) + '...' : status_text;
-    column_info_button.text = short_info;
-    column_info_button.tooltip = status_text;
+    column_info_button.text = short_report;
+    column_info_button.tooltip = full_report;
     column_info_button.show();
+}
+
+
+function make_hover(document, language_id, position, cancellation_token) {
+    if (!get_from_config('enable_tooltip', false)) {
+        return;
+    }
+    let [delim, policy, comment_prefix] = get_dialect(document);
+    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(document, delim, policy, comment_prefix, position);
+    if (!cursor_position_info || cancellation_token.isCancellationRequested)
+        return null;
+    let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
+    let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
+    let header = get_header(document, delim, policy, comment_prefix);
+    let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, enable_tooltip_warnings, /*show_comments=*/true, /*max_label_length=*/50);
+    let mds = null;
+    if (language_id == DYNAMIC_CSV) {
+        mds = short_report; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
+    } else {
+        mds = new vscode.MarkdownString();
+        mds.appendCodeblock(short_report, 'rainbow hover markup');
+    }
+    return new vscode.Hover(mds);
 }
 
 
@@ -635,12 +504,15 @@ function show_column_info_button() {
         // Do not report CSV columns for selections.
         return false;
     }
-    let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let active_doc = get_active_doc(active_editor);
-    let status_text = make_status_info(active_doc, position, enable_tooltip_column_names);
-    if (!status_text)
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(active_doc, delim, policy, comment_prefix, position);
+    if (!cursor_position_info)
         return false;
-    do_show_column_info_button(status_text);
+    let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
+    let header = get_header(active_doc, delim, policy, comment_prefix);
+    let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_warnings_in_full_report=*/true, /*show_comments=*/false, /*max_label_length=*/25);
+    do_show_column_info_button(full_report, short_report);
     return true;
 }
 
@@ -1120,7 +992,7 @@ async function column_edit(edit_mode) {
 
     let entries = report[0];
     let quoting_warning = report[1];
-    let col_num = get_field_by_line_position(entries, delim.length, cnum + 1);
+    let col_num = ll_rainbow_utils().get_field_by_line_position(entries, delim.length, cnum + 1);
 
     let selections = [];
     let num_lines = active_doc.lineCount;
@@ -1633,154 +1505,6 @@ async function handle_editor_switch(editor) {
 }
 
 
-class MultilineRecordAggregator {
-    // FIXME Replace csv_utils.accumulate_rfc_line_into_record() with this class and backport to RBQL.
-    constructor(comment_prefix) {
-        this.comment_prefix = comment_prefix;
-        this.reset();
-    }
-    add_line(line_text) {
-        ll_rainbow_utils().assert(!this.has_full_record && !this.has_comment_line);
-        if (this.comment_prefix && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
-            this.has_comment_line = true;
-            return false;
-        }
-        let match_list = line_text.match(/"/g);
-        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-        this.rfc_line_buffer.push(line_text);
-        this.has_full_record = (!has_unbalanced_double_quote && this.rfc_line_buffer.length == 1) || (has_unbalanced_double_quote && this.rfc_line_buffer.length > 1);
-        return this.has_full_record;
-    }
-    is_inside_multiline_record() {
-        return this.rfc_line_buffer.length && !this.has_full_record;
-    }
-    get_full_line(line_separator) {
-        return this.rfc_line_buffer.join(line_separator);
-    }
-    get_num_lines_in_record() {
-        return this.rfc_line_buffer.length;
-    }
-    reset() {
-        this.rfc_line_buffer = [];
-        this.has_full_record = false;
-        this.has_comment_line = false;
-    }
-}
-
-
-function make_multiline_record_ranges(delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
-    // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
-    let record_ranges = [];
-    // FIXME add unit tests
-    let lnum_current = start_line;
-    let pos_in_editor_line = 0;
-    let next_pos_in_editor_line = 0;
-    for (let i = 0; i < fields.length; i++) {
-        let pos_in_logical_field = 0;
-        // Group tokens belonging to the same logical field.
-        let logical_field_tokens = [];
-        while (true) {
-            let sentinel_pos = fields[i].indexOf(sentinel_sequence, pos_in_logical_field);
-            if (sentinel_pos == -1)
-                break;
-            logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + sentinel_pos - pos_in_logical_field));
-            lnum_current += 1;
-            pos_in_editor_line = 0;
-            next_pos_in_editor_line = 0;
-            pos_in_logical_field = sentinel_pos + sentinel_sequence.length;
-        }
-        next_pos_in_editor_line += fields[i].length - pos_in_logical_field;
-        if (i + 1 < fields.length) {
-            next_pos_in_editor_line += delim_length;
-        }
-        logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
-        record_ranges.push(logical_field_tokens);
-        pos_in_editor_line = next_pos_in_editor_line;
-    }
-    ll_rainbow_utils().assert(lnum_current == expected_end_line_for_control);
-    return record_ranges;
-}
-
-
-function parse_document_range_rfc(doc, delim, comment_prefix, range) {
-    let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
-    // FIXME make sure that this works for the last line - both for hover text and highlighting
-    let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
-    let table_ranges = [];
-    let line_aggregator = new MultilineRecordAggregator(comment_prefix);
-    // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
-    for (let lnum = begin_line; lnum < end_line; lnum++) {
-        let line_text = doc.lineAt(lnum).text;
-        if (lnum + 1 == doc.lineCount && !line_text)
-            break;
-        let inside_multiline_record = line_aggregator.is_inside_multiline_record();
-        let start_line = lnum - line_aggregator.get_num_lines_in_record();
-        line_aggregator.add_line(line_text);
-        if (line_aggregator.has_comment_line) {
-            table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
-            line_aggregator.reset();
-        } else if (line_aggregator.has_full_record) {
-            const sentinel_sequence = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves.
-            let combined_line = line_aggregator.get_full_line(sentinel_sequence);
-            line_aggregator.reset();
-            let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
-            if (warning) {
-                if (inside_multiline_record) {
-                    // Try using this line as a start line inside multiline record, reset all previously parsed ranges.
-                    table_ranges = [];
-                    ll_rainbow_utils().assert(!line_aggregator.add_line(line_text));
-                    ll_rainbow_utils().assert(line_aggregator.is_inside_multiline_record());
-                }
-            } else {
-                table_ranges.push({record_ranges: make_multiline_record_ranges(delim.length, sentinel_sequence, fields, start_line, lnum)});
-            }
-        }
-    }
-    return table_ranges;
-}
-
-
-function parse_document_range_single_line(doc, delim, policy, comment_prefix, range) {
-    let table_ranges = [];
-    let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
-    for (let lnum = begin_line; lnum < end_line; lnum++) {
-        let record_ranges = [];
-        let line_text = doc.lineAt(lnum).text;
-        if (lnum + 1 == doc.lineCount && !line_text)
-            break;
-        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
-            continue;
-        }
-        let split_result = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
-        // TODO consider handling comments and warnings
-        let fields = split_result[0];
-        let cpos = 0;
-        let next_cpos = 0;
-        for (let i = 0; i < fields.length; i++) {
-            next_cpos += fields[i].length;
-            if (i + 1 < fields.length) {
-                next_cpos += delim.length;
-            }
-            record_ranges.push([new vscode.Range(lnum, cpos, lnum, next_cpos)]);
-            cpos = next_cpos;
-        }
-        table_ranges.push({record_ranges: record_ranges});
-    }
-    return table_ranges;
-}
-
-
-function parse_document_range(doc, delim, policy, comment_prefix, range) {
-    if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(doc, delim, comment_prefix, range);
-    } else {
-        return parse_document_range_single_line(doc, delim, policy, comment_prefix, range);
-    }
-}
-
-
 function do_handle_cursor_movement() {
     if (!show_column_info_button() && column_info_button) {
         column_info_button.hide();
@@ -1895,7 +1619,7 @@ class RainbowTokenProvider {
         if (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY) {
             return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
         }
-        let table_ranges = parse_document_range(document, delim, policy, comment_prefix, range);
+        let table_ranges = ll_rainbow_utils().parse_document_range(document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {
@@ -1992,8 +1716,6 @@ async function activate(context) {
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
-
-    extension_context = context;
 
     enable_dynamic_semantic_tokenization();
 
