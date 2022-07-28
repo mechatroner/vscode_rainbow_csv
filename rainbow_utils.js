@@ -845,37 +845,28 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 }
 
 
-function contains_custom(range, position, is_end_of_line) {
-    // Provides inclusive end line, Exclusive end character comparison logic.
-    // The standard Range.contains() returns true e.g. for char range [0, 7) and location 7.
-    let range_end_character = is_end_of_line ? range.end.character + 1 : range.end.character;
-    return position.line >= range.start.line && position.line <= range.end.line && position.character >= range.start.character && position.character < range_end_character;
-}
-
-
 function get_cursor_position_info_rfc(document, delim, comment_prefix, position) {
-    // FIXME cursor after trailing separator e.g. `aaa,bbb,ccc,|` still shows the wrong column number (previous)
     const hover_parse_margin = 20;
-    let is_end_of_line = position.character >= document.lineAt(position.line).text.length;
-    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + 1000, 0); // FIXME use hover_parse_margin instead of 1000
+    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
     let table_ranges = parse_document_range_rfc(document, delim, comment_prefix, range);
+    let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
         if (row_info.hasOwnProperty('comment_range')) {
-            if (contains_custom(row_info.comment_range, position, is_end_of_line)) {
-                return {is_comment: true};
+            if (row_info.comment_range.contain(position)) {
+                last_found_position_info = {is_comment: true};
             }
         } else {
             for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
                 // One logical field can map to multiple ranges if it spans multiple lines.
                 for (let record_range of row_info.record_ranges[col_num]) {
-                    if (contains_custom(record_range, position, is_end_of_line)) {
-                        return {column_number: col_num, total_columns: row_info.record_ranges.length, split_warning: false};
+                    if (record_range.contains(position)) {
+                        last_found_position_info = {column_number: col_num, total_columns: row_info.record_ranges.length, split_warning: false};
                     }
                 }
             }
         }
     }
-    return null;
+    return last_found_position_info;
 }
 
 
@@ -906,7 +897,7 @@ function get_cursor_position_info(document, delim, policy, comment_prefix, posit
 }
 
 
-function format_cursor_position_info(cursor_position_info, header, show_column_names, show_warnings_in_full_report, show_comments, max_label_length) {
+function format_cursor_position_info(cursor_position_info, header, show_column_names, show_comments, max_label_length) {
     if (cursor_position_info.is_comment) {
         if (show_comments) {
             return ['Comment', 'Comment'];
@@ -921,15 +912,13 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
         let short_column_label = column_label.substr(0, max_label_length);
         if (short_column_label != column_label)
             short_column_label = short_column_label + '...';
-        short_report += ', ' + short_column_label;
-        full_report += ', ' + column_label;
+        short_report += ': ' + short_column_label;
+        full_report += ': ' + column_label;
     }
-    if (show_warnings_in_full_report) {
-        if (cursor_position_info.split_warning) {
-            full_report += '; ERR: Inconsistent double quotes in line';
-        } else if (header.length != cursor_position_info.total_columns) {
-            full_report += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${cursor_position_info.total_columns}`;
-        }
+    if (cursor_position_info.split_warning) {
+        full_report += '; ERR: Inconsistent double quotes in line';
+    } else if (header.length != cursor_position_info.total_columns) {
+        full_report += `; WARN: Inconsistent num of fields, header: ${header.length}, this line: ${cursor_position_info.total_columns}`;
     }
     return [full_report, short_report];
 }

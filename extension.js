@@ -474,9 +474,8 @@ function make_hover(document, language_id, position, cancellation_token) {
     if (!cursor_position_info || cancellation_token.isCancellationRequested)
         return null;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let enable_tooltip_warnings = get_from_config('enable_tooltip_warnings', false);
     let header = get_header(document, delim, policy, comment_prefix);
-    let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, enable_tooltip_warnings, /*show_comments=*/true, /*max_label_length=*/50);
+    let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/true, /*max_label_length=*/25);
     let mds = null;
     if (language_id == DYNAMIC_CSV) {
         mds = short_report; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
@@ -511,7 +510,7 @@ function show_column_info_button() {
         return false;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let header = get_header(active_doc, delim, policy, comment_prefix);
-    let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_warnings_in_full_report=*/true, /*show_comments=*/false, /*max_label_length=*/25);
+    let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
     do_show_column_info_button(full_report, short_report);
     return true;
 }

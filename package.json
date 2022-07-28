@@ -96,11 +96,6 @@
                     "default": "TMP",
                     "description": "Output directory for RBQL result sets, can be `TMP`, `INPUT` or a custom absolute path. `TMP` - output in system tmp dir(default), `INPUT` - output in the same dir as input file, otherwise use provided path as the output directory e.g. `/path/to/custom/dir`"
                 },
-                "rainbow_csv.enable_tooltip_warnings": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Show warnings in tooltip"
-                },
                 "rainbow_csv.enable_auto_csv_lint": {
                     "type": "boolean",
                     "default": true,
@@ -321,10 +316,12 @@
             },
             {
                 "command": "rainbow-csv.RainbowSeparator",
+                "category": "Rainbow CSV",
                 "title": "Set selected text as Rainbow separator: Basic"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorMultiline",
+                "category": "Rainbow CSV",
                 "title": "Set selected text as Rainbow separator: Allows fields to span multiple lines"
             },
             {
