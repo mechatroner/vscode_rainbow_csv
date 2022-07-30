@@ -15,6 +15,7 @@ const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable
+const max_preview_field_length = 250;
 
 
 class AssertionError extends Error {}
@@ -924,6 +925,69 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
 }
 
 
+function sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result) {
+    let records = [];
+    let _fields_info = null;
+    let first_failed_line = null;
+    let _first_trailing_space_line = null;
+    if (end_record < preview_window_size * 2) {
+        // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
+        [records, _fields_info, first_failed_line, _first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+    } else {
+        // FIXME make sure to test this branch!
+        if (!cached_rfc_parse_result.has(document.fileName)) {
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
+        }
+        [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
+    }
+    let preview_records = records.slice(start_record, end_record);
+    return [preview_records, first_failed_line];
+}
+
+
+function sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_rfc_parse_result) {
+    let document = rbql_context.input_document;
+    let delim = rbql_context.delim;
+    let policy = rbql_context.policy;
+    let comment_prefix = rbql_context.comment_prefix; // FIXME test this
+
+    rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
+
+    let preview_records = [];
+    if (policy == QUOTED_RFC_POLICY) {
+        let first_failed_line = null;
+        let start_record = rbql_context.requested_start_record;
+        let end_record = start_record + preview_window_size;
+        [preview_records, first_failed_line] = sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result);
+        if (first_failed_line !== null) {
+            // FIXME test that correct record and line number are shown.
+            dst_message.preview_sampling_error = `Double quotes are not consistent in record ${preview_records.length} which starts at line ${first_failed_line + 1}`;
+            return;
+        }
+    } else {
+        let num_records = document.lineCount;
+        if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
+            num_records -= 1;
+        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
+        for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
+            let line_text = document.lineAt(nr).text;
+            let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
+            preview_records.push(cur_record);
+        }
+    }
+
+    for (let r = 0; r < preview_records.length; r++) {
+        let cur_record = preview_records[r];
+        for (let c = 0; c < cur_record.length; c++) {
+            if (cur_record[c].length > max_preview_field_length) {
+                cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###';
+            }
+        }
+    }
+    dst_message.preview_records = preview_records;
+    dst_message.start_record_zero_based = rbql_context.requested_start_record;
+}
 
 
 module.exports.make_table_name_key = make_table_name_key;
@@ -946,3 +1010,4 @@ module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.get_cursor_position_info = get_cursor_position_info;
 module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
+module.exports.sample_preview_records_from_context = sample_preview_records_from_context;

@@ -27,7 +27,6 @@ function ll_rainbow_utils() {
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 const preview_window_size = 100;
-const max_preview_field_length = 250;
 const scratch_buf_marker = 'vscode_rbql_scratch';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
@@ -182,70 +181,6 @@ async function replace_doc_content(active_editor, active_doc, new_content) {
     let invalid_range = new vscode.Range(0, 0, active_doc.lineCount /* Intentionally missing the '-1' */, 0);
     let full_range = active_doc.validateRange(invalid_range);
     await active_editor.edit(edit => edit.replace(full_range, new_content));
-}
-
-function sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record) {
-    let records = [];
-    let _fields_info = null;
-    let first_failed_line = null;
-    let _first_trailing_space_line = null;
-    if (end_record < preview_window_size * 2) {
-        // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line, _first_trailing_space_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
-    } else {
-        // FIXME make sure to test this branch!
-        if (!cached_rfc_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
-            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
-        }
-        [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
-    }
-    let preview_records = records.slice(start_record, end_record);
-    return [preview_records, first_failed_line];
-}
-
-
-function sample_preview_records_from_context(rbql_context, dst_message) {
-    let document = rbql_context.input_document;
-    let delim = rbql_context.delim;
-    let policy = rbql_context.policy;
-    let comment_prefix = rbql_context.comment_prefix; // FIXME test this
-
-    rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
-
-    let preview_records = [];
-    if (policy == QUOTED_RFC_POLICY) {
-        let first_failed_line = null;
-        let start_record = rbql_context.requested_start_record;
-        let end_record = start_record + preview_window_size;
-        [preview_records, first_failed_line] = sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record);
-        if (first_failed_line !== null) {
-            // FIXME test that correct record and line number are shown.
-            dst_message.preview_sampling_error = `Double quotes are not consistent in record ${preview_records.length} which starts at line ${first_failed_line + 1}`;
-            return;
-        }
-    } else {
-        let num_records = document.lineCount;
-        if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
-            num_records -= 1;
-        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
-        for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
-            let line_text = document.lineAt(nr).text;
-            let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
-            preview_records.push(cur_record);
-        }
-    }
-
-    for (let r = 0; r < preview_records.length; r++) {
-        let cur_record = preview_records[r];
-        for (let c = 0; c < cur_record.length; c++) {
-            if (cur_record[c].length > max_preview_field_length) {
-                cur_record[c] = cur_record[c].substr(0, max_preview_field_length) + '###UI_STRING_TRIM_MARKER###';
-            }
-        }
-    }
-    dst_message.preview_records = preview_records;
-    dst_message.start_record_zero_based = rbql_context.requested_start_record;
 }
 
 
@@ -1194,7 +1129,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
-        sample_preview_records_from_context(rbql_context, init_msg);
+        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, init_msg, preview_window_size, cached_rfc_parse_result);
         let path_key = file_path_to_query_key(rbql_context.input_document_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
@@ -1257,7 +1192,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is just max possible value which is incorrect and will be adjusted later.
         }
         let protocol_message = {'msg_type': 'navigate'};
-        sample_preview_records_from_context(rbql_context, protocol_message);
+        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, protocol_message, preview_window_size, cached_rfc_parse_result);
         await webview.postMessage(protocol_message);
     }
 
