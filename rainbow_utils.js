@@ -905,8 +905,8 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
             return [null, null];
         }
     }
-    let full_report = 'Col ' + (cursor_position_info.column_number + 1);
-    let short_report = full_report;
+    let short_report = 'Col ' + (cursor_position_info.column_number + 1);
+    let full_report = '[Rainbow CSV] ' + short_report;
     if (show_column_names && cursor_position_info.column_number < header.length) {
         let column_label = header[cursor_position_info.column_number].trim();
         let short_column_label = column_label.substr(0, max_label_length);

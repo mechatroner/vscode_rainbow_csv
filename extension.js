@@ -94,6 +94,14 @@ const dialect_map = {
 const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
 const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
 
+
+function safe_lower(src_str) {
+    if (!src_str)
+        return src_str;
+    return src_str.toLowerCase();
+}
+
+
 function get_default_policy(separator) {
     // This function is most likely a temporal workaround, get rid of it when possible.
     for (let language_id in dialect_map) {
@@ -104,6 +112,20 @@ function get_default_policy(separator) {
     }
     return SIMPLE_POLICY;
 }
+
+
+function map_dialect_to_language_id(separator, policy) {
+    for (let language_id in dialect_map) {
+        if (!dialect_map.hasOwnProperty(language_id))
+            continue;
+        if (dialect_map[language_id][0] == separator && dialect_map[language_id][1] == policy)
+            return language_id;
+    }
+    return DYNAMIC_CSV;
+}
+
+// FIXME test with huge files, both autodetection performance and dynamic syntax performance.
+
 // FIXME move as much stuff as possible to lazy-loaded modules.
 
 // This structure will get properly initialized during the startup.
@@ -134,17 +156,6 @@ function sleep(ms) {
 
 async function push_current_stack_to_js_callback_queue_to_allow_ui_update() {
     await sleep(0);
-}
-
-
-function map_separator_to_language_id(separator, policy=null) {
-    for (let language_id in dialect_map) {
-        if (!dialect_map.hasOwnProperty(language_id))
-            continue;
-        if (dialect_map[language_id][0] == separator && (policy === null || dialect_map[language_id][1] == policy))
-            return language_id;
-    }
-    return DYNAMIC_CSV;
 }
 
 
@@ -181,7 +192,6 @@ function sample_rfc_records(document, delim, policy, comment_prefix, start_recor
     if (end_record < preview_window_size * 2) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
         [records, _fields_info, first_failed_line, _first_trailing_space_line] = ll_rainbow_utils().parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
-        console.log("record:" + JSON.stringify(records)); //FOR_DEBUG
     } else {
         // FIXME make sure to test this branch!
         if (!cached_rfc_parse_result.has(document.fileName)) {
@@ -537,7 +547,7 @@ function show_rbql_status_bar_button() {
 
 
 function show_rbql_copy_to_source_button(file_path) {
-    let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
+    let parent_table_path = result_set_parent_map.get(safe_lower(file_path));
     if (!parent_table_path || parent_table_path.indexOf(scratch_buf_marker) != -1)
         return;
     let parent_basename = path.basename(parent_table_path);
@@ -625,22 +635,17 @@ async function show_warnings(warnings) {
 }
 
 
-async function handle_rbql_result_file(text_doc, warnings) {
-    var separator = rbql_context.output_delim;
-    let language_id = map_separator_to_language_id(separator);
-    var active_window = vscode.window;
-    if (!active_window)
-        return;
+async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
+    // Settin dialect just in case.
+    custom_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
+    let language_id = map_dialect_to_language_id(delim, policy);
     try {
-        await active_window.showTextDocument(text_doc);
+        await vscode.window.showTextDocument(text_doc);
     } catch (error) {
         show_single_line_error('Unable to open RBQL result document');
         return;
     }
     if (language_id && text_doc.language_id != language_id) {
-        let policy = get_default_policy(separator);
-        let language_id = map_separator_to_language_id(separator);
-        custom_document_dialects.set(text_doc.fileName, {delim: separator, policy: policy});
         await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
     }
     await show_warnings(warnings);
@@ -673,7 +678,7 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 }
 
 
-async function handle_command_result(src_table_path, dst_table_path, error_code, stdout, stderr, webview_report_handler) {
+async function handle_command_result(src_table_path, dst_table_path, dst_delim, dst_policy, error_code, stdout, stderr, webview_report_handler) {
     let json_report = stdout;
     let error_type = null;
     let error_msg = null;
@@ -701,9 +706,9 @@ async function handle_command_result(src_table_path, dst_table_path, error_code,
     }
     // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
     autodetection_stoplist.add(dst_table_path);
-    result_set_parent_map.set(dst_table_path.toLowerCase(), src_table_path);
+    result_set_parent_map.set(safe_lower(dst_table_path), src_table_path);
     let doc = await vscode.workspace.openTextDocument(dst_table_path);
-    await handle_rbql_result_file(doc, warnings);
+    await handle_rbql_result_file(doc, dst_delim, dst_policy, warnings);
 }
 
 
@@ -751,10 +756,11 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
-        [output_delim, output_policy] = [',', QUOTED_POLICY]; // XXX should it be "quoted_rfc" instead?
+        [output_delim, output_policy] = [',', QUOTED_POLICY];
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', SIMPLE_POLICY];
     rbql_context.output_delim = output_delim;
+    rbql_context.output_policy = output_policy;
 
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
 
@@ -763,7 +769,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             cmd = 'nopython';
         }
         let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, output_delim, output_policy, error_code, stdout, stderr, webview_report_handler); });
         return;
     }
     if (backend_language == 'js') {
@@ -773,12 +779,12 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             if (is_web_ext) {
                 // FIXME test comment_prefix usage in all modes
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
-                let output_doc_cfg = {content: result_lines.join('\n'), language: map_separator_to_language_id(output_delim)};
+                let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
             } else {
                 let csv_options = {'bulk_read': true};
                 await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, /*user_init_code=*/'', csv_options);
-                result_set_parent_map.set(output_path.toLowerCase(), input_path);
+                result_set_parent_map.set(safe_lower(output_path), input_path);
                 autodetection_stoplist.add(output_path);
                 result_doc = await vscode.workspace.openTextDocument(output_path);
             }
@@ -788,8 +794,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             return;
         }
         webview_report_handler(null, null);
-        // FIXME output QUOTED_RFC_POLICY policy is not preserved when querying the test file.
-        await handle_rbql_result_file(result_doc, warnings);
+        await handle_rbql_result_file(result_doc, output_delim, output_policy, warnings);
     } else {
         if (is_web_ext) {
             webview_report_handler('Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
@@ -802,7 +807,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, comment_prefix, csv_encoding];
         if (with_headers)
             args.push('--with_headers');
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, error_code, stdout, stderr, webview_report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, output_delim, output_policy, error_code, stdout, stderr, webview_report_handler); });
     }
 }
 
@@ -857,7 +862,7 @@ async function set_rainbow_separator(policy=null) {
     if (policy === null) {
         policy = get_default_policy(separator);
     }
-    let language_id = map_separator_to_language_id(separator, policy);
+    let language_id = map_dialect_to_language_id(separator, policy);
     custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let original_language_id = active_doc.languageId;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
@@ -1150,7 +1155,7 @@ async function copy_back() {
     if (!result_doc)
         return;
     let file_path = result_doc.fileName;
-    let parent_table_path = result_set_parent_map.get(file_path.toLowerCase());
+    let parent_table_path = result_set_parent_map.get(safe_lower(file_path));
     if (!parent_table_path)
         return;
     let parent_doc = await vscode.workspace.openTextDocument(parent_table_path);
@@ -1382,8 +1387,9 @@ async function edit_rbql(integration_test_options=null) {
 function autodetect_dialect(active_doc, candidate_separators) {
     let candidate_dialects = [];
     for (let separator of candidate_separators) {
-        let dialect_id = map_separator_to_language_id(separator);
+        // FIXME test with adding random string to autodetection list.
         let policy = get_default_policy(separator);
+        let dialect_id = map_dialect_to_language_id(separator, policy);
         if (!dialect_id || !policy)
             continue;
         candidate_dialects.push([dialect_id, separator, policy]);
@@ -1434,7 +1440,7 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
         }
         if (frequency > best_dialect_frequency) {
             let policy = get_default_policy(separator);
-            let dialect_id = map_separator_to_language_id(separator);
+            let dialect_id = map_dialect_to_language_id(separator, policy);
             [best_dialect, best_separator, best_policy] = [dialect_id, separator, policy];
             best_dialect_frequency = frequency;
         }
@@ -1612,10 +1618,7 @@ class RainbowTokenProvider {
     }
     async provideDocumentRangeSemanticTokens(document, range, _token) {
         let [delim, policy, comment_prefix] = get_dialect(document);
-        if (policy === null) {
-            return null;
-        }
-        if (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY) {
+        if (policy === null || (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY)) {
             return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
         }
         let table_ranges = ll_rainbow_utils().parse_document_range(document, delim, policy, comment_prefix, range);
