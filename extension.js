@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const child_process = require('child_process');
 
+const fast_load_utils = require('./fast_load_utils.js');
+
 // Please see DEV_README.md file for additional info.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -124,8 +126,6 @@ function map_dialect_to_language_id(separator, policy) {
 }
 
 // FIXME test with huge files, both autodetection performance and dynamic syntax performance.
-
-// FIXME move as much stuff as possible to lazy-loaded modules.
 
 // This structure will get properly initialized during the startup.
 let absolute_path_map = {
@@ -375,7 +375,7 @@ function show_lint_status_bar_button(file_path, language_id) {
         lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${lint_report.first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
         lint_status_bar_button.color = '#ffff28';
     } else {
-        ll_rainbow_utils().assert(lint_report.is_ok);
+        fast_load_utils.assert(lint_report.is_ok);
         lint_status_bar_button.color = '#62f442';
         lint_report_msg = 'OK';
     }
@@ -519,7 +519,7 @@ async function csv_lint(active_doc, is_manual_op) {
     lint_results.set(lint_cache_key, {is_processing: true});
     show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
-    let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
+    let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
     let is_ok = (first_defective_line === null && Object.keys(fields_info).length <= 1);
     let lint_result = {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line};
     lint_results.set(lint_cache_key, lint_result);
@@ -1343,8 +1343,7 @@ function autodetect_dialect(active_doc, candidate_separators) {
         weak_comment_prefix_for_autodetection = '#';
     for (let candidate_dialect of candidate_dialects) {
         let [dialect_id, separator, policy] = candidate_dialect;
-        // FIXME parse_document_records() should be local to this file? or maybe put it into a third external file to use in unit tests and allow easy inclussion into rainbow_utils.js.
-        let [_records, fields_info, first_defective_line, first_trailing_space_line] = ll_rainbow_utils().parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
+        let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
         if (first_defective_line !== null || Object.keys(fields_info).length != 1)
             continue;
         let num_columns = Object.keys(fields_info)[0];

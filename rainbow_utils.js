@@ -8,6 +8,8 @@ const rbql = require('./rbql_core/rbql-js/rbql.js');
 const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
+const fast_load_utils = require('./fast_load_utils.js');
+
 const non_numeric_sentinel = -1;
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
@@ -241,102 +243,6 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
 
 
 
-function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
-    // FIXME this needs to be in extension.js because it is needed for autodetection. Pass this function to the iterator, or parse records externally.
-    // Returns list of records.
-    // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
-    // TODO consider to map records to line numbers and return the mapping too.
-    // One line never maps to more than one record. One record can map to multiple lines i.e. multiple lines can map to one records.
-    let num_lines = document.lineCount;
-    let rfc_line_buffer = [];
-    let record_start_line = 0;
-
-    class RecordTextConsumer {
-        // Need this class to avoid code duplication when dealing with leftover lines in rfc_line_buffer.
-        constructor(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces) {
-            this.delim = delim;
-            this.policy = policy;
-            this.stop_on_warning = stop_on_warning;
-            this.first_defective_line = null;
-            this.records = collect_records ? [] : null;
-            this.collect_records = collect_records;
-            this.num_records_parsed = 0;
-            this.fields_info = new Object();
-            this.first_trailing_space_line = null;
-            this.detect_trailing_spaces = detect_trailing_spaces;
-            this.preserve_quotes_and_whitespaces = !collect_records;
-        }
-
-        consume(record_text, record_start_line) {
-            let [record, warning] = csv_utils.smart_split(record_text, this.delim, this.policy, this.preserve_quotes_and_whitespaces);
-            if (warning) {
-                if (this.first_defective_line === null) {
-                    this.first_defective_line = record_start_line;
-                }
-            }
-            if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
-                for (let field of record) {
-                    if (field.length && (field.charAt(0) == ' ' || field.charAt(field.length - 1) == ' ')) {
-                        this.first_trailing_space_line = record_start_line;
-                    }
-                }
-            }
-            let need_stop = false;
-            if (!this.fields_info.hasOwnProperty(record.length)) {
-                this.fields_info[record.length] = this.num_records_parsed;
-                if (min_num_fields_for_autodetection != -1) {
-                    // FIXME test this!
-                    // Autodetection mode: stop on inconsistent records length and when there is not enough columns (typically less than 2 i.e. 1).
-                    need_stop = need_stop || record.length < min_num_fields_for_autodetection; // Too few columns.
-                    need_stop = need_stop || Object.keys(this.fields_info).length > 1; // Inconsistent number of columns in different rows.
-                }
-            }
-            if (this.collect_records) {
-                this.records.push(record);
-            }
-            this.num_records_parsed += 1;
-            // FIXME test warning early stopping both for rfc and basic quoted policies.
-            need_stop = need_stop || (warning && this.stop_on_warning);
-            return !need_stop;
-        }
-    }
-
-    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces);
-
-    for (let lnum = 0; lnum < num_lines; ++lnum) {
-        let line_text = document.lineAt(lnum).text;
-        if (lnum + 1 >= num_lines && line_text == "") {
-            break; // Skip the last empty line.
-        }
-        let record_text = null;
-        if (policy == 'quoted_rfc') {
-            record_text = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line_text, comment_prefix);
-        } else if (comment_prefix === null || !line_text.startsWith(comment_prefix)) {
-            record_text = line_text;
-        }
-        if (record_text === null) {
-            continue;
-        }
-        if (!consumer.consume(record_text, record_start_line)) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
-        }
-
-        record_start_line = lnum + 1;
-        if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
-        }
-    }
-    if (rfc_line_buffer.length > 0) {
-        assert(policy == 'quoted_rfc');
-        let record_text = rfc_line_buffer.join('\n');
-        if (!consumer.consume(record_text, record_start_line)) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
-        }
-    }
-    return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
-}
-
-
 function make_table_name_key(file_path) {
     return 'rbql_table_name:' + file_path;
 }
@@ -439,7 +345,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
-        [this.records, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -932,11 +838,11 @@ function sample_rfc_records(document, delim, policy, comment_prefix, start_recor
     let _first_trailing_space_line = null;
     if (end_record < preview_window_size * 2) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line, _first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
         // FIXME make sure to test this branch!
         if (!cached_rfc_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
             cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
         }
         [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
@@ -1004,7 +910,6 @@ module.exports.calc_column_stats = calc_column_stats;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
 module.exports.align_field = align_field;
-module.exports.parse_document_records = parse_document_records;
 module.exports.assert = assert;
 module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.get_cursor_position_info = get_cursor_position_info;
