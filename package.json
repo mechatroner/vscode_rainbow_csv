@@ -435,7 +435,8 @@
         "package-web": "webpack --mode production --devtool hidden-source-map",
         "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
         "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js .",
-        "test": "node ./test/runTest.js"
+        "test": "node ./test/runTest.js",
+        "unit-test-only": "node ./test/suite/unit_tests.js"
     },
     "devDependencies": {
         "@types/vscode": "^1.62.0",

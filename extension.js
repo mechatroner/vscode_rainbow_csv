@@ -367,9 +367,9 @@ function show_lint_status_bar_button(file_path, language_id) {
     } else if (Number.isInteger(lint_report.first_defective_line)) {
         lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
         lint_status_bar_button.color = '#f44242';
-    } else if (lint_report.fields_info && Object.keys(lint_report.fields_info).length > 1) {
-        let keys = Object.keys(lint_report.fields_info).sort((a, b) => a - b);
-        lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${keys[0] + 1} has ${lint_report.fields_info[keys[0]]} fields, and record ${keys[1] + 1} has ${lint_report.fields_info[keys[1]]} fields`;
+    } else if (lint_report.fields_info && lint_report.fields_info.size > 1) {
+        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = ll_rainbow_utils().sample_first_two_inconsistent_records(inconsistent_records_info);
+        lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${record_num_1 + 1} has ${num_fields_1} fields, and record ${record_num_2 + 1} has ${num_fields_2} fields`;
         lint_status_bar_button.color = '#f44242';
     } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
         lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${lint_report.first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
@@ -520,7 +520,7 @@ async function csv_lint(active_doc, is_manual_op) {
     show_lint_status_bar_button(file_path, language_id); // Visual feedback.
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
     let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
-    let is_ok = (first_defective_line === null && Object.keys(fields_info).length <= 1);
+    let is_ok = (first_defective_line === null && fields_info.size <= 1);
     let lint_result = {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line};
     lint_results.set(lint_cache_key, lint_result);
     if (is_manual_op) {
@@ -1343,11 +1343,11 @@ function autodetect_dialect(active_doc, candidate_separators) {
         weak_comment_prefix_for_autodetection = '#';
     for (let candidate_dialect of candidate_dialects) {
         let [dialect_id, separator, policy] = candidate_dialect;
-        let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, best_dialect_num_columns + 1);
-        if (first_defective_line !== null || Object.keys(fields_info).length != 1)
+        let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, /*min_num_fields_for_autodetection=*/best_dialect_num_columns + 1);
+        if (first_defective_line !== null || fields_info.size != 1)
             continue;
-        let num_columns = Object.keys(fields_info)[0];
-        if (num_columns > best_dialect_num_columns) {
+        let num_columns = Array.from(fields_info.keys())[0];
+        if (num_columns >= best_dialect_num_columns + 1) {
             best_dialect_num_columns = num_columns;
             [best_dialect, best_separator, best_policy] = [dialect_id, separator, policy];
             best_dialect_first_trailing_space_line = first_trailing_space_line;
@@ -1390,7 +1390,7 @@ async function try_autoenable_rainbow_csv(active_doc) {
     let candidate_separators = get_from_config('autodetect_separators', []);
     var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
-    if (!file_path || autodetection_stoplist.has(file_path)) {
+    if (!file_path || autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
         return active_doc;
     }
     let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';

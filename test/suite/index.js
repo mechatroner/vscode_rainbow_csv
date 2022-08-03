@@ -7,6 +7,7 @@ const rainbow_utils = require('../../rainbow_utils.js');
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
+// FIXME create a separate unit tests in unit_tests.js and import it directly. So that it could also be run separately from console as a simple node lib/script using npm run unit-test-only.
 
 // TODO make RBQL command wait for the result to reduce the timeout.
 const poor_rbql_async_design_workaround_timeout = 6000;
@@ -206,7 +207,7 @@ async function test_align_shrink_lint(workspace_folder_uri) {
     let text_with_comma = 'foobar,';
     await vscode.commands.executeCommand('default:type', { text: text_with_comma });
     lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
-    assert(Object.keys(lint_report.fields_info).length > 1);
+    assert(lint_report.fields_info.size > 1);
     await sleep(500);
 
     for (let i = 0; i < text_with_comma.length; i++) {

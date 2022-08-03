@@ -24,7 +24,7 @@ class RecordTextConsumer {
         this.records = collect_records ? [] : null;
         this.collect_records = collect_records;
         this.num_records_parsed = 0;
-        this.fields_info = new Object();
+        this.fields_info = new Map();
         this.first_trailing_space_line = null;
         this.detect_trailing_spaces = detect_trailing_spaces;
         this.preserve_quotes_and_whitespaces = !collect_records;
@@ -46,13 +46,13 @@ class RecordTextConsumer {
             }
         }
         let need_stop = false;
-        if (!this.fields_info.hasOwnProperty(record.length)) {
-            this.fields_info[record.length] = this.num_records_parsed;
+        if (!this.fields_info.has(record.length)) {
+            this.fields_info.set(record.length, this.num_records_parsed);
             if (this.min_num_fields_for_autodetection != -1) {
                 // FIXME test this!
                 // Autodetection mode: stop on inconsistent records length and when there is not enough columns (typically less than 2 i.e. 1).
                 need_stop = need_stop || record.length < this.min_num_fields_for_autodetection; // Too few columns.
-                need_stop = need_stop || Object.keys(this.fields_info).length > 1; // Inconsistent number of columns in different rows.
+                need_stop = need_stop || this.fields_info.size > 1; // Inconsistent number of columns in different rows.
             }
         }
         if (this.collect_records) {

@@ -146,6 +146,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Implement align/shrink for the RFC dialects too.
 
+* Get rid of Object.keys() in RBQL - this could return a list of strings instead of integers.
+
 ## RFC Support plan
 We need:
 1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.
