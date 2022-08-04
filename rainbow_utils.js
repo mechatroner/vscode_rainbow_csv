@@ -2,7 +2,10 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const vscode = require('vscode');
+let vscode = null; // Avoid requiring the `vscode` module directly to allow using this module from unit tests.
+function set_vscode(vscode_module) {
+    vscode = vscode_module;
+}
 
 const rbql = require('./rbql_core/rbql-js/rbql.js');
 const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
@@ -918,3 +921,4 @@ module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
 module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
 module.exports.sample_first_two_inconsistent_records = sample_first_two_inconsistent_records;
+module.exports.set_vscode = set_vscode;

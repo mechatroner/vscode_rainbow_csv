@@ -21,8 +21,10 @@ function ll_rbql_csv() {
 
 var rainbow_utils = null; // Using lazy load to improve startup performance.
 function ll_rainbow_utils() {
-    if (rainbow_utils === null)
+    if (rainbow_utils === null) {
         rainbow_utils = require('./rainbow_utils.js');
+        rainbow_utils.set_vscode(vscode);
+    }
     return rainbow_utils;
 }
 
