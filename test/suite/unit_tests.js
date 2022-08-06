@@ -1,5 +1,25 @@
 const assert = require('assert');
-const rainbow_utils = require('../../rainbow_utils.js');
+let rainbow_utils = require('../../rainbow_utils.js');
+
+
+class TestDoublePosition {
+    constructor(line, character) {
+        this.line = line;
+        this.character = character;
+    }
+}
+
+class TestDoubleRange {
+    constructor(l1, c1, l2, c2) {
+        this.start = new TestDoublePosition(l1, c1);
+        this.end = new TestDoublePosition(l2, c2);
+    }
+}
+
+let vscode_test_double = {Range: TestDoubleRange};
+
+
+//rainbow_utils.set_vscode(vscode_test_double);
 
 
 function test_align_stats() {
@@ -200,11 +220,26 @@ function test_adjust_column_stats() {
 }
 
 
+function test_record_sampling() {
+    let fields_info = new Map([[2, 1], [10, 5]]);
+    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
+
+    fields_info = new Map([[2, 1], [10, 5], [1, 6]]);
+    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
+
+    fields_info = new Map([[2, 1], [10, 5], [1, 6], [3, 200], [4, 110]]);
+    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
+
+    fields_info = new Map([[2, 1], [10, 5], [1, 6], [3, 200], [8, 0]]);
+    assert.deepEqual([0, 8, 1, 2], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
+}
+
 
 function test_all() {
     test_align_stats();
     test_field_align();
     test_adjust_column_stats();
+    test_record_sampling();
 }
 
 exports.test_all = test_all;

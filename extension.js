@@ -23,7 +23,6 @@ var rainbow_utils = null; // Using lazy load to improve startup performance.
 function ll_rainbow_utils() {
     if (rainbow_utils === null) {
         rainbow_utils = require('./rainbow_utils.js');
-        rainbow_utils.set_vscode(vscode);
     }
     return rainbow_utils;
 }
@@ -370,7 +369,7 @@ function show_lint_status_bar_button(file_path, language_id) {
         lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
         lint_status_bar_button.color = '#f44242';
     } else if (lint_report.fields_info && lint_report.fields_info.size > 1) {
-        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = ll_rainbow_utils().sample_first_two_inconsistent_records(inconsistent_records_info);
+        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = ll_rainbow_utils().sample_first_two_inconsistent_records(lint_report.fields_info);
         lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${record_num_1 + 1} has ${num_fields_1} fields, and record ${record_num_2 + 1} has ${num_fields_2} fields`;
         lint_status_bar_button.color = '#f44242';
     } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
@@ -417,7 +416,7 @@ function make_hover(document, language_id, position, cancellation_token) {
         return;
     }
     let [delim, policy, comment_prefix] = get_dialect(document);
-    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(document, delim, policy, comment_prefix, position);
+    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(vscode, document, delim, policy, comment_prefix, position);
     if (!cursor_position_info || cancellation_token.isCancellationRequested)
         return null;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
@@ -452,7 +451,7 @@ function show_column_info_button() {
     }
     let active_doc = get_active_doc(active_editor);
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
-    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(active_doc, delim, policy, comment_prefix, position);
+    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(vscode, active_doc, delim, policy, comment_prefix, position);
     if (!cursor_position_info)
         return false;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
@@ -1557,7 +1556,7 @@ class RainbowTokenProvider {
         if (policy === null || (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY)) {
             return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
         }
-        let table_ranges = ll_rainbow_utils().parse_document_range(document, delim, policy, comment_prefix, range);
+        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {

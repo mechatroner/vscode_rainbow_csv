@@ -2,11 +2,6 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-let vscode = null; // Avoid requiring the `vscode` module directly to allow using this module from unit tests.
-function set_vscode(vscode_module) {
-    vscode = vscode_module;
-}
-
 const rbql = require('./rbql_core/rbql-js/rbql.js');
 const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -318,7 +313,6 @@ function get_header_line(document, comment_prefix) {
 
 
 function sample_first_two_inconsistent_records(inconsistent_records_info) {
-    // FIXME test this, even maybe write a unit test.
     let entries = Array.from(inconsistent_records_info.entries());
     entries.sort(function(a, b) { return a[1] - b[1]; });
     assert(entries.length > 1);
@@ -334,7 +328,6 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
     warn_msg += `e.g. record ${record_num_1 + 1} -> ${num_fields_1} fields, record ${record_num_2 + 1} -> ${num_fields_2} fields`;
     return warn_msg;
 }
-
 
 
 class RbqlIOHandlingError extends Error {}
@@ -630,7 +623,7 @@ class MultilineRecordAggregator {
 }
 
 
-function make_multiline_record_ranges(delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
+function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
     // FIXME add unit tests
@@ -664,7 +657,7 @@ function make_multiline_record_ranges(delim_length, sentinel_sequence, fields, s
 }
 
 
-function parse_document_range_rfc(doc, delim, comment_prefix, range) {
+function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range) {
     let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
     // FIXME make sure that this works for the last line - both for hover text and highlighting
     let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
@@ -694,7 +687,7 @@ function parse_document_range_rfc(doc, delim, comment_prefix, range) {
                     assert(line_aggregator.is_inside_multiline_record());
                 }
             } else {
-                table_ranges.push({record_ranges: make_multiline_record_ranges(delim.length, sentinel_sequence, fields, start_line, lnum)});
+                table_ranges.push({record_ranges: make_multiline_record_ranges(vscode, delim.length, sentinel_sequence, fields, start_line, lnum)});
             }
         }
     }
@@ -702,7 +695,7 @@ function parse_document_range_rfc(doc, delim, comment_prefix, range) {
 }
 
 
-function parse_document_range_single_line(doc, delim, policy, comment_prefix, range) {
+function parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range) {
     let table_ranges = [];
     let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
     let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
@@ -734,11 +727,11 @@ function parse_document_range_single_line(doc, delim, policy, comment_prefix, ra
 }
 
 
-function parse_document_range(doc, delim, policy, comment_prefix, range) {
+function parse_document_range(vscode, doc, delim, policy, comment_prefix, range) {
     if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(doc, delim, comment_prefix, range);
+        return parse_document_range_rfc(vscode, doc, delim, comment_prefix, range);
     } else {
-        return parse_document_range_single_line(doc, delim, policy, comment_prefix, range);
+        return parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range);
     }
 }
 
@@ -756,10 +749,10 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 }
 
 
-function get_cursor_position_info_rfc(document, delim, comment_prefix, position) {
+function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
     const hover_parse_margin = 20;
     let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
-    let table_ranges = parse_document_range_rfc(document, delim, comment_prefix, range);
+    let table_ranges = parse_document_range_rfc(vscode, document, delim, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
         if (row_info.hasOwnProperty('comment_range')) {
@@ -797,11 +790,11 @@ function get_cursor_position_info_standard(document, delim, policy, comment_pref
 }
 
 
-function get_cursor_position_info(document, delim, policy, comment_prefix, position) {
+function get_cursor_position_info(vscode, document, delim, policy, comment_prefix, position) {
     if (policy === null)
         return null;
     if (policy == QUOTED_RFC_POLICY) {
-        return get_cursor_position_info_rfc(document, delim, comment_prefix, position);
+        return get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position);
     } else {
         return get_cursor_position_info_standard(document, delim, policy, comment_prefix, position);
     }
@@ -921,4 +914,3 @@ module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
 module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
 module.exports.sample_first_two_inconsistent_records = sample_first_two_inconsistent_records;
-module.exports.set_vscode = set_vscode;
