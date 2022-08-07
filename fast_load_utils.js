@@ -83,6 +83,7 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         }
         let record_text = null;
         if (policy == 'quoted_rfc') {
+            // FIXME we should not be using accumulate_rfc_line_into_record anyway, switch to MultilineRecordAggregator!
             record_text = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line_text, comment_prefix);
         } else if (comment_prefix === null || !line_text.startsWith(comment_prefix)) {
             record_text = line_text;
@@ -93,7 +94,7 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         if (!consumer.consume(record_text, record_start_line)) {
             return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
-
+        // FIXME record_start_line calculation logic is wrong when we have comments
         record_start_line = lnum + 1;
         if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
             return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];

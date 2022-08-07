@@ -261,8 +261,33 @@ function test_parse_document_records() {
     [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
     assert.deepEqual([['aaa'], ['bbb'], ['ccc']], records);
     assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));
-    assert.equal(null, first_defective_line);
-    assert.equal(null, first_trailing_space_line);
+    assert.equal(first_defective_line, null);
+    assert.equal(first_trailing_space_line, null);
+
+    // Simple test with two-field records and a comment and a trailing space line
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1 ,c2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'simple';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1 ', 'c2']], records);
+    assert.deepEqual([[2, 0]], Array.from(fields_info.entries()));
+    assert.equal(first_defective_line, null);
+    assert.equal(first_trailing_space_line, 3);
+
+    // Simple test with inconsistent records and trailing space
+    doc_lines = ['a1,a2 ', 'b1,b2', '', 'c1', 'd3,d4,d5'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'simple';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], [''], ['c1'], ['d3', 'd4', 'd5']], records);
+    assert.deepEqual([[2, 0], [1, 2], [3, 4]], Array.from(fields_info.entries()));
+    assert.equal(first_defective_line, null);
+    assert.equal(first_trailing_space_line, 0);
+
 
     // FIXME add more unit tests.
 }
