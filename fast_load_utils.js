@@ -67,8 +67,6 @@ class RecordTextConsumer {
 
 
 function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
-    // FIXME this needs to be in extension.js because it is needed for autodetection. Pass this function to the iterator, or parse records externally.
-    // Returns list of records.
     // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
     // TODO consider to map records to line numbers and return the mapping too.
     // One line never maps to more than one record. One record can map to multiple lines i.e. multiple lines can map to one records.

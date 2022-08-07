@@ -1,22 +1,35 @@
 const assert = require('assert');
-let rainbow_utils = require('../../rainbow_utils.js');
+const rainbow_utils = require('../../rainbow_utils.js');
+const fast_load_utils = require('../../fast_load_utils.js');
 
 
-class TestDoublePosition {
+class VscodePositionTestDouble {
     constructor(line, character) {
         this.line = line;
         this.character = character;
     }
 }
 
-class TestDoubleRange {
+class VscodeRangeTestDouble {
     constructor(l1, c1, l2, c2) {
-        this.start = new TestDoublePosition(l1, c1);
-        this.end = new TestDoublePosition(l2, c2);
+        this.start = new VscodePositionTestDouble(l1, c1);
+        this.end = new VscodePositionTestDouble(l2, c2);
     }
 }
 
-let vscode_test_double = {Range: TestDoubleRange};
+
+class VscodeDocumentTestDouble {
+    constructor(lines_buffer) {
+        this.lines_buffer = lines_buffer;
+        this.lineCount = lines_buffer.length;
+    }
+    lineAt(lnum) {
+        return {text: this.lines_buffer[lnum]};
+    }
+}
+
+
+let vscode_test_double = {Range: VscodeRangeTestDouble};
 
 
 //rainbow_utils.set_vscode(vscode_test_double);
@@ -235,11 +248,32 @@ function test_record_sampling() {
 }
 
 
+function test_parse_document_records() {
+    let [doc_lines, active_doc, comment_prefix, delim, policy] = [null, null, null, null, null];
+    let [records, fields_info, first_defective_line, first_trailing_space_line] = [null, null, null, null];
+
+    // Simple test with single-field records.
+    doc_lines = ['aaa', 'bbb', 'ccc'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'simple';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
+    assert.deepEqual([['aaa'], ['bbb'], ['ccc']], records);
+    assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));
+    assert.equal(null, first_defective_line);
+    assert.equal(null, first_trailing_space_line);
+
+    // FIXME add more unit tests.
+}
+
+
 function test_all() {
     test_align_stats();
     test_field_align();
     test_adjust_column_stats();
     test_record_sampling();
+    test_parse_document_records();
 }
 
 exports.test_all = test_all;
