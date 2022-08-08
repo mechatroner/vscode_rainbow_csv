@@ -312,18 +312,8 @@ function get_header_line(document, comment_prefix) {
 }
 
 
-function sample_first_two_inconsistent_records(inconsistent_records_info) {
-    let entries = Array.from(inconsistent_records_info.entries());
-    entries.sort(function(a, b) { return a[1] - b[1]; });
-    assert(entries.length > 1);
-    let [num_fields_1, record_num_1] = entries[0];
-    let [num_fields_2, record_num_2] = entries[1];
-    return [record_num_1, num_fields_1, record_num_2, num_fields_2];
-}
-
-
 function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
-    let [record_num_1, num_fields_1, record_num_2, num_fields_2] = sample_first_two_inconsistent_records(inconsistent_records_info);
+    let [record_num_1, num_fields_1, record_num_2, num_fields_2] = rbql.sample_first_two_inconsistent_records(inconsistent_records_info);
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
     warn_msg += `e.g. record ${record_num_1 + 1} -> ${num_fields_1} fields, record ${record_num_2 + 1} -> ${num_fields_2} fields`;
     return warn_msg;
@@ -588,41 +578,6 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 }
 
 
-class MultilineRecordAggregator {
-    // FIXME Replace csv_utils.accumulate_rfc_line_into_record() with this class and backport to RBQL.
-    constructor(comment_prefix) {
-        this.comment_prefix = comment_prefix;
-        this.reset();
-    }
-    add_line(line_text) {
-        assert(!this.has_full_record && !this.has_comment_line);
-        if (this.comment_prefix && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
-            this.has_comment_line = true;
-            return false;
-        }
-        let match_list = line_text.match(/"/g);
-        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-        this.rfc_line_buffer.push(line_text);
-        this.has_full_record = (!has_unbalanced_double_quote && this.rfc_line_buffer.length == 1) || (has_unbalanced_double_quote && this.rfc_line_buffer.length > 1);
-        return this.has_full_record;
-    }
-    is_inside_multiline_record() {
-        return this.rfc_line_buffer.length && !this.has_full_record;
-    }
-    get_full_line(line_separator) {
-        return this.rfc_line_buffer.join(line_separator);
-    }
-    get_num_lines_in_record() {
-        return this.rfc_line_buffer.length;
-    }
-    reset() {
-        this.rfc_line_buffer = [];
-        this.has_full_record = false;
-        this.has_comment_line = false;
-    }
-}
-
-
 function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
@@ -662,7 +617,7 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range) {
     // FIXME make sure that this works for the last line - both for hover text and highlighting
     let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
     let table_ranges = [];
-    let line_aggregator = new MultilineRecordAggregator(comment_prefix);
+    let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let line_text = doc.lineAt(lnum).text;
@@ -913,4 +868,4 @@ module.exports.get_cursor_position_info = get_cursor_position_info;
 module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
 module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
-module.exports.sample_first_two_inconsistent_records = sample_first_two_inconsistent_records;
+module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inconsistent_records;

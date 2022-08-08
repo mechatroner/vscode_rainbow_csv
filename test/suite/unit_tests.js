@@ -233,21 +233,6 @@ function test_adjust_column_stats() {
 }
 
 
-function test_record_sampling() {
-    let fields_info = new Map([[2, 1], [10, 5]]);
-    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
-
-    fields_info = new Map([[2, 1], [10, 5], [1, 6]]);
-    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
-
-    fields_info = new Map([[2, 1], [10, 5], [1, 6], [3, 200], [4, 110]]);
-    assert.deepEqual([1, 2, 5, 10], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
-
-    fields_info = new Map([[2, 1], [10, 5], [1, 6], [3, 200], [8, 0]]);
-    assert.deepEqual([0, 8, 1, 2], rainbow_utils.sample_first_two_inconsistent_records(fields_info));
-}
-
-
 function test_parse_document_records() {
     let [doc_lines, active_doc, comment_prefix, delim, policy] = [null, null, null, null, null];
     let [records, fields_info, first_defective_line, first_trailing_space_line] = [null, null, null, null];
@@ -297,7 +282,6 @@ function test_all() {
     test_align_stats();
     test_field_align();
     test_adjust_column_stats();
-    test_record_sampling();
     test_parse_document_records();
 }
 
