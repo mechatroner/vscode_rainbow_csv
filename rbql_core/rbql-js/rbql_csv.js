@@ -62,19 +62,9 @@ function remove_utf8_bom(line, assumed_source_encoding) {
 
 
 function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
-    let keys = Object.keys(inconsistent_records_info);
-    let entries = [];
-    for (let i = 0; i < keys.length; i++) {
-        let key = keys[i];
-        let record_id = inconsistent_records_info[key];
-        entries.push([record_id, key]);
-    }
-    entries.sort(function(a, b) { return a[0] - b[0]; });
-    assert(entries.length > 1);
-    let [record_1, num_fields_1] = entries[0];
-    let [record_2, num_fields_2] = entries[1];
+    let [record_num_1, num_fields_1, record_num_2, num_fields_2] = rbql.sample_first_two_inconsistent_records(inconsistent_records_info);
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
-    warn_msg += `e.g. record ${record_1} -> ${num_fields_1} fields, record ${record_2} -> ${num_fields_2} fields`;
+    warn_msg += `e.g. record ${record_num_1} -> ${num_fields_1} fields, record ${record_num_2} -> ${num_fields_2} fields`;
     return warn_msg;
 }
 
@@ -182,7 +172,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
 
         this.table_name = table_name;
         this.variable_prefix = variable_prefix;
-        this.comment_prefix = (comment_prefix !== null && comment_prefix.length) ? comment_prefix : null;
+        this.comment_prefix = comment_prefix;
 
         this.decoder = null;
         if (encoding == 'utf-8' && this.csv_path === null) {
@@ -204,11 +194,11 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         this.utf8_bom_removed = false; // BOM doesn't get automatically removed by the decoder when utf-8 file is treated as latin-1
         this.first_defective_line = null;
 
-        this.fields_info = new Object();
+        this.fields_info = new Map();
         this.NR = 0; // Record number
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields)
 
-        this.rfc_line_buffer = [];
+        this.line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
 
         this.partially_decoded_line = '';
         this.partially_decoded_line_ends_with_cr = false;
@@ -222,7 +212,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
 
         this.produced_records_queue = new RecordQueue();
 
-        this.process_line_polymorphic = policy == 'quoted_rfc' ? this.process_partial_rfc_record_line : this.process_record_line;
+        this.process_line_polymorphic = policy == 'quoted_rfc' ? this.process_partial_rfc_record_line : this.process_record_line_simple;
     }
 
 
@@ -350,9 +340,14 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
     };
 
 
-    process_record_line(line) {
-        if (this.comment_prefix !== null && line.startsWith(this.comment_prefix))
+    process_record_line_simple(line) {
+        if (this.comment_prefix && line.startsWith(this.comment_prefix))
             return; // Just skip the line
+        this.process_record_line(line);
+    }
+
+
+    process_record_line(line) {
         this.NR += 1;
         var [record, warning] = csv_utils.smart_split(line, this.delim, this.policy, false);
         if (warning) {
@@ -363,17 +358,21 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             }
         }
         let num_fields = record.length;
-        if (!this.fields_info.hasOwnProperty(num_fields))
-            this.fields_info[num_fields] = this.NR;
+        if (!this.fields_info.has(num_fields))
+            this.fields_info.set(num_fields, this.NR);
         this.produced_records_queue.enqueue(record);
         this.try_resolve_next_record();
     };
 
 
     process_partial_rfc_record_line(line) {
-        let record_line = csv_utils.accumulate_rfc_line_into_record(this.rfc_line_buffer, line, this.comment_prefix);
-        if (record_line !== null)
-            this.process_record_line(record_line);
+        this.line_aggregator.add_line(line);
+        if (this.line_aggregator.has_comment_line) {
+            this.line_aggregator.reset();
+        } else if (this.line_aggregator.has_full_record) {
+            this.process_record_line(this.line_aggregator.get_full_line('\n'));
+            this.line_aggregator.reset();
+        }
     };
 
 
@@ -419,13 +418,13 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
     };
 
 
-    process_data_bulk(data_chunk) {
-        let decoded_string = data_chunk.toString(this.encoding);
+    process_data_bulk(data_blob) {
+        let decoded_string = data_blob.toString(this.encoding);
         if (this.encoding == 'utf-8') {
             // Using hacky comparison method from here: https://stackoverflow.com/a/32279283/2898283
             // TODO get rid of this once TextDecoder is really fixed or when alternative method of reliable decoding appears
             let control_buffer = Buffer.from(decoded_string, 'utf-8');
-            if (Buffer.compare(data_chunk, control_buffer) != 0) {
+            if (Buffer.compare(data_blob, control_buffer) != 0) {
                 this.store_or_propagate_exception(new RbqlIOHandlingError(utf_decoding_error));
                 return;
             }
@@ -436,8 +435,8 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         for (let i = 0; i < lines.length; i++) {
             this.process_line(lines[i]);
         }
-        if (this.rfc_line_buffer.length > 0) {
-            this.process_record_line(this.rfc_line_buffer.join('\n'));
+        if (this.line_aggregator.is_inside_multiline_record()) {
+            this.process_record_line(this.line_aggregator.get_full_line('\n'));
         }
         this.input_exhausted = true;
         this.try_resolve_next_record(); // Should be a NOOP here?
@@ -451,8 +450,8 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             this.partially_decoded_line = '';
             this.process_line(last_line);
         }
-        if (this.rfc_line_buffer.length > 0) {
-            this.process_record_line(this.rfc_line_buffer.join('\n'));
+        if (this.line_aggregator.is_inside_multiline_record()) {
+            this.process_record_line(this.line_aggregator.get_full_line('\n'));
         }
         this.try_resolve_next_record();
     };
@@ -474,11 +473,11 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
         } else {
             let parent_iterator = this;
             return new Promise(function(resolve, reject) {
-                fs.readFile(parent_iterator.csv_path, (err, data_chunk) => {
+                fs.readFile(parent_iterator.csv_path, (err, data_blob) => {
                     if (err) {
                         reject(err);
                     } else {
-                        parent_iterator.process_data_bulk(data_chunk);
+                        parent_iterator.process_data_bulk(data_blob);
                         resolve();
                     }
                 });
@@ -493,7 +492,7 @@ class CSVRecordIterator extends rbql.RBQLInputIterator {
             result.push(`Inconsistent double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line}`);
         if (this.utf8_bom_removed)
             result.push(`UTF-8 Byte Order Mark (BOM) was found and skipped in ${this.table_name} table`);
-        if (Object.keys(this.fields_info).length > 1)
+        if (this.fields_info.size > 1)
             result.push(make_inconsistent_num_fields_warning(this.table_name, this.fields_info));
         return result;
     };

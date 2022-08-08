@@ -117,26 +117,39 @@ function smart_split(src, dlm, policy, preserve_quotes_and_whitespaces) {
 }
 
 
-function accumulate_rfc_line_into_record(external_rfc_line_buffer, current_line, comment_prefix=null) {
-    // Return null if the current line yields no record.
-    // Return a record string if the current line yields the record and cleans the external line buffer.
-    if (comment_prefix !== null && external_rfc_line_buffer.length == 0 && current_line.startsWith(comment_prefix))
-        return null;
-    let match_list = current_line.match(/"/g);
-    let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
-    if (external_rfc_line_buffer.length == 0 && !has_unbalanced_double_quote) {
-        return current_line;
-    } else if (external_rfc_line_buffer.length == 0 && has_unbalanced_double_quote) {
-        external_rfc_line_buffer.push(current_line);
-    } else if (!has_unbalanced_double_quote) {
-        external_rfc_line_buffer.push(current_line);
-    } else {
-        external_rfc_line_buffer.push(current_line);
-        let multiline_row = external_rfc_line_buffer.join('\n');
-        external_rfc_line_buffer.splice(0, external_rfc_line_buffer.length); // Cleanup the external buffer.
-        return multiline_row;
+class MultilineRecordAggregator {
+    constructor(comment_prefix) {
+        this.comment_prefix = comment_prefix;
+        this.reset();
     }
-    return null;
+    add_line(line_text) {
+        if (this.has_full_record || this.has_comment_line) {
+            throw new Error('Invalid usage - record aggregator must be reset before adding new lines');
+        }
+        if (this.comment_prefix && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
+            this.has_comment_line = true;
+            return false;
+        }
+        let match_list = line_text.match(/"/g);
+        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        this.rfc_line_buffer.push(line_text);
+        this.has_full_record = (!has_unbalanced_double_quote && this.rfc_line_buffer.length == 1) || (has_unbalanced_double_quote && this.rfc_line_buffer.length > 1);
+        return this.has_full_record;
+    }
+    is_inside_multiline_record() {
+        return this.rfc_line_buffer.length && !this.has_full_record;
+    }
+    get_full_line(line_separator) {
+        return this.rfc_line_buffer.join(line_separator);
+    }
+    get_num_lines_in_record() {
+        return this.rfc_line_buffer.length;
+    }
+    reset() {
+        this.rfc_line_buffer = [];
+        this.has_full_record = false;
+        this.has_comment_line = false;
+    }
 }
 
 
@@ -148,4 +161,4 @@ module.exports.rfc_quote_field = rfc_quote_field;
 module.exports.unquote_field = unquote_field;
 module.exports.unquote_fields = unquote_fields;
 module.exports.split_lines = split_lines;
-module.exports.accumulate_rfc_line_into_record = accumulate_rfc_line_into_record;
+module.exports.MultilineRecordAggregator = MultilineRecordAggregator;

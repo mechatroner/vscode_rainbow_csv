@@ -1608,20 +1608,20 @@ function select_output_header(input_header, join_header, query_column_infos) {
 }
 
 
-function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
-    let keys = Object.keys(inconsistent_records_info);
-    let entries = [];
-    for (let i = 0; i < keys.length; i++) {
-        let key = keys[i];
-        let record_id = inconsistent_records_info[key];
-        entries.push([record_id, key]);
-    }
-    entries.sort(function(a, b) { return a[0] - b[0]; });
+function sample_first_two_inconsistent_records(inconsistent_records_info) {
+    let entries = Array.from(inconsistent_records_info.entries());
+    entries.sort(function(a, b) { return a[1] - b[1]; });
     assert(entries.length > 1);
-    let [record_1, num_fields_1] = entries[0];
-    let [record_2, num_fields_2] = entries[1];
+    let [num_fields_1, record_num_1] = entries[0];
+    let [num_fields_2, record_num_2] = entries[1];
+    return [record_num_1, num_fields_1, record_num_2, num_fields_2];
+}
+
+
+function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
+    let [record_num_1, num_fields_1, record_num_2, num_fields_2] = sample_first_two_inconsistent_records(inconsistent_records_info);
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
-    warn_msg += `e.g. record ${record_1} -> ${num_fields_1} fields, record ${record_2} -> ${num_fields_2} fields`;
+    warn_msg += `e.g. record ${record_num_1} -> ${num_fields_1} fields, record ${record_num_2} -> ${num_fields_2} fields`;
     return warn_msg;
 }
 
@@ -1691,7 +1691,7 @@ class TableIterator extends RBQLInputIterator {
         this.normalize_column_names = normalize_column_names;
         this.variable_prefix = variable_prefix;
         this.nr = 0;
-        this.fields_info = new Object();
+        this.fields_info = new Map();
         this.stopped = false;
     }
 
@@ -1727,13 +1727,13 @@ class TableIterator extends RBQLInputIterator {
         let record = this.table[this.nr];
         this.nr += 1;
         let num_fields = record.length;
-        if (!this.fields_info.hasOwnProperty(num_fields))
-            this.fields_info[num_fields] = this.nr;
+        if (!this.fields_info.has(num_fields))
+            this.fields_info.set(num_fields, this.nr);
         return record;
     };
 
     get_warnings() {
-        if (Object.keys(this.fields_info).length > 1)
+        if (this.fields_info.size > 1)
             return [make_inconsistent_num_fields_warning('input', this.fields_info)];
         return [];
     };
@@ -1947,5 +1947,6 @@ exports.adhoc_parse_select_expression_to_column_infos = adhoc_parse_select_expre
 exports.replace_star_count = replace_star_count;
 exports.replace_star_vars_for_header_parsing = replace_star_vars_for_header_parsing;
 exports.select_output_header = select_output_header;
+exports.sample_first_two_inconsistent_records = sample_first_two_inconsistent_records;
 
 }(typeof exports === 'undefined' ? this.rbql = {} : exports));
