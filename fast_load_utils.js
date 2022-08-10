@@ -87,6 +87,8 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
             } else if (line_aggregator.has_full_record) {
                 record_text = line_aggregator.get_full_line('\n');
                 line_aggregator.reset();
+            } else {
+                continue;
             }
         } else {
             if (comment_prefix && line_text.startsWith(comment_prefix)) {

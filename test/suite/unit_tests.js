@@ -249,7 +249,7 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
     assert.equal(first_trailing_space_line, null);
 
-    // Simple test with two-field records and a comment and a trailing space line
+    // Simple test with two-field records and a comment and a trailing space line.
     doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1 ,c2'];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
@@ -262,7 +262,7 @@ function test_parse_document_records() {
     // The first trailing space line is line 3 (0-based) because the comment line also counts for a document line.
     assert.equal(first_trailing_space_line, 3);
 
-    // Simple test with inconsistent records and trailing space
+    // Simple test with inconsistent records and trailing space.
     doc_lines = ['a1,a2 ', 'b1,b2', '', 'c1', 'd3,d4,d5'];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
@@ -274,7 +274,43 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
     assert.equal(first_trailing_space_line, 0);
 
+    // Quoted policy, defective line 3, do not stop on warning.
+    doc_lines = ['a1,a2', '#"b1,b2', '"b1,b2', 'c1', 'd3,d4,d5'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/false, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2'], ['"b1', 'b2'], ['c1'], ['d3', 'd4', 'd5']], records);
+    assert.equal(first_defective_line, 2);
+    assert.equal(first_trailing_space_line, null);
 
+    // Quoted policy, defective line 3, stop on warning.
+    doc_lines = ['a1,a2', '#"b1,b2', '"b1,b2', 'c1', 'd3,d4,d5'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2'], ['"b1', 'b2']], records);
+    assert.equal(first_defective_line, 2);
+    assert.equal(first_trailing_space_line, null);
+
+    // Quoted rfc policy - no issues.
+    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,c2",c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2\nb1",b2 \nc1,c2', 'c3'], ['e1,"e2,e3'], ['f1 ', 'f2']], records);
+    assert.equal(first_defective_line, null);
+    // Trailing spaces inside the fields do not count, so the first trailing space will be at line 5.
+    assert.equal(first_trailing_space_line, 5);
+
+
+    // FIXME add unittest with multichar separator and simple policy
+    // FIXME add unit test whitespace policy
     // FIXME add more unit tests.
 }
 
