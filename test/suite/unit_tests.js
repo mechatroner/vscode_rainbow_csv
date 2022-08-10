@@ -259,6 +259,7 @@ function test_parse_document_records() {
     assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1 ', 'c2']], records);
     assert.deepEqual([[2, 0]], Array.from(fields_info.entries()));
     assert.equal(first_defective_line, null);
+    // The first trailing space line is line 3 (0-based) because the comment line also counts for a document line.
     assert.equal(first_trailing_space_line, 3);
 
     // Simple test with inconsistent records and trailing space
@@ -268,7 +269,7 @@ function test_parse_document_records() {
     delim = ',';
     policy = 'simple';
     [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
-    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], [''], ['c1'], ['d3', 'd4', 'd5']], records);
+    assert.deepEqual([['a1', 'a2 '], ['b1', 'b2'], [''], ['c1'], ['d3', 'd4', 'd5']], records);
     assert.deepEqual([[2, 0], [1, 2], [3, 4]], Array.from(fields_info.entries()));
     assert.equal(first_defective_line, null);
     assert.equal(first_trailing_space_line, 0);

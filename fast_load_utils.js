@@ -67,13 +67,9 @@ class RecordTextConsumer {
 
 
 function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
-    // FIXME write a unit test by creating a document-like wrapper around a JS array which would support lineCount and lineAt functions.
-    // TODO consider to map records to line numbers and return the mapping too.
-    // One line never maps to more than one record. One record can map to multiple lines i.e. multiple lines can map to one records.
     let num_lines = document.lineCount;
-    let rfc_line_buffer = [];
     let record_start_line = 0;
-
+    let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces, min_num_fields_for_autodetection);
 
     for (let lnum = 0; lnum < num_lines; ++lnum) {
@@ -83,29 +79,35 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         }
         let record_text = null;
         if (policy == 'quoted_rfc') {
-            // FIXME we should not be using accumulate_rfc_line_into_record anyway, switch to MultilineRecordAggregator!
-            record_text = csv_utils.accumulate_rfc_line_into_record(rfc_line_buffer, line_text, comment_prefix);
-        } else if (comment_prefix === null || !line_text.startsWith(comment_prefix)) {
-            record_text = line_text;
-        }
-        if (record_text === null) {
-            continue;
+            line_aggregator.add_line(line_text);
+            if (line_aggregator.has_comment_line) {
+                record_start_line = lnum + 1;
+                line_aggregator.reset();
+                continue;
+            } else if (line_aggregator.has_full_record) {
+                record_text = line_aggregator.get_full_line('\n');
+                line_aggregator.reset();
+            }
+        } else {
+            if (comment_prefix && line_text.startsWith(comment_prefix)) {
+                record_start_line = lnum + 1;
+                continue;
+            } else {
+                record_text = line_text;
+            }
         }
         if (!consumer.consume(record_text, record_start_line)) {
             return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
-        // FIXME record_start_line calculation logic is wrong when we have comments
         record_start_line = lnum + 1;
         if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
             return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
     }
-    if (rfc_line_buffer.length > 0) {
+
+    if (line_aggregator.is_inside_multiline_record()) {
         assert(policy == 'quoted_rfc');
-        let record_text = rfc_line_buffer.join('\n');
-        if (!consumer.consume(record_text, record_start_line)) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
-        }
+        consumer.consume(line_aggregator.get_full_line('\n'), record_start_line);
     }
     return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
 }
