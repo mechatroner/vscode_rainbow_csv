@@ -292,7 +292,7 @@ function test_parse_document_records() {
     delim = ',';
     policy = 'quoted';
     [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
-    assert.deepEqual([['a1', 'a2'], ['"b1', 'b2']], records);
+    assert.deepEqual([['a1', 'a2']], records);
     assert.equal(first_defective_line, 2);
     assert.equal(first_trailing_space_line, null);
 

@@ -37,6 +37,9 @@ class RecordTextConsumer {
             if (this.first_defective_line === null) {
                 this.first_defective_line = record_start_line;
             }
+            // FIXME test warning early stopping both for rfc and basic quoted policies.
+            if (this.stop_on_warning)
+                return false;
         }
         if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
             for (let field of record) {
@@ -59,8 +62,6 @@ class RecordTextConsumer {
             this.records.push(record);
         }
         this.num_records_parsed += 1;
-        // FIXME test warning early stopping both for rfc and basic quoted policies.
-        need_stop = need_stop || (warning && this.stop_on_warning);
         return !need_stop;
     }
 }
