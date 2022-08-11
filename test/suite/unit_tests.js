@@ -377,10 +377,27 @@ function test_parse_document_records() {
     // Although the third line is defective we don't detect it because of max_records_to_parse limitation.
     assert.equal(first_defective_line, 2);
 
+    // Simple multichar separator, max_records_to_parse equals total number of records.
+    doc_lines = ['a1#~#a2#~#a3', 'b1#~#b2#~#b3', 'c1#~#c2#~#c3'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = '#~#';
+    policy = 'simple';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/3, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
+    assert.deepEqual([['a1', 'a2', 'a3'], ['b1', 'b2', 'b3'], ['c1', 'c2', 'c3']], records);
+    assert.equal(first_defective_line, null);
 
-    // FIXME add unittest with multichar separator and simple policy
-    // FIXME add unit test whitespace policy
-    // FIXME add more unit tests.
+    // Whitespace policy, trailing spaces are impossible for this policy.
+    doc_lines = ['  a1 a2    a3', 'b1     b2 b3  ', '  c1    c2       c3  '];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ' ';
+    policy = 'whitespace';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/3, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', 'a2', 'a3'], ['b1', 'b2', 'b3'], ['c1', 'c2', 'c3']], records);
+    assert.equal(first_defective_line, null);
+    // Although we have a lot of internal spaces, the first_trailing_space_line should be null because we use whitespace policy
+    assert.equal(first_trailing_space_line, null);
 }
 
 

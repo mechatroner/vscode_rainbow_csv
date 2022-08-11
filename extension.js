@@ -73,10 +73,12 @@ let rainbow_token_event = null;
 let comment_token_event = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
+
 const QUOTED_POLICY = 'quoted';
 const WHITESPACE_POLICY = 'whitespace';
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const SIMPLE_POLICY = 'simple';
+
 const dialect_map = {
     'csv': [',', QUOTED_POLICY],
     'tsv': ['\t', SIMPLE_POLICY],
