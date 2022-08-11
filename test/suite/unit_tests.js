@@ -237,13 +237,13 @@ function test_parse_document_records() {
     let [doc_lines, active_doc, comment_prefix, delim, policy] = [null, null, null, null, null];
     let [records, fields_info, first_defective_line, first_trailing_space_line] = [null, null, null, null];
 
-    // Simple test with single-field records.
+    // Simple test with single-field records and max_records_to_parse set to a very big number.
     doc_lines = ['aaa', 'bbb', 'ccc'];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
-    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/1000, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
     assert.deepEqual([['aaa'], ['bbb'], ['ccc']], records);
     assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));
     assert.equal(first_defective_line, null);
@@ -307,6 +307,75 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
     // Trailing spaces inside the fields do not count, so the first trailing space will be at line 5.
     assert.equal(first_trailing_space_line, 5);
+
+    // Quoted rfc policy - stop on warning.
+    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,"c2,c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([], records);
+    assert.equal(first_defective_line, 0);
+
+    // too few columns for autodetection
+    doc_lines = ['a1', 'b1', 'c1'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'simple';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/false, /*max_records_to_parse=*/-1, /*collect_records=*/false, /*detect_trailing_spaces=*/false, /*min_num_fields_for_autodetection=*/2);
+    assert.equal(null, records);
+    // Only one entry in fields_info because of the early stop because of min_num_fields_for_autodetection check.
+    assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));
+    assert.equal(first_defective_line, null);
+    assert.equal(first_trailing_space_line, null);
+
+    // Autodetection - enough columns.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'quoted';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/false, /*max_records_to_parse=*/-1, /*collect_records=*/false, /*detect_trailing_spaces=*/false, /*min_num_fields_for_autodetection=*/2);
+    assert.equal(null, records);
+    assert.deepEqual([[2, 0]], Array.from(fields_info.entries()));
+    assert.equal(first_defective_line, null);
+    assert.equal(first_trailing_space_line, null);
+
+    // Autodetection - different number of columns - early stop.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2,c3', 'd1,d3'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'quoted';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/false, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*detect_trailing_spaces=*/false, /*min_num_fields_for_autodetection=*/2);
+    // Because of the early stop we don't parse the last 2 lines.
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2']], records);
+    // Make sure that we have two entries in fields_info - callers check fields_info to find out if we have autodetection failure.
+    assert.deepEqual([[2, 0], [3, 2]], Array.from(fields_info.entries()));
+
+    // Max record to parse - no defective line.
+    doc_lines = ['a1,a2', 'b1,b2', '"c1,c2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'quoted_rfc';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/2, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2']], records);
+    // Although the third line is defective we don't detect it because of max_records_to_parse limitation.
+    assert.equal(first_defective_line, null);
+
+    // Max record to parse - defective line. 
+    doc_lines = ['a1,a2', 'b1,b2', '"c1,c2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'quoted_rfc';
+    [records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/5, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2']], records);
+    // Although the third line is defective we don't detect it because of max_records_to_parse limitation.
+    assert.equal(first_defective_line, 2);
 
 
     // FIXME add unittest with multichar separator and simple policy

@@ -15,7 +15,7 @@ function assert(condition, message=null) {
 }
 
 class RecordTextConsumer {
-    // Need this class to avoid code duplication when dealing with leftover lines in rfc_line_buffer.
+    // The only purpose of this class is to avoid code duplication when dealing with leftover lines in line_aggregator (the second `consume` call).
     constructor(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces, min_num_fields_for_autodetection) {
         this.delim = delim;
         this.policy = policy;
@@ -37,9 +37,8 @@ class RecordTextConsumer {
             if (this.first_defective_line === null) {
                 this.first_defective_line = record_start_line;
             }
-            // FIXME test warning early stopping both for rfc and basic quoted policies.
             if (this.stop_on_warning)
-                return false;
+                return /*can_continue=*/false;
         }
         if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
             for (let field of record) {
@@ -48,21 +47,21 @@ class RecordTextConsumer {
                 }
             }
         }
-        let need_stop = false;
         if (!this.fields_info.has(record.length)) {
             this.fields_info.set(record.length, this.num_records_parsed);
             if (this.min_num_fields_for_autodetection != -1) {
-                // FIXME test this!
                 // Autodetection mode: stop on inconsistent records length and when there is not enough columns (typically less than 2 i.e. 1).
-                need_stop = need_stop || record.length < this.min_num_fields_for_autodetection; // Too few columns.
-                need_stop = need_stop || this.fields_info.size > 1; // Inconsistent number of columns in different rows.
+                if (record.length < this.min_num_fields_for_autodetection)
+                    return /*can_continue=*/false;
+                if (this.fields_info.size > 1)
+                    return /*can_continue=*/false;
             }
         }
         if (this.collect_records) {
             this.records.push(record);
         }
         this.num_records_parsed += 1;
-        return !need_stop;
+        return /*can_continue=*/true;
     }
 }
 
