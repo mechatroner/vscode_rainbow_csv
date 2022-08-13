@@ -31,10 +31,6 @@ class VscodeDocumentTestDouble {
 
 let vscode_test_double = {Range: VscodeRangeTestDouble};
 
-
-//rainbow_utils.set_vscode(vscode_test_double);
-
-
 function test_align_stats() {
     // Previous fields are numbers but the current one is not - mark the column as non-numeric.
     let field = 'foobar';
@@ -401,11 +397,128 @@ function test_parse_document_records() {
 }
 
 
+function line_range_to_triple(vscode_range) {
+    assert.equal(vscode_range.start.line, vscode_range.end.line);
+    return [vscode_range.start.line, vscode_range.start.character, vscode_range.end.character];
+}
+
+function convert_ranges_to_triples(table_ranges) {
+    let table_comment_ranges = [];
+    let table_record_ranges = [];
+    for (let row_info of table_ranges) {
+        if (row_info.hasOwnProperty('comment_range')) {
+            table_comment_ranges.push(line_range_to_triple(row_info.comment_range));
+        } else {
+            assert(row_info.hasOwnProperty('record_ranges'));
+            let row_triple_groups = [];
+            for (let field_ranges of row_info.record_ranges) {
+                let field_triples = [];
+                for (let field_range of field_ranges) {
+                    field_triples.push(line_range_to_triple(field_range));
+                }
+                row_triple_groups.push(field_triples);
+            }
+            table_record_ranges.push(row_triple_groups);
+        }
+    }
+    return [table_comment_ranges, table_record_ranges];
+}
+
+function vr(l1, c1, l2, c2) {
+    return new VscodeRangeTestDouble(l1, c1, l2, c2);
+}
+
+// Flat Vscode Record. Use function for readability.
+function fvr(l, c1, c2) {
+    return [l, c1, c2];
+}
+
+
+function test_parse_document_range_rfc() {
+    let [doc_lines, active_doc, comment_prefix, delim, range] = [null, null, null, null, null];
+    let [table_ranges, table_comment_ranges, table_record_ranges] = [null, null, null];
+    let [record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3] = [null, null, null, null];
+    // Simple test case.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(1, 0, 3, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, comment_prefix, range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
+    assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+    // Test last line parsing.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(1, 0, 4, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, comment_prefix, range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
+    record_ranges_3 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
+    assert.deepEqual([record_ranges_1, record_ranges_2, record_ranges_3], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+    // Test behind last line and before first line parsing with large margin.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 5, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/100);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
+    record_ranges_3 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3], table_record_ranges);
+    assert.deepEqual([fvr(3, 0, 8)], table_comment_ranges);
+
+
+    // Single record, 3 fields.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1",d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 4, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, comment_prefix, range, /*custom_parsing_margin=*/100);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 5), fvr(3, 0, 4)], [fvr(3, 4, 6)]];
+    assert.deepEqual([record_ranges_0], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+    // Mixture of single line and multiline fields in a single record. Also a comment prefix in the middle of the field which should not count.
+    doc_lines = ['a1,a2,"a3', '#b1","b2"",b3",b4,"b5', 'c1,c2"'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 4, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/100);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6)], [fvr(0, 6, 9), fvr(1, 0, 5)], [fvr(1, 5, 15)], [fvr(1, 15, 18)], [fvr(1, 18, 21), fvr(2, 0, 6)]];
+    assert.deepEqual([record_ranges_0], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+
+    // FIXME add test with comments
+    // FIXME add some test with recovery from inconsistent or ending with incosistent (i.e. end or start of multiline record outside the range)
+    // FIXME also add some test that can't recover from inconsistent
+    // FIXME add more tests
+}
+
+
 function test_all() {
     test_align_stats();
     test_field_align();
     test_adjust_column_stats();
     test_parse_document_records();
+    test_parse_document_range_rfc();
 }
 
 exports.test_all = test_all;

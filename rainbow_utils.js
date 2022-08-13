@@ -14,7 +14,7 @@ const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 // Copypasted from extension.js
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
-const dynamic_csv_highlight_margin = 50; // TODO make configurable
+const dynamic_csv_highlight_margin = 50; // TODO make configurable.
 const max_preview_field_length = 250;
 
 
@@ -581,7 +581,6 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
-    // FIXME add unit tests
     let lnum_current = start_line;
     let pos_in_editor_line = 0;
     let next_pos_in_editor_line = 0;
@@ -612,10 +611,13 @@ function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, f
 }
 
 
-function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range) {
-    let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
+function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, custom_parsing_margin=null) {
+    if (custom_parsing_margin === null) {
+        custom_parsing_margin = dynamic_csv_highlight_margin;
+    }
+    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
     // FIXME make sure that this works for the last line - both for hover text and highlighting
-    let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
     let table_ranges = [];
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
@@ -868,4 +870,5 @@ module.exports.get_cursor_position_info = get_cursor_position_info;
 module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
 module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
+module.exports.parse_document_range_rfc = parse_document_range_rfc; // Only for unit tests
 module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inconsistent_records;
