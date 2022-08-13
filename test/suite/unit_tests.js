@@ -505,11 +505,65 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([record_ranges_0], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
 
+    // Discard some parsed lines which belongs to a record starting outside the parsing range
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1,d2"', 'e1,e2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(1, 0, 20, 0); // doesn't include first line with the openning double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
+    assert.deepEqual([record_ranges_0], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
 
-    // FIXME add test with comments
+    // Now shift window one back - it should include all lines now.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1,d2"', 'e1,e2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 20, 0); // doesn't include first line with the openning double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = []; // FIXME
+    record_ranges_1 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+
+
     // FIXME add some test with recovery from inconsistent or ending with incosistent (i.e. end or start of multiline record outside the range)
     // FIXME also add some test that can't recover from inconsistent
     // FIXME add more tests
+}
+
+
+function test_is_opening_rfc_line() {
+    assert(rainbow_utils.is_opening_rfc_line('a1,"a2', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a1;"a2', ';'));
+    assert(rainbow_utils.is_opening_rfc_line('a1,  " a2', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a1  ,  " a2', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a1,a1,a1  ,  " a2', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a1,"a1,a1  ",  " a2', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a1,"a1,a1  " ,  " a2', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('a1,a2', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('a1",a2', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('a1;a2', ';'));
+    assert(!rainbow_utils.is_opening_rfc_line('a1";a2', ';'));
+
+    // Some lines can be both closing and opening, e.g. this one:
+    assert(rainbow_utils.is_opening_rfc_line('",a2,a3', ','));
+
+    assert(!rainbow_utils.is_opening_rfc_line('abcd"', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('abcd",ab', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('ab,cd",ab', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('ab""x""cd",ab', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('a1,"a2,a3""a4,a5""",a6,a7', ','));
+    assert(rainbow_utils.is_opening_rfc_line('"', ','));
+    assert(rainbow_utils.is_opening_rfc_line('",', ','));
+    assert(rainbow_utils.is_opening_rfc_line(',"', ','));
+    assert(rainbow_utils.is_opening_rfc_line('a,"', ','));
+    assert(!rainbow_utils.is_opening_rfc_line('a,a"', ','));
 }
 
 
@@ -519,6 +573,7 @@ function test_all() {
     test_adjust_column_stats();
     test_parse_document_records();
     test_parse_document_range_rfc();
+    test_is_opening_rfc_line();
 }
 
 exports.test_all = test_all;

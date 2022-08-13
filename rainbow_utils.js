@@ -611,6 +611,14 @@ function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, f
 }
 
 
+function is_opening_rfc_line(line_text, delim) {
+    // The line is oppening if by adding a character (to avoid accidental double double quote) and single double quote at the end we can make it parsable without warning!
+    // Some lines can be simultaneously opening and closing, e.g. `",a1,a2` or `a1,a2,"`
+    let [_record, warning] = csv_utils.split_quoted_str(line_text + 'x"', delim);
+    return !warning;
+}
+
+
 function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
@@ -625,9 +633,17 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
         let line_text = doc.lineAt(lnum).text;
         if (lnum + 1 == doc.lineCount && !line_text)
             break;
-        let inside_multiline_record = line_aggregator.is_inside_multiline_record();
+        let inside_multiline_record_before = line_aggregator.is_inside_multiline_record();
         let start_line = lnum - line_aggregator.get_num_lines_in_record();
         line_aggregator.add_line(line_text);
+        let inside_multiline_record_after = line_aggregator.is_inside_multiline_record();
+        if (!inside_multiline_record_before && inside_multiline_record_after) {
+            // Must be an odd-num line, check if this is an openning line - otherwise reset ranges.
+            if (!is_opening_rfc_line(line_text, delim)) {
+                table_ranges = [];
+                line_aggregator.reset();
+            }
+        }
         if (line_aggregator.has_comment_line) {
             table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
             line_aggregator.reset();
@@ -636,14 +652,7 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             let combined_line = line_aggregator.get_full_line(sentinel_sequence);
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
-            if (warning) {
-                if (inside_multiline_record) {
-                    // Try using this line as a start line inside multiline record, reset all previously parsed ranges.
-                    table_ranges = [];
-                    assert(!line_aggregator.add_line(line_text));
-                    assert(line_aggregator.is_inside_multiline_record());
-                }
-            } else {
+            if (!warning) {
                 table_ranges.push({record_ranges: make_multiline_record_ranges(vscode, delim.length, sentinel_sequence, fields, start_line, lnum)});
             }
         }
@@ -870,5 +879,6 @@ module.exports.get_cursor_position_info = get_cursor_position_info;
 module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
 module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
-module.exports.parse_document_range_rfc = parse_document_range_rfc; // Only for unit tests
+module.exports.parse_document_range_rfc = parse_document_range_rfc; // Only for unit tests.
 module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inconsistent_records;
+module.exports.is_opening_rfc_line = is_opening_rfc_line; // Only for unit tests.
