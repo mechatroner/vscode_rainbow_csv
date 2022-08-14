@@ -632,8 +632,18 @@ function test_parse_document_range_rfc() {
     // =================================================================================== 
 
 
-    // FIXME impl this test
     // Discard some at the beginning and some at the end where the record didn't fit into the parsing window
+    doc_lines = ['a1;"a2', 'b1;b2', 'c1";c2', 'd1;d2', '#hello world', 'e1;e2', 'f1;"f2', 'g1;g2', 'h1";h2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ';';
+    range = new vscode_test_double.Range(1, 0, 8, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, comment_prefix, range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_1 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
+    record_ranges_2 = [[fvr(5, 0, 3)], [fvr(5, 3, 5)]];
+    assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
+    assert.deepEqual([fvr(4, 0, 12)], table_comment_ranges);
 
 }
 
