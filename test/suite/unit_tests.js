@@ -480,6 +480,22 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3], table_record_ranges);
     assert.deepEqual([fvr(3, 0, 8)], table_comment_ranges);
 
+    // Test extension with the default margin.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    // The range covers only one line, but the default margin=50 should extend it to cover everything.
+    range = new vscode_test_double.Range(2, 0, 2, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
+    record_ranges_3 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3], table_record_ranges);
+    assert.deepEqual([fvr(3, 0, 8)], table_comment_ranges);
+
 
     // Single record, 3 fields.
     doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1",d2'];
@@ -522,19 +538,103 @@ function test_parse_document_range_rfc() {
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
-    range = new vscode_test_double.Range(0, 0, 20, 0); // doesn't include first line with the openning double quote.
+    range = new vscode_test_double.Range(0, 0, 20, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
     [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
-    record_ranges_0 = []; // FIXME
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 5), fvr(3, 0, 6)]];
     record_ranges_1 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
     assert.deepEqual([record_ranges_0, record_ranges_1], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
 
+    // Include only the first 2 records because end of the record is outside the parsing window.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,"c2', 'd1,d2', 'e1,e2', 'f1,f2"'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 5, 0); // doesn't include the last line with the closing double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+    // Now include everything because the end record got inside the parsing window
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,"c2', 'd1,d2', 'e1,e2', 'f1,f2"'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 6, 0); // doesn't include the last line with the closing double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
+    record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 6), fvr(3, 0, 5), fvr(4, 0, 5), fvr(5, 0, 6)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+
+    // =================================================================================== 
+    // Beginning of 4 related test on the same data but with the different parsing windows
+
+    // Nothing is parsed because the window started at the record which end didn't fit into the parsing range.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 6, 0); // doesn't include the last line with the closing double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    assert.deepEqual([], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+   
+    // Same as before but the window is shifted slightly so we (wrongly) assume that the internal field lines are independent records.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(1, 0, 6, 0); // doesn't include the last line with the closing double quote.
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
+    // Note that the third line `c1","c2` is not parsed because since parser assumes it to be an independent record it contains syntax errors.
+    record_ranges_1 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
+    record_ranges_2 = [[fvr(5, 0, 3)], [fvr(5, 3, 5)]];
+    assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2], table_record_ranges);
+    // Although `#hello world` is actually part of the multiline field we wrongly assume it to be a comment since our parsing window don't cover neither begin nor end of the record.
+    assert.deepEqual([fvr(4, 0, 12)], table_comment_ranges);
+
+    // Nothing is parsed again because the window ends right at the closing line and the beginning didn't fit.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(1, 0, 7, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    assert.deepEqual([], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
+    
+
+    // All lines now fit in the range and they are being properly parsed as a single record.
+    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    range = new vscode_test_double.Range(0, 0, 7, 0);
+    table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*comment_prefix=*/'#', range, /*custom_parsing_margin=*/0);
+    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 4)], [fvr(2, 4, 7), fvr(3, 0, 5), fvr(4, 0, 12), fvr(5, 0, 5), fvr(6, 0, 4)], [fvr(6, 4, 6)]];
+    assert.deepEqual([record_ranges_0], table_record_ranges);
+    assert.deepEqual([], table_comment_ranges);
 
 
-    // FIXME add some test with recovery from inconsistent or ending with incosistent (i.e. end or start of multiline record outside the range)
-    // FIXME also add some test that can't recover from inconsistent
-    // FIXME add more tests
+    // End of 4 related test on the same data but with the different parsing windows
+    // =================================================================================== 
+
+
+    // FIXME impl this test
+    // Discard some at the beginning and some at the end where the record didn't fit into the parsing window
+
 }
 
 
