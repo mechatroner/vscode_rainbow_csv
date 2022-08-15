@@ -624,7 +624,6 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
         custom_parsing_margin = dynamic_csv_highlight_margin;
     }
     let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    // FIXME make sure that this works for the last line - both for hover text and highlighting
     let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
     let table_ranges = [];
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
@@ -716,13 +715,14 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
+    // FIXME consider adding unit tests
     const hover_parse_margin = 20;
     let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
     let table_ranges = parse_document_range_rfc(vscode, document, delim, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
         if (row_info.hasOwnProperty('comment_range')) {
-            if (row_info.comment_range.contain(position)) {
+            if (row_info.comment_range.contains(position)) {
                 last_found_position_info = {is_comment: true};
             }
         } else {
@@ -794,18 +794,19 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
 }
 
 
-function sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result) {
+function sample_rfc_records(document, delim, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result) {
+    // FIXME add a unit test fot this, it is fine!
     let records = [];
     let _fields_info = null;
     let first_failed_line = null;
     let _first_trailing_space_line = null;
     if (end_record < preview_window_size * 2) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, QUOTED_RFC_POLICY, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
         // FIXME make sure to test this branch!
         if (!cached_rfc_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, QUOTED_RFC_POLICY, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
             cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
         }
         [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
@@ -816,6 +817,7 @@ function sample_rfc_records(document, delim, policy, comment_prefix, start_recor
 
 
 function sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_rfc_parse_result) {
+    // FIXME write unit tests, it is fine!
     let document = rbql_context.input_document;
     let delim = rbql_context.delim;
     let policy = rbql_context.policy;
@@ -826,9 +828,10 @@ function sample_preview_records_from_context(rbql_context, dst_message, preview_
     let preview_records = [];
     if (policy == QUOTED_RFC_POLICY) {
         let first_failed_line = null;
+        // FIXME we don't seem to adjust rbql_context.requested_start_record here, which is probably a bug when we scroll to the end. Test this!
         let start_record = rbql_context.requested_start_record;
         let end_record = start_record + preview_window_size;
-        [preview_records, first_failed_line] = sample_rfc_records(document, delim, policy, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result);
+        [preview_records, first_failed_line] = sample_rfc_records(document, delim, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result);
         if (first_failed_line !== null) {
             // FIXME test that correct record and line number are shown.
             dst_message.preview_sampling_error = `Double quotes are not consistent in record ${preview_records.length} which starts at line ${first_failed_line + 1}`;
@@ -841,6 +844,7 @@ function sample_preview_records_from_context(rbql_context, dst_message, preview_
         rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
         for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
             let line_text = document.lineAt(nr).text;
+            // FIXME this doesn't handle comments!
             let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
             preview_records.push(cur_record);
         }
