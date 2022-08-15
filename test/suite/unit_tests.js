@@ -19,9 +19,10 @@ class VscodeRangeTestDouble {
 
 
 class VscodeDocumentTestDouble {
-    constructor(lines_buffer) {
+    constructor(lines_buffer, fileName='TestDouble.txt') {
         this.lines_buffer = lines_buffer;
         this.lineCount = lines_buffer.length;
+        this.fileName = fileName;
     }
     lineAt(lnum) {
         return {text: this.lines_buffer[lnum]};
@@ -677,6 +678,31 @@ function test_is_opening_rfc_line() {
 }
 
 
+function test_sample_preview_records_from_context() {
+    let [doc_lines, active_doc, comment_prefix, delim, rbql_context, preview_window_size, cached_table_parse_result, dst_message, policy] = [null, null, null, null, null, null, null, null, null];
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 10;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, 'fake_doc.txt');
+    requested_start_record = 0;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'simple';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.actual_start_record, 0);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2']], dst_message.preview_records);
+    // FIXME check cached_table_parse_result at the end!
+
+
+    // FIXME add test that makes sure that even if we have a lot of comments at the beginning we still sample the required number of records.
+
+    
+    // FIXME add more tests inclusing with non-rfc and rfc policies.
+}
+
+
 function test_all() {
     test_align_stats();
     test_field_align();
@@ -684,6 +710,7 @@ function test_all() {
     test_parse_document_records();
     test_parse_document_range_rfc();
     test_is_opening_rfc_line();
+    test_sample_preview_records_from_context();
 }
 
 exports.test_all = test_all;

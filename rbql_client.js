@@ -116,7 +116,7 @@ function make_preview_table() {
     if (!last_preview_message)
         return;
     let records = last_preview_message.preview_records;
-    let start_record_zero_based = last_preview_message.start_record_zero_based;
+    let actual_start_record = last_preview_message.actual_start_record;
     let preview_error = last_preview_message.preview_sampling_error;
 
     var table = document.getElementById('preview_table');
@@ -141,7 +141,7 @@ function make_preview_table() {
     add_header_row(max_num_columns, with_headers, table);
     for (var r = 0; r < records.length; r++) {
         let row = document.createElement('tr');
-        let NR = r + start_record_zero_based + 1;
+        let NR = r + actual_start_record + 1;
         if (with_headers) {
             NR -= 1;
             if (NR == 0)

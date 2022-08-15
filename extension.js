@@ -41,7 +41,7 @@ var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
 var custom_document_dialects = new Map();
 var result_set_parent_map = new Map();
-var cached_rfc_parse_result = new Map();
+var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
 
 var lint_status_bar_button = null;
@@ -1132,7 +1132,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
         var init_msg = {'msg_type': 'handshake', 'backend_language': backend_language, 'encoding': encoding};
-        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, init_msg, preview_window_size, cached_rfc_parse_result);
+        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, init_msg, preview_window_size, cached_table_parse_result);
         let path_key = file_path_to_query_key(rbql_context.input_document_path);
         if (last_rbql_queries.has(path_key))
             init_msg['last_query'] = last_rbql_queries.get(path_key);
@@ -1195,7 +1195,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             rbql_context.requested_start_record = rbql_context.input_document.lineCount; // This is just max possible value which is incorrect and will be adjusted later.
         }
         let protocol_message = {'msg_type': 'navigate'};
-        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, protocol_message, preview_window_size, cached_rfc_parse_result);
+        ll_rainbow_utils().sample_preview_records_from_context(rbql_context, protocol_message, preview_window_size, cached_table_parse_result);
         await webview.postMessage(protocol_message);
     }
 

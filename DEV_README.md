@@ -148,6 +148,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Get rid of Object.keys() in RBQL - this could return a list of strings instead of integers.
 
+* Save doc version or timestamp in "cached_table_parse_result" to invalidate the entry when the doc changes.
+
 ## RFC Support plan
 We need:
 1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.

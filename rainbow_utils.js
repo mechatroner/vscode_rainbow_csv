@@ -794,62 +794,39 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
 }
 
 
-function sample_rfc_records(document, delim, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result) {
-    // FIXME add a unit test fot this, it is fine!
+function sample_records(document, delim, policy, comment_prefix, end_record, preview_window_size, stop_on_warning, cached_table_parse_result) {
     let records = [];
     let _fields_info = null;
     let first_failed_line = null;
     let _first_trailing_space_line = null;
+    // Here `preview_window_size` is typically 100.
     if (end_record < preview_window_size * 2) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, QUOTED_RFC_POLICY, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
-        // FIXME make sure to test this branch!
-        if (!cached_rfc_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, QUOTED_RFC_POLICY, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true);
-            cached_rfc_parse_result.set(document.fileName, [records, first_failed_line]);
+        if (!cached_table_parse_result.has(document.fileName)) {
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            cached_table_parse_result.set(document.fileName, [records, first_failed_line]);
         }
-        [records, first_failed_line] = cached_rfc_parse_result.get(document.fileName);
+        [records, first_failed_line] = cached_table_parse_result.get(document.fileName);
     }
-    let preview_records = records.slice(start_record, end_record);
-    return [preview_records, first_failed_line];
+    return [records, first_failed_line];
 }
 
 
-function sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_rfc_parse_result) {
-    // FIXME write unit tests, it is fine!
-    let document = rbql_context.input_document;
-    let delim = rbql_context.delim;
-    let policy = rbql_context.policy;
-    let comment_prefix = rbql_context.comment_prefix; // FIXME test this
-
+function sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result) {
+    let [document, delim, policy, comment_prefix] = [rbql_context.input_document, rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
-
-    let preview_records = [];
-    if (policy == QUOTED_RFC_POLICY) {
-        let first_failed_line = null;
-        // FIXME we don't seem to adjust rbql_context.requested_start_record here, which is probably a bug when we scroll to the end. Test this!
-        let start_record = rbql_context.requested_start_record;
-        let end_record = start_record + preview_window_size;
-        [preview_records, first_failed_line] = sample_rfc_records(document, delim, comment_prefix, start_record, end_record, preview_window_size, cached_rfc_parse_result);
-        if (first_failed_line !== null) {
-            // FIXME test that correct record and line number are shown.
-            dst_message.preview_sampling_error = `Double quotes are not consistent in record ${preview_records.length} which starts at line ${first_failed_line + 1}`;
-            return;
-        }
-    } else {
-        let num_records = document.lineCount;
-        if (document.lineAt(Math.max(num_records - 1, 0)).text == '')
-            num_records -= 1;
-        rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, num_records - preview_window_size));
-        for (let nr = rbql_context.requested_start_record; nr < num_records && preview_records.length < preview_window_size; nr++) {
-            let line_text = document.lineAt(nr).text;
-            // FIXME this doesn't handle comments!
-            let cur_record = csv_utils.smart_split(line_text, delim, policy, false)[0];
-            preview_records.push(cur_record);
-        }
+    let stop_on_warning = policy == QUOTED_RFC_POLICY;
+    let [records, first_failed_line] = sample_records(document, delim, policy, comment_prefix, rbql_context.requested_start_record + preview_window_size, preview_window_size, stop_on_warning, cached_table_parse_result);;
+    if (first_failed_line !== null && policy == QUOTED_RFC_POLICY) {
+        dst_message.preview_sampling_error = `Double quotes are not consistent in record ${records.length} which starts at line ${first_failed_line + 1}`;
+        return;
     }
+    rbql_context.requested_start_record = Math.max(0, Math.min(rbql_context.requested_start_record, records.length - preview_window_size));
+    let preview_records = records.slice(rbql_context.requested_start_record, rbql_context.requested_start_record + preview_window_size);
 
+    // Here we trim excessively long fields. The only benefit of doing is here instead of UI layer is to minimize the ammount of traffic that we send to UI - the total message size is limited.
     for (let r = 0; r < preview_records.length; r++) {
         let cur_record = preview_records[r];
         for (let c = 0; c < cur_record.length; c++) {
@@ -859,7 +836,7 @@ function sample_preview_records_from_context(rbql_context, dst_message, preview_
         }
     }
     dst_message.preview_records = preview_records;
-    dst_message.start_record_zero_based = rbql_context.requested_start_record;
+    dst_message.actual_start_record = rbql_context.requested_start_record;
 }
 
 
