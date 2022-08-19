@@ -680,11 +680,14 @@ function test_is_opening_rfc_line() {
 
 function test_sample_preview_records_from_context() {
     let [doc_lines, active_doc, comment_prefix, delim, rbql_context, preview_window_size, cached_table_parse_result, dst_message, policy] = [null, null, null, null, null, null, null, null, null];
+    let doc_file_name = 'fake_doc.txt';
+
+    // Simple test with a comment.
     doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 10;
-    active_doc = new VscodeDocumentTestDouble(doc_lines, 'fake_doc.txt');
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
     requested_start_record = 0;
     cached_table_parse_result = new Map();
     dst_message = new Object();
@@ -693,6 +696,27 @@ function test_sample_preview_records_from_context() {
     rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
     assert.equal(dst_message.actual_start_record, 0);
     assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2']], dst_message.preview_records);
+    assert(!cached_table_parse_result.has(doc_file_name));
+
+    // Invalid quoting.
+    doc_lines = ['a1,"a2', 'b1",b2', '#comment', 'c1,"c2', 'd1,d2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 10;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 0;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'quoted_rfc';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert(!dst_message.actual_start_record);
+    assert(!dst_message.preview_records);
+    assert.equal(dst_message.preview_sampling_error, 'Double quotes are not consistent in record 2 which starts at line 4');
+    assert(!cached_table_parse_result.has(doc_file_name));
+
+
+
     // FIXME check cached_table_parse_result at the end!
 
 
