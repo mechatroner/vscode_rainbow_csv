@@ -23,6 +23,7 @@ class VscodeDocumentTestDouble {
         this.lines_buffer = lines_buffer;
         this.lineCount = lines_buffer.length;
         this.fileName = fileName;
+        this.version = 1;
     }
     lineAt(lnum) {
         return {text: this.lines_buffer[lnum]};
@@ -682,13 +683,13 @@ function test_sample_preview_records_from_context() {
     let [doc_lines, active_doc, comment_prefix, delim, rbql_context, preview_window_size, cached_table_parse_result, dst_message, policy] = [null, null, null, null, null, null, null, null, null];
     let doc_file_name = 'fake_doc.txt';
 
-    // Simple test with a comment.
+    // Simple test with a comment and negative start record.
     doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 10;
     active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
-    requested_start_record = 0;
+    requested_start_record = -100;
     cached_table_parse_result = new Map();
     dst_message = new Object();
     policy = 'simple';
@@ -715,15 +716,109 @@ function test_sample_preview_records_from_context() {
     assert.equal(dst_message.preview_sampling_error, 'Double quotes are not consistent in record 2 which starts at line 4');
     assert(!cached_table_parse_result.has(doc_file_name));
 
+    // Test window shift back to 0.
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2', 'e1,e2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 10;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 3;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'simple';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    // The start record is shifted to record 1 from requested record 3 to show the maximum number of the requested 10 entries.
+    assert.equal(dst_message.actual_start_record, 0);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2'], ['e1', 'e2']], dst_message.preview_records);
+    assert(!cached_table_parse_result.has(doc_file_name));
 
+    // Test window shift back exact.
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2', 'e1,e2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 4;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 3;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'simple';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    // The start record is shifted to record 1 from requested record 3 to show the requested 4 entries.
+    assert.equal(dst_message.actual_start_record, 1);
+    assert.deepEqual([['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2'], ['e1', 'e2']], dst_message.preview_records);
+    assert(!cached_table_parse_result.has(doc_file_name));
 
-    // FIXME check cached_table_parse_result at the end!
+    // Test UI_STRING_TRIM_MARKER behavior.
+    doc_lines = ['1'.repeat(251) + ',' + '2'.repeat(251)];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 4;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 3;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'simple';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.actual_start_record, 0);
+    assert.deepEqual([['1'.repeat(250) + '###UI_STRING_TRIM_MARKER###', '2'.repeat(250) + '###UI_STRING_TRIM_MARKER###']], dst_message.preview_records);
+    assert(!cached_table_parse_result.has(doc_file_name));
 
+    // Test that comment lines do not prevent to sample requested number of entries.
+    doc_lines = ['#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', 'a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 3;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 0;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'simple';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.actual_start_record, 0);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2']], dst_message.preview_records);
+    assert(!cached_table_parse_result.has(doc_file_name));
 
-    // FIXME add test that makes sure that even if we have a lot of comments at the beginning we still sample the required number of records.
+    // Check caching logic.
+    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2', 'e1,e2', 'f1,f2', 'g1,g2', 'h1,h2', 'i1,i2', 'j1,j2', 'k1,k2', 'l1,l2', 'm1,m2', 'n1,n2', 'o1"",o2'];
+    delim = ',';
+    comment_prefix = '#';
+    preview_window_size = 2;
+    active_doc = new VscodeDocumentTestDouble(doc_lines, doc_file_name);
+    requested_start_record = 11;
+    cached_table_parse_result = new Map();
+    dst_message = new Object();
+    policy = 'quoted_rfc';
+    rbql_context = {input_document: active_doc, delim: delim, policy: policy, comment_prefix: comment_prefix, requested_start_record: requested_start_record};
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.preview_sampling_error, 'Double quotes are not consistent in record 15 which starts at line 16');
+    assert(cached_table_parse_result.has(doc_file_name));
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2'], ['e1', 'e2'], ['f1', 'f2'], ['g1', 'g2'], ['h1', 'h2'], ['i1', 'i2'], ['j1', 'j2'], ['k1', 'k2'], ['l1', 'l2'], ['m1', 'm2'], ['n1', 'n2']], cached_table_parse_result.get(doc_file_name)[0]);
+    assert.equal(15, cached_table_parse_result.get(doc_file_name)[1]); // First failed line.
+    assert.equal(1, cached_table_parse_result.get(doc_file_name)[2]); // Doc verion.
 
-    
-    // FIXME add more tests inclusing with non-rfc and rfc policies.
+    // Check that even with the updated doc the old version is returned because we haven't adjusted the version.
+    dst_message = new Object();
+    active_doc.lines_buffer[active_doc.lines_buffer.length - 1] = 'o1,o2';
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.preview_sampling_error, 'Double quotes are not consistent in record 15 which starts at line 16');
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2'], ['e1', 'e2'], ['f1', 'f2'], ['g1', 'g2'], ['h1', 'h2'], ['i1', 'i2'], ['j1', 'j2'], ['k1', 'k2'], ['l1', 'l2'], ['m1', 'm2'], ['n1', 'n2']], cached_table_parse_result.get(doc_file_name)[0]);
+    assert.equal(15, cached_table_parse_result.get(doc_file_name)[1]); // First failed line.
+    assert.equal(1, cached_table_parse_result.get(doc_file_name)[2]); // Doc verion.
+
+    // Check that updating doc version triggers reparsing which now returns the correct sample because the doc was fixed earlier.. 
+    dst_message = new Object();
+    active_doc.version = 2;
+    rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
+    assert.equal(dst_message.actual_start_record, 11);
+    assert.deepEqual([['l1', 'l2'], ['m1', 'm2']], dst_message.preview_records);
+    assert.equal(dst_message.preview_sampling_error, undefined);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2'], ['d1', 'd2'], ['e1', 'e2'], ['f1', 'f2'], ['g1', 'g2'], ['h1', 'h2'], ['i1', 'i2'], ['j1', 'j2'], ['k1', 'k2'], ['l1', 'l2'], ['m1', 'm2'], ['n1', 'n2'], ['o1', 'o2']], cached_table_parse_result.get(doc_file_name)[0]);
+    assert.equal(undefined, cached_table_parse_result.get(doc_file_name)[1]); // First failed line.
+    assert.equal(2, cached_table_parse_result.get(doc_file_name)[2]); // Doc verion.
 }
 
 

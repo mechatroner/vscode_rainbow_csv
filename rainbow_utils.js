@@ -798,17 +798,25 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
     let records = [];
     let _fields_info = null;
     let first_failed_line = null;
+    let vscode_doc_version = null;
     let _first_trailing_space_line = null;
     // Here `preview_window_size` is typically 100.
-    if (end_record < preview_window_size * 2) {
+    if (end_record < preview_window_size * 5) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
         [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
-        if (!cached_table_parse_result.has(document.fileName)) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
-            cached_table_parse_result.set(document.fileName, [records, first_failed_line]);
+        let need_full_doc_parse = true;
+        if (cached_table_parse_result.has(document.fileName)) {
+            [records, first_failed_line, vscode_doc_version] = cached_table_parse_result.get(document.fileName);
+            if (document.version === vscode_doc_version) {
+                need_full_doc_parse = false;
+            }
         }
-        [records, first_failed_line] = cached_table_parse_result.get(document.fileName);
+        if (need_full_doc_parse) {
+            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            cached_table_parse_result.set(document.fileName, [records, first_failed_line, document.version]);
+        }
+        [records, first_failed_line, vscode_doc_version] = cached_table_parse_result.get(document.fileName);
     }
     return [records, first_failed_line];
 }
