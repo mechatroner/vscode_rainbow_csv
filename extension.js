@@ -35,7 +35,6 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let client_html_template_web = null;
 
-var lint_results = new Map();
 var aligned_files = new Set();
 var autodetection_stoplist = new Set();
 var original_language_ids = new Map();
@@ -44,7 +43,6 @@ var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
 
-var lint_status_bar_button = null;
 var rbql_status_bar_button = null;
 var align_shrink_button = null;
 var rainbow_off_status_bar_button = null;
@@ -78,6 +76,8 @@ const QUOTED_POLICY = 'quoted';
 const WHITESPACE_POLICY = 'whitespace';
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const SIMPLE_POLICY = 'simple';
+
+let extension_context = {lint_results: new Map(), lint_status_bar_button: null};
 
 const dialect_map = {
     'csv': [',', QUOTED_POLICY],
@@ -247,7 +247,7 @@ function get_dialect(document) {
 
 
 function show_status_bar_items(active_doc) {
-    show_lint_status_bar_button(active_doc.fileName, active_doc.languageId);
+    ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, active_doc.fileName, active_doc.languageId);
     show_rbql_status_bar_button();
     show_align_shrink_button(active_doc.fileName);
     show_rainbow_off_status_bar_button();
@@ -319,7 +319,7 @@ function disable_rainbow_features_if_non_csv(active_doc) {
     var language_id = active_doc.languageId;
     if (dialect_map.hasOwnProperty(language_id))
         return;
-    let all_buttons = [lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
+    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -351,40 +351,6 @@ function get_active_doc(active_editor=null) {
     if (!active_doc)
         return null;
     return active_doc;
-}
-
-
-function show_lint_status_bar_button(file_path, language_id) {
-    let lint_cache_key = `${file_path}.${language_id}`;
-    if (!lint_results.has(lint_cache_key))
-        return;
-    var lint_report = lint_results.get(lint_cache_key);
-    if (!lint_status_bar_button)
-        lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    lint_status_bar_button.text = 'CSVLint';
-    // FIXME test all error messages
-    let lint_report_msg = '';
-    if (lint_report.is_processing) {
-        lint_status_bar_button.color = '#A0A0A0';
-        lint_report_msg = 'Processing';
-    } else if (Number.isInteger(lint_report.first_defective_line)) {
-        lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
-        lint_status_bar_button.color = '#f44242';
-    } else if (lint_report.fields_info && lint_report.fields_info.size > 1) {
-        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = ll_rainbow_utils().sample_first_two_inconsistent_records(lint_report.fields_info);
-        lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${record_num_1 + 1} has ${num_fields_1} fields, and record ${record_num_2 + 1} has ${num_fields_2} fields`;
-        lint_status_bar_button.color = '#f44242';
-    } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
-        lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${lint_report.first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
-        lint_status_bar_button.color = '#ffff28';
-    } else {
-        fast_load_utils.assert(lint_report.is_ok);
-        lint_status_bar_button.color = '#62f442';
-        lint_report_msg = 'OK';
-    }
-    lint_status_bar_button.tooltip = lint_report_msg + '\nClick to recheck';
-    lint_status_bar_button.command = 'rainbow-csv.CSVLint';
-    lint_status_bar_button.show();
 }
 
 
@@ -511,7 +477,7 @@ async function csv_lint(active_doc, is_manual_op) {
         return null;
     let lint_cache_key = `${file_path}.${language_id}`;
     if (!is_manual_op) {
-        if (lint_results.has(lint_cache_key))
+        if (extension_context.lint_results.has(lint_cache_key))
             return null;
         if (!get_from_config('enable_auto_csv_lint', false))
             return null;
@@ -519,18 +485,18 @@ async function csv_lint(active_doc, is_manual_op) {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null)
         return null;
-    lint_results.set(lint_cache_key, {is_processing: true});
-    show_lint_status_bar_button(file_path, language_id); // Visual feedback.
+    extension_context.lint_results.set(lint_cache_key, {is_processing: true});
+    ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, file_path, language_id); // Visual feedback.
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
     let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
     let is_ok = (first_defective_line === null && fields_info.size <= 1);
     let lint_result = {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line};
-    lint_results.set(lint_cache_key, lint_result);
+    extension_context.lint_results.set(lint_cache_key, lint_result);
     if (is_manual_op) {
         // Need timeout here to give user enough time to notice green -> yellow -> green switch, this is a sort of visual feedback.
         await sleep(500);
     }
-    show_lint_status_bar_button(file_path, language_id); // Visual feedback.
+    ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, file_path, language_id); // Visual feedback.
     return lint_result;
 }
 
@@ -1402,7 +1368,7 @@ async function try_autoenable_rainbow_csv(active_doc) {
     let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(active_doc, candidate_separators);
     if (rainbow_csv_language_id) {
         // Add the file to lint results to avoid re-parsing it with CSV Lint later.
-        lint_results.set(`${active_doc.fileName}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
+        extension_context.lint_results.set(`${active_doc.fileName}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
     } else if (!rainbow_csv_language_id && is_default_csv) {
         // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one within the first N characters.
         [rainbow_csv_language_id, delim, policy] = autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000);

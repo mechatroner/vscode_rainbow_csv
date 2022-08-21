@@ -31,7 +31,26 @@ class VscodeDocumentTestDouble {
 }
 
 
-let vscode_test_double = {Range: VscodeRangeTestDouble};
+class VscodeStatusBarItemTestDouble {
+    constructor() {
+        this.text = null;
+        this.color = null;
+        this.tooltip = null;
+        this.command = null;
+        this.is_visible = false;
+    }
+    show() {
+        this.is_visible = true;
+    }
+}
+
+
+function create_status_bar_item_test_double(_alignment) {
+    return new VscodeStatusBarItemTestDouble();
+}
+
+
+let vscode_test_double = {Range: VscodeRangeTestDouble, 'window': {'createStatusBarItem': create_status_bar_item_test_double}, 'StatusBarAlignment': {'Left': null}};
 
 function test_align_stats() {
     // Previous fields are numbers but the current one is not - mark the column as non-numeric.
@@ -822,6 +841,34 @@ function test_sample_preview_records_from_context() {
 }
 
 
+function test_show_lint_status_bar_button() {
+    let [extension_context, file_path, language_id] = [null, null, null];
+
+    // Test "is processing" display status.
+    extension_context = {lint_results: new Map()};
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}`;
+    extension_context.lint_results.set(lint_cache_key, {is_processing: true});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button.is_visible, true);
+    assert.equal(extension_context.lint_status_bar_button.tooltip, 'Processing\nClick to recheck');
+
+    // Test that missing cache key entry doesn't create a new item.
+    extension_context = {lint_results: new Map()};
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}.bad`;
+    extension_context.lint_results.set(lint_cache_key, {is_processing: true});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button, undefined);
+
+
+    // FIXME add more tests
+}
+
+
+
 function test_all() {
     test_align_stats();
     test_field_align();
@@ -830,6 +877,7 @@ function test_all() {
     test_parse_document_range_rfc();
     test_is_opening_rfc_line();
     test_sample_preview_records_from_context();
+    test_show_lint_status_bar_button();
 }
 
 exports.test_all = test_all;
