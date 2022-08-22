@@ -60,12 +60,12 @@
                 "rainbow_csv.autodetect_separators": {
                     "type": "array",
                     "default": [
-                        "\t",
+                        "TAB",
                         ",",
                         ";",
                         "|"
                     ],
-                    "description": "Enable automatic content-based separator autodetection for the specified list of separators",
+                    "description": "Enable automatic content-based separator autodetection for the specified list of separators (multicharacter separators are supported)",
                     "items": {
                         "type": "string",
                         "description": "Separator"

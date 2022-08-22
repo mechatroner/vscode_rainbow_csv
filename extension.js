@@ -681,7 +681,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let result_doc = null;
         try {
             if (is_web_ext) {
-                // FIXME test comment_prefix usage in all modes
+                // FIXME test comment_prefix usage in web mode.
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -1352,11 +1352,12 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
 
 
 async function try_autoenable_rainbow_csv(active_doc) {
+    // VSCode to some extent is capable of "remembering" doc id in the previous invocation, at least when used in debug mode.
     if (!active_doc)
         return active_doc;
     if (!get_from_config('enable_separator_autodetection', false))
         return active_doc;
-    let candidate_separators = get_from_config('autodetect_separators', []);
+    let candidate_separators = get_from_config('autodetect_separators', []).map((s) => s === 'TAB' ? '\t' : s);
     var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
     if (!file_path || autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
