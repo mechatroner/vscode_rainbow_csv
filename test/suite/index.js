@@ -8,8 +8,6 @@ const unit_tests = require('./unit_tests.js');
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
-// FIXME create a separate unit tests in unit_tests.js and import it directly. So that it could also be run separately from console as a simple node lib/script using npm run unit-test-only.
-
 // TODO make RBQL command wait for the result to reduce the timeout.
 const poor_rbql_async_design_workaround_timeout = 6000;
 
@@ -64,9 +62,8 @@ async function test_rbql_node(workspace_folder_uri) {
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
-
-    // FIXME don't set enable_rfc_newlines
-    test_task = {rbql_backend: "js", rbql_query: "select '<<<<<', a3, a2, a1, '>>>>> NR: ' + NR", enable_rfc_newlines: true};
+    assert.equal(active_doc.languageId, 'csv dynamic');
+    test_task = {rbql_backend: "js", rbql_query: "select '<<<<<', a3, a2, a1, '>>>>> NR: ' + NR"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;

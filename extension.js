@@ -59,7 +59,7 @@ var global_state = null;
 
 var preview_panel = null;
 
-var doc_edit_subscription = null;
+var doc_first_edit_subscription = null;
 var keyboard_cursor_subscription = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
@@ -783,7 +783,6 @@ async function set_comment_prefix() {
         return;
     let selection = active_editor.selection;
     if (!selection) {
-        // FIXME make sure to test with empty-string comment prefix! This should actually allow this.
         show_single_line_error("Selection is empty");
         return;
     }
@@ -1351,6 +1350,7 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
     return [best_dialect, best_separator, best_policy];
 }
 
+
 async function try_autoenable_rainbow_csv(active_doc) {
     if (!active_doc)
         return active_doc;
@@ -1383,14 +1383,13 @@ async function try_autoenable_rainbow_csv(active_doc) {
 }
 
 
-async function handle_first_empty_doc_edit(change_event) {
+async function handle_first_edit_for_an_empty_doc(change_event) {
     if (!change_event)
         return;
-    if (doc_edit_subscription) {
-        doc_edit_subscription.dispose();
-        doc_edit_subscription = null;
+    if (doc_first_edit_subscription) {
+        doc_first_edit_subscription.dispose();
+        doc_first_edit_subscription = null;
     }
-    // FIXME test that this works!
     await try_autoenable_rainbow_csv(change_event.document);
 }
 
@@ -1398,11 +1397,11 @@ async function handle_first_empty_doc_edit(change_event) {
 function register_csv_copy_paste_for_empty_doc(active_doc) {
     if (!get_from_config('enable_separator_autodetection', false))
         return;
-    if (!active_doc || doc_edit_subscription)
+    if (!active_doc || doc_first_edit_subscription)
         return;
     if (!active_doc.isUntitled && active_doc.lineCount != 0)
         return;
-    doc_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_empty_doc_edit);
+    doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
 }
 
 
