@@ -842,7 +842,7 @@ function test_sample_preview_records_from_context() {
 
 
 function test_show_lint_status_bar_button() {
-    let [extension_context, file_path, language_id] = [null, null, null];
+    let [extension_context, file_path, language_id, fields_info, first_defective_line, first_trailing_space_line] = [null, null, null, null, null, null];
 
     // Test "is processing" display status.
     extension_context = {lint_results: new Map()};
@@ -863,6 +863,30 @@ function test_show_lint_status_bar_button() {
     rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
     assert.equal(extension_context.lint_status_bar_button, undefined);
 
+    // First defective line test. First trailing space line and inconsistent fields info should have no effect on the result.
+    extension_context = {lint_results: new Map()};
+    first_defective_line = 10;
+    first_trailing_space_line = 5;
+    fields_info = new Map([[2, 0], [3, 2]]);
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}`;
+    extension_context.lint_results.set(lint_cache_key, {first_defective_line: first_defective_line, fields_info: fields_info, first_trailing_space_line: first_trailing_space_line});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button.is_visible, true);
+    assert.equal(extension_context.lint_status_bar_button.tooltip, 'Error. Line 10 has formatting error: double quote chars are not consistent\nClick to recheck');
+
+    // Inconsistent fields info test. First trailing space line should have no effect on the result.
+    extension_context = {lint_results: new Map()};
+    first_trailing_space_line = 5;
+    fields_info = new Map([[2, 0], [1, 10], [4, 15], [3, 2]]);
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}`;
+    extension_context.lint_results.set(lint_cache_key, {fields_info: fields_info, first_trailing_space_line: first_trailing_space_line});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button.is_visible, true);
+    assert.equal(extension_context.lint_status_bar_button.tooltip, 'Error. Number of fields is not consistent: e.g. record 1 has 2 fields, and record 3 has 3 fields\nClick to recheck');
 
     // FIXME add more tests
 }

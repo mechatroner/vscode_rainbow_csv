@@ -865,7 +865,7 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
         lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
         extension_context.lint_status_bar_button.color = '#f44242';
     } else if (lint_report.fields_info && lint_report.fields_info.size > 1) {
-        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = sample_first_two_inconsistent_records(lint_report.fields_info);
+        let [record_num_1, num_fields_1, record_num_2, num_fields_2] = rbql.sample_first_two_inconsistent_records(lint_report.fields_info);
         lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${record_num_1 + 1} has ${num_fields_1} fields, and record ${record_num_2 + 1} has ${num_fields_2} fields`;
         extension_context.lint_status_bar_button.color = '#f44242';
     } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
