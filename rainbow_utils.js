@@ -856,7 +856,6 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
     if (!extension_context.lint_status_bar_button)
         extension_context.lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     extension_context.lint_status_bar_button.text = 'CSVLint';
-    // FIXME test all error messages
     let lint_report_msg = '';
     if (lint_report.is_processing) {
         extension_context.lint_status_bar_button.color = '#A0A0A0';

@@ -849,7 +849,7 @@ function test_show_lint_status_bar_button() {
     file_path = 'fake_path.txt';
     language_id = 'fake_csv_language_id';
     lint_cache_key = `${file_path}.${language_id}`;
-    extension_context.lint_results.set(lint_cache_key, {is_processing: true});
+    extension_context.lint_results.set(lint_cache_key, {is_processing: true, is_ok: true}); // Adding `is_ok` to test that it has no affect.
     rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
     assert.equal(extension_context.lint_status_bar_button.is_visible, true);
     assert.equal(extension_context.lint_status_bar_button.tooltip, 'Processing\nClick to recheck');
@@ -888,7 +888,26 @@ function test_show_lint_status_bar_button() {
     assert.equal(extension_context.lint_status_bar_button.is_visible, true);
     assert.equal(extension_context.lint_status_bar_button.tooltip, 'Error. Number of fields is not consistent: e.g. record 1 has 2 fields, and record 3 has 3 fields\nClick to recheck');
 
-    // FIXME add more tests
+    // Test first trailing space line.
+    extension_context = {lint_results: new Map()};
+    first_trailing_space_line = 0; // Even zero line should trigger the warning - test against dumb `!first_trailing_space_line` check.
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}`;
+    extension_context.lint_results.set(lint_cache_key, {first_trailing_space_line: first_trailing_space_line, is_ok: true});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button.is_visible, true);
+    assert.equal(extension_context.lint_status_bar_button.tooltip, 'Leading/Trailing spaces detected: e.g. at line 1. Run "Shrink" command to remove them\nClick to recheck');
+
+    // Test OK lint status - no errors/warnings.
+    extension_context = {lint_results: new Map()};
+    file_path = 'fake_path.txt';
+    language_id = 'fake_csv_language_id';
+    lint_cache_key = `${file_path}.${language_id}`;
+    extension_context.lint_results.set(lint_cache_key, {is_ok: true});
+    rainbow_utils.show_lint_status_bar_button(vscode_test_double, extension_context, file_path, language_id);
+    assert.equal(extension_context.lint_status_bar_button.is_visible, true);
+    assert.equal(extension_context.lint_status_bar_button.tooltip, 'OK\nClick to recheck');
 }
 
 
