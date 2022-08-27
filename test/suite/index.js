@@ -51,11 +51,44 @@ async function test_comment_prefix_node(workspace_folder_uri) {
     assert.equal(12, num_lines_after_query); // Ten records + header + trailing empty line = 12
 }
 
+async function test_comment_prefix_python_rbql(workspace_folder_uri) {
+    let [uri, active_doc, editor, lint_report] = [null, null, null, null];
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
+
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(!lint_report.is_ok); // Lint is failing because we mistakenly treat comment lines as records.
+
+    await vscode.commands.executeCommand("cursorRightSelect");
+    await vscode.commands.executeCommand("cursorRightSelect");
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.SetCommentPrefix');
+    await sleep(1500);
+
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(lint_report.is_ok); // Lint is OK because we marked comment lines as comments.
+    await sleep(1000);
+
+    // Using Python native expressions to make sure that we are running python query.
+    test_task = {rbql_backend: "python", rbql_query: "SELECT '[{}]'.format(a.Country), int(a.Population) / 10", with_headers: true, integration_test_delay: 1500};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    active_doc = vscode.window.activeTextEditor.document;
+    num_lines_after_query = active_doc.lineCount;
+    log_message(`Length after python query: ${num_lines_after_query}`);
+    assert.equal(12, num_lines_after_query); // Ten records + header + trailing empty line = 12
+}
+
 
 async function test_rbql_node(workspace_folder_uri) {
     let [uri, active_doc, editor] = [null, null, null];
-    // Test comment prefix.
-    test_comment_prefix_node(workspace_folder_uri);
+
+    // Test comment prefix and node query with it.
+    await test_comment_prefix_node(workspace_folder_uri);
+    // Test comment prefix with python query.
+    await test_comment_prefix_python_rbql(workspace_folder_uri);
 
     // Test Python query.
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
