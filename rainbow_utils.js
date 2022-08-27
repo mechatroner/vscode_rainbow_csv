@@ -578,7 +578,7 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 }
 
 
-function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, fields, start_line, expected_end_line_for_control) {
+function make_multiline_record_ranges(vscode, delim_length, newline_marker, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
     let lnum_current = start_line;
@@ -589,23 +589,22 @@ function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, f
         // Group tokens belonging to the same logical field.
         let logical_field_tokens = [];
         while (true) {
-            let sentinel_pos = fields[i].indexOf(sentinel_sequence, pos_in_logical_field);
-            if (sentinel_pos == -1)
+            let newline_marker_pos = fields[i].indexOf(newline_marker, pos_in_logical_field);
+            if (newline_marker_pos == -1)
                 break;
-            // FIXME see what happens if we use pos_in_editor_line + 1
-            logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + sentinel_pos - pos_in_logical_field));
+            logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + newline_marker_pos - pos_in_logical_field));
             lnum_current += 1;
             pos_in_editor_line = 0;
             next_pos_in_editor_line = 0;
-            pos_in_logical_field = sentinel_pos + sentinel_sequence.length;
+            pos_in_logical_field = newline_marker_pos + newline_marker.length;
         }
         next_pos_in_editor_line += fields[i].length - pos_in_logical_field;
         if (i + 1 < fields.length) {
             next_pos_in_editor_line += delim_length;
         }
-        // FIXME see what happens if we use pos_in_editor_line + 1
         logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
         record_ranges.push(logical_field_tokens);
+        // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
         pos_in_editor_line = next_pos_in_editor_line;
     }
     assert(lnum_current == expected_end_line_for_control);
@@ -649,12 +648,12 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
             line_aggregator.reset();
         } else if (line_aggregator.has_full_record) {
-            const sentinel_sequence = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves.
-            let combined_line = line_aggregator.get_full_line(sentinel_sequence);
+            const newline_marker = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves.
+            let combined_line = line_aggregator.get_full_line(newline_marker);
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
             if (!warning) {
-                table_ranges.push({record_ranges: make_multiline_record_ranges(vscode, delim.length, sentinel_sequence, fields, start_line, lnum)});
+                table_ranges.push({record_ranges: make_multiline_record_ranges(vscode, delim.length, newline_marker, fields, start_line, lnum)});
             }
         }
     }
@@ -686,6 +685,7 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
                 next_cpos += delim.length;
             }
             record_ranges.push([new vscode.Range(lnum, cpos, lnum, next_cpos)]);
+            // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
             cpos = next_cpos;
         }
         table_ranges.push({record_ranges: record_ranges});
