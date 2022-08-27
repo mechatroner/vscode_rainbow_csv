@@ -23,7 +23,7 @@ The difference between running in win and in WSL is that in WSL it would only ru
 
 #### For web-based VSCode:
 1. run `npm install` (If you have WSL - run in Windows, don't run in WSL).
-2. run `compile-web` (If you have WSL - run in Windows, don't run in WSL). This will combine all scripts into a single web script and put it into the `dist` folder.
+2. run `npm run compile-web` (If you have WSL - run in Windows, don't run in WSL). This will combine all scripts into a single web script and put it into the `dist` folder.
 3. run `npm run test-in-browser` (If you have WSL - run in Windows, don't run in WSL). This will open a new browser windows and run all the unit tests. Make sure that the tests are successful.
 
 

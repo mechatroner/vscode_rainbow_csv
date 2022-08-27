@@ -22,7 +22,7 @@ function log_message(msg) {
 }
 
 
-async function test_comment_prefix_node(workspace_folder_uri) {
+async function test_comment_prefix_js(workspace_folder_uri) {
     let [uri, active_doc, editor, lint_report] = [null, null, null, null];
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
@@ -48,7 +48,11 @@ async function test_comment_prefix_node(workspace_folder_uri) {
     active_doc = vscode.window.activeTextEditor.document;
     num_lines_after_query = active_doc.lineCount;
     log_message(`Length after js query: ${num_lines_after_query}`);
-    assert.equal(12, num_lines_after_query); // Ten records + header + trailing empty line = 12
+    let expected_num_lines = 11; // 10 records + header.
+    if (!is_web_ext) {
+        expected_num_lines += 1; // Standard non-web CSV writer adds a newline at the end.
+    }
+    assert.equal(expected_num_lines, num_lines_after_query);
 }
 
 async function test_comment_prefix_python_rbql(workspace_folder_uri) {
@@ -85,8 +89,8 @@ async function test_comment_prefix_python_rbql(workspace_folder_uri) {
 async function test_rbql_node(workspace_folder_uri) {
     let [uri, active_doc, editor] = [null, null, null];
 
-    // Test comment prefix and node query with it.
-    await test_comment_prefix_node(workspace_folder_uri);
+    // Test comment prefix and js query with it.
+    await test_comment_prefix_js(workspace_folder_uri);
     // Test comment prefix with python query.
     await test_comment_prefix_python_rbql(workspace_folder_uri);
 
@@ -192,14 +196,19 @@ async function test_rbql_node(workspace_folder_uri) {
 
 
 async function test_rbql_web(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
-    let active_doc = await vscode.workspace.openTextDocument(uri);
-    let editor = await vscode.window.showTextDocument(active_doc);
-    await sleep(1000);
+    let [uri, active_doc, editor] = [null, null, null];
 
+    // Test comment prefix and js query with it.
+    await test_comment_prefix_js(workspace_folder_uri);
+
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
     let test_task = {rbql_backend: "js", with_headers: true, rbql_query: "select top 20 a1, Math.ceil(parseFloat(a.total_score) * 100), a['university_name'], null, 'foo bar' order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
+
     // Indirectly check reported warnings.
     let state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_warnings: true});
     assert.equal('["null values in output were replaced by empty strings"]', JSON.stringify(state_report.warnings));

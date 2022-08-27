@@ -681,8 +681,6 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let result_doc = null;
         try {
             if (is_web_ext) {
-                // FIXME test comment_prefix usage in web mode.
-                // FIXME add RBQL integration test with comment prefix, should work both in web and non-web mode. Also have this test with Python preferably.
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
