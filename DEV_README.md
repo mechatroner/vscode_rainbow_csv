@@ -107,31 +107,15 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider replacing the RBQL query text input with scrollable textarea - it has a drawback that on enter it will go to the next line instead running the query.
 
-* Figure out if it is possible to convert to a web extension.
-
-* Make the `is_web_ext` check more reliable and explicit.
-
-* Replace callbacks with async where possible
-
 * Store VSCode documents instead of file paths in result_set_parent_map so that the map can be used in web version. And the autodetection_stoplist also should be doc based to work in web.
 
 * Support JOIN queries in web version.
 
-* Get rid of typescript files and infra, but add comments explaining how you obtained the js versions of the files.
-
-* Try to get rid of `@types/vscode` dev dependency.
-
 * Support all commands in web version
-
-* Use `await save_to_global_state()` everywhere.
-
-* Use `await vscode.workspace.openTextDocument` everywhere.
 
 * Get rid of `then` entirely
 
 * Merge rbql_query_web and rbql_query_node
-
-* Add comment prefix handling in RBQL, unit tests (and web_ui entry?)
 
 * Show column info in statusline even when there are consistency issues, but highlight it in red/yellow
 
