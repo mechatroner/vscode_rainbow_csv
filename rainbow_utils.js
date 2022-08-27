@@ -592,6 +592,7 @@ function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, f
             let sentinel_pos = fields[i].indexOf(sentinel_sequence, pos_in_logical_field);
             if (sentinel_pos == -1)
                 break;
+            // FIXME see what happens if we use pos_in_editor_line + 1
             logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + sentinel_pos - pos_in_logical_field));
             lnum_current += 1;
             pos_in_editor_line = 0;
@@ -602,6 +603,7 @@ function make_multiline_record_ranges(vscode, delim_length, sentinel_sequence, f
         if (i + 1 < fields.length) {
             next_pos_in_editor_line += delim_length;
         }
+        // FIXME see what happens if we use pos_in_editor_line + 1
         logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
         record_ranges.push(logical_field_tokens);
         pos_in_editor_line = next_pos_in_editor_line;

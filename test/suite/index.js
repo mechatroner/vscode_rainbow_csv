@@ -411,6 +411,68 @@ async function test_manual_enable_disable(workspace_folder_uri) {
 }
 
 
+function test_range_position_contains_equivalence() {
+    // Ensure equivalence of test double and native classes "contains" logic.
+    let [vscode_range, vscode_position, test_double_range, test_double_position] = [null, null, null, null];
+
+    // Simple test.
+    vscode_range = new vscode.Range(1, 0, 1, 10);
+    vscode_position = new vscode.Position(1, 4);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(1, 0, 1, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(1, 4);
+    assert(vscode_range.contains(vscode_position));
+    assert(test_double_range.contains(test_double_position));
+
+    // Simple not contains test - different line.
+    vscode_range = new vscode.Range(1, 0, 1, 10);
+    vscode_position = new vscode.Position(2, 4);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(1, 0, 1, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(2, 4);
+    assert(!vscode_range.contains(vscode_position));
+    assert(!test_double_range.contains(test_double_position));
+
+    // Simple not contains test - after last character.
+    vscode_range = new vscode.Range(3, 5, 3, 10);
+    vscode_position = new vscode.Position(3, 11);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(3, 5, 3, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(3, 11);
+    assert(!vscode_range.contains(vscode_position));
+    assert(!test_double_range.contains(test_double_position));
+
+    // Contains test - last character.
+    vscode_range = new vscode.Range(3, 5, 3, 10);
+    vscode_position = new vscode.Position(3, 10);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(3, 5, 3, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(3, 10);
+    assert(vscode_range.contains(vscode_position));
+    assert(test_double_range.contains(test_double_position));
+
+    // Contains test - first character.
+    vscode_range = new vscode.Range(3, 5, 3, 10);
+    vscode_position = new vscode.Position(3, 5);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(3, 5, 3, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(3, 5);
+    assert(vscode_range.contains(vscode_position));
+    assert(test_double_range.contains(test_double_position));
+
+    // Not contains test - line before.
+    vscode_range = new vscode.Range(3, 5, 3, 10);
+    vscode_position = new vscode.Position(2, 5);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(3, 5, 3, 10);
+    test_double_position = new unit_tests.VscodePositionTestDouble(2, 5);
+    assert(!vscode_range.contains(vscode_position));
+    assert(!test_double_range.contains(test_double_position));
+
+    // Contains test - multiline range, but character is off - still contains.
+    vscode_range = new vscode.Range(3, 5, 10, 4);
+    vscode_position = new vscode.Position(3, 100);
+    test_double_range = new unit_tests.VscodeRangeTestDouble(3, 5, 10, 4);
+    test_double_position = new unit_tests.VscodePositionTestDouble(3, 100);
+    assert(vscode_range.contains(vscode_position));
+    assert(test_double_range.contains(test_double_position));
+}
+
+
 async function run() {
     try {
         log_message('Starting tests');
@@ -420,6 +482,8 @@ async function run() {
         assert(vscode.workspace.workspaceFolders);
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+
+        test_range_position_contains_equivalence();
 
         unit_tests.test_all();
 

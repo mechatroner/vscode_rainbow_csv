@@ -15,6 +15,11 @@ class VscodeRangeTestDouble {
         this.start = new VscodePositionTestDouble(l1, c1);
         this.end = new VscodePositionTestDouble(l2, c2);
     }
+    contains(position) {
+        let after_start = position.line > this.start.line || (position.line === this.start.line && position.character >= this.start.character);
+        let before_end = position.line < this.end.line || (position.line == this.end.line && position.character <= this.end.character);
+        return after_start && before_end;
+    }
 }
 
 
@@ -911,6 +916,22 @@ function test_show_lint_status_bar_button() {
 }
 
 
+function test_get_cursor_position_info() {
+    let [doc_lines, active_doc, delim, policy, comment_prefix, position] = [null, null, null, null, null, null];
+
+    // Basic test.
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'simple';
+    comment_prefix = '#';
+    position = new VscodePositionTestDouble(/*line=*/1, /*character=*/2);
+    rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+
+    // FIXME impl/more tests including quoted_rfc policy.
+}
+
+
 
 function test_all() {
     test_align_stats();
@@ -921,7 +942,11 @@ function test_all() {
     test_is_opening_rfc_line();
     test_sample_preview_records_from_context();
     test_show_lint_status_bar_button();
+    // FIXME uncomment
+    //test_get_cursor_position_info();
 }
 
 exports.test_all = test_all;
+exports.VscodePositionTestDouble = VscodePositionTestDouble;
+exports.VscodeRangeTestDouble = VscodeRangeTestDouble;
 
