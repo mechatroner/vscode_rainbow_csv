@@ -87,6 +87,7 @@ See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extension
 
 ### Pre-publishing checklist
 * Make sure that hover info shows hover information in different colors corresponding to the column color in classical csv mode.
+* Make sure that comments are highlighted with a separate comment color (this can also be seen in integration tests).
 
 
 ### Generating documentation with showdown

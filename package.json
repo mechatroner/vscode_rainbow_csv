@@ -287,7 +287,7 @@
             {
                 "command": "rainbow-csv.SetCommentPrefix",
                 "category": "Rainbow CSV",
-                "title": "Use selection as comment prefix"
+                "title": "Set selection as comment prefix"
             },
             {
                 "command": "rainbow-csv.RBQL",

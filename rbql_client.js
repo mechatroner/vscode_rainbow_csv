@@ -310,6 +310,7 @@ function handle_message(msg_event) {
 
         let integration_test_query = message['integration_test_query'];
         let integration_test_language = message['integration_test_language'];
+        let integration_test_delay = message.hasOwnProperty('integration_test_delay') ? message.integration_test_delay : 2000;
         if (integration_test_query && integration_test_language) {
             if (message['integration_test_with_headers']) {
                 document.getElementById("with_headers").checked = true;
@@ -320,7 +321,7 @@ function handle_message(msg_event) {
             document.getElementById('rbql_input').value = integration_test_query;
             setTimeout(function() {
                 start_rbql();
-            }, 2000);
+            }, integration_test_delay);
         }
     }
 

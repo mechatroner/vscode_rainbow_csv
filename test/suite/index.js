@@ -22,13 +22,46 @@ function log_message(msg) {
 }
 
 
-async function test_rbql_node(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
-    let active_doc = await vscode.workspace.openTextDocument(uri);
-    let editor = await vscode.window.showTextDocument(active_doc);
+async function test_comment_prefix_node(workspace_folder_uri) {
+    let [uri, active_doc, editor, lint_report] = [null, null, null, null];
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(!lint_report.is_ok); // Lint is failing because we mistakenly treat comment lines as records.
+
+    await vscode.commands.executeCommand("cursorRightSelect");
+    await vscode.commands.executeCommand("cursorRightSelect");
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.SetCommentPrefix');
+    await sleep(1500);
+
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(lint_report.is_ok); // Lint is OK because we marked comment lines as comments.
+    await sleep(1000);
+
+    test_task = {rbql_backend: "js", rbql_query: "SELECT a.Country, a.Population", with_headers: true, integration_test_delay: 1500};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    active_doc = vscode.window.activeTextEditor.document;
+    num_lines_after_query = active_doc.lineCount;
+    log_message(`Length after js query: ${num_lines_after_query}`);
+    assert.equal(12, num_lines_after_query); // Ten records + header + trailing empty line = 12
+}
+
+
+async function test_rbql_node(workspace_folder_uri) {
+    let [uri, active_doc, editor] = [null, null, null];
+    // Test comment prefix.
+    test_comment_prefix_node(workspace_folder_uri);
+
     // Test Python query.
+    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
     let test_task = {rbql_backend: "python", with_headers: true, rbql_query: "select top 20 a1, math.ceil(float(a.total_score) * 100), a['university_name'], None, 'foo bar' order by a2"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
@@ -346,6 +379,8 @@ async function run() {
         assert.equal(1, vscode.workspace.workspaceFolders.length);
         let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
 
+        unit_tests.test_all();
+
         await test_no_autodetection(workspace_folder_uri);
         if (!is_web_ext) {
             // Ensure that opening non-csv files doesn't cause rainbow csv to import relatively heavy lazy-loaded code.
@@ -359,8 +394,6 @@ async function run() {
         await test_manual_enable_disable(workspace_folder_uri);
 
         await test_dynamic_csv(workspace_folder_uri);
-
-        unit_tests.test_all();
 
         if (is_web_ext) {
             await test_rbql_web(workspace_folder_uri);

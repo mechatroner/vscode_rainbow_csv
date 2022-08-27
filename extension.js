@@ -682,6 +682,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         try {
             if (is_web_ext) {
                 // FIXME test comment_prefix usage in web mode.
+                // FIXME add RBQL integration test with comment prefix, should work both in web and non-web mode. Also have this test with Python preferably.
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -1111,6 +1112,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
             init_msg['integration_test_query'] = integration_test_options.rbql_query;
             init_msg['integration_test_with_headers'] = integration_test_options.with_headers || false;
+            init_msg['integration_test_delay'] = integration_test_options.integration_test_delay || 2000;
         }
         await webview.postMessage(init_msg);
     }
@@ -1290,7 +1292,6 @@ async function edit_rbql(integration_test_options=null) {
 function autodetect_dialect(active_doc, candidate_separators) {
     let candidate_dialects = [];
     for (let separator of candidate_separators) {
-        // FIXME test with adding random string to autodetection list.
         let policy = get_default_policy(separator);
         let dialect_id = map_dialect_to_language_id(separator, policy);
         if (!dialect_id || !policy)
