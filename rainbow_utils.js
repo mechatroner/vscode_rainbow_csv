@@ -717,7 +717,6 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
-    // FIXME consider adding unit tests
     const hover_parse_margin = 20;
     let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
     let table_ranges = parse_document_range_rfc(vscode, document, delim, comment_prefix, range);

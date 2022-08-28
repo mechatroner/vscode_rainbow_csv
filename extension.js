@@ -130,6 +130,7 @@ function map_dialect_to_language_id(separator, policy) {
 
 // FIXME test with huge files, both autodetection performance and dynamic syntax performance.
 // FIXME add align/shrink/lint/column edit with dynamic csv dialect - custom multichar separator.
+// FIXME update RBQL.
 
 // This structure will get properly initialized during the startup.
 let absolute_path_map = {

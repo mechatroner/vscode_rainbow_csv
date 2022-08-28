@@ -917,7 +917,7 @@ function test_show_lint_status_bar_button() {
 
 
 function test_get_cursor_position_info() {
-    let [doc_lines, active_doc, delim, policy, comment_prefix, position] = [null, null, null, null, null, null];
+    let [doc_lines, active_doc, delim, policy, comment_prefix, position, position_info] = [null, null, null, null, null, null, null];
 
     // Basic test.
     doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
@@ -925,10 +925,85 @@ function test_get_cursor_position_info() {
     delim = ',';
     policy = 'simple';
     comment_prefix = '#';
-    position = new VscodePositionTestDouble(/*line=*/1, /*character=*/2);
-    rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+    position = new VscodePositionTestDouble(/*line=*/3, /*character=*/3);
+    position_info = rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, position_info);
 
-    // FIXME impl/more tests including quoted_rfc policy.
+    // Delim character maps to preceeding field.
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'simple';
+    comment_prefix = '#';
+    position = new VscodePositionTestDouble(/*line=*/3, /*character=*/2);
+    position_info = rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+    assert.deepEqual({column_number: 0, total_columns: 2, split_warning: false}, position_info);
+
+    // Basic test, comment
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'simple';
+    comment_prefix = '#';
+    position = new VscodePositionTestDouble(/*line=*/2, /*character=*/5);
+    position_info = rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+    assert.deepEqual({is_comment: true}, position_info);
+
+    // Column info for the last character in line.
+    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'simple';
+    comment_prefix = '#';
+    position = new VscodePositionTestDouble(/*line=*/3, /*character=*/4);
+    position_info = rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, position);
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, position_info);
+
+    // Multicharacter separator test - critical locations across field boundaries.
+    doc_lines = ['a1@@@a2@@@a3', 'b1@@@b2@@@b3', '#comment', 'c1@@@c2@@@c3', 'd1@@@d2@@@d3'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = '@@@';
+    policy = 'simple';
+    comment_prefix = '#';
+    assert.deepEqual({column_number: 0, total_columns: 3, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/4)));
+    assert.deepEqual({column_number: 1, total_columns: 3, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/5)));
+    assert.deepEqual({column_number: 1, total_columns: 3, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/9)));
+    assert.deepEqual({column_number: 2, total_columns: 3, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/10)));
+
+    // Column info for whitespace policy.
+    doc_lines = ['a1  a2 ', 'b1    b2', '$$comment', '$c1  c2  ', 'd1   d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ' ';
+    policy = 'whitespace';
+    comment_prefix = '$$';
+    assert.deepEqual({column_number: 0, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/0)));
+    assert.deepEqual({column_number: 0, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/4)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/5)));
+    assert.deepEqual({is_comment: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/2, /*character=*/6)));
+
+    // Test with quoted policy and split warning.
+    doc_lines = ['a1,a2', '$b1,"b2', '$$comment', '"c1,""c1""",c2', 'd1,d2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'quoted';
+    comment_prefix = '$$';
+    assert.deepEqual({column_number: 0, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/11)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/12)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/1, /*character=*/4)));
+    assert.deepEqual({is_comment: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/2, /*character=*/6)));
+
+    // Quoted RFC policy test.
+    doc_lines = ['a1,a2', '#comment', 'b1,"b2', '#not a ""comment"", inside multiline field!', 'd1,d2"', 'e1,"e2,e2"', 'f1,"f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    delim = ',';
+    policy = 'quoted_rfc';
+    comment_prefix = '#';
+    assert.deepEqual({is_comment: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/1, /*character=*/6)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/6)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/4, /*character=*/5)));
+    assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/5, /*character=*/3)));
+    assert.equal(null, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/6, /*character=*/1)));
+    assert.equal(null, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/6, /*character=*/3)));
 }
 
 
@@ -942,8 +1017,7 @@ function test_all() {
     test_is_opening_rfc_line();
     test_sample_preview_records_from_context();
     test_show_lint_status_bar_button();
-    // FIXME uncomment
-    //test_get_cursor_position_info();
+    test_get_cursor_position_info();
 }
 
 exports.test_all = test_all;
