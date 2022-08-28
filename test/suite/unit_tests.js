@@ -33,6 +33,9 @@ class VscodeDocumentTestDouble {
     lineAt(lnum) {
         return {text: this.lines_buffer[lnum]};
     }
+    getText() {
+        return this.lines_buffer.join('\n');
+    }
 }
 
 
@@ -1023,4 +1026,5 @@ function test_all() {
 exports.test_all = test_all;
 exports.VscodePositionTestDouble = VscodePositionTestDouble;
 exports.VscodeRangeTestDouble = VscodeRangeTestDouble;
+exports.VscodeDocumentTestDouble = VscodeDocumentTestDouble;
 

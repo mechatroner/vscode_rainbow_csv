@@ -6,6 +6,13 @@ const vscode = require('vscode');
 const rainbow_utils = require('../../rainbow_utils.js');
 const unit_tests = require('./unit_tests.js');
 
+
+// The only reason why we are importing extension as a module here is to run some small unit tests like autodetect_dialect_frequency_based. 
+// All other functionality such as commands and highlighting would work without this import/require line, since the extension is activated using VSCode internal mechanisms.
+// So the require/import extension line below can be deleted and all of the main integration tests would still pass.
+const extension = require('../../extension.js');
+
+
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 
 // TODO make RBQL command wait for the result to reduce the timeout.
@@ -473,6 +480,58 @@ function test_range_position_contains_equivalence() {
 }
 
 
+function test_autodetect_dialect_frequency_based() {
+    let [doc_lines, active_doc, candidate_separators, max_num_chars_to_test, dialect_info] = [null, null, null, null, null];
+
+    // Basic test.
+    doc_lines = ['a1;a2', 'b1;b2', '#comment', 'c1;c2', 'd1;d2'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = [',', ';'];
+    max_num_chars_to_test = 10000;
+    dialect_info = extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test);
+    assert.deepEqual(['csv (semicolon)', ';', 'quoted'], dialect_info);
+
+    // Empty doc - should return csv since this is the default (presumably doc has .csv extension in order to call this function).
+    doc_lines = [];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = ['|', ' ', '\t', ',', ';'];
+    max_num_chars_to_test = 10000;
+    dialect_info = extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test);
+    assert.deepEqual(['csv', ',', 'quoted'], dialect_info);
+
+    // Test max_num_chars_to_test effect on autodetection result.
+    doc_lines = ['a|b|c|d,f|g|h|d', 'a,b', 'c,d', 'e,f', 'g,h', 'k,l', 'm,n', 'o,p'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = ['|', ',', ';'];
+    assert.deepEqual(['csv (pipe)', '|', 'simple'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10));
+    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+
+    // Dynamic csv test.
+    doc_lines = ['a$b', 'c$d', 'e$f', 'g,h', 'k,l'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = ['$', ',', ';'];
+    assert.deepEqual(['dynamic csv', '$', 'simple'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+
+    // Skipping frequent dot and whitespace because they are in blocklist.
+    doc_lines = ['a;  b...', 'c ;d...', 'e   ;f...', 'g  ; h...', 'k  l...'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = [' ', '.', ';'];
+    assert.deepEqual(['csv (semicolon)', ';', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+
+    // Using default comma separator because the user configured ones have zero frequency. Not sure if this is the right behavior in this case though.
+    doc_lines = ['a|b', 'c|d', 'e|f'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = [';', '\t'];
+    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+
+    // Empty configured separators list.
+    doc_lines = ['a|b', 'c|d', 'e|f'];
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
+    candidate_separators = [];
+    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+}
+
+
 async function run() {
     try {
         log_message('Starting tests');
@@ -486,6 +545,8 @@ async function run() {
         test_range_position_contains_equivalence();
 
         unit_tests.test_all();
+
+        test_autodetect_dialect_frequency_based();
 
         await test_no_autodetection(workspace_folder_uri);
         if (!is_web_ext) {

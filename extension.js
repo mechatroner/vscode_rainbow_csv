@@ -1327,7 +1327,6 @@ function autodetect_dialect(active_doc, candidate_separators) {
 
 
 function autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test) {
-    // FIXME add unit tests?
     let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_POLICY];
     let best_dialect_frequency = 0;
     let data = active_doc.getText();
@@ -1666,3 +1665,6 @@ function deactivate() {
 
 exports.activate = activate;
 exports.deactivate = deactivate;
+
+// Exports just for unit tests:
+exports.autodetect_dialect_frequency_based = autodetect_dialect_frequency_based;
