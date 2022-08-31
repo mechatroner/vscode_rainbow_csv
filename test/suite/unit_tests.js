@@ -24,11 +24,12 @@ class VscodeRangeTestDouble {
 
 
 class VscodeDocumentTestDouble {
-    constructor(lines_buffer, fileName='TestDouble.txt') {
+    constructor(lines_buffer, fileName='TestDouble.txt', language_id='plaintext') {
         this.lines_buffer = lines_buffer;
         this.lineCount = lines_buffer.length;
         this.fileName = fileName;
         this.version = 1;
+        this.languageId = language_id;
     }
     lineAt(lnum) {
         return {text: this.lines_buffer[lnum]};
@@ -58,7 +59,14 @@ function create_status_bar_item_test_double(_alignment) {
 }
 
 
-let vscode_test_double = {Range: VscodeRangeTestDouble, 'window': {'createStatusBarItem': create_status_bar_item_test_double}, 'StatusBarAlignment': {'Left': null}};
+function set_text_document_language_test_double(target_document, language_id) {
+    target_document.languageId = language_id;
+    return target_document;
+}
+
+
+let vscode_test_double = {Range: VscodeRangeTestDouble, 'window': {'createStatusBarItem': create_status_bar_item_test_double}, 'StatusBarAlignment': {'Left': null}, 'languages': {'setTextDocumentLanguage': set_text_document_language_test_double}};
+
 
 function test_align_stats() {
     // Previous fields are numbers but the current one is not - mark the column as non-numeric.
@@ -1027,4 +1035,4 @@ exports.test_all = test_all;
 exports.VscodePositionTestDouble = VscodePositionTestDouble;
 exports.VscodeRangeTestDouble = VscodeRangeTestDouble;
 exports.VscodeDocumentTestDouble = VscodeDocumentTestDouble;
-
+exports.vscode_test_double = vscode_test_double;

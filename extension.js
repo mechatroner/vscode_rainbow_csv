@@ -36,9 +36,6 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 let client_html_template_web = null;
 
 var aligned_files = new Set();
-var autodetection_stoplist = new Set();
-var original_language_ids = new Map();
-var custom_document_dialects = new Map();
 var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
@@ -77,7 +74,7 @@ const WHITESPACE_POLICY = 'whitespace';
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const SIMPLE_POLICY = 'simple';
 
-let extension_context = {lint_results: new Map(), lint_status_bar_button: null};
+let extension_context = {lint_results: new Map(), lint_status_bar_button: null, custom_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
 
 const dialect_map = {
     'csv': [',', QUOTED_POLICY],
@@ -199,8 +196,10 @@ function make_with_headers_key(file_path) {
 }
 
 
-function get_from_config(param_name, default_value) {
-    const config = vscode.workspace.getConfiguration('rainbow_csv');
+function get_from_config(param_name, default_value, config=null) {
+    if (!config) {
+        config = vscode.workspace.getConfiguration('rainbow_csv');
+    }
     return config ? config.get(param_name) : default_value;
 }
 
@@ -228,8 +227,8 @@ function get_dialect(document) {
     let delim = null;
     let policy = null;
     let comment_prefix = get_from_config('comment_prefix', '');
-    if (custom_document_dialects.has(document.fileName)) {
-        let dialect_info = custom_document_dialects.get(document.fileName);
+    if (extension_context.custom_document_dialects.has(document.fileName)) {
+        let dialect_info = extension_context.custom_document_dialects.get(document.fileName);
         // This check allows to override default comment_prefix with an empty string from user selection to disable comment prefix in selected files.
         if (dialect_info.hasOwnProperty('comment_prefix') && dialect_info.comment_prefix !== null) {
             comment_prefix = dialect_info.comment_prefix;
@@ -543,7 +542,7 @@ async function show_warnings(warnings) {
 
 async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
     // Settin dialect just in case.
-    custom_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
+    extension_context.custom_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
     let language_id = map_dialect_to_language_id(delim, policy);
     try {
         await vscode.window.showTextDocument(text_doc);
@@ -611,7 +610,7 @@ async function handle_command_result(src_table_path, dst_table_path, dst_delim, 
         return; // Just exit: error would be shown in the preview window.
     }
     // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
-    autodetection_stoplist.add(dst_table_path);
+    extension_context.autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(safe_lower(dst_table_path), src_table_path);
     let doc = await vscode.workspace.openTextDocument(dst_table_path);
     await handle_rbql_result_file(doc, dst_delim, dst_policy, warnings);
@@ -690,7 +689,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 let csv_options = {'bulk_read': true};
                 await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, /*user_init_code=*/'', csv_options);
                 result_set_parent_map.set(safe_lower(output_path), input_path);
-                autodetection_stoplist.add(output_path);
+                extension_context.autodetection_stoplist.add(output_path);
                 result_doc = await vscode.workspace.openTextDocument(output_path);
             }
         } catch (e) {
@@ -768,10 +767,10 @@ async function set_rainbow_separator(policy=null) {
         policy = get_default_policy(separator);
     }
     let language_id = map_dialect_to_language_id(separator, policy);
-    custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
+    extension_context.custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let original_language_id = active_doc.languageId;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
-    original_language_ids.set(doc.fileName, original_language_id);
+    extension_context.original_language_ids.set(doc.fileName, original_language_id);
 }
 
 
@@ -789,11 +788,11 @@ async function set_comment_prefix() {
     }
     let comment_prefix = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
     let dialect_info = new Object();
-    if (custom_document_dialects.has(active_doc.fileName)) {
-        dialect_info = custom_document_dialects.get(active_doc.fileName);
+    if (extension_context.custom_document_dialects.has(active_doc.fileName)) {
+        dialect_info = extension_context.custom_document_dialects.get(active_doc.fileName);
     }
     dialect_info['comment_prefix'] = comment_prefix;
-    custom_document_dialects.set(active_doc.fileName, dialect_info);
+    extension_context.custom_document_dialects.set(active_doc.fileName, dialect_info);
     if (!comment_prefix) {
         manual_comment_prefix_stoplist.add(active_doc.fileName);
     } else {
@@ -813,10 +812,10 @@ async function restore_original_language() {
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
-    autodetection_stoplist.add(file_path);
+    extension_context.autodetection_stoplist.add(file_path);
     let original_language_id = 'plaintext';
-    if (original_language_ids.has(file_path)) {
-        original_language_id = original_language_ids.get(file_path);
+    if (extension_context.original_language_ids.has(file_path)) {
+        original_language_id = extension_context.original_language_ids.get(file_path);
     }
     if (!original_language_id || original_language_id == active_doc.languageId) {
         show_single_line_error("Unable to restore original language");
@@ -824,7 +823,7 @@ async function restore_original_language() {
     }
 
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
-    original_language_ids.delete(file_path);
+    extension_context.original_language_ids.delete(file_path);
     disable_rainbow_features_if_non_csv(doc);
 }
 
@@ -1289,7 +1288,7 @@ async function edit_rbql(integration_test_options=null) {
 }
 
 
-function autodetect_dialect(active_doc, candidate_separators) {
+function autodetect_dialect(config, active_doc, candidate_separators) {
     let candidate_dialects = [];
     for (let separator of candidate_separators) {
         let policy = get_default_policy(separator);
@@ -1301,13 +1300,13 @@ function autodetect_dialect(active_doc, candidate_separators) {
             candidate_dialects.push([DYNAMIC_CSV, separator, QUOTED_RFC_POLICY]);
         }
     }
-    let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
-    let min_num_lines = get_from_config('autodetection_min_line_count', 10);
+    let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false, config);
+    let min_num_lines = get_from_config('autodetection_min_line_count', 10, config);
     if (active_doc.lineCount < min_num_lines)
         return [null, null, null];
     let [best_dialect, best_separator, best_policy, best_dialect_first_trailing_space_line] = [null, null, null, null];
     let best_dialect_num_columns = 1;
-    let weak_comment_prefix_for_autodetection = get_from_config('comment_prefix', '');
+    let weak_comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config);
     if (!weak_comment_prefix_for_autodetection)
         weak_comment_prefix_for_autodetection = '#';
     for (let candidate_dialect of candidate_dialects) {
@@ -1351,22 +1350,22 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
 }
 
 
-async function try_autoenable_rainbow_csv(active_doc) {
+async function try_autoenable_rainbow_csv(vscode, config, extension_context, active_doc) {
     // VSCode to some extent is capable of "remembering" doc id in the previous invocation, at least when used in debug mode.
     if (!active_doc)
         return active_doc;
-    if (!get_from_config('enable_separator_autodetection', false))
+    if (!get_from_config('enable_separator_autodetection', false, config))
         return active_doc;
-    let candidate_separators = get_from_config('autodetect_separators', []).map((s) => s === 'TAB' ? '\t' : s);
+    let candidate_separators = get_from_config('autodetect_separators', [], config).map((s) => s === 'TAB' ? '\t' : s);
     var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
-    if (!file_path || autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
+    if (!file_path || extension_context.autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
         return active_doc;
     }
     let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
-    let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(active_doc, candidate_separators);
+    let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators);
     if (rainbow_csv_language_id) {
         // Add the file to lint results to avoid re-parsing it with CSV Lint later.
         extension_context.lint_results.set(`${active_doc.fileName}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
@@ -1377,9 +1376,9 @@ async function try_autoenable_rainbow_csv(active_doc) {
     if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
         return active_doc;
 
-    custom_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    extension_context.custom_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    original_language_ids.set(file_path, original_language_id);
+    extension_context.original_language_ids.set(file_path, original_language_id);
     return doc;
 }
 
@@ -1391,7 +1390,7 @@ async function handle_first_edit_for_an_empty_doc(change_event) {
         doc_first_edit_subscription.dispose();
         doc_first_edit_subscription = null;
     }
-    await try_autoenable_rainbow_csv(change_event.document);
+    await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, change_event.document);
 }
 
 
@@ -1431,7 +1430,7 @@ function handle_cursor_movement(_unused_cursor_event) {
 
 async function handle_doc_open(active_doc) {
     register_csv_copy_paste_for_empty_doc(active_doc);
-    active_doc = await try_autoenable_rainbow_csv(active_doc);
+    active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
@@ -1668,3 +1667,4 @@ exports.deactivate = deactivate;
 
 // Exports just for unit tests:
 exports.autodetect_dialect_frequency_based = autodetect_dialect_frequency_based;
+exports.try_autoenable_rainbow_csv = try_autoenable_rainbow_csv;
