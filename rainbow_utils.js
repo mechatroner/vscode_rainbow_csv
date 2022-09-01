@@ -332,7 +332,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
-        [this.records, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -804,7 +804,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
     // Here `preview_window_size` is typically 100.
     if (end_record < preview_window_size * 5) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
         let need_full_doc_parse = true;
         if (cached_table_parse_result.has(document.fileName)) {
@@ -814,7 +814,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
             }
         }
         if (need_full_doc_parse) {
-            let [records, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            let [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
             cached_table_parse_result.set(document.fileName, [records, first_failed_line, document.version]);
         }
         [records, first_failed_line, vscode_doc_version] = cached_table_parse_result.get(document.fileName);

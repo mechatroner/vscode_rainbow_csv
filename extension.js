@@ -489,7 +489,7 @@ async function csv_lint(active_doc, is_manual_op) {
     extension_context.lint_results.set(lint_cache_key, {is_processing: true});
     ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, file_path, language_id); // Visual feedback.
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
-    let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
+    let [_records, _num_records_parsed, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
     let is_ok = (first_defective_line === null && fields_info.size <= 1);
     let lint_result = {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line};
     extension_context.lint_results.set(lint_cache_key, lint_result);
@@ -1288,7 +1288,7 @@ async function edit_rbql(integration_test_options=null) {
 }
 
 
-function autodetect_dialect(config, active_doc, candidate_separators) {
+function autodetect_dialect(config, active_doc, candidate_separators, comment_prefix) {
     let candidate_dialects = [];
     for (let separator of candidate_separators) {
         let policy = get_default_policy(separator);
@@ -1306,14 +1306,15 @@ function autodetect_dialect(config, active_doc, candidate_separators) {
         return [null, null, null];
     let [best_dialect, best_separator, best_policy, best_dialect_first_trailing_space_line] = [null, null, null, null];
     let best_dialect_num_columns = 1;
-    let weak_comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config);
-    if (!weak_comment_prefix_for_autodetection)
-        weak_comment_prefix_for_autodetection = '#';
     for (let candidate_dialect of candidate_dialects) {
         let [dialect_id, separator, policy] = candidate_dialect;
-        let [_records, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, separator, policy, weak_comment_prefix_for_autodetection, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, /*min_num_fields_for_autodetection=*/best_dialect_num_columns + 1);
+        let [_records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, separator, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, /*min_num_fields_for_autodetection=*/best_dialect_num_columns + 1);
         if (first_defective_line !== null || fields_info.size != 1)
             continue;
+        if (num_records_parsed < min_num_lines) {
+            // Ensure that min_num_lines also applies to number of parsed records. There could be a discrepancy between number of lines and records due to comment lines and/or multiline rfc records.
+            continue;
+        }
         let num_columns = Array.from(fields_info.keys())[0];
         if (num_columns >= best_dialect_num_columns + 1) {
             best_dialect_num_columns = num_columns;
@@ -1365,7 +1366,8 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
-    let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators);
+    let comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config) || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
+    let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators, comment_prefix_for_autodetection);
     if (rainbow_csv_language_id) {
         // Add the file to lint results to avoid re-parsing it with CSV Lint later.
         extension_context.lint_results.set(`${active_doc.fileName}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
@@ -1373,10 +1375,13 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
         // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one within the first N characters.
         [rainbow_csv_language_id, delim, policy] = autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000);
     }
-    if (!rainbow_csv_language_id || rainbow_csv_language_id == original_language_id)
+    if (!rainbow_csv_language_id)
         return active_doc;
-
+    // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
+    // And in case if user changes it in the settings it would immediately affect the autodetected files.
     extension_context.custom_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    if (rainbow_csv_language_id == original_language_id)
+        return active_doc;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     extension_context.original_language_ids.set(file_path, original_language_id);
     return doc;

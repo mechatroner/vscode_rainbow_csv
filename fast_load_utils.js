@@ -99,11 +99,11 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
             }
         }
         if (!consumer.consume(record_text, record_start_line)) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
         record_start_line = lnum + 1;
         if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
-            return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
         }
     }
 
@@ -111,7 +111,7 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         assert(policy == 'quoted_rfc');
         consumer.consume(line_aggregator.get_full_line('\n'), record_start_line);
     }
-    return [consumer.records, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+    return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
 }
 
 
