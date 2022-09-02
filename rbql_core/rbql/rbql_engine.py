@@ -1481,6 +1481,8 @@ def shallow_parse_input_query(query_text, input_iterator, tables_registry, query
         query_context.top_count = find_top(rb_actions)
 
         if EXCEPT in rb_actions:
+            if JOIN in rb_actions:
+                raise RbqlParsingError('EXCEPT and JOIN are not allowed in the same query') # UT JSON
             output_header, select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_iterator.get_header())
         else:
             select_expression, select_expression_for_ast = translate_select_expression(rb_actions[SELECT]['text'])

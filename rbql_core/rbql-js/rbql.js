@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions.
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.25.0';
+const RBQL_VERSION = '0.25.1';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -1840,6 +1840,9 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
     if (rb_actions.hasOwnProperty(SELECT)) {
         query_context.top_count = find_top(rb_actions);
         if (rb_actions.hasOwnProperty(EXCEPT)) {
+            if (rb_actions.hasOwnProperty(JOIN)) {
+                throw new RbqlParsingError('EXCEPT and JOIN are not allowed in the same query');
+            }
             let [output_header, select_expression] = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_header);
             query_context.select_expression = select_expression;
             query_context.writer.set_header(output_header);
