@@ -152,3 +152,8 @@ Token modifiers to use if needed:
 const tokenModifiers = ['rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10', 'name', 'function', 'parameter', 'numeric', 'type', 'bold'];
 const modifier_sequences = [[], ['rainbow2'], ['name', 'function', 'rainbow3'], ['rainbow4'], ['rainbow5'], ['parameter', 'rainbow6'], ['numeric', 'rainbow7'], ['name', 'type', 'rainbow8'], ['bold', 'rainbow9'], 'rainbow10'];
 ```
+
+
+#### Maximum supported file size in VSCode
+https://stackoverflow.com/questions/53625687/what-is-the-largest-filesize-supported-by-vs-code-syntax-highlighting
+20MB Or 300K lines (avg 66 chars per line).
