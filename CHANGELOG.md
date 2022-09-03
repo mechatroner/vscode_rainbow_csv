@@ -1,4 +1,11 @@
 # Rainbow CSV for Visual Studio Code Change Log
+## 3.0.0
+* Support infinite number of arbitrary single-character and multi-character separators.
+* Support multiline fields with RFC-4180 - compatible syntax highlighting.
+* Support highlighting of comment lines.
+* Various minor usability improvements and fixes.
+* Update RBQL.
+
 ## 2.4.0
 * Show cursor column info in the status line.
 * UI and UX improvements.

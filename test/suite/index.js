@@ -362,6 +362,11 @@ async function test_dynamic_csv(workspace_folder_uri) {
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(1000);
 
+    for (let i = 0; i < 10; i++) {
+        await vscode.commands.executeCommand("scrollPageDown"); // Scroll around to test
+        await sleep(100);
+    }
+
     let length_original = active_doc.getText().length;
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
@@ -388,6 +393,36 @@ async function test_dynamic_csv(workspace_folder_uri) {
     assert.equal(743, length_after_query);
 }
 
+async function test_huge_file(workspace_folder_uri) {
+    // Test huge file close to VSCode syntax highlighting limit (20MB Or 300K lines).
+    // Do some basic navigation commands and some basic editing to ensure that performance is OK.
+    let start_time = performance.now();
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'books_huge.txt');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    assert.equal(active_doc.languageId, 'csv');
+    await vscode.commands.executeCommand("cursorBottom");
+    await sleep(500);
+    await vscode.commands.executeCommand("cursorTop");
+    await sleep(500);
+    for (let i = 0; i < 100; i++) {
+        await vscode.commands.executeCommand("scrollPageDown");
+        await sleep(10);
+    }
+    for (let i = 0; i < 10; i++) {
+        // Delete some lines.
+        await vscode.commands.executeCommand("editor.action.deleteLines");
+        await sleep(10);
+    }
+    await sleep(500);
+    await vscode.commands.executeCommand("cursorTop");
+    await sleep(500);
+    let end_time = performance.now();
+    let total_sleep_time = 500 * 4 - 10 * 100 - 10 * 10;
+    let total_adjusted_latency = (end_time - start_time) - total_sleep_time;
+    log_message(`total adjusted latency: ${total_adjusted_latency}`)
+    assert(total_adjusted_latency < 20000);
+}
 
 async function test_autodetection(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking_semicolon.txt');
@@ -826,6 +861,8 @@ async function run() {
 
         await test_autodetection(workspace_folder_uri);
         await test_manual_enable_disable(workspace_folder_uri);
+
+        await test_huge_file(workspace_folder_uri);
 
         await test_dynamic_csv(workspace_folder_uri);
 

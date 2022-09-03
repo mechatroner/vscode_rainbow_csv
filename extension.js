@@ -125,7 +125,6 @@ function map_dialect_to_language_id(separator, policy) {
     return DYNAMIC_CSV;
 }
 
-// FIXME test with huge files, both autodetection performance and dynamic syntax performance.
 
 // This structure will get properly initialized during the startup.
 let absolute_path_map = {
