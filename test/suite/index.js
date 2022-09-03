@@ -347,6 +347,7 @@ async function test_no_autodetection(workspace_folder_uri) {
     await sleep(1000);
 }
 
+
 async function test_dynamic_csv(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'movies_multichar_separator.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -373,6 +374,23 @@ async function test_dynamic_csv(workspace_folder_uri) {
 
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(1000);
+
+    let length_original = active_doc.getText().length;
+    await vscode.commands.executeCommand('rainbow-csv.Align');
+    let length_aligned = active_doc.getText().length;
+    assert.equal(length_original + 8513, length_aligned); // 8513 was calculated as the difference in file sizes reported by wc -c.
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.Shrink');
+    await sleep(1000);
+    let length_shrinked = active_doc.getText().length;
+    assert.equal(length_original, length_shrinked);
+
+    // Now we need to undo the commands to run RBQL.
+    await vscode.commands.executeCommand('undo'); // Undo Shrink.
+    await sleep(500);
+    await vscode.commands.executeCommand('undo'); // Undo Align.
+    await sleep(500);
+
     test_task = {rbql_backend: "js", rbql_query: "select a1, a4 % 100, a5 order by a1 limit 20"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
