@@ -68,20 +68,7 @@ async function test_comment_prefix_python_rbql(workspace_folder_uri) {
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
-
-    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
-    assert(!lint_report.is_ok); // Lint is failing because we mistakenly treat comment lines as records.
-
-    await vscode.commands.executeCommand("cursorRightSelect");
-    await vscode.commands.executeCommand("cursorRightSelect");
-    await sleep(1000);
-    await vscode.commands.executeCommand('rainbow-csv.SetCommentPrefix');
-    await sleep(1500);
-
-    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
-    assert(lint_report.is_ok); // Lint is OK because we marked comment lines as comments.
-    await sleep(1000);
-
+    // Don't need to select comment prefix again since we already did it for this file in the previous test.
     // Using Python native expressions to make sure that we are running python query.
     test_task = {rbql_backend: "python", rbql_query: "SELECT '[{}]'.format(a.Country), int(a.Population) / 10", with_headers: true, integration_test_delay: 1500};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
@@ -139,7 +126,7 @@ async function test_rbql_node(workspace_folder_uri) {
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
-    assert.equal(active_doc.languageId, 'csv dynamic');
+    assert.equal(active_doc.languageId, 'dynamic csv');
     test_task = {rbql_backend: "js", rbql_query: "select '<<<<<', a3, a2, a1, '>>>>> NR: ' + NR"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
