@@ -362,10 +362,11 @@ async function test_dynamic_csv(workspace_folder_uri) {
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(1000);
 
-    for (let i = 0; i < 10; i++) {
-        await vscode.commands.executeCommand("scrollPageDown"); // Scroll around to test
-        await sleep(100);
-    }
+    // Scroll around to test.
+    await vscode.commands.executeCommand("scrollPageDown");
+    await sleep(500);
+    await vscode.commands.executeCommand("scrollPageUp");
+    await sleep(500);
 
     let length_original = active_doc.getText().length;
     await vscode.commands.executeCommand('rainbow-csv.Align');
@@ -390,7 +391,11 @@ async function test_dynamic_csv(workspace_folder_uri) {
     length_after_query = active_doc.getText().length;
     log_message(`Length after js query: ${length_after_query}`);
     await sleep(1000);
-    assert.equal(743, length_after_query);
+    let expected_num_lines = 742;
+    if (!is_web_ext) {
+        expected_num_lines += 1; // Standard non-web CSV writer adds a newline at the end.
+    }
+    assert.equal(expected_num_lines, length_after_query);
 }
 
 async function test_huge_file(workspace_folder_uri) {
