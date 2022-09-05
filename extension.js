@@ -9,6 +9,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
+// FIXME comment prefix lines semantic highlighting doesn't work for some reason with native rfc csv syntax.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -77,7 +79,7 @@ const SIMPLE_POLICY = 'simple';
 let extension_context = {lint_results: new Map(), lint_status_bar_button: null, custom_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
 
 const dialect_map = {
-    'csv': [',', QUOTED_POLICY],
+    'csv': [',', QUOTED_RFC_POLICY],
     'tsv': ['\t', SIMPLE_POLICY],
     'csv (semicolon)': [';', QUOTED_POLICY],
     'csv (pipe)': ['|', SIMPLE_POLICY],
@@ -1293,7 +1295,7 @@ function autodetect_dialect(config, active_doc, candidate_separators, comment_pr
         if (!dialect_id || !policy)
             continue;
         candidate_dialects.push([dialect_id, separator, policy]);
-        if (separator == ',' || separator == ';') {
+        if ((separator == ',' || separator == ';') && policy != QUOTED_RFC_POLICY) {
             candidate_dialects.push([DYNAMIC_CSV, separator, QUOTED_RFC_POLICY]);
         }
     }

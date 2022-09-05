@@ -154,6 +154,16 @@ const modifier_sequences = [[], ['rainbow2'], ['name', 'function', 'rainbow3'], 
 ```
 
 
+#### Autodetection policies?
+* adaptive/auto?
+* default rfc
+* default simple
+* default quoted
+
+Or should we actually call it "autodetection policy" and make sure to mention it applies only for csv and semicolon. Because this is the way it currently works anyway.
+Later we can make it possible for per-dialect customization if needed.
+
+
 #### Maximum supported file size in VSCode
 https://stackoverflow.com/questions/53625687/what-is-the-largest-filesize-supported-by-vs-code-syntax-highlighting
 20MB Or 300K lines (avg 66 chars per line).
