@@ -26,6 +26,7 @@ Another way to do this: select one separator character with mouse cursor -> righ
 |csv (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
 |csv (pipe)       | &#124; (pipe)        |           |                                     |
 |csv (...)        | ~ ^ : " = . -        |           |                                     |
+|dynamic csv      | any char or string   |           |                                     |
 
 
 #### Content-based separator autodetection
@@ -52,6 +53,7 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 
 Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
 List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilde)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
+Rainbow CSV also allows to use an arbitrary character or string as a separator - select the separator text with cursor and run `Rainbow CSV: Set selected text as Rainbow separator: Basic` command.
 
 
 #### CSVLint consistency check
@@ -86,9 +88,6 @@ There you can find the list of available options and their description.
 
 ### Commands:
 
-#### RBQL
-Enter RBQL - SQL-like language query editing mode.
-
 #### Align, Shrink
 Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
 
@@ -104,6 +103,9 @@ Input a comma-separated string with column names to adjust column names displaye
 #### SetHeaderLine 
 Uses the current line to adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.
 This is a "Virtual" header and will be persistent and will be associated with the parent file across VSCode sessions.
+
+#### RBQL
+Enter RBQL - SQL-like language query editing mode.
 
 #### SetJoinTableName
 Set a custom name for the current file so you can use it instead of the file path in RBQL JOIN queries
