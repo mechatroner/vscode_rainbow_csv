@@ -81,7 +81,7 @@ let extension_context = {lint_results: new Map(), lint_status_bar_button: null, 
 const dialect_map = {
     'csv': [',', QUOTED_RFC_POLICY],
     'tsv': ['\t', SIMPLE_POLICY],
-    'csv (semicolon)': [';', QUOTED_POLICY],
+    'csv (semicolon)': [';', QUOTED_RFC_POLICY],
     'csv (pipe)': ['|', SIMPLE_POLICY],
     'csv (tilde)': ['~', SIMPLE_POLICY],
     'csv (caret)': ['^', SIMPLE_POLICY],
@@ -660,7 +660,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
-        [output_delim, output_policy] = [',', QUOTED_POLICY];
+        [output_delim, output_policy] = [',', QUOTED_RFC_POLICY];
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', SIMPLE_POLICY];
     rbql_context.output_delim = output_delim;
@@ -874,6 +874,7 @@ async function set_virtual_header() {
 
 
 async function column_edit(edit_mode) {
+    // FIXME the logic should be adjusted for QUOTED_RFC_POLICY, probably just check that the columns which are being edited are not multiline.
     let active_editor = get_active_editor();
     if (!active_editor || !active_editor.selection)
         return;
@@ -921,11 +922,11 @@ async function column_edit(edit_mode) {
         }
         let char_pos_before = entries.slice(0, col_num).join('').length + col_num * delim.length;
         let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num * delim.length;
-        if (edit_mode == 'ce_before' && policy == QUOTED_POLICY && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
+        if (edit_mode == 'ce_before' && policy == QUOTED_RFC_POLICY && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
             show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
-        if (edit_mode == 'ce_after' && policy == QUOTED_POLICY && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
+        if (edit_mode == 'ce_after' && policy == QUOTED_RFC_POLICY && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
             show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
             return;
         }
@@ -1326,7 +1327,7 @@ function autodetect_dialect(config, active_doc, candidate_separators, comment_pr
 
 
 function autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test) {
-    let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_POLICY];
+    let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_RFC_POLICY];
     let best_dialect_frequency = 0;
     let data = active_doc.getText();
     if (!data)
