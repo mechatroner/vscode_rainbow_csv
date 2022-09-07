@@ -317,12 +317,7 @@
             {
                 "command": "rainbow-csv.RainbowSeparator",
                 "category": "Rainbow CSV",
-                "title": "Set selected text as Rainbow separator: Basic"
-            },
-            {
-                "command": "rainbow-csv.RainbowSeparatorMultiline",
-                "category": "Rainbow CSV",
-                "title": "Set selected text as Rainbow separator: Allows fields to span multiple lines"
+                "title": "Set separator"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
