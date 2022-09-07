@@ -120,11 +120,7 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Show column info in statusline even when there are consistency issues, but highlight it in red/yellow
 
-* Try to use onDidChangeTextEditorVisibleRanges to redraw the decoration with rfc-aware colors.
-
 * Add feature to decorate separators with a transparent box or different color or something, see the opened issue.
-
-* Support dynamic dialects with quoted policies.
 
 * Consider speeding up autodetection by adding parse_rfc option. If it is false - we can only parse top N=10 lines and skip setting lint cache key until the actual lint.
 
@@ -132,15 +128,9 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Implement align/shrink for the RFC dialects too.
 
-* Get rid of Object.keys() in RBQL - this could return a list of strings instead of integers.
-
-* Save doc version or timestamp in "cached_table_parse_result" to invalidate the entry when the doc changes.
-
-* Add unit tests for autodetect_dialect function.
-
-* Add unit tests for try_autoenable_rainbow_csv function.
-
 * Get rid of `csv (dot)` and similar dialects, since we now have dynamic csv to rule them all.
+
+* Update README.md with new commands and info.
 
 
 ## RFC Support plan
