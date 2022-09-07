@@ -150,8 +150,7 @@ Screenshot of RBQL Console:
 
 #### Disadvantages:
 
-* Rainbow CSV may be less effective for CSV files with many (> 10) columns.  
-* Rainbow CSV can't correctly handle newlines inside double-quoted CSV fields (well, theorethically it can, but only under specific conditions)  
+* Rainbow CSV may be less effective for CSV files with many (> 10) columns and for files with multiline fields, although textual alignment can significantly improve the situation.  
 
 
 ### References
