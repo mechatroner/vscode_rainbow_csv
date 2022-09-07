@@ -4,7 +4,7 @@
   "fileTypes": ["csv"],
   "patterns": [
     {
-      "name": "variable.other.rainbow1",
+      "name": "rainbow1",
       "begin": "^|\\,",
       "end": "(?=\\n)",
       "patterns": [
