@@ -53,7 +53,7 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 
 Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
 List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilde)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`
-Rainbow CSV also allows to use an arbitrary character or string as a separator - select the separator text with cursor and run `Rainbow CSV: Set selected text as Rainbow separator: Basic` command.
+Rainbow CSV also allows to use an arbitrary character or string as a separator - select the separator text with cursor and run `Rainbow CSV: Set separator - Basic` command.
 
 
 #### CSVLint consistency check
@@ -90,6 +90,9 @@ There you can find the list of available options and their description.
 
 #### Align, Shrink
 Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
+
+#### Set separator
+Set the currently selected text (single character or multiline string) as a separator and re-highlight the file.
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
