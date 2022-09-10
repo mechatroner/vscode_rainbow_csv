@@ -132,6 +132,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Update README.md with new commands and info.
 
+* Consider setting double quote as an "autoClosingPair" in csv and scsv languages, see https://code.visualstudio.com/api/language-extensions/language-configuration-guide
+
 
 ## RFC Support plan
 We need:

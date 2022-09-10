@@ -264,7 +264,7 @@ function enable_dynamic_semantic_tokenization() {
 }
 
 
-function enable_comment_tokenization() {
+function register_comment_tokenization_handler() {
     let token_provider = new CommentTokenProvider();
     if (comment_token_event !== null) {
         comment_token_event.dispose();
@@ -294,6 +294,14 @@ async function enable_rainbow_features_if_csv(active_doc) {
 
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    }
+
+    let [_delim, _policy, comment_prefix] = get_dialect(active_doc);
+    if (comment_prefix) {
+        // It is currently impoossible to set comment_prefix on document level, so we have to set it on language level instead.
+        // This could potentially cause minor problems in very rare situations.
+        // FIXME make sure this would not affect double quote autoclosing if implemented
+        vscode.languages.setLanguageConfiguration(language_id, { comments: { lineComment: comment_prefix } });
     }
 
     if (language_id == DYNAMIC_CSV) {
@@ -795,12 +803,15 @@ async function set_comment_prefix() {
     } else {
         manual_comment_prefix_stoplist.delete(active_doc.fileName);
     }
+    if (comment_prefix) {
+        vscode.languages.setLanguageConfiguration(active_doc.languageId, { comments: { lineComment: comment_prefix } });
+    }
     if (active_doc.languageId == DYNAMIC_CSV) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     } else {
         // Re-enable comment tokenization to explicitly adjust the comment highligthing (sometimes to disable it if comment prefix is set to an empty string).
-        enable_comment_tokenization();
+        register_comment_tokenization_handler();
     }
 }
 
@@ -1626,7 +1637,7 @@ async function activate(context) {
     enable_dynamic_semantic_tokenization();
 
     if (get_from_config('comment_prefix', null)) {
-        enable_comment_tokenization();
+        register_comment_tokenization_handler();
     }
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
