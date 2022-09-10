@@ -300,7 +300,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
     if (comment_prefix) {
         // It is currently impoossible to set comment_prefix on document level, so we have to set it on language level instead.
         // This could potentially cause minor problems in very rare situations.
-        // FIXME make sure this would not affect double quote autoclosing if implemented
+        // Applying 'setLanguageConfiguration' doesn't disable static configuration in language-configuration.json.
         vscode.languages.setLanguageConfiguration(language_id, { comments: { lineComment: comment_prefix } });
     }
 
