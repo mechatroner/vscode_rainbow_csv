@@ -93,6 +93,28 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
 
 
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+    if (first_defective_line !== null) {
+        return [null, first_defective_line + 1];
+    }
+    for (let record of records) {
+        for (let fnum = 0; fnum < record.length; fnum++) {
+            if (column_stats.length <= fnum) {
+                column_stats.push([0, 0, 0]);
+            }
+            let field = record[fnum];
+            let field_lines = field.split('\n');
+            for (let field_line of field_lines) {
+                update_subcomponent_stats(field_line.trim(), is_first_line, column_stats[fnum]);
+            }
+            // FIXME finalize the logic
+            //let field = record[fnum].trim();
+        }
+    }
+
+
+
+    // FIXME
     let column_stats = [];
     let num_lines = active_doc.lineCount;
     let is_first_line = true;
