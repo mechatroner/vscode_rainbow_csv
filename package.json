@@ -163,7 +163,8 @@
                 ],
                 "extensions": [
                     ".csv"
-                ]
+                ],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "tsv",
@@ -174,7 +175,8 @@
                 "extensions": [
                     ".tsv",
                     ".tab"
-                ]
+                ],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (pipe)",
@@ -182,7 +184,8 @@
                     "CSV (pipe)",
                     "csv (pipe)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (tilde)",
@@ -190,7 +193,8 @@
                     "CSV (tilde)",
                     "csv (tilde)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (whitespace)",
@@ -198,7 +202,8 @@
                     "CSV (whitespace)",
                     "csv (whitespace)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (caret)",
@@ -206,7 +211,8 @@
                     "CSV (caret)",
                     "csv (caret)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (colon)",
@@ -214,7 +220,8 @@
                     "CSV (colon)",
                     "csv (colon)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (double quote)",
@@ -222,7 +229,8 @@
                     "CSV (double quote)",
                     "csv (double quote)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (equals)",
@@ -230,7 +238,8 @@
                     "CSV (equals)",
                     "csv (equals)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (dot)",
@@ -238,7 +247,8 @@
                     "CSV (dot)",
                     "csv (dot)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (hyphen)",
@@ -246,7 +256,8 @@
                     "CSV (hyphen)",
                     "csv (hyphen)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "csv (semicolon)",
@@ -254,7 +265,8 @@
                     "CSV (semicolon)",
                     "csv (semicolon)"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "dynamic csv",
@@ -262,7 +274,8 @@
                     "Dynamic CSV",
                     "dynamic csv"
                 ],
-                "extensions": []
+                "extensions": [],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "rainbow hover markup",
