@@ -1,4 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
+## 3.1.0
+* Support comment lines toggle, see [#84](https://github.com/mechatroner/vscode_rainbow_csv/issues/84).
+* Support double quote autoclosing and text auto-surrounding.
+
 ## 3.0.0
 * Support infinite number of arbitrary single-character and multi-character separators.
 * Support multiline fields with RFC-4180 - compatible syntax highlighting.
