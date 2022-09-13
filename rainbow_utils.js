@@ -66,7 +66,7 @@ function get_default_python_udf_content() {
 }
 
 
-function update_subcomponent_stats(field, is_first_line, max_field_components_lens) {
+function update_subcomponent_stats(field, is_first_record, max_field_components_lens) {
     // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     // Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     if (field.length > max_field_components_lens[0]) {
@@ -78,7 +78,7 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
     }
     let match_result = number_regex.exec(field);
     if (match_result === null) {
-        if (!is_first_line && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+        if (!is_first_record && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
             // We only mark the column as non-header if we know that this is not a header line.
             max_field_components_lens[1] = non_numeric_sentinel;
             max_field_components_lens[2] = non_numeric_sentinel;
@@ -93,10 +93,12 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
 
 
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
+    // FIXME update unit tests for this function.
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
     if (first_defective_line !== null) {
         return [null, first_defective_line + 1];
     }
+    let is_first_record = true;
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (column_stats.length <= fnum) {
@@ -104,36 +106,15 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
             }
             let field = record[fnum];
             let field_lines = field.split('\n');
+            if (field_lines.length > 1) {
+                // We don't allow multiline fields to be numeric for simplicity.
+                column_stats[fnum][1] = non_numeric_sentinel;
+            }
             for (let field_line of field_lines) {
-                update_subcomponent_stats(field_line.trim(), is_first_line, column_stats[fnum]);
+                update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum]);
             }
-            // FIXME finalize the logic
-            //let field = record[fnum].trim();
         }
-    }
-
-
-
-    // FIXME
-    let column_stats = [];
-    let num_lines = active_doc.lineCount;
-    let is_first_line = true;
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning) {
-            return [null, lnum + 1];
-        }
-        for (let fnum = 0; fnum < fields.length; fnum++) {
-            let field = fields[fnum].trim();
-            if (column_stats.length <= fnum) {
-                column_stats.push([0, 0, 0]);
-            }
-            update_subcomponent_stats(field, is_first_line, column_stats[fnum]);
-        }
-        is_first_line = false;
+        is_first_record = false;
     }
     return [column_stats, null];
 }

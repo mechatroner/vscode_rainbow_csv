@@ -10,6 +10,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 // Please see DEV_README.md file for additional info.
 
 // FIXME comment prefix lines semantic highlighting doesn't work for some reason with native rfc csv syntax.
+// FIXME use registerDocumentFormattingEditProvider (and also possibly registerDocumentRangeFormattingEditProvider) for alignment in order to support alignment hotkey, see #74.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
