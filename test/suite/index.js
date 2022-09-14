@@ -49,6 +49,24 @@ async function test_comment_prefix_js(workspace_folder_uri) {
     assert(lint_report.is_ok); // Lint is OK because we marked comment lines as comments.
     await sleep(1000);
 
+    // Now lets toggle the comment.
+    await vscode.commands.executeCommand("cursorTop");
+    await vscode.commands.executeCommand("cursorRight");
+    await vscode.commands.executeCommand("cursorRight");
+    await sleep(500);
+    await vscode.commands.executeCommand("editor.action.commentLine");
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(!lint_report.is_ok); // Lint is failing again because we toggled the first comment line.
+    await sleep(1000);
+    await vscode.commands.executeCommand("editor.action.commentLine");
+    lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(lint_report.is_ok); // Lint is OK now because we toggled the first line again back to its comment state.
+    await sleep(1000);
+    // Undo twice to avoid unsaved changes for RBQL.
+    await vscode.commands.executeCommand("undo");
+    await vscode.commands.executeCommand("undo");
+    await sleep(1000);
+
     test_task = {rbql_backend: "js", rbql_query: "SELECT a.Country, a.Population", with_headers: true, integration_test_delay: 1500};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);

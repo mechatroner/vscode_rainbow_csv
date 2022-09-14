@@ -132,8 +132,6 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Update README.md with new commands and info.
 
-* Add integration test for comment toggling.
-
 * Consider removing double quote autoclosing from non-csv/scsv dialects when native rfc csv is enabled.
 
 ## RFC Support plan
