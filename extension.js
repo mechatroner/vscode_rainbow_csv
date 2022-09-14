@@ -764,6 +764,10 @@ async function set_rainbow_separator(policy=null) {
         return;
     }
     let separator = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
+    if (!separator) {
+        show_single_line_error("Make nonempty separator selection with the cursor");
+        return;
+    }
     if (policy == QUOTED_RFC_POLICY && separator != ',' && separator != ';') {
         show_single_line_error("Only comma and semicolon separators are currently supported to use with multiline fields.");
         return;
