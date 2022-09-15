@@ -776,8 +776,16 @@ async function set_rainbow_separator(policy=null) {
         policy = get_default_policy(separator);
     }
     let language_id = map_dialect_to_language_id(separator, policy);
+    // Adding to stoplist just in case: this is the manual op, so the user now fully controls the filetype.
+    extension_context.autodetection_stoplist.add(active_doc.fileName);
     extension_context.custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let original_language_id = active_doc.languageId;
+    if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
+        // W need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
+        // FIXME add an integration test for this.
+        extension_context.autodetection_stoplist.add(active_doc.fileName); // This is to avoid potential autodetection in plaintext.
+        active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
+    }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     extension_context.original_language_ids.set(doc.fileName, original_language_id);
 }

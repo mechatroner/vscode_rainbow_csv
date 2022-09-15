@@ -134,6 +134,9 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider removing double quote autoclosing from non-csv/scsv dialects when native rfc csv is enabled.
 
+* Show some kind of warning when user manually select "Dynamic CSV" filetypes - e.g. when there is no separator set in the map, we can show such a warning. Or we can switch back to plaintext and add the file to autodetection block. And obviously don't show the button controls.
+
+
 ## RFC Support plan
 We need:
 1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.
