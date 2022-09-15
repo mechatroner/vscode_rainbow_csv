@@ -296,7 +296,14 @@ async function enable_rainbow_features_if_csv(active_doc) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
     }
 
-    let [_delim, _policy, comment_prefix] = get_dialect(active_doc);
+    let [_delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (!policy) {
+        if (language_id == DYNAMIC_CSV) {
+            // FIXME test this and consider adding dictionary to show this warning only once per file.
+            vscode.window.showWarningMessage('Something went wrong. If you manually selected "Dynamic CSV" filetype - please use "Rainbow CSV: Set separator" command instead.');
+        }
+        return;
+    }
     if (comment_prefix) {
         // It is currently impoossible to set comment_prefix on document level, so we have to set it on language level instead.
         // This could potentially cause minor problems in very rare situations.
@@ -1403,7 +1410,11 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    extension_context.original_language_ids.set(file_path, original_language_id);
+    if (!dialect_map.hasOwnProperty(original_language_id)) {
+        // We only add non-csv dialects to original language ids to make RainbowOff act like an actual off and prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
+        // FIXME test this.
+        extension_context.original_language_ids.set(file_path, original_language_id);
+    }
     return doc;
 }
 
