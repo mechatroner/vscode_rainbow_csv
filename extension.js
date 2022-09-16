@@ -9,6 +9,9 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
+
+// FIXME clicking back and forth from movies_multichar with `~#~` disables the highlighting.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -299,7 +302,8 @@ async function enable_rainbow_features_if_csv(active_doc) {
     let [_delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
-            // FIXME test this and consider adding dictionary to show this warning only once per file.
+            // FIXME consider showing input box and then quickpick to select separator and dialect. 
+            // TODO: Consider adding dictionary to show this warning only once per file.
             vscode.window.showWarningMessage('Something went wrong. If you manually selected "Dynamic CSV" filetype - please use "Rainbow CSV: Set separator" command instead.');
         }
         return;
@@ -788,8 +792,7 @@ async function set_rainbow_separator(policy=null) {
     extension_context.custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
     let original_language_id = active_doc.languageId;
     if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
-        // W need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
-        // FIXME add an integration test for this.
+        // We need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
         extension_context.autodetection_stoplist.add(active_doc.fileName); // This is to avoid potential autodetection in plaintext.
         active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
     }

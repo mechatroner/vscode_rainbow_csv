@@ -4,6 +4,7 @@
 * Make sure that hover info shows hover information in different colors corresponding to the column color in classical csv mode.
 * Make sure that comments are highlighted with a separate comment color (this can also be seen in integration tests).
 * Run `npm run lint`
+* Make sure that "Dynamic CSV" -> "Dynamic CSV" switch from one separator to another works.
 
 
 ### Debugging the extension:
