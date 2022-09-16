@@ -10,8 +10,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // Please see DEV_README.md file for additional info.
 
 
-// FIXME clicking back and forth from movies_multichar with `~#~` disables the highlighting.
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -759,6 +757,7 @@ async function set_header_line() {
 
 
 async function set_rainbow_separator(policy=null) {
+    // The effect of manually setting the separator will disapear in the preview mode when the file is toggled in preview tab: see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -1383,6 +1382,9 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
 
 async function try_autoenable_rainbow_csv(vscode, config, extension_context, active_doc) {
     // VSCode to some extent is capable of "remembering" doc id in the previous invocation, at least when used in debug mode.
+
+    // VSCode may (and will?) forget documentId of a document "A" if document "B" is opened in the tab where "A" was (double VS single click in file browser panel).
+    // see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     if (!active_doc)
         return active_doc;
     if (!get_from_config('enable_separator_autodetection', false, config))
@@ -1468,6 +1470,12 @@ function handle_cursor_movement(_unused_cursor_event) {
 
 
 async function handle_doc_open(active_doc) {
+    // The onDidOpenTextDocument handler will trigger for already "opened" docs too if they are re-opened in the same tab. Example
+    // Document "A" opens in tab1 -> triggers onDidOpenTextDocument
+    // Document "B" opens in tab1 -> triggers onDidOpenTextDocument  (this could happen if user clicks on document "B" in the left file browser panel)
+    // Document "A" opens in tab1 -> triggers onDidOpenTextDocument again! The previous languageId is reset.
+    // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
+    // This behavior is called preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode 
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
@@ -1648,7 +1656,7 @@ async function activate(context) {
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { set_rainbow_separator(/*policy=*/null); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { set_rainbow_separator(QUOTED_RFC_POLICY); });
+    var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { set_rainbow_separator(QUOTED_RFC_POLICY); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
@@ -1673,9 +1681,8 @@ async function activate(context) {
     context.subscriptions.push(column_edit_before_cmd);
     context.subscriptions.push(column_edit_after_cmd);
     context.subscriptions.push(column_edit_select_cmd);
-    context.subscriptions.push(doc_open_event);
-    context.subscriptions.push(switch_event);
     context.subscriptions.push(set_separator_cmd);
+    context.subscriptions.push(set_separator_multiline_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(sample_head_cmd);
     context.subscriptions.push(sample_tail_cmd);
@@ -1686,6 +1693,9 @@ async function activate(context) {
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(internal_test_cmd);
+
+    context.subscriptions.push(doc_open_event);
+    context.subscriptions.push(switch_event);
 
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.

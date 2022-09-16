@@ -131,11 +131,13 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Get rid of `csv (dot)` and similar dialects, since we now have dynamic csv to rule them all.
 
-* Update README.md with new commands and info.
+* Update README.md with new commands and info, especially describe "Dynamic CSV" dialect.
 
 * Consider removing double quote autoclosing from non-csv/scsv dialects when native rfc csv is enabled.
 
-* Show some kind of warning when user manually select "Dynamic CSV" filetypes - e.g. when there is no separator set in the map, we can show such a warning. Or we can switch back to plaintext and add the file to autodetection block. And obviously don't show the button controls.
+* Show separator selection dialog when user manually select "Dynamic CSV" filetypes - e.g. when there is no separator set in the map, we can show such a dialog.
+
+* Manual selection of separator is not remembered in preview mode (unlike filetype selection through the menu) - consider remembering the selected separator in dialect_info (this is already done) with the special "is_manual" flag and during doc_open restore the dialect.
 
 
 ## RFC Support plan
