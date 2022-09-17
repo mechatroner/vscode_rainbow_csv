@@ -9,6 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
+// FIXME rainbow off - erase dialect_info
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -234,7 +235,7 @@ function get_dialect(document) {
         delim = dialect_info.delim;
         policy = dialect_info.policy;
     }
-    if (language_id == DYNAMIC_CSV) {
+    if (policy) {
         return [delim, policy, comment_prefix];
     }
     if (!dialect_map.hasOwnProperty(language_id)) {
@@ -292,19 +293,23 @@ async function enable_rainbow_features_if_csv(active_doc) {
     if (!dialect_map.hasOwnProperty(language_id)) {
         return;
     }
-
-    if (get_from_config('enable_cursor_position_info', false)) {
-        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
-    }
-
-    let [_delim, policy, comment_prefix] = get_dialect(active_doc);
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
-            // FIXME consider showing input box and then quickpick to select separator and dialect. 
-            // TODO: Consider adding dictionary to show this warning only once per file.
-            vscode.window.showWarningMessage('Something went wrong. If you manually selected "Dynamic CSV" filetype - please use "Rainbow CSV: Set separator" command instead.');
+            var title = "Select separator character or string e.g. `,` or `:=`. For tab use `TAB`";
+            var input_box_props = {"prompt": title, "value": ','};
+            delim = await vscode.window.showInputBox(input_box_props);
+            if (!delim) {
+                return;
+            }
+            policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
+            extension_context.custom_document_dialects.set(file_path, {delim: delim, policy: policy});
+        } else {
+            return;
         }
-        return;
+    }
+    if (get_from_config('enable_cursor_position_info', false)) {
+        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
     }
     if (comment_prefix) {
         // It is currently impoossible to set comment_prefix on document level, so we have to set it on language level instead.
@@ -756,6 +761,15 @@ async function set_header_line() {
 }
 
 
+function preserve_original_language_id_if_needed(file_path, original_language_id, original_language_ids) {
+    if (!dialect_map.hasOwnProperty(original_language_id)) {
+        // We only add non-csv dialects to original language ids to make RainbowOff act like an actual off and prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
+        // FIXME add integration test for this.
+        original_language_ids.set(file_path, original_language_id);
+    }
+}
+
+
 async function set_rainbow_separator(policy=null) {
     // The effect of manually setting the separator will disapear in the preview mode when the file is toggled in preview tab: see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     let active_editor = get_active_editor();
@@ -796,7 +810,7 @@ async function set_rainbow_separator(policy=null) {
         active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
     }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
-    extension_context.original_language_ids.set(doc.fileName, original_language_id);
+    preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
 }
 
 
@@ -1415,11 +1429,7 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    if (!dialect_map.hasOwnProperty(original_language_id)) {
-        // We only add non-csv dialects to original language ids to make RainbowOff act like an actual off and prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
-        // FIXME test this.
-        extension_context.original_language_ids.set(file_path, original_language_id);
-    }
+    preserve_original_language_id_if_needed(file_path, original_language_id, extension_context.original_language_ids);
     return doc;
 }
 
@@ -1475,7 +1485,7 @@ async function handle_doc_open(active_doc) {
     // Document "B" opens in tab1 -> triggers onDidOpenTextDocument  (this could happen if user clicks on document "B" in the left file browser panel)
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument again! The previous languageId is reset.
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
-    // This behavior is called preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode 
+    // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
@@ -1567,8 +1577,8 @@ class RainbowTokenProvider {
     }
     async provideDocumentRangeSemanticTokens(document, range, _token) {
         let [delim, policy, comment_prefix] = get_dialect(document);
-        if (policy === null || (policy !== SIMPLE_POLICY && policy !== QUOTED_RFC_POLICY)) {
-            return null; // Sanity check: currently dynamic tokenization is enabled only for simple and quoted rfc policies.
+        if (!policy || document.languageId != DYNAMIC_CSV) {
+            return null;
         }
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
