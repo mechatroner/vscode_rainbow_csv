@@ -53,7 +53,15 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 
 Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
 List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilde)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`.  
-Rainbow CSV also allows to use an arbitrary character or string as a separator - select the separator text with cursor and run `Rainbow CSV: Set separator - Basic` command.
+
+#### Working with arbitrary separators
+
+Rainbow CSV allows to use an arbitrary character or string as a separator.
+You can add the separator to the list of autodetected separators in the VSCode settings or if you just want to use it once you can either:
+* Select `Dynamic CSV` filetype (bottom right corner) and then enter the separator text in the popup dialog.
+* Select the separator text with cursor and run `Rainbow CSV: Set separator ... ` command.
+
+`Dynamic CSV` filetype also supports multiline CSV fields escaped in double quotes as described in RFC-4180.
 
 
 #### CSVLint consistency check

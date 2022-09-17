@@ -141,6 +141,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider getting rid of Rainbow Off button.
 
+* For dynamic csv (whouth active policy/separator) add a button to the bottom panel to trigger the separator selection dialog.
+
 
 ## RFC Support plan
 We need:
