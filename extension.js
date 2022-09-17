@@ -9,7 +9,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
-// FIXME rainbow off - erase dialect_info
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -850,6 +849,7 @@ async function set_comment_prefix() {
     }
 }
 
+
 async function restore_original_language() {
     var active_doc = get_active_doc();
     if (!active_doc)
@@ -868,6 +868,8 @@ async function restore_original_language() {
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     extension_context.original_language_ids.delete(file_path);
     disable_rainbow_features_if_non_csv(doc);
+    // If the previous language is restored via native VSCode filetype selection the custom dialect info will be kept and in case of future manual Dynamic CSV selection the highlighting will be automatically activated without separator entry dialog.
+    extension_context.custom_document_dialects.delete(file_path);
 }
 
 

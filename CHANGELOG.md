@@ -2,6 +2,8 @@
 ## 3.1.0
 * Support comment lines toggle, see [#84](https://github.com/mechatroner/vscode_rainbow_csv/issues/84).
 * Support double quote autoclosing and text auto-surrounding.
+* Minor UX improvements
+* Minor Bug fixes
 
 ## 3.0.0
 * Support infinite number of arbitrary single-character and multi-character separators.
