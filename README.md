@@ -32,16 +32,11 @@ Another way to do this: select one separator character with mouse cursor -> righ
 #### Content-based separator autodetection
 Rainbow CSV runs table autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases this is a very cheap operation because autodetection usually stops after checking only 1 or 2 topmost lines.  
 Autodetection can be disabled at the extension settings page.  
-The autodetection algorithm skips files that have less than N=10 non-comment lines; value of N can be adjusted in the settings.  
-By default only comma, tab, semicolon and pipe are tried during autodetection, but you can adjust the list of candidate separators: add the following line to your VSCode config and edit it by removing or including any of the supported separators:  
-```
-"rainbow_csv.autodetect_separators": ["\t", ",", ";", "|"],
-```
-If the autodetection algorithm makes an error and highlights a non-csv file, you can press "Rainbow OFF" button inside the status line.  
+By default only comma, tab, semicolon and pipe are tried during autodetection, but you can adjust the list of candidate separators in extension settings.  
 
 
 #### Customizing file extension - separator association
-If you often work with spreadsheet files with one specific extension (e.g. ".dat") and you don't want to rely on the autodetection algorithm, you can associate that extension with one of the supported separators.  
+If you often work with csv files with one specific extension (e.g. ".dat") and you don't want to rely on the autodetection algorithm, you can associate that extension with one of the supported separators.  
 For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code json config:  
 
 ```
