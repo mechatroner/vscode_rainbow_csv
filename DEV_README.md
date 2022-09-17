@@ -137,6 +137,10 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Manual selection of separator is not remembered in preview mode (unlike filetype selection through the menu) - consider remembering the selected separator in dialect_info (this is already done) with the special "is_manual" flag and during doc_open restore the dialect.
 
+* FIXME: Unlike manual filetype selection, setTextDocumentLanguage sometimes doesn't survive tab switch, this is especially reproducible with `dynamic csv` language and subsequent `Rainbow Off` command. Figure out how to overcome this.
+
+* Consider getting rid of Rainbow Off button.
+
 
 ## RFC Support plan
 We need:

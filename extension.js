@@ -761,11 +761,15 @@ async function set_header_line() {
 
 
 function preserve_original_language_id_if_needed(file_path, original_language_id, original_language_ids) {
-    if (!dialect_map.hasOwnProperty(original_language_id)) {
-        // We only add non-csv dialects to original language ids to make RainbowOff act like an actual off and prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
-        // FIXME add integration test for this.
-        original_language_ids.set(file_path, original_language_id);
+    if (original_language_id == DYNAMIC_CSV) {
+        // This is to prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
+        return;
     }
+    if (original_language_ids.has(file_path)) {
+        // Rainbow Off should act more like an actuall off i.e. return to the first filetype in the chain instead of the previous one.
+        return;
+    }
+    original_language_ids.set(file_path, original_language_id);
 }
 
 
