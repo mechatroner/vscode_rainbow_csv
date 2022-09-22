@@ -75,7 +75,15 @@ const WHITESPACE_POLICY = 'whitespace';
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const SIMPLE_POLICY = 'simple';
 
-let extension_context = {lint_results: new Map(), lint_status_bar_button: null, custom_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
+
+let extension_context = {
+    lint_results: new Map(),
+    lint_status_bar_button: null,
+    dynamic_document_dialects: new Map(),
+    custom_comment_prefixes: new Map(),
+    original_language_ids: new Map(),
+    autodetection_stoplist: new Set(),
+};
 
 const dialect_map = {
     'csv': [',', QUOTED_POLICY],
@@ -224,24 +232,26 @@ function get_dialect(document) {
     let language_id = document.languageId;
     let delim = null;
     let policy = null;
-    let comment_prefix = get_from_config('comment_prefix', '');
-    if (extension_context.custom_document_dialects.has(document.fileName)) {
-        let dialect_info = extension_context.custom_document_dialects.get(document.fileName);
-        // This check allows to override default comment_prefix with an empty string from user selection to disable comment prefix in selected files.
-        if (dialect_info.hasOwnProperty('comment_prefix') && dialect_info.comment_prefix !== null) {
-            comment_prefix = dialect_info.comment_prefix;
-        }
-        delim = dialect_info.delim;
-        policy = dialect_info.policy;
+
+    let comment_prefix = '';
+    if (extension_context.custom_comment_prefixes.has(document.fileName)) {
+        comment_prefix = extension_context.custom_comment_prefixes.get(document.fileName);
+    } else {
+        comment_prefix = get_from_config('comment_prefix', '');
     }
-    if (policy) {
+    if (language_id != DYNAMIC_CSV && dialect_map.hasOwnProperty(language_id)) {
+        [delim, policy] = dialect_map[language_id];
         return [delim, policy, comment_prefix];
     }
-    if (!dialect_map.hasOwnProperty(language_id)) {
-        return [null, null, null];
+    // Here we don't check if language_id is DYNAMIC_CSV because we want to return the once selected dialect anyway even if file is now 'plaintext' or some other non-csv filetype.
+    if (extension_context.dynamic_document_dialects.has(document.fileName)) {
+        let dialect_info = extension_context.dynamic_document_dialects.get(document.fileName);
+        delim = dialect_info.delim;
+        policy = dialect_info.policy;
+        return [delim, policy, comment_prefix];
     }
-    [delim, policy] = dialect_map[language_id];
-    return [delim, policy, comment_prefix];
+    // The language id can be `dynamic csv` here e.g. if user just now manually selected the "Dynamic CSV" filetype.
+    return [null, null, null];
 }
 
 
@@ -302,7 +312,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
                 return;
             }
             policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
-            extension_context.custom_document_dialects.set(file_path, {delim: delim, policy: policy});
+            extension_context.dynamic_document_dialects.set(file_path, {delim: delim, policy: policy});
         } else {
             return;
         }
@@ -559,9 +569,10 @@ async function show_warnings(warnings) {
 
 
 async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
-    // Settin dialect just in case.
-    extension_context.custom_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
     let language_id = map_dialect_to_language_id(delim, policy);
+    if (language_id == DYNAMIC_CSV) {
+        extension_context.dynamic_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
+    }
     try {
         await vscode.window.showTextDocument(text_doc);
     } catch (error) {
@@ -702,6 +713,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             if (is_web_ext) {
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
+                // FIXME test how this would work with dynamic csv.
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
             } else {
                 let csv_options = {'bulk_read': true};
@@ -805,7 +817,9 @@ async function set_rainbow_separator(policy=null) {
     let language_id = map_dialect_to_language_id(separator, policy);
     // Adding to stoplist just in case: this is the manual op, so the user now fully controls the filetype.
     extension_context.autodetection_stoplist.add(active_doc.fileName);
-    extension_context.custom_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
+    if (language_id == DYNAMIC_CSV) {
+        extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
+    }
     let original_language_id = active_doc.languageId;
     if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
         // We need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
@@ -830,12 +844,7 @@ async function set_comment_prefix() {
         return;
     }
     let comment_prefix = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
-    let dialect_info = new Object();
-    if (extension_context.custom_document_dialects.has(active_doc.fileName)) {
-        dialect_info = extension_context.custom_document_dialects.get(active_doc.fileName);
-    }
-    dialect_info['comment_prefix'] = comment_prefix;
-    extension_context.custom_document_dialects.set(active_doc.fileName, dialect_info);
+    extension_context.custom_comment_prefixes.set(active_doc.fileName, comment_prefix);
     if (!comment_prefix) {
         manual_comment_prefix_stoplist.add(active_doc.fileName);
     } else {
@@ -873,7 +882,7 @@ async function restore_original_language() {
     extension_context.original_language_ids.delete(file_path);
     disable_rainbow_features_if_non_csv(doc);
     // If the previous language is restored via native VSCode filetype selection the custom dialect info will be kept and in case of future manual Dynamic CSV selection the highlighting will be automatically activated without separator entry dialog.
-    extension_context.custom_document_dialects.delete(file_path);
+    extension_context.dynamic_document_dialects.delete(file_path);
 }
 
 
@@ -1431,7 +1440,9 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
         return active_doc;
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
-    extension_context.custom_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    if (rainbow_csv_language_id == DYNAMIC_CSV)  {
+        extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
