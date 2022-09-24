@@ -318,6 +318,11 @@
                 "title": "Column edit before"
             },
             {
+                "command": "rainbow-csv.ChooseDynamicSeparator",
+                "category": "Rainbow CSV",
+                "title": "Choose Dynamic Separator"
+            },
+            {
                 "command": "rainbow-csv.ColumnEditAfter",
                 "category": "Rainbow CSV",
                 "title": "Column edit after"

@@ -46,6 +46,7 @@ var align_shrink_button = null;
 var rainbow_off_status_bar_button = null;
 var copy_back_button = null;
 var column_info_button = null;
+var dynamic_dialect_select_button = null;
 
 var rbql_context = null;
 
@@ -291,6 +292,49 @@ function register_comment_tokenization_handler() {
 }
 
 
+async function get_dialect_from_user_dialog() {
+    let title = "Select separator character or string e.g. `,` or `:=`. For tab use `TAB`";
+    let input_box_props = {"prompt": title, "value": ','};
+    let delim = await vscode.window.showInputBox(input_box_props);
+    if (!delim) {
+        return [null, null];
+    }
+    let policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
+    return [delim, policy];
+}
+
+
+async function choose_dynamic_separator() {
+    // FIXME test all of the branches.
+    let active_doc = get_active_doc();
+    if (active_doc.languageId != DYNAMIC_CSV) {
+        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+        return;
+    }
+    let [delim, policy] = await get_dialect_from_user_dialog();
+    if (!delim) {
+        show_single_line_error('Unable to use empty string separator');
+        return;
+    }
+    extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    // FIXME dynamic_dialect_select_button doesn't disappear immediately in vscode_issue.csv
+    if (dynamic_dialect_select_button) {
+        dynamic_dialect_select_button.hide();
+    }
+    await enable_rainbow_features_if_csv(active_doc);
+}
+
+
+function show_choose_dynamic_separator_button() {
+    if (!dynamic_dialect_select_button)
+        dynamic_dialect_select_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    dynamic_dialect_select_button.text = 'Choose Separator...';
+    dynamic_dialect_select_button.tooltip = 'Click to choose Dynamic CSV separator';
+    dynamic_dialect_select_button.command = 'rainbow-csv.ChooseDynamicSeparator';
+    dynamic_dialect_select_button.show();
+}
+
+
 async function enable_rainbow_features_if_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc || !file_path || file_path.endsWith('.git')) {
@@ -305,13 +349,12 @@ async function enable_rainbow_features_if_csv(active_doc) {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
-            var title = "Select separator character or string e.g. `,` or `:=`. For tab use `TAB`";
-            var input_box_props = {"prompt": title, "value": ','};
-            delim = await vscode.window.showInputBox(input_box_props);
+            [delim, policy] = await get_dialect_from_user_dialog();
             if (!delim) {
+                // FIXME Looks like this gets shown immediately while the entry dialog is still active!
+                show_choose_dynamic_separator_button();
                 return;
             }
-            policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
             extension_context.dynamic_document_dialects.set(file_path, {delim: delim, policy: policy});
         } else {
             return;
@@ -336,9 +379,20 @@ async function enable_rainbow_features_if_csv(active_doc) {
 }
 
 
+function hide_buttons() {
+    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
+    for (let i = 0; i < all_buttons.length; i++) {
+        if (all_buttons[i])
+            all_buttons[i].hide();
+    }
+}
+
+
 function disable_rainbow_features_if_non_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc) {
+        // This can happen when openning settings tab for example.
+        hide_buttons();
         return;
     }
     if (file_path && file_path.endsWith('.git')) {
@@ -348,11 +402,7 @@ function disable_rainbow_features_if_non_csv(active_doc) {
     var language_id = active_doc.languageId;
     if (dialect_map.hasOwnProperty(language_id))
         return;
-    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button];
-    for (let i = 0; i < all_buttons.length; i++) {
-        if (all_buttons[i])
-            all_buttons[i].hide();
-    }
+    hide_buttons();
     if (keyboard_cursor_subscription) {
         keyboard_cursor_subscription.dispose();
         keyboard_cursor_subscription = null;
@@ -1680,6 +1730,7 @@ async function activate(context) {
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', set_virtual_header);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
+    var choose_dynamic_separator_cmd = vscode.commands.registerCommand('rainbow-csv.ChooseDynamicSeparator', async function() { await choose_dynamic_separator(); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { set_rainbow_separator(/*policy=*/null); });
@@ -1720,6 +1771,7 @@ async function activate(context) {
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(internal_test_cmd);
+    context.subscriptions.push(choose_dynamic_separator_cmd);
 
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(switch_event);
