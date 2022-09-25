@@ -305,7 +305,6 @@ async function get_dialect_from_user_dialog() {
 
 
 async function choose_dynamic_separator() {
-    // FIXME test all of the branches.
     let active_doc = get_active_doc();
     if (active_doc.languageId != DYNAMIC_CSV) {
         show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
@@ -317,7 +316,6 @@ async function choose_dynamic_separator() {
         return;
     }
     extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
-    // FIXME dynamic_dialect_select_button doesn't disappear immediately in vscode_issue.csv
     if (dynamic_dialect_select_button) {
         dynamic_dialect_select_button.hide();
     }
@@ -351,7 +349,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
         if (language_id == DYNAMIC_CSV) {
             [delim, policy] = await get_dialect_from_user_dialog();
             if (!delim) {
-                // FIXME Looks like this gets shown immediately while the entry dialog is still active!
+                hide_buttons(); // Hide buttons when switching "csv" -> "dynamic csv".
                 show_choose_dynamic_separator_button();
                 return;
             }
@@ -764,6 +762,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
                 // FIXME test how this would work with dynamic csv.
+                // FIXME apparently this doesn't immediately enable the buttons in the output document, although it shows the correct filetype and highlighting.
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
             } else {
                 let csv_options = {'bulk_read': true};
