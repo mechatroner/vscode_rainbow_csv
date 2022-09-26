@@ -257,6 +257,9 @@ function get_dialect(document) {
 
 
 function show_status_bar_items(active_doc) {
+    if (dynamic_dialect_select_button) {
+        dynamic_dialect_select_button.hide();
+    }
     ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, active_doc.fileName, active_doc.languageId);
     show_rbql_status_bar_button();
     show_align_shrink_button(active_doc.fileName);
@@ -316,9 +319,6 @@ async function choose_dynamic_separator() {
         return;
     }
     extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
-    if (dynamic_dialect_select_button) {
-        dynamic_dialect_select_button.hide();
-    }
     await enable_rainbow_features_if_csv(active_doc);
 }
 
@@ -348,7 +348,11 @@ async function enable_rainbow_features_if_csv(active_doc) {
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
             [delim, policy] = await get_dialect_from_user_dialog();
-            if (!delim) {
+            if (!policy) {
+                // Last attempt: retry getting dialect, because it can be set asynchronously: after opening the (which would trigger enable_rainbow_features_if_csv in the end) the caller could update dynamic_document_dialects for example this happens in RBQL queries handling.
+                [delim, policy, comment_prefix] = get_dialect(active_doc);
+            }
+            if (!policy) {
                 hide_buttons(); // Hide buttons when switching "csv" -> "dynamic csv".
                 show_choose_dynamic_separator_button();
                 return;
@@ -357,6 +361,9 @@ async function enable_rainbow_features_if_csv(active_doc) {
         } else {
             return;
         }
+    }
+    if (!delim) {
+        return; // Adding this condition JIC, this should never happen at this point - we would return earlier if there were no policy (hence no delim).
     }
     if (get_from_config('enable_cursor_position_info', false)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
@@ -617,9 +624,12 @@ async function show_warnings(warnings) {
 
 
 async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
+    // FIXME split this function to web and non-web versions, since we need to do different set of operations.
     let language_id = map_dialect_to_language_id(delim, policy);
     if (language_id == DYNAMIC_CSV) {
+        // It is not possible to set dynamic_document_dialects before opening the doc because we don't have filename in web version before opening it.
         extension_context.dynamic_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
+        // Here for web version it could make sense to call enable_rainbow_features_if_csv, but it would be called anyway in original enable_rainbow_features_if_csv invocation because separator selection n dialog would fail.
     }
     try {
         await vscode.window.showTextDocument(text_doc);
@@ -627,7 +637,7 @@ async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
         show_single_line_error('Unable to open RBQL result document');
         return;
     }
-    if (language_id && text_doc.language_id != language_id) {
+    if (language_id && text_doc.languageId != language_id) {
         await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
     }
     await show_warnings(warnings);
