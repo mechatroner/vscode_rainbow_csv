@@ -84,6 +84,8 @@ let extension_context = {
     custom_comment_prefixes: new Map(),
     original_language_ids: new Map(),
     autodetection_stoplist: new Set(),
+    autodetection_temporarily_disabled_for_rbql: false,
+    dynamic_dialect_for_next_request: null,
 };
 
 const dialect_map = {
@@ -345,6 +347,12 @@ async function enable_rainbow_features_if_csv(active_doc) {
         return;
     }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (!policy && extension_context.dynamic_dialect_for_next_request != null) {
+        [delim, policy] = extension_context.dynamic_dialect_for_next_request;
+        extension_context.dynamic_document_dialects.set(file_path, {delim: delim, policy: policy});
+        extension_context.dynamic_dialect_for_next_request = null;
+        [delim, policy, comment_prefix] = get_dialect(active_doc);
+    }
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
             [delim, policy] = await get_dialect_from_user_dialog();
@@ -623,22 +631,28 @@ async function show_warnings(warnings) {
 }
 
 
-async function handle_rbql_result_file(text_doc, delim, policy, warnings) {
-    // FIXME split this function to web and non-web versions, since we need to do different set of operations.
-    let language_id = map_dialect_to_language_id(delim, policy);
-    if (language_id == DYNAMIC_CSV) {
-        // It is not possible to set dynamic_document_dialects before opening the doc because we don't have filename in web version before opening it.
-        extension_context.dynamic_document_dialects.set(text_doc.fileName, {delim: delim, policy: policy});
-        // Here for web version it could make sense to call enable_rainbow_features_if_csv, but it would be called anyway in original enable_rainbow_features_if_csv invocation because separator selection n dialog would fail.
-    }
+async function handle_rbql_result_file_node(text_doc, delim, policy, warnings) {
     try {
         await vscode.window.showTextDocument(text_doc);
     } catch (error) {
         show_single_line_error('Unable to open RBQL result document');
         return;
     }
+    let language_id = map_dialect_to_language_id(delim, policy);
     if (language_id && text_doc.languageId != language_id) {
+        // In non-web version we open a new doc without preset filetype, so we need to manually set it.
         await vscode.languages.setTextDocumentLanguage(text_doc, language_id);
+    }
+    await show_warnings(warnings);
+}
+
+
+async function handle_rbql_result_file_web(text_doc, warnings) {
+    try {
+        await vscode.window.showTextDocument(text_doc);
+    } catch (error) {
+        show_single_line_error('Unable to open RBQL result document');
+        return;
     }
     await show_warnings(warnings);
 }
@@ -699,8 +713,10 @@ async function handle_command_result(src_table_path, dst_table_path, dst_delim, 
     // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
     extension_context.autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(safe_lower(dst_table_path), src_table_path);
+    extension_context.autodetection_temporarily_disabled_for_rbql = true;
     let doc = await vscode.workspace.openTextDocument(dst_table_path);
-    await handle_rbql_result_file(doc, dst_delim, dst_policy, warnings);
+    extension_context.autodetection_temporarily_disabled_for_rbql = false;
+    await handle_rbql_result_file_node(doc, dst_delim, dst_policy, warnings);
 }
 
 
@@ -770,24 +786,33 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         try {
             if (is_web_ext) {
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
-                let output_doc_cfg = {content: result_lines.join('\n'), language: map_dialect_to_language_id(output_delim, output_policy)};
-                // FIXME test how this would work with dynamic csv.
-                // FIXME apparently this doesn't immediately enable the buttons in the output document, although it shows the correct filetype and highlighting.
+                let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
+                let output_doc_cfg = {content: result_lines.join('\n'), language: target_language_id};
+                // FIXME test how this work for non web, and dynamic/non-dynamic pairs.
+                if (target_language_id == DYNAMIC_CSV) {
+                    extension_context.dynamic_dialect_for_next_request = [output_delim, output_policy];
+                }
+                extension_context.autodetection_temporarily_disabled_for_rbql = true;
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
+                extension_context.autodetection_temporarily_disabled_for_rbql = false;
+                extension_context.dynamic_dialect_for_next_request = null;
+                webview_report_handler(null, null);
+                await handle_rbql_result_file_web(result_doc, warnings);
             } else {
                 let csv_options = {'bulk_read': true};
                 await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, /*user_init_code=*/'', csv_options);
                 result_set_parent_map.set(safe_lower(output_path), input_path);
-                extension_context.autodetection_stoplist.add(output_path);
+                extension_context.autodetection_temporarily_disabled_for_rbql = true;
                 result_doc = await vscode.workspace.openTextDocument(output_path);
+                extension_context.autodetection_temporarily_disabled_for_rbql = false;
+                webview_report_handler(null, null);
+                await handle_rbql_result_file_node(result_doc, output_delim, output_policy, warnings);
             }
         } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             webview_report_handler(error_type, error_msg);
             return;
         }
-        webview_report_handler(null, null);
-        await handle_rbql_result_file(result_doc, output_delim, output_policy, warnings);
     } else {
         if (is_web_ext) {
             webview_report_handler('Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
@@ -844,7 +869,7 @@ function preserve_original_language_id_if_needed(file_path, original_language_id
 }
 
 
-async function set_rainbow_separator(policy=null) {
+async function manually_set_rainbow_separator(policy=null) {
     // The effect of manually setting the separator will disapear in the preview mode when the file is toggled in preview tab: see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -883,7 +908,9 @@ async function set_rainbow_separator(policy=null) {
     if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
         // We need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
         extension_context.autodetection_stoplist.add(active_doc.fileName); // This is to avoid potential autodetection in plaintext.
+        extension_context.autodetection_temporarily_disabled_for_rbql = true;
         active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
+        extension_context.autodetection_temporarily_disabled_for_rbql = false;
     }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
@@ -1473,6 +1500,8 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
 
     // VSCode may (and will?) forget documentId of a document "A" if document "B" is opened in the tab where "A" was (double VS single click in file browser panel).
     // see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
+    if (extension_context.autodetection_temporarily_disabled_for_rbql)
+        return active_doc;
     if (!active_doc)
         return active_doc;
     if (!get_from_config('enable_separator_autodetection', false, config))
@@ -1742,8 +1771,8 @@ async function activate(context) {
     var choose_dynamic_separator_cmd = vscode.commands.registerCommand('rainbow-csv.ChooseDynamicSeparator', async function() { await choose_dynamic_separator(); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { set_rainbow_separator(/*policy=*/null); });
-    var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { set_rainbow_separator(QUOTED_RFC_POLICY); });
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { manually_set_rainbow_separator(/*policy=*/null); });
+    var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { manually_set_rainbow_separator(QUOTED_RFC_POLICY); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
