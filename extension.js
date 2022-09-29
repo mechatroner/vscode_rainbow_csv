@@ -714,9 +714,15 @@ async function handle_command_result(src_table_path, dst_table_path, dst_delim, 
     extension_context.autodetection_stoplist.add(dst_table_path);
     result_set_parent_map.set(safe_lower(dst_table_path), src_table_path);
     extension_context.autodetection_temporarily_disabled_for_rbql = true;
+    let target_language_id = map_dialect_to_language_id(dst_delim, dst_policy);
     let doc = await vscode.workspace.openTextDocument(dst_table_path);
     extension_context.autodetection_temporarily_disabled_for_rbql = false;
+    if (target_language_id == DYNAMIC_CSV) {
+        // TODO it would be better to set this before openTextDocument and adjust the logic so this would affect autodetection.
+        extension_context.dynamic_dialect_for_next_request = [dst_delim, dst_policy];
+    }
     await handle_rbql_result_file_node(doc, dst_delim, dst_policy, warnings);
+    extension_context.dynamic_dialect_for_next_request = null;
 }
 
 
@@ -783,19 +789,18 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     if (backend_language == 'js') {
         let warnings = [];
         let result_doc = null;
+        let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
         try {
             if (is_web_ext) {
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
-                let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: target_language_id};
-                // FIXME test how this work for non web, and dynamic/non-dynamic pairs.
                 if (target_language_id == DYNAMIC_CSV) {
                     extension_context.dynamic_dialect_for_next_request = [output_delim, output_policy];
                 }
                 extension_context.autodetection_temporarily_disabled_for_rbql = true;
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
-                extension_context.autodetection_temporarily_disabled_for_rbql = false;
                 extension_context.dynamic_dialect_for_next_request = null;
+                extension_context.autodetection_temporarily_disabled_for_rbql = false;
                 webview_report_handler(null, null);
                 await handle_rbql_result_file_web(result_doc, warnings);
             } else {
@@ -806,7 +811,12 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 result_doc = await vscode.workspace.openTextDocument(output_path);
                 extension_context.autodetection_temporarily_disabled_for_rbql = false;
                 webview_report_handler(null, null);
+                if (target_language_id == DYNAMIC_CSV) {
+                    // TODO it would be better to set this before openTextDocument and adjust the logic so this would affect autodetection.
+                    extension_context.dynamic_dialect_for_next_request = [output_delim, output_policy];
+                }
                 await handle_rbql_result_file_node(result_doc, output_delim, output_policy, warnings);
+                extension_context.dynamic_dialect_for_next_request = null;
             }
         } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
