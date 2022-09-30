@@ -1,4 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
+
+## 3.2.0
+* UX improvements for Dynamic CSV filetype.
+
 ## 3.1.0
 * Support comment lines toggle, see [#84](https://github.com/mechatroner/vscode_rainbow_csv/issues/84).
 * Support double quote autoclosing and text auto-surrounding.
