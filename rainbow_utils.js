@@ -66,7 +66,7 @@ function get_default_python_udf_content() {
 }
 
 
-function update_subcomponent_stats(field, is_first_line, max_field_components_lens) {
+function update_subcomponent_stats(field, is_first_record, max_field_components_lens) {
     // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     // Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     if (field.length > max_field_components_lens[0]) {
@@ -78,7 +78,7 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
     }
     let match_result = number_regex.exec(field);
     if (match_result === null) {
-        if (!is_first_line && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+        if (!is_first_record && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
             // We only mark the column as non-header if we know that this is not a header line.
             max_field_components_lens[1] = non_numeric_sentinel;
             max_field_components_lens[2] = non_numeric_sentinel;
@@ -93,25 +93,28 @@ function update_subcomponent_stats(field, is_first_line, max_field_components_le
 
 
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
-    let column_stats = [];
-    let num_lines = active_doc.lineCount;
-    let is_first_line = true;
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning) {
-            return [null, lnum + 1];
-        }
-        for (let fnum = 0; fnum < fields.length; fnum++) {
-            let field = fields[fnum].trim();
+    // FIXME update unit tests for this function.
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+    if (first_defective_line !== null) {
+        return [null, first_defective_line + 1];
+    }
+    let is_first_record = true;
+    for (let record of records) {
+        for (let fnum = 0; fnum < record.length; fnum++) {
             if (column_stats.length <= fnum) {
                 column_stats.push([0, 0, 0]);
             }
-            update_subcomponent_stats(field, is_first_line, column_stats[fnum]);
+            let field = record[fnum];
+            let field_lines = field.split('\n');
+            if (field_lines.length > 1) {
+                // We don't allow multiline fields to be numeric for simplicity.
+                column_stats[fnum][1] = non_numeric_sentinel;
+            }
+            for (let field_line of field_lines) {
+                update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum]);
+            }
         }
-        is_first_line = false;
+        is_first_record = false;
     }
     return [column_stats, null];
 }
@@ -149,7 +152,7 @@ function adjust_column_stats(column_stats) {
 }
 
 
-function align_field(field, is_first_line, max_field_components_lens, is_last_column) {
+function align_field(field, is_first_record, max_field_components_lens, is_last_column) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     const extra_readability_whitespace_length = 1;
     field = field.trim();
@@ -157,7 +160,7 @@ function align_field(field, is_first_line, max_field_components_lens, is_last_co
         let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
         return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
     }
-    if (is_first_line) {
+    if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
             let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
@@ -174,41 +177,89 @@ function align_field(field, is_first_line, max_field_components_lens, is_last_co
     return ' '.repeat(integer_delta_length) + field + trailing_spaces;
 }
 
-
 function align_columns(active_doc, delim, policy, comment_prefix, column_stats) {
     let result_lines = [];
-    let num_lines = active_doc.lineCount;
     let has_edit = false;
-    let is_first_line = true;
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            result_lines.push(line_text);
-            continue;
+    let is_first_record = true;
+    // FIXME consider passing records here from align_field function to avoid parsign them again.
+    // FIXME add option to include comments into records. Or maybe just a Map with record ids which are comments.
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+    // We should just merge records with comments here while iterating over records.
+    let next_comment = 0;
+    for (let nr = 0; nr < records.length; ++nr) {
+        while (next_comment < comments.length && comments[next_comment].record_num <= nr) {
+            result_lines.push(comments[next_comment].comment_text);
+            next_comment += 1;
         }
-        if (lnum + 1 == num_lines && line_text == '') {
-            // Skip the last empty line which corresponds to the trailing newline character.
-            result_lines.push(line_text);
-            continue;
-        }
-        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
-        for (let fnum = 0; fnum < fields.length; fnum++) {
+        let record = records[nr];
+        for (let fnum = 0; fnum < record.length; fnum++) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
-            let is_last_column = fnum + 1 == column_stats.length;
-            let adjusted = align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column);
-            if (fields[fnum] != adjusted) {
-                fields[fnum] = adjusted;
-                has_edit = true;
-            }
         }
-        is_first_line = false;
-        result_lines.push(fields.join(delim));
+        let is_last_column = fnum + 1 == column_stats.length;
+        let field = record[fnum];
+
+        let field_lines = field.split('\n');
+        for (let field_line of field_lines) {
+        }
+
+
+        //let adjusted = align_field(record[fnum], is_first_record, column_stats[fnum], is_last_column);
+        //if (record[fnum] != adjusted) {
+        //    record[fnum] = adjusted;
+        //    has_edit = true;
+        //}
+
+        // FIXME handle the record here.
+        is_first_record = false;
     }
+    // Handle leftover comments at the end of the file.
+    while (next_comment < comments.length) {
+        result_lines.push(comments[next_comment].comment_text);
+        next_comment += 1;
+    }
+    // FIXME write unit tests with comments in the beginning in the middle and in the end.
+    // FIXME write unit tests with multiple consecutive comment lines.
+    // FIXME last empty line will disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
     if (!has_edit)
         return null;
     return result_lines.join('\n');
 }
+
+//function align_columns(active_doc, delim, policy, comment_prefix, column_stats) {
+//    let result_lines = [];
+//    let num_lines = active_doc.lineCount;
+//    let has_edit = false;
+//    let is_first_record = true;
+//    for (let lnum = 0; lnum < num_lines; lnum++) {
+//        let line_text = active_doc.lineAt(lnum).text;
+//        if (comment_prefix && line_text.startsWith(comment_prefix)) {
+//            result_lines.push(line_text);
+//            continue;
+//        }
+//        if (lnum + 1 == num_lines && line_text == '') {
+//            // Skip the last empty line which corresponds to the trailing newline character.
+//            result_lines.push(line_text);
+//            continue;
+//        }
+//        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
+//        for (let fnum = 0; fnum < fields.length; fnum++) {
+//            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
+//                break;
+//            let is_last_column = fnum + 1 == column_stats.length;
+//            let adjusted = align_field(fields[fnum], is_first_record, column_stats[fnum], is_last_column);
+//            if (fields[fnum] != adjusted) {
+//                fields[fnum] = adjusted;
+//                has_edit = true;
+//            }
+//        }
+//        is_first_record = false;
+//        result_lines.push(fields.join(delim));
+//    }
+//    if (!has_edit)
+//        return null;
+//    return result_lines.join('\n');
+//}
 
 
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
@@ -332,7 +383,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
-        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -804,7 +855,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
     // Here `preview_window_size` is typically 100.
     if (end_record < preview_window_size * 5) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
     } else {
         let need_full_doc_parse = true;
         if (cached_table_parse_result.has(document.fileName)) {
@@ -814,7 +865,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
             }
         }
         if (need_full_doc_parse) {
-            let [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            let [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
             cached_table_parse_result.set(document.fileName, [records, first_failed_line, document.version]);
         }
         [records, first_failed_line, vscode_doc_version] = cached_table_parse_result.get(document.fileName);

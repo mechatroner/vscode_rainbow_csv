@@ -71,10 +71,15 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
     let record_start_line = 0;
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces, min_num_fields_for_autodetection);
+    let comments = []; // An ordered list of {record_no, comment_text} tuples which can be merged with the records later.
 
     for (let lnum = 0; lnum < num_lines; ++lnum) {
         let line_text = document.lineAt(lnum).text;
         if (lnum + 1 >= num_lines && line_text == "") {
+            if (collect_records) {
+                // Treat the last empty line as a comment - this is to prevent align/shrink functions from removing it.
+                comments.push({record_num: consumer.num_records_parsed, comment_text: line_text});
+            }
             break; // Skip the last empty line.
         }
         let record_text = null;
@@ -83,6 +88,9 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
             if (line_aggregator.has_comment_line) {
                 record_start_line = lnum + 1;
                 line_aggregator.reset();
+                if (collect_records) {
+                    comments.push({record_num: consumer.num_records_parsed, comment_text: line_text});
+                }
                 continue;
             } else if (line_aggregator.has_full_record) {
                 record_text = line_aggregator.get_full_line('\n');
@@ -93,17 +101,20 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         } else {
             if (comment_prefix && line_text.startsWith(comment_prefix)) {
                 record_start_line = lnum + 1;
+                if (collect_records) {
+                    comments.push({record_num: consumer.num_records_parsed, comment_text: line_text});
+                }
                 continue;
             } else {
                 record_text = line_text;
             }
         }
         if (!consumer.consume(record_text, record_start_line)) {
-            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line, comments];
         }
         record_start_line = lnum + 1;
         if (max_records_to_parse !== -1 && consumer.num_records_parsed >= max_records_to_parse) {
-            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+            return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line, comments];
         }
     }
 
@@ -111,7 +122,7 @@ function parse_document_records(document, delim, policy, comment_prefix=null, st
         assert(policy == 'quoted_rfc');
         consumer.consume(line_aggregator.get_full_line('\n'), record_start_line);
     }
-    return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line];
+    return [consumer.records, consumer.num_records_parsed, consumer.fields_info, consumer.first_defective_line, consumer.first_trailing_space_line, comments];
 }
 
 
