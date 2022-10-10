@@ -276,6 +276,7 @@ function test_parse_document_records() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
+    // FIXME make sure to correctly set preserve_quotes_and_whitespaces and tests with both values for "collect records" mode.
     [records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/1000, /*collect_records=*/true, /*detect_trailing_spaces=*/false);
     assert.deepEqual([['aaa'], ['bbb'], ['ccc']], records);
     assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));

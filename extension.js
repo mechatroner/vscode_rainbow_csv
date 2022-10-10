@@ -580,7 +580,7 @@ async function csv_lint(active_doc, is_manual_op) {
     extension_context.lint_results.set(lint_cache_key, {is_processing: true});
     ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, file_path, language_id); // Visual feedback.
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false);
-    let [_records, _num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces);
+    let [_records, _num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, /*preserve_quotes_and_whitespaces=*/true, detect_trailing_spaces);
     let is_ok = (first_defective_line === null && fields_info.size <= 1);
     let lint_result = {'is_ok': is_ok, 'first_defective_line': first_defective_line, 'fields_info': fields_info, 'first_trailing_space_line': first_trailing_space_line};
     extension_context.lint_results.set(lint_cache_key, lint_result);
@@ -1159,27 +1159,23 @@ async function align_table() {
     if (policy === null) {
         return;
     }
-    if (policy == QUOTED_RFC_POLICY) {
-        show_single_line_error('Alignment is not yet supported for files with multiline fields');
-        return;
-    }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Calculating column statistics'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        let [column_stats, first_failed_line] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
+        let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
         if (first_failed_line) {
             show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
             return;
         }
-        column_stats = ll_rainbow_utils().adjust_column_stats(column_stats);
+        column_stats = ll_rainbow_utils().adjust_column_stats(column_stats, delim.length);
         if (column_stats === null) {
             show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
             return;
         }
         progress.report({message: 'Preparing final alignment'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, delim, policy, comment_prefix, column_stats);
+        let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, records, comments, column_stats, delim);
         aligned_files.add(active_doc.fileName);
         show_align_shrink_button(active_doc.fileName);
         if (aligned_doc_text === null) {
@@ -1462,7 +1458,7 @@ function autodetect_dialect(config, active_doc, candidate_separators, comment_pr
     let best_dialect_num_columns = 1;
     for (let candidate_dialect of candidate_dialects) {
         let [dialect_id, separator, policy] = candidate_dialect;
-        let [_records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, separator, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, detect_trailing_spaces, /*min_num_fields_for_autodetection=*/best_dialect_num_columns + 1);
+        let [_records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, separator, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/false, /*preserve_quotes_and_whitespaces=*/true, detect_trailing_spaces, /*min_num_fields_for_autodetection=*/best_dialect_num_columns + 1);
         if (first_defective_line !== null || fields_info.size != 1)
             continue;
         if (num_records_parsed < min_num_lines) {

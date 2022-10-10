@@ -16,7 +16,7 @@ function assert(condition, message=null) {
 
 class RecordTextConsumer {
     // The only purpose of this class is to avoid code duplication when dealing with leftover lines in line_aggregator (the second `consume` call).
-    constructor(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces, min_num_fields_for_autodetection) {
+    constructor(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection) {
         this.delim = delim;
         this.policy = policy;
         this.stop_on_warning = stop_on_warning;
@@ -27,7 +27,7 @@ class RecordTextConsumer {
         this.fields_info = new Map();
         this.first_trailing_space_line = null;
         this.detect_trailing_spaces = detect_trailing_spaces;
-        this.preserve_quotes_and_whitespaces = !collect_records;
+        this.preserve_quotes_and_whitespaces = preserve_quotes_and_whitespaces;
         this.min_num_fields_for_autodetection = min_num_fields_for_autodetection;
     }
 
@@ -66,11 +66,12 @@ class RecordTextConsumer {
 }
 
 
-function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
+function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, preserve_quotes_and_whitespaces=false, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
+    // FIXME need preserve_doublequotes flag here.
     let num_lines = document.lineCount;
     let record_start_line = 0;
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
-    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, detect_trailing_spaces, min_num_fields_for_autodetection);
+    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection);
     let comments = []; // An ordered list of {record_no, comment_text} tuples which can be merged with the records later.
 
     for (let lnum = 0; lnum < num_lines; ++lnum) {

@@ -16,6 +16,7 @@ const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable.
 const max_preview_field_length = 250;
+const alignment_extra_readability_whitespace_length = 1;
 
 
 class AssertionError extends Error {}
@@ -68,11 +69,8 @@ function get_default_python_udf_content() {
 
 function update_subcomponent_stats(field, is_first_record, max_field_components_lens) {
     // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
-    // Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
-    if (field.length > max_field_components_lens[0]) {
-        max_field_components_lens[0] = field.length;
-    }
-    if (max_field_components_lens[1] == non_numeric_sentinel) {
+    max_field_components_lens.max_total_length = Math.max(max_field_components_lens.max_total_length, field.length);
+    if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
         // Column is not a number, early return.
         return;
     }
@@ -80,35 +78,36 @@ function update_subcomponent_stats(field, is_first_record, max_field_components_
     if (match_result === null) {
         if (!is_first_record && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
             // We only mark the column as non-header if we know that this is not a header line.
-            max_field_components_lens[1] = non_numeric_sentinel;
-            max_field_components_lens[2] = non_numeric_sentinel;
+            max_field_components_lens.max_int_length = non_numeric_sentinel;
+            max_field_components_lens.max_fractional_length = non_numeric_sentinel;
         }
         return;
     }
     let cur_integer_part_length = match_result[1].length;
-    max_field_components_lens[1] = Math.max(max_field_components_lens[1], cur_integer_part_length);
+    max_field_components_lens.max_int_length = Math.max(max_field_components_lens.max_int_length, cur_integer_part_length);
     let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
-    max_field_components_lens[2] = Math.max(max_field_components_lens[2], cur_fractional_part_length);
+    max_field_components_lens.max_fractional_length = Math.max(max_field_components_lens.max_fractional_length, cur_fractional_part_length);
 }
 
 
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
     // FIXME update unit tests for this function.
-    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
         return [null, first_defective_line + 1];
     }
+    let column_stats = [];
     let is_first_record = true;
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (column_stats.length <= fnum) {
-                column_stats.push([0, 0, 0]);
+                column_stats.push({max_total_length: 0, max_int_length: 0, max_fractional_length: 0});
             }
             let field = record[fnum];
             let field_lines = field.split('\n');
             if (field_lines.length > 1) {
                 // We don't allow multiline fields to be numeric for simplicity.
-                column_stats[fnum][1] = non_numeric_sentinel;
+                column_stats[fnum].max_int_length = non_numeric_sentinel;
             }
             for (let field_line of field_lines) {
                 update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum]);
@@ -116,36 +115,39 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
         }
         is_first_record = false;
     }
-    return [column_stats, null];
+    return [column_stats, null, records, comments];
 }
 
 
-function adjust_column_stats(column_stats) {
+function adjust_column_stats(column_stats, delim_length) {
+    // FIXME adjust unit tests, use 2 params!
     // Ensure that numeric components max widths are consistent with non-numeric (header) width.
     let adjusted_stats = [];
     for (let column_stat of column_stats) {
-        if (column_stat[1] <= 0) {
-            column_stat[1] = -1;
-            column_stat[2] = -1;
+        if (column_stat.max_int_length <= 0) {
+            column_stat.max_int_length = -1;
+            column_stat.max_fractional_length = -1;
         }
-        if (column_stat[1] > 0) {
+        if (column_stat.max_int_length > 0) {
             // The sum of integer and float parts can be bigger than the max width, e.g. here:
             // value
             // 0.12
             // 1234
-            if (column_stat[1] + column_stat[2] > column_stat[0]) {
-                column_stat[0] = column_stat[1] + column_stat[2];
+            if (column_stat.max_int_length + column_stat.max_fractional_length > column_stat.max_total_length) {
+                column_stat.max_total_length = column_stat.max_int_length + column_stat.max_fractional_length;
             }
             // This is needed when the header is wider than numeric components and/or their sum.
-            if (column_stat[0] - column_stat[2] > column_stat[1]) {
-                column_stat[1] = column_stat[0] - column_stat[2];
+            if (column_stat.max_total_length - column_stat.max_fractional_length > column_stat.max_int_length) {
+                column_stat.max_int_length = column_stat.max_total_length - column_stat.max_fractional_length;
             }
             // Sanity check.
-            if (column_stat[0] != column_stat[1] + column_stat[2]) {
+            if (column_stat.max_total_length != column_stat.max_int_length + column_stat.max_fractional_length) {
                 // Assertion Error, this can never happen.
                 return null;
             }
         }
+        let previous_stat = adjusted_stats.length ? adjusted_stats[adjusted_stats.length - 1] : null;
+        column_stat.start_offset = previous_stat === null ? 0 : previous_stat.start_offset + previous_stat.max_total_length + alignment_extra_readability_whitespace_length + delim_length;
         adjusted_stats.push(column_stat);
     }
     return adjusted_stats;
@@ -153,40 +155,48 @@ function adjust_column_stats(column_stats) {
 
 
 function align_field(field, is_first_record, max_field_components_lens, is_last_column) {
+    // FIXME rename "align_field" -> "pad_field", "aligned" -> "padded".
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
-    const extra_readability_whitespace_length = 1;
     field = field.trim();
-    if (max_field_components_lens[1] == non_numeric_sentinel) {
-        let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
-        return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+    if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
+        let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
+        return is_last_column ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
     }
     if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
-            let delta_length = Math.max(max_field_components_lens[0] - field.length, 0);
-            return is_last_column ? field : field + ' '.repeat(delta_length + extra_readability_whitespace_length);
+            let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
+            return is_last_column ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
         }
     }
     let dot_pos = field.indexOf('.');
     let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
     // Here cur_fractional_part_length includes the leading dot too.
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
-    let integer_delta_length = Math.max(max_field_components_lens[1] - cur_integer_part_length, 0);
-    let fractional_delta_length = Math.max(max_field_components_lens[2] - cur_fractional_part_length);
-    let trailing_spaces = is_last_column ? '' : ' '.repeat(fractional_delta_length + extra_readability_whitespace_length);
+    let integer_delta_length = Math.max(max_field_components_lens.max_int_length - cur_integer_part_length, 0);
+    let fractional_delta_length = Math.max(max_field_components_lens.max_fractional_length - cur_fractional_part_length);
+    let trailing_spaces = is_last_column ? '' : ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
     return ' '.repeat(integer_delta_length) + field + trailing_spaces;
 }
 
-function align_columns(active_doc, delim, policy, comment_prefix, column_stats) {
+
+function rfc_align_field(field, is_first_record, max_field_components_lens, is_last_column, is_field_segment) {
+    // FIXME add unit tests for this.
+    let aligned = align_field(field, is_first_record, max_field_components_lens, is_last_column);
+    if (is_field_segment) {
+        aligned = ' '.repeat(max_field_components_lens.start_offset) + aligned;
+    }
+    return aligned;
+}
+
+
+function align_columns(active_doc, records, comments, column_stats, delim) {
     let result_lines = [];
     let has_edit = false;
     let is_first_record = true;
-    // FIXME consider passing records here from align_field function to avoid parsign them again.
-    // FIXME add option to include comments into records. Or maybe just a Map with record ids which are comments.
-    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true);
-    // We should just merge records with comments here while iterating over records.
     let next_comment = 0;
     for (let nr = 0; nr < records.length; ++nr) {
+        let aligned_fields = [];
         while (next_comment < comments.length && comments[next_comment].record_num <= nr) {
             result_lines.push(comments[next_comment].comment_text);
             next_comment += 1;
@@ -195,23 +205,26 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
+            let is_field_segment = false;
+            let is_last_column = fnum + 1 == column_stats.length;
+            let field = record[fnum];
+            let field_lines = field.split('\n');
+            for (let i = 0; i < field_lines.length; i++) {
+                if (i > 0) {
+                    result_lines.push(aligned_fields.join(delim));
+                    aligned_fields = [];
+                    is_field_segment = true;
+                }
+                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_last_column, is_field_segment);
+                is_field_segment = false;
+                if (aligned_field != field_lines[i]) {
+                    has_edit = true;
+                }
+                aligned_fields.push(aligned_field);
+            }
         }
-        let is_last_column = fnum + 1 == column_stats.length;
-        let field = record[fnum];
-
-        let field_lines = field.split('\n');
-        for (let field_line of field_lines) {
-        }
-
-
-        //let adjusted = align_field(record[fnum], is_first_record, column_stats[fnum], is_last_column);
-        //if (record[fnum] != adjusted) {
-        //    record[fnum] = adjusted;
-        //    has_edit = true;
-        //}
-
-        // FIXME handle the record here.
         is_first_record = false;
+        result_lines.push(aligned_fields.join(delim));
     }
     // Handle leftover comments at the end of the file.
     while (next_comment < comments.length) {
@@ -226,43 +239,9 @@ function align_columns(active_doc, delim, policy, comment_prefix, column_stats) 
     return result_lines.join('\n');
 }
 
-//function align_columns(active_doc, delim, policy, comment_prefix, column_stats) {
-//    let result_lines = [];
-//    let num_lines = active_doc.lineCount;
-//    let has_edit = false;
-//    let is_first_record = true;
-//    for (let lnum = 0; lnum < num_lines; lnum++) {
-//        let line_text = active_doc.lineAt(lnum).text;
-//        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-//            result_lines.push(line_text);
-//            continue;
-//        }
-//        if (lnum + 1 == num_lines && line_text == '') {
-//            // Skip the last empty line which corresponds to the trailing newline character.
-//            result_lines.push(line_text);
-//            continue;
-//        }
-//        let fields = csv_utils.smart_split(line_text, delim, policy, true)[0];
-//        for (let fnum = 0; fnum < fields.length; fnum++) {
-//            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
-//                break;
-//            let is_last_column = fnum + 1 == column_stats.length;
-//            let adjusted = align_field(fields[fnum], is_first_record, column_stats[fnum], is_last_column);
-//            if (fields[fnum] != adjusted) {
-//                fields[fnum] = adjusted;
-//                has_edit = true;
-//            }
-//        }
-//        is_first_record = false;
-//        result_lines.push(fields.join(delim));
-//    }
-//    if (!has_edit)
-//        return null;
-//    return result_lines.join('\n');
-//}
-
 
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
+    // FIXME we also need to adjust this.
     let result_lines = [];
     let num_lines = active_doc.lineCount;
     let has_edit = false;
@@ -855,7 +834,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
     // Here `preview_window_size` is typically 100.
     if (end_record < preview_window_size * 5) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
-        [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true);
+        [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/end_record, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
     } else {
         let need_full_doc_parse = true;
         if (cached_table_parse_result.has(document.fileName)) {
@@ -865,7 +844,7 @@ function sample_records(document, delim, policy, comment_prefix, end_record, pre
             }
         }
         if (need_full_doc_parse) {
-            let [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true);
+            let [records, _num_records_parsed, _fields_info, first_failed_line, _first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, stop_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
             cached_table_parse_result.set(document.fileName, [records, first_failed_line, document.version]);
         }
         [records, first_failed_line, vscode_doc_version] = cached_table_parse_result.get(document.fileName);
