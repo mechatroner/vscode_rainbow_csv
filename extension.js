@@ -1121,10 +1121,6 @@ async function shrink_table() {
     if (policy === null) {
         return;
     }
-    if (policy == QUOTED_RFC_POLICY) {
-        show_single_line_error('Shrinking is not yet supported for files with multiline fields');
-        return;
-    }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Preparing'});

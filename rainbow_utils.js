@@ -233,7 +233,7 @@ function align_columns(active_doc, records, comments, column_stats, delim) {
     }
     // FIXME write unit tests with comments in the beginning in the middle and in the end.
     // FIXME write unit tests with multiple consecutive comment lines.
-    // FIXME last empty line will disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
+    // FIXME last empty line will NOT disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
     if (!has_edit)
         return null;
     return result_lines.join('\n');
@@ -241,34 +241,50 @@ function align_columns(active_doc, records, comments, column_stats, delim) {
 
 
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
-    // FIXME we also need to adjust this.
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
+    if (first_defective_line !== null) {
+        return [null, first_defective_line + 1];
+    }
     let result_lines = [];
-    let num_lines = active_doc.lineCount;
     let has_edit = false;
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            result_lines.push(line_text);
-            continue;
+    let next_comment = 0;
+    for (let nr = 0; nr < records.length; ++nr) {
+        let aligned_fields = [];
+        while (next_comment < comments.length && comments[next_comment].record_num <= nr) {
+            result_lines.push(comments[next_comment].comment_text);
+            next_comment += 1;
         }
-        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, true);
-        if (warning) {
-            return [null, lnum + 1];
-        }
-        for (let i = 0; i < fields.length; i++) {
-            let adjusted = fields[i].trim();
-            if (fields[i].length != adjusted.length) {
-                fields[i] = adjusted;
-                has_edit = true;
+        let record = records[nr];
+        for (let fnum = 0; fnum < record.length; fnum++) {
+            let field = record[fnum];
+            let field_lines = field.split('\n');
+            for (let i = 0; i < field_lines.length; i++) {
+                if (i > 0) {
+                    result_lines.push(aligned_fields.join(delim));
+                    aligned_fields = [];
+                }
+                let aligned_field = field_lines[i].trim();
+                if (aligned_field.length != field.length) {
+                    // Unlike in align function here we can just compare resulting length to decide if change has occured.
+                    has_edit = true;
+                }
+                aligned_fields.push(aligned_field);
             }
         }
-        result_lines.push(fields.join(delim));
+        result_lines.push(aligned_fields.join(delim));
     }
+    // Handle leftover comments at the end of the file.
+    while (next_comment < comments.length) {
+        result_lines.push(comments[next_comment].comment_text);
+        next_comment += 1;
+    }
+    // FIXME write unit tests with comments in the beginning in the middle and in the end.
+    // FIXME write unit tests with multiple consecutive comment lines.
+    // FIXME last empty line will NOT disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
     if (!has_edit)
         return [null, null];
-    return [result_lines.join('\n'), null];
+    return [result_lines.join('\n'), null]
 }
-
 
 
 function make_table_name_key(file_path) {
@@ -362,6 +378,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NR = 0; // Record number.
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
+        let [_num_records_parsed, _comments] = [null, null];
         [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
@@ -827,10 +844,9 @@ function format_cursor_position_info(cursor_position_info, header, show_column_n
 
 function sample_records(document, delim, policy, comment_prefix, end_record, preview_window_size, stop_on_warning, cached_table_parse_result) {
     let records = [];
-    let _fields_info = null;
     let first_failed_line = null;
     let vscode_doc_version = null;
-    let _first_trailing_space_line = null;
+    let [_num_records_parsed, _fields_info, _first_trailing_space_line, _comments] = [null, null, null, null];
     // Here `preview_window_size` is typically 100.
     if (end_record < preview_window_size * 5) {
         // Re-sample the records. Re-sampling top records is fast and it ensures that all manual changes are mirrored into RBQL console.
