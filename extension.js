@@ -1040,6 +1040,7 @@ async function column_edit(edit_mode) {
         return;
     }
     if (policy == QUOTED_RFC_POLICY) {
+        // FIXME support with rfc policy.
         show_single_line_error('Column edit mode is not supported for rfc-compatible (multiline fields) dialects.');
         return;
     }

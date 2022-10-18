@@ -94,9 +94,11 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
     // FIXME update unit tests for this function.
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
-        return [null, first_defective_line + 1];
+        // FIXME unit test this branch!
+        return [null, first_defective_line + 1, null, null];
     }
     let column_stats = [];
+    // FIXME add test with first record non-numeric.
     let is_first_record = true;
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
@@ -108,6 +110,7 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
             if (field_lines.length > 1) {
                 // We don't allow multiline fields to be numeric for simplicity.
                 column_stats[fnum].max_int_length = non_numeric_sentinel;
+                column_stats[fnum].max_fractional_length = non_numeric_sentinel;
             }
             for (let field_line of field_lines) {
                 update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum]);
@@ -155,7 +158,6 @@ function adjust_column_stats(column_stats, delim_length) {
 
 
 function align_field(field, is_first_record, max_field_components_lens, is_last_column) {
-    // FIXME rename "align_field" -> "pad_field", "aligned" -> "padded".
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     field = field.trim();
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
