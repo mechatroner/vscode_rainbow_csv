@@ -123,12 +123,10 @@ function test_align_stats() {
 
 
 function test_calc_column_stats() {
-    // FIXME impl - at least for rfc, to have 100% coverage.
-    // FIXME add test with inconsistent number of columns - calc_column_stats should still work fine.
     let [doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
 
-    // A basic test.
+    // A basic rfc test.
     doc_lines = ['# commment line', '1a,"1b', '1b,""1b"",1b', '1b",1c','2a,2bbb,2cc', ''];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
@@ -138,6 +136,28 @@ function test_calc_column_stats() {
     assert.deepEqual([{record_num: 0, comment_text: '# commment line'}, {record_num: 2, comment_text: ''}], comments);
     assert.deepEqual(null, first_failed_line);
     assert.deepEqual([{max_total_length: 2, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 12, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 3, max_int_length: -1, max_fractional_length: -1}], column_stats);
+
+    // Inconsistent num fields.
+    doc_lines = ['1a,1b', '2aa', '3a,3b,3c'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    assert.deepEqual([], comments);
+    assert.deepEqual(null, first_failed_line);
+    assert.deepEqual([{max_total_length: 3, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 2, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 2, max_int_length: -1, max_fractional_length: -1}], column_stats);
+
+    // Defective line.
+    doc_lines = ['1a,1b', '2a"a', '3a,3b,3c'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    assert.deepEqual(2, first_failed_line);
+    assert.deepEqual(null, column_stats);
+    assert.deepEqual(null, records);
 }
 
 function test_field_align() {
@@ -261,12 +281,11 @@ function test_field_align() {
 
 
 function test_adjust_column_stats() {
-    // FIXME add UT with non-zero resulting start_offset.
-
+    let [max_components_lens, adjusted_components, column_stats, adjusted_stats] = [null, null, null];
 
     // Not a numeric column, adjustment is NOOP.
-    let max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
-    let adjusted_components = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
+    max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
+    adjusted_components = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
     assert.deepEqual({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, adjusted_components);
 
     // This is possisble with a single-line file.
@@ -286,6 +305,11 @@ function test_adjust_column_stats() {
     max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 3};
     adjusted_components = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
     assert.deepEqual({max_total_length: 10, max_int_length: 7, max_fractional_length: 3, start_offset: 0}, adjusted_components);
+
+    // Non-zero start offset
+    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 8, max_int_length: -1, max_fractional_length: -1}];
+    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
+    assert.deepEqual([{max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, {max_total_length: 8, max_int_length: -1, max_fractional_length: -1, start_offset: 12}], adjusted_stats);
 }
 
 
@@ -299,9 +323,6 @@ function test_parse_document_records() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
-    // FIXME check/assert `comments` at the end of each test.
-    // FIXME add unit tests with preserve_quotes_and_whitespaces = true.
-    // FIXME make sure to correctly set preserve_quotes_and_whitespaces and tests with both values for "collect records" mode.
     [records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/1000, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false, /*detect_trailing_spaces=*/false);
     assert.deepEqual([['aaa'], ['bbb'], ['ccc']], records);
     assert.deepEqual([[1, 0]], Array.from(fields_info.entries()));
@@ -465,6 +486,19 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
     // Although we have a lot of internal spaces, the first_trailing_space_line should be null because we use whitespace policy
     assert.equal(first_trailing_space_line, null);
+
+    // Quoted rfc policy, preserve quotes.
+    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,c2",c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true, /*detect_trailing_spaces=*/true);
+    assert.deepEqual([['a1', '"a2\nb1"",b2 \nc1,c2"', 'c3'], ['"e1,""e2,e3"'], ['f1 ', 'f2']], records);
+    assert.deepEqual([{record_num: 1, comment_text: '#d1,"'}], comments);
+    assert.equal(first_defective_line, null);
+    // Trailing spaces inside the fields do not count, so the first trailing space will be at line 5.
+    assert.equal(first_trailing_space_line, 5);
 }
 
 

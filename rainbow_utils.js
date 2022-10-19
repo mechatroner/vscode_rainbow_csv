@@ -123,7 +123,6 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
 
 
 function adjust_column_stats(column_stats, delim_length) {
-    // FIXME adjust unit tests, use 2 params!
     // Ensure that numeric components max widths are consistent with non-numeric (header) width.
     let adjusted_stats = [];
     for (let column_stat of column_stats) {
