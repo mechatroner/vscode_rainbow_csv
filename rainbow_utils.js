@@ -91,14 +91,11 @@ function update_subcomponent_stats(field, is_first_record, max_field_components_
 
 
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
-    // FIXME update unit tests for this function.
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
-        // FIXME unit test this branch!
         return [null, first_defective_line + 1, null, null];
     }
     let column_stats = [];
-    // FIXME add test with first record non-numeric.
     let is_first_record = true;
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
@@ -182,7 +179,6 @@ function align_field(field, is_first_record, max_field_components_lens, is_last_
 
 
 function rfc_align_field(field, is_first_record, max_field_components_lens, is_last_column, is_field_segment) {
-    // FIXME add unit tests for this.
     let aligned = align_field(field, is_first_record, max_field_components_lens, is_last_column);
     if (is_field_segment) {
         aligned = ' '.repeat(max_field_components_lens.start_offset) + aligned;
@@ -943,6 +939,7 @@ module.exports.calc_column_stats = calc_column_stats;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
 module.exports.align_field = align_field;
+module.exports.rfc_align_field = rfc_align_field;
 module.exports.assert = assert;
 module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.get_cursor_position_info = get_cursor_position_info;

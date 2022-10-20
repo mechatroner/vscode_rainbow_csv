@@ -158,7 +158,56 @@ function test_calc_column_stats() {
     assert.deepEqual(2, first_failed_line);
     assert.deepEqual(null, column_stats);
     assert.deepEqual(null, records);
+
+    // First line non-numeric.
+    doc_lines = ['type,weight', 'car,100', 'ship,  20000'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    assert.deepEqual([], comments);
+    assert.deepEqual(null, first_failed_line);
+    assert.deepEqual([{max_total_length: 4, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 6, max_int_length: 5, max_fractional_length: 0}], column_stats);
+
+    // Numbers on different lines.
+    // Currently in this case we don't report second column as numeric, but this is more-or-less an arbitrary decission.
+    doc_lines = ['car,100', 'ship,"20000', '300"'];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    assert.deepEqual([], comments);
+    assert.deepEqual(null, first_failed_line);
+    assert.deepEqual([{max_total_length: 4, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 6, max_int_length: -1, max_fractional_length: -1}], column_stats);
 }
+
+
+function test_rfc_field_align() {
+    let [field, is_first_line, column_stats, is_last_column, aligned_field, is_field_segment] = [null, null, null, null, null, null];
+
+    // Align non-field segment in non-numeric non-last column.
+    field = 'foobar';
+    is_first_line = 0;
+    is_field_segment = false;
+    column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
+    is_last_column = 0;
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_last_column, is_field_segment);
+    assert.deepEqual('foobar     ', aligned_field);
+
+    // Align field segment in non-numeric non-last column.
+    field = 'foobar';
+    is_first_line = 0;
+    is_field_segment = true;
+    column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
+    is_last_column = 0;
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_last_column, is_field_segment);
+    assert.deepEqual('       foobar     ', aligned_field);
+}
+
 
 function test_field_align() {
     // Align field in non-numeric non-last column.
@@ -1090,6 +1139,7 @@ function test_get_cursor_position_info() {
 function test_all() {
     test_align_stats();
     test_field_align();
+    test_rfc_field_align();
     test_calc_column_stats();
     test_adjust_column_stats();
     test_parse_document_records();
