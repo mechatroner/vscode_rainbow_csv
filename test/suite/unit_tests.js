@@ -1135,11 +1135,38 @@ function test_get_cursor_position_info() {
 }
 
 
+function test_align_columns() {
+    // FIXME implement, add more tests
+
+    let [unaligned_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
+    let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
+    let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
+
+    // Basic test with numeric column
+    unaligned_doc_lines = ['type,weight', 'car,100', 'ship,20000'];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
+    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    aligned_doc_lines = aligned_doc_text.split('\n');
+    expected_doc_lines = ['type ,weight', 'car  ,   100', 'ship , 20000'];
+    assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+}
+
+function test_shrink_columns() {
+    // FIXME implement
+}
+
 
 function test_all() {
     test_align_stats();
     test_field_align();
     test_rfc_field_align();
+    test_align_columns();
+    test_shrink_columns();
     test_calc_column_stats();
     test_adjust_column_stats();
     test_parse_document_records();

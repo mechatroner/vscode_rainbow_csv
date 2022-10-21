@@ -1172,7 +1172,7 @@ async function align_table() {
         }
         progress.report({message: 'Preparing final alignment'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        let aligned_doc_text = ll_rainbow_utils().align_columns(active_doc, records, comments, column_stats, delim);
+        let aligned_doc_text = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
         aligned_files.add(active_doc.fileName);
         show_align_shrink_button(active_doc.fileName);
         if (aligned_doc_text === null) {

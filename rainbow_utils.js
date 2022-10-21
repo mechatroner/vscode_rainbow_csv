@@ -187,7 +187,7 @@ function rfc_align_field(field, is_first_record, max_field_components_lens, is_l
 }
 
 
-function align_columns(active_doc, records, comments, column_stats, delim) {
+function align_columns(records, comments, column_stats, delim) {
     let result_lines = [];
     let has_edit = false;
     let is_first_record = true;
