@@ -232,9 +232,6 @@ function align_columns(records, comments, column_stats, delim) {
         result_lines.push(comments[next_comment].comment_text);
         next_comment += 1;
     }
-    // FIXME write unit tests with comments in the beginning in the middle and in the end.
-    // FIXME write unit tests with multiple consecutive comment lines.
-    // FIXME last empty line will NOT disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
     if (!has_edit)
         return null;
     return result_lines.join('\n');

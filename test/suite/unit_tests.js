@@ -464,7 +464,7 @@ function test_parse_document_records() {
     // Although the third line is defective we don't detect it because of max_records_to_parse limitation.
     assert.equal(first_defective_line, null);
 
-    // Max record to parse - defective line. 
+    // Max record to parse - defective line.
     doc_lines = ['a1,a2', 'b1,b2', '"c1,c2'];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
@@ -688,7 +688,7 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([record_ranges_0, record_ranges_1, record_ranges_2], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
 
-    // =================================================================================== 
+    // ===================================================================================
     // Beginning of 4 related test on the same data but with the different parsing windows
 
     // Nothing is parsed because the window started at the record which end didn't fit into the parsing range.
@@ -701,7 +701,7 @@ function test_parse_document_range_rfc() {
     [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
     assert.deepEqual([], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
-   
+
     // Same as before but the window is shifted slightly so we (wrongly) assume that the internal field lines are independent records.
     doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
@@ -728,7 +728,7 @@ function test_parse_document_range_rfc() {
     [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
     assert.deepEqual([], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
-    
+
 
     // All lines now fit in the range and they are being properly parsed as a single record.
     doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
@@ -744,7 +744,7 @@ function test_parse_document_range_rfc() {
 
 
     // End of 4 related test on the same data but with the different parsing windows
-    // =================================================================================== 
+    // ===================================================================================
 
 
     // Discard some at the beginning and some at the end where the record didn't fit into the parsing window
@@ -922,7 +922,7 @@ function test_sample_preview_records_from_context() {
     assert.equal(15, cached_table_parse_result.get(doc_file_name)[1]); // First failed line.
     assert.equal(1, cached_table_parse_result.get(doc_file_name)[2]); // Doc verion.
 
-    // Check that updating doc version triggers reparsing which now returns the correct sample because the doc was fixed earlier.. 
+    // Check that updating doc version triggers reparsing which now returns the correct sample because the doc was fixed earlier..
     dst_message = new Object();
     active_doc.version = 2;
     rainbow_utils.sample_preview_records_from_context(rbql_context, dst_message, preview_window_size, cached_table_parse_result);
@@ -1102,7 +1102,11 @@ function test_align_columns() {
     let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
 
     // Basic test with numeric column.
-    unaligned_doc_lines = ['type,weight', 'car,100', 'ship,20000'];
+    unaligned_doc_lines = [
+        'type,weight',
+        'car,100',
+        'ship,20000'
+    ];
     active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -1112,14 +1116,18 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,weight', 
-        'car  ,   100', 
+        'type ,weight',
+        'car  ,   100',
         'ship , 20000'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
-    // Basic test with float column and random spaces.
-    unaligned_doc_lines = ['  type, wght,  color ', '  car  ,   1.008  ,   red', '   ship ,  200.5  ,  yellow'];
+    // Basic test with string-only columns.
+    unaligned_doc_lines = [
+        'type,color',
+        'car,red',
+        'ship,orange'
+    ];
     active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -1129,14 +1137,43 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,wght    ,color', 
-        'car  ,  1.008 ,red', 
+        'type ,color',
+        'car  ,red',
+        'ship ,orange'
+    ];
+    assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+
+    // Basic test with float column and random spaces.
+    unaligned_doc_lines = [
+        '  type, wght,  color ',
+        '  car  ,   1.008  ,   red',
+        '   ship ,  200.5  ,  yellow'
+    ];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
+    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    aligned_doc_lines = aligned_doc_text.split('\n');
+    expected_doc_lines = [
+        'type ,wght    ,color',
+        'car  ,  1.008 ,red',
         'ship ,200.5   ,yellow'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
-    // Basic test with comment lines.
-    unaligned_doc_lines = ['#info', 'type,weight', '#foo,foo', 'car,100', 'ship,20000', '#bar', '#bar', ''];
+    // Basic test with comment lines and last empty line which should not diappear after alignment.
+    unaligned_doc_lines = [
+        '#info',
+        'type,weight',
+        '#foo,foo',
+        '#m',
+        'car,100',
+        'ship,20000',
+        '#bar', '#bar', ''
+    ];
     active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -1147,9 +1184,10 @@ function test_align_columns() {
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
         '#info',
-        'type ,weight', 
+        'type ,weight',
         '#foo,foo',
-        'car  ,   100', 
+        '#m',
+        'car  ,   100',
         'ship , 20000',
         '#bar',
         '#bar',
@@ -1158,7 +1196,14 @@ function test_align_columns() {
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
     // RFC multiline fields test.
-    unaligned_doc_lines = ['type,info,max_speed', 'car,"A nice red car.', 'Can get you ""anywhere"" you want.', 'GPS included",100', 'ship,"Big heavy superfreighter ""Yamaha-2000"".', 'Comes with a crew of 10",25'];
+    unaligned_doc_lines = [
+        'type,info,max_speed',
+        'car,"A nice red car.',
+        'Can get you ""anywhere"" you want.',
+        'GPS included",100',
+        'ship,"Big heavy superfreighter ""Yamaha-2000"".',
+        'Comes with a crew of 10",25'
+    ];
     active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -1167,7 +1212,6 @@ function test_align_columns() {
     column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
-    // FIXME looks like the current rfc alignment adds trailing spaces at the end of rfc componenets. FIX it!
     expected_doc_lines = [
         'type ,info                                       ,max_speed',
         'car  ,"A nice red car.',
