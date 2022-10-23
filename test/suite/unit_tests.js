@@ -1224,7 +1224,61 @@ function test_align_columns() {
 }
 
 function test_shrink_columns() {
-    // FIXME implement
+    let [original_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
+    let [first_failed_line, shrinked_doc_text, shrinked_doc_lines, expected_doc_lines] = [null, null, null, null];
+
+    // FIXME add test with failed lines.
+
+    // Basic test.
+    original_doc_lines = [
+        '  type  , weight, color',
+        ' car,100  , yellow   ',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    shrinked_doc_lines = shrinked_doc_text.split('\n');
+    expected_doc_lines = [
+        'type,weight,color',
+        'car,100,yellow',
+        'ship,20000,red'
+    ];
+    assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
+
+    // Test with comments and last trailing line.
+    original_doc_lines = [
+        '#hello',
+        '  type  , weight, color',
+        '#foo',
+        '#bar',
+        ' car,100  , yellow   ',
+        'ship,20000,red',
+        '# foo , bar',
+        ''
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    shrinked_doc_lines = shrinked_doc_text.split('\n');
+    expected_doc_lines = [
+        '#hello',
+        'type,weight,color',
+        '#foo',
+        '#bar',
+        'car,100,yellow',
+        'ship,20000,red',
+        '# foo , bar',
+        ''
+    ];
+    assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
+
+    // FIXME add test with comment that should retain whitespaces.
+    // FIXME add more tests
     // FIXME add unit test with actual multiline rfc fields.
 }
 
