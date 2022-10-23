@@ -185,7 +185,7 @@ function test_calc_column_stats() {
 
 
 function test_rfc_field_align() {
-    let [field, is_first_line, column_stats, is_last_column, aligned_field, is_field_segment] = [null, null, null, null, null, null];
+    let [field, is_first_line, column_stats, aligned_field, is_field_segment] = [null, null, null, null, null, null];
 
     // Align non-field segment in non-numeric non-last column.
     field = 'foobar';
@@ -193,8 +193,7 @@ function test_rfc_field_align() {
     is_field_segment = false;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    is_last_column = 0;
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_last_column, is_field_segment);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment);
     assert.deepEqual('foobar     ', aligned_field);
 
     // Align field segment in non-numeric non-last column.
@@ -203,8 +202,7 @@ function test_rfc_field_align() {
     is_field_segment = true;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    is_last_column = 0;
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_last_column, is_field_segment);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment);
     assert.deepEqual('       foobar     ', aligned_field);
 }
 
@@ -215,26 +213,15 @@ function test_field_align() {
     let is_first_line = 0;
     let max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    let is_last_column = 0;
-    let aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    let aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('foobar     ', aligned_field);
-
-    // Align field in non-numeric last column.
-    field = 'foobar';
-    is_first_line = 0;
-    max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
-    max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 1;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
-    assert.deepEqual('foobar', aligned_field);
 
     // Align non-numeric first line (potentially header) field in numeric column.
     field = 'foobar';
     is_first_line = 1;
     max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('foobar     ', aligned_field);
 
     // Align numeric first line (potentially header) field in numeric column.
@@ -242,8 +229,7 @@ function test_field_align() {
     is_first_line = 1;
     max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('  10.1     ', aligned_field);
 
     // Align numeric field in non-numeric column (first line).
@@ -251,8 +237,7 @@ function test_field_align() {
     is_first_line = 1;
     max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('10.1       ', aligned_field);
 
     // Align numeric field in non-numeric column (not first line).
@@ -260,8 +245,7 @@ function test_field_align() {
     is_first_line = 0;
     max_components_lens = {max_total_length: 10, max_int_length: -1, max_fractional_length: -1};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('10.1       ', aligned_field);
 
     // Align numeric float in numeric non-last column.
@@ -269,44 +253,23 @@ function test_field_align() {
     is_first_line = 0;
     max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('  10.1     ', aligned_field);
-
-    // Align numeric float in numeric last column.
-    field = '10.1';
-    is_first_line = 0;
-    max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
-    max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 1;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
-    assert.deepEqual('  10.1', aligned_field);
 
     // Align numeric integer in numeric non-last column.
     field = '1000';
     is_first_line = 0;
     max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('1000       ', aligned_field);
-
-    // Align numeric integer in numeric last column.
-    field = '1000';
-    is_first_line = 0;
-    max_components_lens = {max_total_length: 10, max_int_length: 4, max_fractional_length: 6};
-    max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 1;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
-    assert.deepEqual('1000', aligned_field);
 
     // Align numeric integer in numeric (integer) column.
     field = '1000';
     is_first_line = 0;
     max_components_lens = {max_total_length: 4, max_int_length: 4, max_fractional_length: 0};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('1000 ', aligned_field);
 
     // Align numeric integer in numeric (integer) column dominated by header width.
@@ -314,8 +277,7 @@ function test_field_align() {
     is_first_line = 0;
     max_components_lens = {max_total_length: 6, max_int_length: 4, max_fractional_length: 0};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('  1000 ', aligned_field);
 
     // Align numeric float in numeric column dominated by header width.
@@ -323,8 +285,7 @@ function test_field_align() {
     is_first_line = 0;
     max_components_lens = {max_total_length: 12, max_int_length: 4, max_fractional_length: 6};
     max_components_lens = rainbow_utils.adjust_column_stats([max_components_lens], /*delim_length=*/1)[0];
-    is_last_column = 0;
-    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens, is_last_column);
+    aligned_field = rainbow_utils.align_field(field, is_first_line, max_components_lens);
     assert.deepEqual('    10.1     ', aligned_field);
 }
 

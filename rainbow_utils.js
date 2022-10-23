@@ -153,18 +153,18 @@ function adjust_column_stats(column_stats, delim_length) {
 }
 
 
-function align_field(field, is_first_record, max_field_components_lens, is_last_column) {
+function align_field(field, is_first_record, max_field_components_lens) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     field = field.trim();
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
         let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
-        return is_last_column ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+        return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
     }
     if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
             let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
-            return is_last_column ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+            return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
         }
     }
     let dot_pos = field.indexOf('.');
@@ -173,17 +173,22 @@ function align_field(field, is_first_record, max_field_components_lens, is_last_
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
     let integer_delta_length = Math.max(max_field_components_lens.max_int_length - cur_integer_part_length, 0);
     let fractional_delta_length = Math.max(max_field_components_lens.max_fractional_length - cur_fractional_part_length);
-    let trailing_spaces = is_last_column ? '' : ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
+    let trailing_spaces = ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
     return ' '.repeat(integer_delta_length) + field + trailing_spaces;
 }
 
 
-function rfc_align_field(field, is_first_record, max_field_components_lens, is_last_column, is_field_segment) {
-    let aligned = align_field(field, is_first_record, max_field_components_lens, is_last_column);
+function rfc_align_field(field, is_first_record, max_field_components_lens, is_field_segment) {
+    let aligned = align_field(field, is_first_record, max_field_components_lens);
     if (is_field_segment) {
         aligned = ' '.repeat(max_field_components_lens.start_offset) + aligned;
     }
     return aligned;
+}
+
+
+function strip_trailing_spaces(src) {
+    return src.replace(new RegExp(/  *$/, 'mg'), '');
 }
 
 
@@ -203,16 +208,15 @@ function align_columns(records, comments, column_stats, delim) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
             let is_field_segment = false;
-            let is_last_column = fnum + 1 == column_stats.length;
             let field = record[fnum];
             let field_lines = field.split('\n');
             for (let i = 0; i < field_lines.length; i++) {
                 if (i > 0) {
-                    result_lines.push(aligned_fields.join(delim));
+                    result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
                     aligned_fields = [];
                     is_field_segment = true;
                 }
-                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_last_column, is_field_segment);
+                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment);
                 is_field_segment = false;
                 if (aligned_field != field_lines[i]) {
                     has_edit = true;
@@ -221,7 +225,7 @@ function align_columns(records, comments, column_stats, delim) {
             }
         }
         is_first_record = false;
-        result_lines.push(aligned_fields.join(delim));
+        result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
     }
     // Handle leftover comments at the end of the file.
     while (next_comment < comments.length) {
