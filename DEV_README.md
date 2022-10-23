@@ -143,6 +143,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * For dynamic csv (whouth active policy/separator) add a button to the bottom panel to trigger the separator selection dialog.
 
+* Alignment: Instead of extra trailing whitespace better use extra starting whitespace: `,hello ,` -> `, hello,`
+
 
 ## RFC Support plan
 We need:

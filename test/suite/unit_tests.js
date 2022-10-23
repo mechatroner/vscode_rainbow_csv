@@ -1136,14 +1136,46 @@ function test_get_cursor_position_info() {
 
 
 function test_align_columns() {
-    // FIXME implement, add more tests
-
     let [unaligned_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
     let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
 
-    // Basic test with numeric column
+    // Basic test with numeric column.
     unaligned_doc_lines = ['type,weight', 'car,100', 'ship,20000'];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
+    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    aligned_doc_lines = aligned_doc_text.split('\n');
+    expected_doc_lines = [
+        'type ,weight', 
+        'car  ,   100', 
+        'ship , 20000'
+    ];
+    assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+
+    // Basic test with float column and random spaces.
+    unaligned_doc_lines = ['  type, wght,  color ', '  car  ,   1.008  ,   red', '   ship ,  200.5  ,  yellow'];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
+    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    aligned_doc_lines = aligned_doc_text.split('\n');
+    expected_doc_lines = [
+        'type ,wght    ,color', 
+        'car  ,  1.008 ,red', 
+        'ship ,200.5   ,yellow'
+    ];
+    assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+
+    // Basic test with comment lines.
+    unaligned_doc_lines = ['#info', 'type,weight', '#foo,foo', 'car,100', 'ship,20000', '#bar', '#bar', ''];
     active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -1152,12 +1184,43 @@ function test_align_columns() {
     column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
-    expected_doc_lines = ['type ,weight', 'car  ,   100', 'ship , 20000'];
+    expected_doc_lines = [
+        '#info',
+        'type ,weight', 
+        '#foo,foo',
+        'car  ,   100', 
+        'ship , 20000',
+        '#bar',
+        '#bar',
+        ''
+    ];
+    assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+
+    // RFC multiline fields test.
+    unaligned_doc_lines = ['type,info,max_speed', 'car,"A nice red car.', 'Can get you ""anywhere"" you want.', 'GPS included",100', 'ship,"Big heavy superfreighter ""Yamaha-2000"".', 'Comes with a crew of 10",25'];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
+    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    aligned_doc_lines = aligned_doc_text.split('\n');
+    // FIXME looks like the current rfc alignment adds trailing spaces at the end of rfc componenets. FIX it!
+    expected_doc_lines = [
+        'type ,info                                       ,max_speed',
+        'car  ,"A nice red car.',
+        '      Can get you ""anywhere"" you want.',
+        '      GPS included"                              ,      100',
+        'ship ,"Big heavy superfreighter ""Yamaha-2000"".',
+        '      Comes with a crew of 10"                   ,       25'
+    ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 }
 
 function test_shrink_columns() {
     // FIXME implement
+    // FIXME add unit test with actual multiline rfc fields.
 }
 
 
