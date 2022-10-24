@@ -1122,6 +1122,8 @@ function test_align_columns() {
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
+    // FIXME add test with no edits
+
     // Basic test with string-only columns.
     unaligned_doc_lines = [
         'type,color',
@@ -1221,6 +1223,21 @@ function test_align_columns() {
         '      Comes with a crew of 10"                   ,       25'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
+
+    // Test with syntax error.
+    unaligned_doc_lines = [
+        'type,color',
+        'car,red',
+        'ship",orange'
+    ];
+    active_doc = new VscodeDocumentTestDouble(unaligned_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix);
+    assert.equal(null, column_stats);
+    assert.equal(3, first_failed_line);
+    assert.equal(null, records);
 }
 
 function test_shrink_columns() {
@@ -1228,6 +1245,7 @@ function test_shrink_columns() {
     let [first_failed_line, shrinked_doc_text, shrinked_doc_lines, expected_doc_lines] = [null, null, null, null];
 
     // FIXME add test with failed lines.
+    // FIXME add test with no edits
 
     // Basic test.
     original_doc_lines = [
@@ -1277,6 +1295,19 @@ function test_shrink_columns() {
     ];
     assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
 
+    // Test with syntax error.
+    original_doc_lines = [
+        '  type  , weight, color',
+        ' car,100  , yellow   ',
+        'ship,20000",red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    assert.equal(first_failed_line, 3);
+    assert.equal(shrinked_doc_text, null);
     // FIXME add test with comment that should retain whitespaces.
     // FIXME add more tests
     // FIXME add unit test with actual multiline rfc fields.

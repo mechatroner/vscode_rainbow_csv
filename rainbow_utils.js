@@ -212,6 +212,7 @@ function align_columns(records, comments, column_stats, delim) {
             let field_lines = field.split('\n');
             for (let i = 0; i < field_lines.length; i++) {
                 if (i > 0) {
+                    // FIXME post-add spaces strip doesn't work well with `has_edit` detection. Consider getting rid of `has_edit` report? At least in align, we can still keep this detection in shrink. Add an explanatory comment that it is _hard_ to do the detection in alignment and is not probably needed anyway because alignment algorithm is quite opinionated anyway.
                     result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
                     aligned_fields = [];
                     is_field_segment = true;
