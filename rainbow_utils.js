@@ -196,6 +196,7 @@ function align_columns(records, comments, column_stats, delim) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is 
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
+    // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
     let result_lines = [];
     let is_first_record = true;
     let next_comment = 0;
@@ -259,7 +260,7 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
                     aligned_fields = [];
                 }
                 let aligned_field = field_lines[i].trim();
-                if (aligned_field.length != field.length) {
+                if (aligned_field.length != field_lines[i].length) {
                     // Unlike in align function here we can just compare resulting length to decide if change has occured.
                     has_edit = true;
                 }

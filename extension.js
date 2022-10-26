@@ -27,7 +27,6 @@ function ll_rainbow_utils() {
     }
     return rainbow_utils;
 }
-// FIXME test double align (second is no-op) and ctrl-z sequence - this is needed because we no longer report no edit situation and always align.
 
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.

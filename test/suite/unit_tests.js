@@ -1122,8 +1122,6 @@ function test_align_columns() {
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
-    // FIXME add test with no edits
-
     // Basic test with string-only columns.
     unaligned_doc_lines = [
         'type,color',
@@ -1344,6 +1342,23 @@ function test_shrink_columns() {
         'Comes with a crew of 10",25'
     ];
     assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
+
+    // RFC multiline fields test with no edits.
+    original_doc_lines = [
+        'type,info,max_speed',
+        'car,"A nice red car.',
+        'Can get you ""anywhere"" you want.',
+        'GPS included",100',
+        'ship,"Big heavy superfreighter ""Yamaha-2000"".',
+        'Comes with a crew of 10",25'
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    assert.equal(null, first_failed_line);
+    assert.equal(null, shrinked_doc_text);
 }
 
 
