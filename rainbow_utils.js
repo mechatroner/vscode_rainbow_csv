@@ -193,8 +193,10 @@ function strip_trailing_spaces(src) {
 
 
 function align_columns(records, comments, column_stats, delim) {
+    // Unlike shrink_columns, here we don't compute `has_edit` flag because it is 
+    // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
+    // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
     let result_lines = [];
-    let has_edit = false;
     let is_first_record = true;
     let next_comment = 0;
     for (let nr = 0; nr < records.length; ++nr) {
@@ -212,16 +214,12 @@ function align_columns(records, comments, column_stats, delim) {
             let field_lines = field.split('\n');
             for (let i = 0; i < field_lines.length; i++) {
                 if (i > 0) {
-                    // FIXME post-add spaces strip doesn't work well with `has_edit` detection. Consider getting rid of `has_edit` report? At least in align, we can still keep this detection in shrink. Add an explanatory comment that it is _hard_ to do the detection in alignment and is not probably needed anyway because alignment algorithm is quite opinionated anyway.
                     result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
                     aligned_fields = [];
                     is_field_segment = true;
                 }
                 let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment);
                 is_field_segment = false;
-                if (aligned_field != field_lines[i]) {
-                    has_edit = true;
-                }
                 aligned_fields.push(aligned_field);
             }
         }
@@ -233,8 +231,6 @@ function align_columns(records, comments, column_stats, delim) {
         result_lines.push(comments[next_comment].comment_text);
         next_comment += 1;
     }
-    if (!has_edit)
-        return null;
     return result_lines.join('\n');
 }
 
@@ -277,9 +273,6 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
         result_lines.push(comments[next_comment].comment_text);
         next_comment += 1;
     }
-    // FIXME write unit tests with comments in the beginning in the middle and in the end.
-    // FIXME write unit tests with multiple consecutive comment lines.
-    // FIXME last empty line will NOT disappear with this new alignment method. Add an integration test/unit test to explicitly demonstrate this behavior.
     if (!has_edit)
         return [null, null];
     return [result_lines.join('\n'), null]

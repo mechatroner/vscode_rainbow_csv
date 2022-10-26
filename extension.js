@@ -27,6 +27,7 @@ function ll_rainbow_utils() {
     }
     return rainbow_utils;
 }
+// FIXME test double align (second is no-op) and ctrl-z sequence - this is needed because we no longer report no edit situation and always align.
 
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
@@ -1175,10 +1176,6 @@ async function align_table() {
         let aligned_doc_text = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
         aligned_files.add(active_doc.fileName);
         show_align_shrink_button(active_doc.fileName);
-        if (aligned_doc_text === null) {
-            vscode.window.showWarningMessage('Table is already aligned, skipping');
-            return;
-        }
         // The last stage of actually applying the edits takes almost 80% of the whole alignment runtime.
         progress.report({message: 'Aligning columns'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();

@@ -1244,9 +1244,6 @@ function test_shrink_columns() {
     let [original_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [first_failed_line, shrinked_doc_text, shrinked_doc_lines, expected_doc_lines] = [null, null, null, null];
 
-    // FIXME add test with failed lines.
-    // FIXME add test with no edits
-
     // Basic test.
     original_doc_lines = [
         '  type  , weight, color',
@@ -1265,6 +1262,20 @@ function test_shrink_columns() {
         'ship,20000,red'
     ];
     assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
+
+    // No edits (already shrinked) should be reported as null.
+    original_doc_lines = [
+        'type,weight,color',
+        'car,100,yellow',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    assert.equal(null, first_failed_line);
+    assert.equal(null, shrinked_doc_text);
 
     // Test with comments and last trailing line.
     original_doc_lines = [
@@ -1308,9 +1319,31 @@ function test_shrink_columns() {
     [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
     assert.equal(first_failed_line, 3);
     assert.equal(shrinked_doc_text, null);
-    // FIXME add test with comment that should retain whitespaces.
-    // FIXME add more tests
-    // FIXME add unit test with actual multiline rfc fields.
+
+    // RFC multiline fields test.
+    original_doc_lines = [
+        'type ,info                                       ,max_speed',
+        'car  ,"A nice red car.',
+        '      Can get you ""anywhere"" you want.',
+        '      GPS included"                              ,      100',
+        'ship ,"Big heavy superfreighter ""Yamaha-2000"".',
+        '      Comes with a crew of 10"                   ,       25'
+    ];
+    active_doc = new VscodeDocumentTestDouble(original_doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    [shrinked_doc_text, first_failed_line] = rainbow_utils.shrink_columns(active_doc, delim, policy, comment_prefix);
+    shrinked_doc_lines = shrinked_doc_text.split('\n');
+    expected_doc_lines = [
+        'type,info,max_speed',
+        'car,"A nice red car.',
+        'Can get you ""anywhere"" you want.',
+        'GPS included",100',
+        'ship,"Big heavy superfreighter ""Yamaha-2000"".',
+        'Comes with a crew of 10",25'
+    ];
+    assert.deepEqual(expected_doc_lines, shrinked_doc_lines);
 }
 
 
