@@ -90,6 +90,22 @@ function update_subcomponent_stats(field, is_first_record, max_field_components_
 }
 
 
+function get_cursor_position_if_unambiguous(active_editor) {
+    let selections = active_editor.selections;
+    if (!selections || selections.length != 1) {
+        // Support only single-cursor, multicursor is ambiguous.
+        return null;
+    }
+    let selection = selections[0];
+    let position = selection.active;
+    if (!position.isEqual(selection.anchor)) {
+        // Selections are ambiguous.
+        return null;
+    }
+    return position;
+}
+
+
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
@@ -191,22 +207,50 @@ function strip_trailing_spaces(src) {
     return src.replace(new RegExp(/  *$/, 'mg'), '');
 }
 
+class RecordCommentMerger {
+    // FIXME add a unit test for this.
+    constructor(records, comments) {
+        this.records = records;
+        this.comments = comments;
+        this.nr = 0;
+        this.next_comment = 0;
+    }
+    get_next() {
+        // Returns tuple (record, comment).
+        if (this.next_comment < this.comments.length && (this.nr >= this.records.length || this.comments[this.next_comment].record_num <= this.nr)) {
+            let result = [null, this.comments[this.next_comment].comment_text];
+            this.next_comment += 1;
+            return result;
+        }
+        if (this.nr < this.records.length) {
+            let result = [this.records[this.nr], null];
+            this.nr += 1;
+            return result;
+        }
+        return [null, null];
+    }
+}
+
 
 function align_columns(records, comments, column_stats, delim) {
-    // Unlike shrink_columns, here we don't compute `has_edit` flag because it is 
+    // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
     // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
     let result_lines = [];
     let is_first_record = true;
-    let next_comment = 0;
-    for (let nr = 0; nr < records.length; ++nr) {
-        let aligned_fields = [];
-        while (next_comment < comments.length && comments[next_comment].record_num <= nr) {
-            result_lines.push(comments[next_comment].comment_text);
-            next_comment += 1;
+    let merger = new RecordCommentMerger(records, comments);
+    while (true) {
+        let [record, comment] = merger.get_next();
+        if (record === null && comment === null) {
+            break;
         }
-        let record = records[nr];
+        if (record === null) {
+            assert(comment !== null);
+            result_lines.push(comment);
+            continue;
+        }
+        let aligned_fields = [];
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
@@ -227,11 +271,6 @@ function align_columns(records, comments, column_stats, delim) {
         is_first_record = false;
         result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
     }
-    // Handle leftover comments at the end of the file.
-    while (next_comment < comments.length) {
-        result_lines.push(comments[next_comment].comment_text);
-        next_comment += 1;
-    }
     return result_lines.join('\n');
 }
 
@@ -243,14 +282,18 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
     }
     let result_lines = [];
     let has_edit = false;
-    let next_comment = 0;
-    for (let nr = 0; nr < records.length; ++nr) {
-        let aligned_fields = [];
-        while (next_comment < comments.length && comments[next_comment].record_num <= nr) {
-            result_lines.push(comments[next_comment].comment_text);
-            next_comment += 1;
+    let merger = new RecordCommentMerger(records, comments);
+    while (true) {
+        let [record, comment] = merger.get_next();
+        if (record === null && comment === null) {
+            break;
         }
-        let record = records[nr];
+        if (record === null) {
+            assert(comment !== null);
+            result_lines.push(comment);
+            continue;
+        }
+        let aligned_fields = [];
         for (let fnum = 0; fnum < record.length; fnum++) {
             let field = record[fnum];
             let field_lines = field.split('\n');
@@ -269,14 +312,9 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
         }
         result_lines.push(aligned_fields.join(delim));
     }
-    // Handle leftover comments at the end of the file.
-    while (next_comment < comments.length) {
-        result_lines.push(comments[next_comment].comment_text);
-        next_comment += 1;
-    }
     if (!has_edit)
         return [null, null];
-    return [result_lines.join('\n'), null]
+    return [result_lines.join('\n'), null];
 }
 
 
@@ -946,3 +984,4 @@ module.exports.parse_document_range_rfc = parse_document_range_rfc; // Only for 
 module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inconsistent_records;
 module.exports.is_opening_rfc_line = is_opening_rfc_line; // Only for unit tests.
 module.exports.show_lint_status_bar_button = show_lint_status_bar_button;
+module.exports.get_cursor_position_if_unambiguous = get_cursor_position_if_unambiguous;
