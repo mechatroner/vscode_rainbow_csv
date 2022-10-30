@@ -965,7 +965,7 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
 }
 
 
-async function generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num) {
+function generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num) {
     // FIXME add unit tests.
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (records.length + comments.length != active_doc.lineCount) {
@@ -988,6 +988,7 @@ async function generate_column_edit_selections(vscode, active_doc, delim, policy
             let char_pos_before = record.slice(0, col_num).join('').length + col_num * delim.length;
             let char_pos_after = record.slice(0, col_num + 1).join('').length + col_num * delim.length;
             let line_text = record.join(delim);
+            // FIXME consider disabling the errors completely or replacing them with warnings.
             if (edit_mode == 'ce_before' && (policy == QUOTED_POLICY || policy == QUOTED_RFC_POLICY) && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
                 return [null, `Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`];
             }
