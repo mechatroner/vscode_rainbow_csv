@@ -1362,6 +1362,86 @@ function test_shrink_columns() {
 }
 
 
+function get_all_entries(record_comment_merger) {
+    let result = [];
+    while (record_comment_merger.has_entries_left()) {
+        result.push(record_comment_merger.get_next());
+    }
+    return result;
+}
+
+
+function test_record_comment_merger() {
+    let [records, comments] = [null, null];
+    let record_comment_merger = null;
+    let [entries, expected_entries] = [null, null];
+
+    // Basic test.
+    records = [
+        'hello', 
+        'world'
+    ];
+    comments = [
+        {record_num: 0, comment_text: '#foo'},
+        {record_num: 2, comment_text: '#bar1'},
+        {record_num: 2, comment_text: '#bar2'}
+    ];
+    record_comment_merger = new rainbow_utils.RecordCommentMerger(records, comments);
+    entries = get_all_entries(record_comment_merger);
+    expected_entries = [
+        [null, '#foo'], 
+        ['hello', null], 
+        ['world', null],
+        [null, '#bar1'], 
+        [null, '#bar2'], 
+    ];
+    assert.deepEqual(expected_entries, entries);
+
+    // No records.
+    records = [
+    ];
+    comments = [
+        {record_num: 0, comment_text: '#foo'},
+        {record_num: 2, comment_text: '#bar1'},
+        {record_num: 2, comment_text: '#bar2'}
+    ];
+    record_comment_merger = new rainbow_utils.RecordCommentMerger(records, comments);
+    entries = get_all_entries(record_comment_merger);
+    expected_entries = [
+        [null, '#foo'], 
+        [null, '#bar1'], 
+        [null, '#bar2'], 
+    ];
+    assert.deepEqual(expected_entries, entries);
+
+    // No comments.
+    records = [
+        'hello', 
+        'world'
+    ];
+    comments = [
+    ];
+    record_comment_merger = new rainbow_utils.RecordCommentMerger(records, comments);
+    entries = get_all_entries(record_comment_merger);
+    expected_entries = [
+        ['hello', null], 
+        ['world', null],
+    ];
+    assert.deepEqual(expected_entries, entries);
+
+    // No records and no comments.
+    records = [
+    ];
+    comments = [
+    ];
+    record_comment_merger = new rainbow_utils.RecordCommentMerger(records, comments);
+    entries = get_all_entries(record_comment_merger);
+    expected_entries = [
+    ];
+    assert.deepEqual(expected_entries, entries);
+}
+
+
 function test_all() {
     test_align_stats();
     test_field_align();
@@ -1376,6 +1456,7 @@ function test_all() {
     test_sample_preview_records_from_context();
     test_show_lint_status_bar_button();
     test_get_cursor_position_info();
+    test_record_comment_merger();
 }
 
 exports.test_all = test_all;

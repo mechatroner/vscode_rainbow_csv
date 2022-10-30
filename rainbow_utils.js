@@ -208,26 +208,38 @@ function strip_trailing_spaces(src) {
 }
 
 class RecordCommentMerger {
-    // FIXME add a unit test for this.
     constructor(records, comments) {
         this.records = records;
         this.comments = comments;
         this.nr = 0;
         this.next_comment = 0;
     }
+
     get_next() {
         // Returns tuple (record, comment).
-        if (this.next_comment < this.comments.length && (this.nr >= this.records.length || this.comments[this.next_comment].record_num <= this.nr)) {
+        if (this.has_comments_left() && (!this.has_records_left() || this.comments[this.next_comment].record_num <= this.nr)) {
             let result = [null, this.comments[this.next_comment].comment_text];
             this.next_comment += 1;
             return result;
         }
-        if (this.nr < this.records.length) {
+        if (this.has_records_left()) {
             let result = [this.records[this.nr], null];
             this.nr += 1;
             return result;
         }
         return [null, null];
+    }
+
+    has_comments_left() {
+        return this.next_comment < this.comments.length;
+    }
+
+    has_records_left() {
+        return this.nr < this.records.length;
+    }
+
+    has_entries_left() {
+        return this.has_comments_left() || this.has_records_left();
     }
 }
 
@@ -240,13 +252,10 @@ function align_columns(records, comments, column_stats, delim) {
     let result_lines = [];
     let is_first_record = true;
     let merger = new RecordCommentMerger(records, comments);
-    while (true) {
+    while (merger.has_entries_left()) {
         let [record, comment] = merger.get_next();
-        if (record === null && comment === null) {
-            break;
-        }
+        assert((comment === null) != (record === null));
         if (record === null) {
-            assert(comment !== null);
             result_lines.push(comment);
             continue;
         }
@@ -283,13 +292,10 @@ function shrink_columns(active_doc, delim, policy, comment_prefix) {
     let result_lines = [];
     let has_edit = false;
     let merger = new RecordCommentMerger(records, comments);
-    while (true) {
+    while (merger.has_entries_left()) {
         let [record, comment] = merger.get_next();
-        if (record === null && comment === null) {
-            break;
-        }
+        assert((comment === null) != (record === null));
         if (record === null) {
-            assert(comment !== null);
             result_lines.push(comment);
             continue;
         }
@@ -959,6 +965,56 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
 }
 
 
+async function generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num) {
+    // FIXME add unit tests.
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
+    if (records.length + comments.length != active_doc.lineCount) {
+        // It is possible to support editing of non-multiline columns in such files, but for simplicity we won't do this.
+        return [null, 'Column edit mode is not supported for files with multiline fields'];
+    }
+    if (first_defective_line !== null) {
+        return [null, 'Unable to enter column edit mode: quoting error at line ' + first_defective_line];
+    }
+    let lnum = 0;
+    let selections = [];
+    let merger = new RecordCommentMerger(records, comments);
+    while (merger.has_entries_left()) {
+        let [record, comment] = merger.get_next();
+        assert((comment === null) != (record === null));
+        if (record !== null) {
+            if (col_num >= records.length) {
+                return [null, `Line ${lnum + 1} doesn't have field number ${col_num + 1}`];
+            }
+            let char_pos_before = record.slice(0, col_num).join('').length + col_num * delim.length;
+            let char_pos_after = record.slice(0, col_num + 1).join('').length + col_num * delim.length;
+            let line_text = record.join(delim);
+            if (edit_mode == 'ce_before' && (policy == QUOTED_POLICY || policy == QUOTED_RFC_POLICY) && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
+                return [null, `Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`];
+            }
+            if (edit_mode == 'ce_after' && (policy == QUOTED_POLICY || policy == QUOTED_RFC_POLICY) && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
+                return [null, `Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`];
+            }
+            if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
+                return [null, `Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`];
+            }
+            let position_before = new vscode.Position(lnum, char_pos_before);
+            let position_after = new vscode.Position(lnum, char_pos_after);
+            if (edit_mode == 'ce_before') {
+                selections.push(new vscode.Selection(position_before, position_before));
+            }
+            if (edit_mode == 'ce_after') {
+                selections.push(new vscode.Selection(position_after, position_after));
+            }
+            if (edit_mode == 'ce_select') {
+                selections.push(new vscode.Selection(position_before, position_after));
+            }
+        }
+        lnum += 1;
+    }
+    return [selections, null];
+}
+
+
 module.exports.make_table_name_key = make_table_name_key;
 module.exports.find_table_path = find_table_path;
 module.exports.read_header = read_header;
@@ -985,3 +1041,5 @@ module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inc
 module.exports.is_opening_rfc_line = is_opening_rfc_line; // Only for unit tests.
 module.exports.show_lint_status_bar_button = show_lint_status_bar_button;
 module.exports.get_cursor_position_if_unambiguous = get_cursor_position_if_unambiguous;
+module.exports.RecordCommentMerger = RecordCommentMerger;
+module.exports.generate_column_edit_selections = generate_column_edit_selections;
