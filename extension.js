@@ -8,7 +8,7 @@ const child_process = require('child_process');
 const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
-
+// FIXME add an updated README.md RBQL screenshot.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -498,15 +498,8 @@ function show_column_info_button() {
     if (!active_editor) {
         return false;
     }
-    let selections = active_editor.selections;
-    if (!selections || selections.length != 1) {
-        // Support only single-cursor info reporting.
-        return false;
-    }
-    let selection = selections[0];
-    let position = selection.active;
-    if (!position.isEqual(selection.anchor)) {
-        // Do not report CSV columns for selections.
+    let position = ll_rainbow_utils().get_cursor_position_if_unambiguous(active_editor);
+    if (!position) {
         return false;
     }
     let active_doc = get_active_doc(active_editor);
@@ -1030,7 +1023,7 @@ async function set_virtual_header() {
 
 async function column_edit(edit_mode) {
     let active_editor = get_active_editor();
-    if (!active_editor || !active_editor.selection)
+    if (!active_editor)
         return;
     let active_doc = active_editor.document;
     if (!active_doc)
@@ -1039,72 +1032,22 @@ async function column_edit(edit_mode) {
     if (policy === null) {
         return;
     }
-    if (policy == QUOTED_RFC_POLICY) {
-        // FIXME support with rfc policy.
-        show_single_line_error('Column edit mode is not supported for rfc-compatible (multiline fields) dialects.');
+    let position = ll_rainbow_utils().get_cursor_position_if_unambiguous(active_editor);
+    if (!position) {
+        show_single_line_error('Unable to enter column edit mode: make sure that no text is selected and only one cursor is active');
         return;
     }
-
-    let position = active_editor.selection.active;
-    let lnum = position.line;
-    let cnum = position.character;
-    let line = active_doc.lineAt(lnum).text;
-
-    let report = csv_utils.smart_split(line, delim, policy, true);
-
-    let entries = report[0];
-    let quoting_warning = report[1];
-    let col_num = ll_rainbow_utils().get_field_by_line_position(entries, delim.length, cnum + 1);
-
-    let selections = [];
-    let num_lines = active_doc.lineCount;
-    if (num_lines >= 10000) {
+    if (active_doc.lineCount >= 10000) {
         show_single_line_error('Multicursor column edit works only for files smaller than 10000 lines.');
         return;
     }
-    for (let lnum = 0; lnum < num_lines; lnum++) {
-        let line_text = active_doc.lineAt(lnum).text;
-        if (lnum + 1 == num_lines && !line_text)
-            break;
-        if (comment_prefix && line_text.startsWith(comment_prefix))
-            continue;
-        let report = csv_utils.smart_split(line_text, delim, policy, true);
-        let entries = report[0];
-        quoting_warning = quoting_warning || report[1];
-        if (col_num >= entries.length) {
-            show_single_line_error(`Line ${lnum + 1} doesn't have field number ${col_num + 1}`);
-            return;
-        }
-        let char_pos_before = entries.slice(0, col_num).join('').length + col_num * delim.length;
-        let char_pos_after = entries.slice(0, col_num + 1).join('').length + col_num * delim.length;
-        if (edit_mode == 'ce_before' && policy == QUOTED_POLICY && line_text.substring(char_pos_before - 2, char_pos_before + 2).indexOf('"') != -1) {
-            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
-            return;
-        }
-        if (edit_mode == 'ce_after' && policy == QUOTED_POLICY && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
-            show_single_line_error(`Accidental data corruption prevention: Cursor at line ${lnum + 1} will not be set: a double quote is in proximity.`);
-            return;
-        }
-        if (edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
-            show_single_line_error(`Accidental data corruption prevention: The column can not be selected: field ${col_num + 1} at line ${lnum + 1} is empty.`);
-            return;
-        }
-        let position_before = new vscode.Position(lnum, char_pos_before);
-        let position_after = new vscode.Position(lnum, char_pos_after);
-        if (edit_mode == 'ce_before') {
-            selections.push(new vscode.Selection(position_before, position_before));
-        }
-        if (edit_mode == 'ce_after') {
-            selections.push(new vscode.Selection(position_after, position_after));
-        }
-        if (edit_mode == 'ce_select') {
-            selections.push(new vscode.Selection(position_before, position_after));
-        }
+    let col_num = (ll_rainbow_utils().get_cursor_position_info(vscode, active_doc, delim, policy, comment_prefix, position)).column_number;
+    let [selections, error_msg] = ll_rainbow_utils().generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    if (error_msg !== null) {
+        show_single_line_error(error_msg);
+        return;
     }
     active_editor.selections = selections;
-    if (quoting_warning) {
-        vscode.window.showWarningMessage('Some lines have quoting issues: cursors positioning may be incorrect.');
-    }
     // Call showTextDocument so that the editor will gain focus and the cursors will become active and blinking. This is a critical step here!
     await vscode.window.showTextDocument(active_doc);
 }

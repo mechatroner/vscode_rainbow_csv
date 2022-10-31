@@ -24,7 +24,7 @@ The difference between running in win and in WSL is that in WSL it would only ru
 
 ### Running unit tests for the extension inside VSCode:
 #### For standard VSCode:
-1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed!
+1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed (otherwise will might get some weird caching/webworker errors or other issues)!
 2. run `npm install --only=dev` (If you have WSL - run in Windows, don't run in WSL).
 3. run `npm run test` in Windows (If you have WSL - run in Windows, don't run in WSL). Make sure that the tests are successful.
 
