@@ -141,7 +141,14 @@ function test_calc_column_stats() {
     let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
 
     // A basic rfc test.
-    doc_lines = ['# commment line', '1a,"1b', '1b,""1b"",1b', '1b",1c','2a,2bbb,2cc', ''];
+    doc_lines = [
+        '# commment line', 
+        '1a,"1b', 
+        '1b,""1b"",1b', 
+        '1b",1c',
+        '2a,2bbb,2cc', 
+        ''
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -152,7 +159,11 @@ function test_calc_column_stats() {
     assert.deepEqual([{max_total_length: 2, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 12, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 3, max_int_length: -1, max_fractional_length: -1}], column_stats);
 
     // Inconsistent num fields.
-    doc_lines = ['1a,1b', '2aa', '3a,3b,3c'];
+    doc_lines = [
+        '1a,1b', 
+        '2aa', 
+        '3a,3b,3c'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -163,7 +174,11 @@ function test_calc_column_stats() {
     assert.deepEqual([{max_total_length: 3, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 2, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 2, max_int_length: -1, max_fractional_length: -1}], column_stats);
 
     // Defective line.
-    doc_lines = ['1a,1b', '2a"a', '3a,3b,3c'];
+    doc_lines = [
+        '1a,1b', 
+        '2a"a', 
+        '3a,3b,3c'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -174,7 +189,11 @@ function test_calc_column_stats() {
     assert.deepEqual(null, records);
 
     // First line non-numeric.
-    doc_lines = ['type,weight', 'car,100', 'ship,  20000'];
+    doc_lines = [
+        'type,weight', 
+        'car,100', 
+        'ship,  20000'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -186,7 +205,11 @@ function test_calc_column_stats() {
 
     // Numbers on different lines.
     // Currently in this case we don't report second column as numeric, but this is more-or-less an arbitrary decission.
-    doc_lines = ['car,100', 'ship,"20000', '300"'];
+    doc_lines = [
+        'car,100', 
+        'ship,"20000', 
+        '300"'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -342,7 +365,11 @@ function test_parse_document_records() {
     let [records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, comments] = [null, null, null, null, null, null];
 
     // Simple test with single-field records and max_records_to_parse set to a very big number.
-    doc_lines = ['aaa', 'bbb', 'ccc'];
+    doc_lines = [
+        'aaa', 
+        'bbb', 
+        'ccc'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -356,7 +383,12 @@ function test_parse_document_records() {
     assert.equal(num_records_parsed, records.length);
 
     // Simple test with two-field records and a comment and a trailing space line.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1 ,c2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1 ,c2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -370,7 +402,13 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, 3);
 
     // Simple test with inconsistent records and trailing space.
-    doc_lines = ['a1,a2 ', 'b1,b2', '', 'c1', 'd3,d4,d5'];
+    doc_lines = [
+        'a1,a2 ', 
+        'b1,b2', 
+        '', 
+        'c1', 
+        'd3,d4,d5'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -382,7 +420,13 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, 0);
 
     // Quoted policy, defective line 3, do not stop on warning.
-    doc_lines = ['a1,a2', '#"b1,b2', '"b1,b2', 'c1', 'd3,d4,d5'];
+    doc_lines = [
+        'a1,a2', 
+        '#"b1,b2', 
+        '"b1,b2', 
+        'c1', 
+        'd3,d4,d5'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -394,7 +438,13 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, null);
 
     // Quoted policy, defective line 3, stop on warning.
-    doc_lines = ['a1,a2', '#"b1,b2', '"b1,b2', 'c1', 'd3,d4,d5'];
+    doc_lines = [
+        'a1,a2', 
+        '#"b1,b2', 
+        '"b1,b2', 
+        'c1', 
+        'd3,d4,d5'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -406,7 +456,14 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, null);
 
     // Quoted rfc policy - no issues.
-    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,c2",c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1"",b2 ', 
+        'c1,c2",c3', 
+        '#d1,"', 
+        '"e1,""e2,e3"', 
+        'f1 ,f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -419,7 +476,14 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, 5);
 
     // Quoted rfc policy - stop on warning.
-    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,"c2,c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1"",b2 ', 
+        'c1,"c2,c3', 
+        '#d1,"', 
+        '"e1,""e2,e3"', 
+        'f1 ,f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -430,7 +494,11 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, 0);
 
     // too few columns for autodetection
-    doc_lines = ['a1', 'b1', 'c1'];
+    doc_lines = [
+        'a1', 
+        'b1', 
+        'c1'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -444,7 +512,11 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, null);
 
     // Autodetection - enough columns.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -456,7 +528,12 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, null);
 
     // Autodetection - different number of columns - early stop.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2,c3', 'd1,d3'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2,c3', 
+        'd1,d3'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -468,7 +545,11 @@ function test_parse_document_records() {
     assert.deepEqual([[2, 0], [3, 2]], Array.from(fields_info.entries()));
 
     // Max record to parse - no defective line.
-    doc_lines = ['a1,a2', 'b1,b2', '"c1,c2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '"c1,c2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -479,7 +560,11 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
 
     // Max record to parse - defective line.
-    doc_lines = ['a1,a2', 'b1,b2', '"c1,c2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '"c1,c2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -490,7 +575,11 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, 2);
 
     // Simple multichar separator, max_records_to_parse equals total number of records.
-    doc_lines = ['a1#~#a2#~#a3', 'b1#~#b2#~#b3', 'c1#~#c2#~#c3'];
+    doc_lines = [
+        'a1#~#a2#~#a3', 
+        'b1#~#b2#~#b3', 
+        'c1#~#c2#~#c3'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = '#~#';
@@ -500,7 +589,11 @@ function test_parse_document_records() {
     assert.equal(first_defective_line, null);
 
     // Whitespace policy, trailing spaces are impossible for this policy.
-    doc_lines = ['  a1 a2    a3', 'b1     b2 b3  ', '  c1    c2       c3  '];
+    doc_lines = [
+        '  a1 a2    a3', 
+        'b1     b2 b3  ', 
+        '  c1    c2       c3  '
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ' ';
@@ -512,7 +605,12 @@ function test_parse_document_records() {
     assert.equal(first_trailing_space_line, null);
 
     // Quoted rfc policy, preserve quotes.
-    doc_lines = ['a1,"a2', 'b1"",b2 ', 'c1,c2",c3', '#d1,"', '"e1,""e2,e3"', 'f1 ,f2'];
+    doc_lines = [
+        'a1,"a2', 'b1"",b2 ', 
+        'c1,c2",c3', '#d1,"', 
+        '"e1,""e2,e3"', 
+        'f1 ,f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ',';
@@ -568,7 +666,12 @@ function test_parse_document_range_rfc() {
     let [table_ranges, table_comment_ranges, table_record_ranges] = [null, null, null];
     let [record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3] = [null, null, null, null];
     // Simple test case.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -581,7 +684,12 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Test last line parsing.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -595,7 +703,13 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Test behind last line and before first line parsing with large margin.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2', 
+        '#comment', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -610,7 +724,13 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([fvr(3, 0, 8)], table_comment_ranges);
 
     // Test extension with the default margin.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2', 
+        '#comment', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -627,7 +747,12 @@ function test_parse_document_range_rfc() {
 
 
     // Single record, 3 fields.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1",d2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1,c2', 
+        'd1",d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -639,7 +764,11 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Mixture of single line and multiline fields in a single record. Also a comment prefix in the middle of the field which should not count.
-    doc_lines = ['a1,a2,"a3', '#b1","b2"",b3",b4,"b5', 'c1,c2"'];
+    doc_lines = [
+        'a1,a2,"a3', 
+        '#b1","b2"",b3",b4,"b5', 
+        'c1,c2"'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -651,7 +780,13 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Discard some parsed lines which belongs to a record starting outside the parsing range
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1,d2"', 'e1,e2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1,c2', 
+        'd1,d2"', 
+        'e1,e2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -663,7 +798,13 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Now shift window one back - it should include all lines now.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1,c2', 'd1,d2"', 'e1,e2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1,c2', 
+        'd1,d2"', 
+        'e1,e2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -676,7 +817,14 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Include only the first 2 records because end of the record is outside the parsing window.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,"c2', 'd1,d2', 'e1,e2', 'f1,f2"'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,"c2', 
+        'd1,d2', 
+        'e1,e2', 
+        'f1,f2"'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -689,7 +837,14 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Now include everything because the end record got inside the parsing window
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,"c2', 'd1,d2', 'e1,e2', 'f1,f2"'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,"c2', 
+        'd1,d2', 
+        'e1,e2', 
+        'f1,f2"'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -706,7 +861,15 @@ function test_parse_document_range_rfc() {
     // Beginning of 4 related test on the same data but with the different parsing windows
 
     // Nothing is parsed because the window started at the record which end didn't fit into the parsing range.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1","c2', 
+        'd1,d2', 
+        '#hello world', 
+        'e1,e2', 
+        'f1",f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -717,7 +880,15 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([], table_comment_ranges);
 
     // Same as before but the window is shifted slightly so we (wrongly) assume that the internal field lines are independent records.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1","c2', 
+        'd1,d2', 
+        '#hello world', 
+        'e1,e2', 
+        'f1",f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -733,7 +904,15 @@ function test_parse_document_range_rfc() {
     assert.deepEqual([fvr(4, 0, 12)], table_comment_ranges);
 
     // Nothing is parsed again because the window ends right at the closing line and the beginning didn't fit.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1","c2', 
+        'd1,d2', 
+        '#hello world', 
+        'e1,e2', 
+        'f1",f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -745,7 +924,15 @@ function test_parse_document_range_rfc() {
 
 
     // All lines now fit in the range and they are being properly parsed as a single record.
-    doc_lines = ['a1,"a2', 'b1,b2', 'c1","c2', 'd1,d2', '#hello world', 'e1,e2', 'f1",f2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1,b2', 
+        'c1","c2', 
+        'd1,d2', 
+        '#hello world', 
+        'e1,e2', 
+        'f1",f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = null;
     delim = ',';
@@ -762,7 +949,17 @@ function test_parse_document_range_rfc() {
 
 
     // Discard some at the beginning and some at the end where the record didn't fit into the parsing window
-    doc_lines = ['a1;"a2', 'b1;b2', 'c1";c2', 'd1;d2', '#hello world', 'e1;e2', 'f1;"f2', 'g1;g2', 'h1";h2'];
+    doc_lines = [
+        'a1;"a2', 
+        'b1;b2', 
+        'c1";c2', 
+        'd1;d2', 
+        '#hello world', 
+        'e1;e2', 
+        'f1;"f2', 
+        'g1;g2', 
+        'h1";h2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     comment_prefix = '#';
     delim = ';';
@@ -811,7 +1008,13 @@ function test_sample_preview_records_from_context() {
     let doc_file_name = 'fake_doc.txt';
 
     // Simple test with a comment and negative start record.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 10;
@@ -827,7 +1030,13 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Invalid quoting.
-    doc_lines = ['a1,"a2', 'b1",b2', '#comment', 'c1,"c2', 'd1,d2'];
+    doc_lines = [
+        'a1,"a2', 
+        'b1",b2', 
+        '#comment', 
+        'c1,"c2', 
+        'd1,d2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 10;
@@ -844,7 +1053,14 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Test window shift back to 0.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2', 'e1,e2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2', 
+        'e1,e2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 10;
@@ -861,7 +1077,14 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Test window shift back exact.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2', 'e1,e2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2', 
+        'e1,e2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 4;
@@ -878,7 +1101,9 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Test UI_STRING_TRIM_MARKER behavior.
-    doc_lines = ['1'.repeat(251) + ',' + '2'.repeat(251)];
+    doc_lines = [
+        '1'.repeat(251) + ',' + '2'.repeat(251)
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 4;
@@ -894,7 +1119,23 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Test that comment lines do not prevent to sample requested number of entries.
-    doc_lines = ['#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', '#info', 'a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        '#info', 
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 3;
@@ -910,7 +1151,24 @@ function test_sample_preview_records_from_context() {
     assert(!cached_table_parse_result.has(doc_file_name));
 
     // Check caching logic.
-    doc_lines = ['a1,a2', 'b1,b2', 'c1,c2', '#comment', 'd1,d2', 'e1,e2', 'f1,f2', 'g1,g2', 'h1,h2', 'i1,i2', 'j1,j2', 'k1,k2', 'l1,l2', 'm1,m2', 'n1,n2', 'o1"",o2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c1,c2', 
+        '#comment', 
+        'd1,d2', 
+        'e1,e2', 
+        'f1,f2', 
+        'g1,g2', 
+        'h1,h2', 
+        'i1,i2', 
+        'j1,j2', 
+        'k1,k2', 
+        'l1,l2', 
+        'm1,m2', 
+        'n1,n2', 
+        'o1"",o2'
+    ];
     delim = ',';
     comment_prefix = '#';
     preview_window_size = 2;
@@ -1023,7 +1281,13 @@ function test_get_cursor_position_info() {
     let [doc_lines, active_doc, delim, policy, comment_prefix, position, position_info] = [null, null, null, null, null, null, null];
 
     // Basic test.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'simple';
@@ -1033,7 +1297,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, position_info);
 
     // Delim character maps to preceeding field.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'simple';
@@ -1043,7 +1313,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({column_number: 0, total_columns: 2, split_warning: false}, position_info);
 
     // Basic test, comment
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'simple';
@@ -1053,7 +1329,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({is_comment: true}, position_info);
 
     // Column info for the last character in line.
-    doc_lines = ['a1,a2', 'b1,b2', '#comment', 'c1,c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1,c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'simple';
@@ -1063,7 +1345,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({column_number: 1, total_columns: 2, split_warning: false}, position_info);
 
     // Multicharacter separator test - critical locations across field boundaries.
-    doc_lines = ['a1@@@a2@@@a3', 'b1@@@b2@@@b3', '#comment', 'c1@@@c2@@@c3', 'd1@@@d2@@@d3'];
+    doc_lines = [
+        'a1@@@a2@@@a3', 
+        'b1@@@b2@@@b3', 
+        '#comment', 
+        'c1@@@c2@@@c3', 
+        'd1@@@d2@@@d3'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = '@@@';
     policy = 'simple';
@@ -1074,7 +1362,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({column_number: 2, total_columns: 3, split_warning: false}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/3, /*character=*/10)));
 
     // Column info for whitespace policy.
-    doc_lines = ['a1  a2 ', 'b1    b2', '$$comment', '$c1  c2  ', 'd1   d2'];
+    doc_lines = [
+        'a1  a2 ', 
+        'b1    b2', 
+        '$$comment', 
+        '$c1  c2  ', 
+        'd1   d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ' ';
     policy = 'whitespace';
@@ -1085,7 +1379,13 @@ function test_get_cursor_position_info() {
     assert.deepEqual({is_comment: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/2, /*character=*/6)));
 
     // Test with quoted policy and split warning.
-    doc_lines = ['a1,a2', '$b1,"b2', '$$comment', '"c1,""c1""",c2', 'd1,d2'];
+    doc_lines = [
+        'a1,a2', 
+        '$b1,"b2', 
+        '$$comment', 
+        '"c1,""c1""",c2', 
+        'd1,d2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'quoted';
@@ -1096,7 +1396,15 @@ function test_get_cursor_position_info() {
     assert.deepEqual({is_comment: true}, rainbow_utils.get_cursor_position_info(vscode_test_double, active_doc, delim, policy, comment_prefix, new VscodePositionTestDouble(/*line=*/2, /*character=*/6)));
 
     // Quoted RFC policy test.
-    doc_lines = ['a1,a2', '#comment', 'b1,"b2', '#not a ""comment"", inside multiline field!', 'd1,d2"', 'e1,"e2,e2"', 'f1,"f2'];
+    doc_lines = [
+        'a1,a2', 
+        '#comment', 
+        'b1,"b2', 
+        '#not a ""comment"", inside multiline field!', 
+        'd1,d2"', 
+        'e1,"e2,e2"', 
+        'f1,"f2'
+    ];
     active_doc = new VscodeDocumentTestDouble(doc_lines);
     delim = ',';
     policy = 'quoted_rfc';
