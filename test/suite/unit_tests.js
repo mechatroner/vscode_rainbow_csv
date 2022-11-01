@@ -1766,7 +1766,7 @@ function test_record_comment_merger() {
 
 function test_generate_column_edit_selections() {
     // FIXME more unit tests.
-    // Ideas: comments, all types of errors and warnings.
+    // Ideas: comments, all types of errors and warnings, all types of column edit modes.
 
     let [doc_lines, active_doc, delim, policy, comment_prefix, edit_mode, col_num] = [null, null, null, null, null, null, null];
     let [selections, error_msg, warning_msg] = [null, null, null];
@@ -1793,6 +1793,84 @@ function test_generate_column_edit_selections() {
         new VscodeSelectionTestDouble(new VscodePositionTestDouble(2, 5), new VscodePositionTestDouble(2, 5)),
     ];
     assert.deepEqual(expected_selections, selections);
+
+    // Basic test with quoted_rfc.
+    doc_lines = [
+        'type,weight,color',
+        'car,100,yellow',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    edit_mode = 'ce_before';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal(null, error_msg);
+    assert.equal(null, warning_msg);
+    expected_selections = [
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 5), new VscodePositionTestDouble(0, 5)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 4), new VscodePositionTestDouble(1, 4)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(2, 5), new VscodePositionTestDouble(2, 5)),
+    ];
+    assert.deepEqual(expected_selections, selections);
+
+    // Test with multiline fields.
+    doc_lines = [
+        'type,weight,color',
+        'car,100,"yellow',
+        ' and black"',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted_rfc';
+    edit_mode = 'ce_before';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal('Column edit mode is not supported for files with multiline fields', error_msg);
+
+    // Basic test with comments.
+    doc_lines = [
+        'type,weight,color',
+        'car,100,yellow',
+        '#hello world',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    edit_mode = 'ce_before';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal(null, error_msg);
+    assert.equal(null, warning_msg);
+    expected_selections = [
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 5), new VscodePositionTestDouble(0, 5)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 4), new VscodePositionTestDouble(1, 4)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(3, 5), new VscodePositionTestDouble(3, 5)),
+    ];
+    assert.deepEqual(expected_selections, selections);
+
+    // Test with quoting error
+    doc_lines = [
+        'type,weight,color',
+        'car,100,yellow " red',
+        'ship,20000,red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'quoted';
+    edit_mode = 'ce_before';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal('Unable to enter column edit mode: quoting error at line 2', error_msg);
+    assert.equal(null, warning_msg);
+    assert.deepEqual(null, selections);
 }
 
 

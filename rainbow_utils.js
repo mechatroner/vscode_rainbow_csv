@@ -967,12 +967,12 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
 
 function generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
+    if (first_defective_line !== null) {
+        return [null, `Unable to enter column edit mode: quoting error at line ${first_defective_line + 1}`, null];
+    }
     if (records.length + comments.length != active_doc.lineCount) {
         // It is possible to support editing of non-multiline columns in such files, but for simplicity we won't do this.
         return [null, 'Column edit mode is not supported for files with multiline fields', null];
-    }
-    if (first_defective_line !== null) {
-        return [null, 'Unable to enter column edit mode: quoting error at line ' + first_defective_line, null];
     }
     let lnum = 0;
     let selections = [];
