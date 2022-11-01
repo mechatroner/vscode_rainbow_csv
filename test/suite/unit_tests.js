@@ -1784,8 +1784,9 @@ function test_generate_column_edit_selections() {
     policy = 'quoted';
     edit_mode = 'ce_before';
     col_num = 1; // 0-based.
-    [selections, error_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
     assert.equal(null, error_msg);
+    assert.equal(null, warning_msg);
     expected_selections = [
         new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 5), new VscodePositionTestDouble(0, 5)),
         new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 4), new VscodePositionTestDouble(1, 4)),

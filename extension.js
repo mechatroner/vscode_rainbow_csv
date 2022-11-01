@@ -1042,10 +1042,13 @@ async function column_edit(edit_mode) {
         return;
     }
     let col_num = (ll_rainbow_utils().get_cursor_position_info(vscode, active_doc, delim, policy, comment_prefix, position)).column_number;
-    let [selections, error_msg] = ll_rainbow_utils().generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    let [selections, error_msg, warning_msg] = ll_rainbow_utils().generate_column_edit_selections(vscode, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
     if (error_msg !== null) {
         show_single_line_error(error_msg);
         return;
+    }
+    if (warning_msg) {
+        vscode.window.showWarningMessage(warning_msg);
     }
     active_editor.selections = selections;
     // Call showTextDocument so that the editor will gain focus and the cursors will become active and blinking. This is a critical step here!
