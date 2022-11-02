@@ -982,7 +982,7 @@ function generate_column_edit_selections(vscode, active_doc, delim, policy, comm
         let [record, comment] = merger.get_next();
         assert((comment === null) != (record === null));
         if (record !== null) {
-            if (col_num >= records.length) {
+            if (col_num >= record.length) {
                 return [null, `Line ${lnum + 1} doesn't have field number ${col_num + 1}`, null];
             }
             let char_pos_before = record.slice(0, col_num).join('').length + col_num * delim.length;
