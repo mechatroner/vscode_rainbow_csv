@@ -992,7 +992,7 @@ function generate_column_edit_selections(vscode, active_doc, delim, policy, comm
                 warning_msg = `Be careful, cursor at line ${lnum + 1} has a double quote is in proximity.`;
             }
             if (!warning_msg && edit_mode == 'ce_after' && (policy == QUOTED_POLICY || policy == QUOTED_RFC_POLICY) && line_text.substring(char_pos_after - 2, char_pos_after + 2).indexOf('"') != -1) {
-                warning_msg = `Be careful, Cursor at line ${lnum + 1} has a double quote is in proximity.`;
+                warning_msg = `Be careful, cursor at line ${lnum + 1} has a double quote is in proximity.`;
             }
             if (!warning_msg && edit_mode == 'ce_select' && char_pos_before == char_pos_after) {
                 warning_msg = `Be careful, Field ${col_num + 1} at line ${lnum + 1} is empty.`;
