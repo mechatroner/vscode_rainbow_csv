@@ -1765,9 +1765,6 @@ function test_record_comment_merger() {
 
 
 function test_generate_column_edit_selections() {
-    // FIXME more unit tests.
-    // Ideas: comments, all types of errors and warnings, all types of column edit modes.
-
     let [doc_lines, active_doc, delim, policy, comment_prefix, edit_mode, col_num] = [null, null, null, null, null, null, null];
     let [selections, error_msg, warning_msg] = [null, null, null];
     let [expected_selections, expected_error_msg, expected_warning_msg] = [null, null, null];
@@ -1927,6 +1924,50 @@ function test_generate_column_edit_selections() {
     [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
     assert.equal(null, error_msg);
     assert.equal("Be careful, cursor at line 2 has a double quote is in proximity.", warning_msg);
+    expected_selections = [
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 11), new VscodePositionTestDouble(0, 11)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 9), new VscodePositionTestDouble(1, 9)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(2, 10), new VscodePositionTestDouble(2, 10)),
+    ];
+    assert.deepEqual(expected_selections, selections);
+
+    // Test with "ce_select" and an empty field.
+    doc_lines = [
+        'type\tweight\tcolor',
+        'car\t\tyellow',
+        'ship\t20000\tred'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = '\t';
+    policy = 'simple';
+    edit_mode = 'ce_select';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal(null, error_msg);
+    assert.equal("Be careful, Field 2 at line 2 is empty.", warning_msg);
+    expected_selections = [
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 5), new VscodePositionTestDouble(0, 11)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 4), new VscodePositionTestDouble(1, 4)),
+        new VscodeSelectionTestDouble(new VscodePositionTestDouble(2, 5), new VscodePositionTestDouble(2, 10)),
+    ];
+    assert.deepEqual(expected_selections, selections);
+
+    // Test with "ce_after", double quote in proximity and simple policy.
+    doc_lines = [
+        'type|weight|color',
+        'car|"100"|yellow',
+        'ship|20000|red'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = '|';
+    policy = 'simple';
+    edit_mode = 'ce_after';
+    col_num = 1; // 0-based.
+    [selections, error_msg, warning_msg] = rainbow_utils.generate_column_edit_selections(vscode_test_double, active_doc, delim, policy, comment_prefix, edit_mode, col_num);
+    assert.equal(null, error_msg);
+    assert.equal(null, warning_msg);
     expected_selections = [
         new VscodeSelectionTestDouble(new VscodePositionTestDouble(0, 11), new VscodePositionTestDouble(0, 11)),
         new VscodeSelectionTestDouble(new VscodePositionTestDouble(1, 9), new VscodePositionTestDouble(1, 9)),
