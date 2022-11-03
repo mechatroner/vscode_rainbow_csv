@@ -93,14 +93,7 @@ const dialect_map = {
     'tsv': ['\t', SIMPLE_POLICY],
     'csv (semicolon)': [';', QUOTED_POLICY],
     'csv (pipe)': ['|', SIMPLE_POLICY],
-    'csv (tilde)': ['~', SIMPLE_POLICY],
-    'csv (caret)': ['^', SIMPLE_POLICY],
-    'csv (colon)': [':', SIMPLE_POLICY],
-    'csv (double quote)': ['"', SIMPLE_POLICY],
-    'csv (equals)': ['=', SIMPLE_POLICY],
-    'csv (dot)': ['.', SIMPLE_POLICY],
     'csv (whitespace)': [' ', WHITESPACE_POLICY],
-    'csv (hyphen)': ['-', SIMPLE_POLICY],
     [DYNAMIC_CSV]: [null, null]
 };
 

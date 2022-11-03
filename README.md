@@ -25,7 +25,6 @@ Another way to do this: select one separator character with mouse cursor -> righ
 |csv (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
 |csv (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
 |csv (pipe)       | &#124; (pipe)        |           |                                     |
-|csv (...)        | ~ ^ : " = . -        |           |                                     |
 |dynamic csv      | any char or string   |           |                                     |
 
 
@@ -47,7 +46,7 @@ For example to associate ".dat" extension with pipe-separated files and ".csv" w
 ```
 
 Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
-List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "csv (tilde)", "csv (caret)", "csv (colon)", "csv (double quote)", "csv (equals)", "csv (dot)", "csv (hyphen)"`.  
+List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "dynamic csv"`.  
 
 #### Working with arbitrary separators
 
