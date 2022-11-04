@@ -31,7 +31,7 @@ Another way to do this: select one separator character with mouse cursor -> righ
 
 #### Content-based separator autodetection
 Rainbow CSV runs a table autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases, this is a very cheap operation because autodetection usually stops after checking only 1 or 2 topmost lines.  
-Autodetection can be disabled on the extension settings page.  
+Autodetection can be disabled in the extension settings.  
 By default only comma, tab, semicolon and pipe are tried during autodetection, but you can adjust the list of candidate separators in extension settings.  
 
 
@@ -85,7 +85,7 @@ To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink
 
 
 ### Settings
-You can customize Rainbow CSV at the extension settings section of VSCode settings.  
+You can customize Rainbow CSV in the extension settings section of VSCode settings.  
 There you can find the list of available options and their description.  
 
 
