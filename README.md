@@ -13,8 +13,9 @@
 
 ## Usage
 
-If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283)  
-Another way to do this: select one separator character with mouse cursor -> right click -> "Set as Rainbow separator"  
+Rainbow CSV looks better and is much more usable in general with dark mode.  
+If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283).  
+Another way to do this: select one separator character with mouse cursor -> right click -> "Set as Rainbow separator".  
 
 #### Supported separators
 
@@ -153,6 +154,7 @@ Screenshot of RBQL Console:
 #### Disadvantages:
 
 * Rainbow CSV may be less effective for CSV files with many (> 10) columns and for files with multiline fields, although textual alignment can significantly improve the situation.  
+* Rainbow CSV may be less usable with light mode because font colours become less distinguishable when compared to a dark mode (this phenomenon is also described [here](https://eclecticlight.co/2018/10/11/beyond-mere-appearance-dark-mode-the-semantics-of-colour-and-text-without-print/)).  
 
 
 ### References
