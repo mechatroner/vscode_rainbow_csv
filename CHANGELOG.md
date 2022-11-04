@@ -1,5 +1,10 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.3.0
+* Support column alignment for CSV files with multiline fields (rfc-4180).
+* Remove uncommon csv dialects (such as tilde, colon and other separators) in favor of generic "dynamic csv".
+* Update docs.
+
 ## 3.2.0
 * UX improvements for Dynamic CSV filetype.
 
