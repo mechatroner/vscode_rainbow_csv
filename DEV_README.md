@@ -145,6 +145,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Alignment: Instead of extra trailing whitespace better use extra starting whitespace: `,hello ,` -> `, hello,`
 
+* Consider adding optional "keep-it-dark" mode that would force dark color theme even if all other filetypes use light color theme to improve csv readability.
+
 
 ## RFC Support plan
 We need:
