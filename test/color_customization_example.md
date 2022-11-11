@@ -83,3 +83,83 @@ You can modify "foreground" and "fontStyle" attributes as you like.
 #### Rainbow CSV after color customization
 
 ![customized colors](https://i.imgur.com/45EJJv4.png)
+
+
+Alternatively, for the Light and Light+ theme you can use the slightly darker color settings below.
+
+```
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "rainbow1",
+                "settings": {
+                   "foreground": "#c00040",
+                   "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": "keyword.rainbow2",
+                "settings": {
+                   "foreground": "#00a000",
+                   "fontStyle": "underline"
+                }
+            },
+            {
+                "scope": "entity.name.function.rainbow3",
+                "settings": {
+                   "foreground": "#8000c0",
+                   "fontStyle": "bold italic"
+                }
+            },
+            {
+                "scope": "comment.rainbow4",
+                "settings": {
+                   "foreground": "#c09e18",
+                   "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": "string.rainbow5",
+                "settings": {
+                   "foreground": "#0080a0",
+                   "fontStyle": "bold underline"
+                }
+            },
+            {
+                "scope": "variable.parameter.rainbow6",
+                "settings": {
+                   "foreground": "#e000e0",
+                   "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": "constant.numeric.rainbow7",
+                "settings": {
+                   "foreground": "#60a000",
+                   "fontStyle": "italic"
+                }
+            },
+            {
+                "scope": "entity.name.type.rainbow8",
+                "settings": {
+                   "foreground": "#0020f0",
+                   "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": "markup.bold.rainbow9",
+                "settings": {
+                   "foreground": "#e08000",
+                   "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": "invalid.rainbow10",
+                "settings": {
+                   "foreground": "#00c080",
+                   "fontStyle": "bold underline italic"
+                }
+            }
+        ]
+    }
+```
