@@ -1,7 +1,8 @@
 ### Colors customization 
 Steps:
-1. Run `Open Settings (JSON)` command to open VSCode JSON settings editor
-2. Add the JSON fragment below to the VS Code settings tree (inside the root brackets level). Don't forget to add a comma after the last entry of your current JSON settings tree
+1. From the menu select `View > Command Palette (Ctrl+Shift+P)`
+2. Run `Open Settings (JSON)` command to open VSCode JSON settings editor
+3. Add the JSON fragment below to the VS Code settings tree (inside the root brackets level). Don't forget to add a comma after the last entry of your current JSON settings tree
 
 This will not affect syntax colors for other file types.  
 You can modify "foreground" and "fontStyle" attributes as you like.  
