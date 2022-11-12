@@ -119,6 +119,7 @@ Set a custom name for the current file so you can use it instead of the file pat
 
 ### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
+This is especially helpful if you are using light color theme.
 
 ## SQL-like "RBQL" query language
 
@@ -154,7 +155,7 @@ Screenshot of RBQL Console:
 #### Disadvantages:
 
 * Rainbow CSV may be less effective for CSV files with many (> 10) columns and for files with multiline fields, although textual alignment can significantly improve the situation.  
-* Rainbow CSV may be less usable with light mode because font colors become less distinguishable when compared to a dark mode (this phenomenon is also described [here](https://eclecticlight.co/2018/10/11/beyond-mere-appearance-dark-mode-the-semantics-of-colour-and-text-without-print/)).  
+* Rainbow CSV may be less usable with light mode because font colors become less distinguishable when compared to a dark mode (this phenomenon is also described [here](https://eclecticlight.co/2018/10/11/beyond-mere-appearance-dark-mode-the-semantics-of-colour-and-text-without-print/)). This problem could be somewhat mitigated by using customized high-contrast rainbow colors (see color customization section).  
 
 
 ### References
@@ -175,6 +176,7 @@ These extensions can work well together with Rainbow CSV and provide additional 
 * rainbow_csv_4_nedit in [NEdit](https://github.com/DmitTrix/rainbow_csv_4_nedit)
 * CSV highlighting in [Nano](https://github.com/scopatz/nanorc)
 * Rainbow CSV in [IntelliJ IDEA](https://plugins.jetbrains.com/plugin/12896-rainbow-csv/)
+* CSVLint for [Notepad++](https://github.com/BdR76/CSVLint)
 
 #### RBQL
 * [RBQL](https://github.com/mechatroner/RBQL)
