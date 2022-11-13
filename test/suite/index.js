@@ -29,6 +29,8 @@ function log_message(msg) {
 }
 
 
+// FIXME add autodetection unit test with resulting filetype being "dynamic csv" e.g. use an exotic separator in autodetection list.
+
 async function test_comment_prefix_js(workspace_folder_uri) {
     let [uri, active_doc, editor, lint_report] = [null, null, null, null];
     uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
@@ -144,7 +146,7 @@ async function test_rbql_node(workspace_folder_uri) {
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
-    assert.equal(active_doc.languageId, 'dynamic csv');
+    assert.equal(active_doc.languageId, 'csv');
     test_task = {rbql_backend: "js", rbql_query: "select '<<<<<', a3, a2, a1, '>>>>> NR: ' + NR"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
@@ -552,7 +554,7 @@ function test_autodetect_dialect_frequency_based() {
     candidate_separators = [',', ';'];
     max_num_chars_to_test = 10000;
     dialect_info = extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test);
-    assert.deepEqual(['csv (semicolon)', ';', 'quoted'], dialect_info);
+    assert.deepEqual(['csv (semicolon)', ';', 'quoted_rfc'], dialect_info);
 
     // Empty doc - should return csv since this is the default (presumably doc has .csv extension in order to call this function).
     doc_lines = [];
@@ -560,14 +562,14 @@ function test_autodetect_dialect_frequency_based() {
     candidate_separators = ['|', ' ', '\t', ',', ';'];
     max_num_chars_to_test = 10000;
     dialect_info = extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test);
-    assert.deepEqual(['csv', ',', 'quoted'], dialect_info);
+    assert.deepEqual(['csv', ',', 'quoted_rfc'], dialect_info);
 
     // Test max_num_chars_to_test effect on autodetection result.
     doc_lines = ['a|b|c|d,f|g|h|d', 'a,b', 'c,d', 'e,f', 'g,h', 'k,l', 'm,n', 'o,p'];
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
     candidate_separators = ['|', ',', ';'];
     assert.deepEqual(['csv (pipe)', '|', 'simple'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10));
-    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+    assert.deepEqual(['csv', ',', 'quoted_rfc'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
 
     // Dynamic csv test.
     doc_lines = ['a$b', 'c$d', 'e$f', 'g,h', 'k,l'];
@@ -579,19 +581,19 @@ function test_autodetect_dialect_frequency_based() {
     doc_lines = ['a;  b...', 'c ;d...', 'e   ;f...', 'g  ; h...', 'k  l...'];
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
     candidate_separators = [' ', '.', ';'];
-    assert.deepEqual(['csv (semicolon)', ';', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+    assert.deepEqual(['csv (semicolon)', ';', 'quoted_rfc'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
 
     // Using default comma separator because the user configured ones have zero frequency. Not sure if this is the right behavior in this case though.
     doc_lines = ['a|b', 'c|d', 'e|f'];
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
     candidate_separators = [';', '\t'];
-    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+    assert.deepEqual(['csv', ',', 'quoted_rfc'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
 
     // Empty configured separators list.
     doc_lines = ['a|b', 'c|d', 'e|f'];
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines);
     candidate_separators = [];
-    assert.deepEqual(['csv', ',', 'quoted'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
+    assert.deepEqual(['csv', ',', 'quoted_rfc'], extension.autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000));
 }
 
 
@@ -703,9 +705,8 @@ async function test_try_autoenable_rainbow_csv() {
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
     await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
-    assert.equal('dynamic csv', active_doc.languageId);
-    assert.deepEqual([['fake.txt.dynamic csv', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
-    assert.deepEqual([['fake.txt', {delim: ',', policy: 'quoted_rfc'}]], Array.from(extension_context.dynamic_document_dialects.entries()));
+    assert.equal('csv', active_doc.languageId);
+    assert.deepEqual([['fake.txt.csv', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([['fake.txt', 'plaintext']], Array.from(extension_context.original_language_ids.entries()));
 
     // Test that quoted_rfc policy doesn't extend for other separators e.g. pipe `|`.

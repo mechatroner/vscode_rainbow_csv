@@ -8,7 +8,8 @@ const child_process = require('child_process');
 const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
-// FIXME add an updated README.md RBQL screenshot.
+// FIXME Test rfc highlighting with huge files close to the limit.
+// FIXME make sure that comments work with new rfc syntax (if not see check you have a solution in rfc_native).
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -71,7 +72,7 @@ let comment_token_event = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
 
-const QUOTED_POLICY = 'quoted';
+const QUOTED_POLICY = 'quoted'; // FIXME consider deleting.
 const WHITESPACE_POLICY = 'whitespace';
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const SIMPLE_POLICY = 'simple';
@@ -89,9 +90,9 @@ let extension_context = {
 };
 
 const dialect_map = {
-    'csv': [',', QUOTED_POLICY],
+    'csv': [',', QUOTED_RFC_POLICY],
     'tsv': ['\t', SIMPLE_POLICY],
-    'csv (semicolon)': [';', QUOTED_POLICY],
+    'csv (semicolon)': [';', QUOTED_RFC_POLICY],
     'csv (pipe)': ['|', SIMPLE_POLICY],
     'csv (whitespace)': [' ', WHITESPACE_POLICY],
     [DYNAMIC_CSV]: [null, null]
@@ -756,7 +757,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     let [output_delim, output_policy] = [input_delim, input_policy];
     if (output_dialect == 'csv')
-        [output_delim, output_policy] = [',', QUOTED_POLICY];
+        [output_delim, output_policy] = [',', QUOTED_RFC_POLICY];
     if (output_dialect == 'tsv')
         [output_delim, output_policy] = ['\t', SIMPLE_POLICY];
     rbql_context.output_delim = output_delim;
@@ -1378,9 +1379,6 @@ function autodetect_dialect(config, active_doc, candidate_separators, comment_pr
         if (!dialect_id || !policy)
             continue;
         candidate_dialects.push([dialect_id, separator, policy]);
-        if (separator == ',' || separator == ';') {
-            candidate_dialects.push([DYNAMIC_CSV, separator, QUOTED_RFC_POLICY]);
-        }
     }
     let detect_trailing_spaces = get_from_config('csv_lint_detect_trailing_spaces', false, config);
     let min_num_lines = get_from_config('autodetection_min_line_count', 10, config);
@@ -1409,7 +1407,7 @@ function autodetect_dialect(config, active_doc, candidate_separators, comment_pr
 
 
 function autodetect_dialect_frequency_based(active_doc, candidate_separators, max_num_chars_to_test) {
-    let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_POLICY];
+    let [best_dialect, best_separator, best_policy] = ['csv', ',', QUOTED_RFC_POLICY];
     let best_dialect_frequency = 0;
     let data = active_doc.getText();
     if (!data)
@@ -1710,6 +1708,7 @@ async function activate(context) {
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { manually_set_rainbow_separator(/*policy=*/null); });
+    // FIXME Consider deleting rainbow-csv.RainbowSeparatorMultiline since it currently identical to the regular rainbow-csv.RainbowSeparator.
     var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { manually_set_rainbow_separator(QUOTED_RFC_POLICY); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED

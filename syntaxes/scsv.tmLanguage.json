@@ -1,23 +1,97 @@
-{   "name": "scsv syntax",
-    "scopeName": "text.scsv",
-    "fileTypes": ["scsv"],
-    "patterns": [
-        { "match": "((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?((?: *\"(?:[^\"]*\"\")*[^\"]*\" *(?:;|$))|(?:[^;]*(?:;|$)))?",
-          "name": "rainbowgroup",
-          "captures": {
-              "1": {"name": "rainbow1"},
-              "2": {"name": "keyword.rainbow2"},
-              "3": {"name": "entity.name.function.rainbow3"},
-              "4": {"name": "comment.rainbow4"},
-              "5": {"name": "string.rainbow5"},
-              "6": {"name": "variable.parameter.rainbow6"},
-              "7": {"name": "constant.numeric.rainbow7"},
-              "8": {"name": "entity.name.type.rainbow8"},
-              "9": {"name": "markup.bold.rainbow9"},
-              "10": {"name": "invalid.rainbow10"}
-          }
+{
+  "name": "scsv syntax",
+  "scopeName": "text.scsv",
+  "fileTypes": ["scsv"],
+  "patterns": [
+    {
+      "name": "rainbow1",
+      "begin": "^|\\;",
+      "end": "(?=\\n)",
+      "patterns": [
+        { "include": "#quotedvalue" },
+        {
+          "name": "keyword.rainbow2",
+          "begin": "\\;",
+          "end": "(?=\\n)",
+          "patterns": [
+            { "include": "#quotedvalue" },
+            {
+              "name": "entity.name.function.rainbow3",
+              "begin": "\\;",
+              "end": "(?=\\n)",
+              "patterns": [
+                { "include": "#quotedvalue" },
+                { 
+                  "name": "comment.rainbow4",
+                  "begin": "\\;",
+                  "end": "(?=\\n)",
+                  "patterns": [
+                    { "include": "#quotedvalue" },
+                    {
+                      "name": "string.rainbow5",
+                      "begin": "\\;",
+                      "end": "(?=\\n)",
+                      "patterns": [
+                        { "include": "#quotedvalue" },
+                        { 
+                          "name": "variable.parameter.rainbow6",
+                          "begin": "\\;",
+                          "end": "(?=\\n)",
+                          "patterns": [
+                            { "include": "#quotedvalue" },
+                            {
+                              "name": "constant.numeric.rainbow7",
+                              "begin": "\\;",
+                              "end": "(?=\\n)",
+                              "patterns": [
+                                { "include": "#quotedvalue" },
+                                { 
+                                  "name": "entity.name.type.rainbow8",
+                                  "begin": "\\;",
+                                  "end": "(?=\\n)",
+                                  "patterns": [
+                                    { "include": "#quotedvalue" },
+                                    {
+                                      "name": "markup.bold.rainbow9",
+                                      "begin": "\\;",
+                                      "end": "(?=\\n)",
+                                      "patterns": [
+                                        { "include": "#quotedvalue" },
+                                        { 
+                                          "name": "invalid.rainbow10",
+                                          "begin": "\\;",
+                                          "end": "(?=\\n)",
+                                          "patterns": [
+                                            { "include": "#quotedvalue" },
+                                            {
+                                              "include": "$self" 
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
-
-    ],
-    "uuid": "cb13e352-03bf-4340-9a6b-9b99aae1c418"
+      ]
+    }
+  ],
+  "repository": {
+    "quotedvalue": {
+      "begin": "\"",
+      "end": "\""
+    }
+  },
+  "uuid": "cb13e352-03bf-4340-9a6b-9b99aae1c418"
 }
