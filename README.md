@@ -74,6 +74,11 @@ You can preview huge files by clicking "Preview... " option in VS Code File Expl
 All Rainbow CSV features would be disabled by VSCode if the file is bigger than 50MB.  
 
 
+### Colors customization 
+You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
+This is especially helpful if you are using light color theme.
+
+
 #### Working with CSV files with comments
 Some CSV files can contain comment lines e.g. metadata before the header line.  
 To allow CSVLint, content-based autodetection algorithms, and _Align_, _Shrink_, _ColumnEdit_ commands to work properly with such files you need to adjust your settings.
@@ -115,11 +120,6 @@ Enter RBQL - SQL-like language query editing mode.
 
 #### SetJoinTableName
 Set a custom name for the current file so you can use it instead of the file path in RBQL JOIN queries
-
-
-### Colors customization 
-You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
-This is especially helpful if you are using light color theme.
 
 ## SQL-like "RBQL" query language
 
