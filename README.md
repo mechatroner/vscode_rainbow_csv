@@ -74,7 +74,7 @@ You can preview huge files by clicking "Preview... " option in VS Code File Expl
 All Rainbow CSV features would be disabled by VSCode if the file is bigger than 50MB.  
 
 
-### Colors customization 
+#### Colors customization 
 You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
 This is especially helpful if you are using light color theme.
 
