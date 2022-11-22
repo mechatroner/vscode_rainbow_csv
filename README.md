@@ -75,8 +75,8 @@ All Rainbow CSV features would be disabled by VSCode if the file is bigger than 
 
 
 #### Colors customization 
-You can customize Rainbow CSV colors to increase contrast. [Instructions](test/color_customization_example.md#colors-customization)
-This is especially helpful if you are using light color theme.
+You can customize Rainbow CSV colors to increase contrast, see [Instructions](test/color_customization_example.md#colors-customization).  
+This is especially helpful if you are using one of Light color themes.
 
 
 #### Working with CSV files with comments
