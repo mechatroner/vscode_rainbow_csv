@@ -1529,6 +1529,12 @@ async function handle_doc_open(active_doc) {
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument again! The previous languageId is reset.
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
+    
+    if (active_doc.uri.scheme != 'file' && active_doc.uri.scheme != 'untitled' && active_doc.uri.scheme != 'vscode-test-web') {
+        // Current document has unknown file scheme. One reason for this could be that it was created by another extension, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123 
+        // "vscode-test-web" scheme is used for browser unit tests.
+        return;
+    }
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);

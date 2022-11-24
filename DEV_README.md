@@ -141,11 +141,13 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider getting rid of Rainbow Off button.
 
-* For dynamic csv (whouth active policy/separator) add a button to the bottom panel to trigger the separator selection dialog.
-
 * Alignment: Instead of extra trailing whitespace better use extra starting whitespace: `,hello ,` -> `, hello,`
 
 * Consider adding optional "keep-it-dark" mode that would force dark color theme even if all other filetypes use light color theme to improve csv readability.
+
+* Consider using readonly virtual documents for RBQL query results and align/shrink command results, see https://code.visualstudio.com/api/extension-guides/virtual-documents (use custom scheme with them too) 
+
+* Consider setting `preview=fase` option in all `showTextDocument` calls.
 
 
 ## RFC Support plan
