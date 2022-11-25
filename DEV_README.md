@@ -127,17 +127,11 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Consider using RFC-like syntax by ajhyndman, see https://github.com/mechatroner/vscode_rainbow_csv/issues/4
 
-* Implement align/shrink for the RFC dialects too.
-
-* Get rid of `csv (dot)` and similar dialects, since we now have dynamic csv to rule them all.
-
-* Update README.md with new commands and info, especially describe "Dynamic CSV" dialect.
-
 * Consider removing double quote autoclosing from non-csv/scsv dialects when native rfc csv is enabled.
 
 * Manual selection of separator is not remembered in preview mode (unlike filetype selection through the menu) - consider remembering the selected separator in dialect_info (this is already done) with the special "is_manual" flag and during doc_open restore the dialect.
 
-* FIXME: Unlike manual filetype selection, setTextDocumentLanguage sometimes doesn't survive tab switch, this is especially reproducible with `dynamic csv` language and subsequent `Rainbow Off` command. Figure out how to overcome this.
+* FIXME: Unlike manual filetype selection, setTextDocumentLanguage sometimes doesn't survive tab switch, this is especially reproducible with `dynamic csv` language and subsequent `Rainbow Off` command. Figure out how to overcome this (perhaps it is possible to overcome this with `preview=fase` option in all `showTextDocument` calls?)
 
 * Consider getting rid of Rainbow Off button.
 
@@ -148,6 +142,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 * Consider using readonly virtual documents for RBQL query results and align/shrink command results, see https://code.visualstudio.com/api/extension-guides/virtual-documents (use custom scheme with them too) 
 
 * Consider setting `preview=fase` option in all `showTextDocument` calls.
+
+* Add `"csv (tab)"` alias to TSV language if/when https://github.com/microsoft/vscode/issues/167208 is resolved
 
 
 ## RFC Support plan
