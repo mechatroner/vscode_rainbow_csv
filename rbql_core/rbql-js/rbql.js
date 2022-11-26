@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions.
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.25.1';
+const RBQL_VERSION = '0.26.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -128,28 +128,32 @@ function column_info_from_text_span(text_span, string_literals) {
     let attribute_match = /^([ab])\.([_a-zA-Z][_a-zA-Z0-9]*)$/.exec(text_span);
     let subscript_int_match = /^([ab])\[([0-9]+)\]$/.exec(text_span);
     let subscript_str_match = /^([ab])\[___RBQL_STRING_LITERAL([0-9]+)___\]$/.exec(text_span);
+    let as_alias_match = /^(.*) (as|AS) +([a-zA-Z][a-zA-Z0-9_]*) *$/.exec(text_span);
+    if (as_alias_match !== null) {
+        return {table_name: null, column_index: null, column_name: as_alias_match[3], is_star: false, is_alias: true};
+    }
     if (simple_var_match !== null) {
         if (text_span == rbql_star_marker)
-            return {table_name: null, column_index: null, column_name: null, is_star: true};
+            return {table_name: null, column_index: null, column_name: null, is_star: true, is_alias: false};
         if (text_span.startsWith('___RBQL_STRING_LITERAL'))
             return null;
         let match = /^([ab])([0-9]+)$/.exec(text_span);
         if (match !== null) {
-            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false};
+            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false, is_alias: false};
         }
         // Some examples for this branch: NR, NF
-        return {table_name: null, column_index: null, column_name: text_span, is_star: false};
+        return {table_name: null, column_index: null, column_name: text_span, is_star: false, is_alias: false};
     } else if (attribute_match !== null) {
         let table_name = attribute_match[1];
         let column_name = attribute_match[2];
         if (column_name == rbql_star_marker) {
-            return {table_name: table_name, column_index: null, column_name: null, is_star: true};
+            return {table_name: table_name, column_index: null, column_name: null, is_star: true, is_alias: false};
         }
-        return {table_name: null, column_index: null, column_name: column_name, is_star: false};
+        return {table_name: null, column_index: null, column_name: column_name, is_star: false, is_alias: false};
     } else if (subscript_int_match != null) {
         let table_name = subscript_int_match[1];
         let column_index = parseInt(subscript_int_match[2]) - 1;
-        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false};
+        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false, is_alias: false};
     } else if (subscript_str_match != null) {
         let table_name = subscript_str_match[1];
         let replaced_string_literal_id = subscript_str_match[2];
@@ -157,7 +161,7 @@ function column_info_from_text_span(text_span, string_literals) {
             let quoted_column_name = string_literals[replaced_string_literal_id];
             let unquoted_column_name = unquote_string(quoted_column_name);
             if (unquoted_column_name !== null && unquoted_column_name !== undefined) {
-                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false};
+                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false, is_alias: false};
             }
         }
     }
@@ -1328,9 +1332,11 @@ function translate_update_expression(update_expression, input_variables_map, str
 
 
 function translate_select_expression(select_expression) {
-    let expression_without_stars = replace_star_count(select_expression);
-    let translated = str_strip(replace_star_vars(expression_without_stars));
-    let translated_for_header = str_strip(replace_star_vars_for_header_parsing(expression_without_stars));
+    let as_alias_replacement_regexp = / +(AS|as) +([a-zA-Z][a-zA-Z0-9_]*) *(?=$|,)/g;
+    let expression_without_counting_stars = replace_star_count(select_expression);
+    let expression_without_as_column_alias = expression_without_counting_stars.replace(as_alias_replacement_regexp, '');
+    let translated = str_strip(replace_star_vars(expression_without_as_column_alias));
+    let translated_for_header = str_strip(replace_star_vars_for_header_parsing(expression_without_counting_stars));
     if (!translated.length)
         throw new RbqlParsingError('"SELECT" expression is empty');
     return [`[].concat([${translated}])`, translated_for_header];
@@ -1571,12 +1577,21 @@ function remove_redundant_table_name(query_text) {
 
 
 function select_output_header(input_header, join_header, query_column_infos) {
-    if (input_header === null && join_header === null)
+    if (input_header === null) {
+        assert(join_header === null);
+    }
+    if (input_header === null) {
+        for (let qci of query_column_infos) {
+            if (qci !== null && qci.is_alias) {
+                throw new RbqlParsingError(`Specifying column alias "AS ${qci.column_name}" is not allowed if input table has no header`);
+            }
+        }
         return null;
-    if (input_header === null)
-        input_header = [];
-    if (join_header === null)
+    }
+    if (join_header === null) {
+        // This means there is no JOIN table.
         join_header = [];
+    }
     let output_header = [];
     for (let qci of query_column_infos) {
         // TODO refactor this and python version: extract this code into a function instead to always return something
@@ -1799,6 +1814,8 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         query_context.aggregation_key_expression = '[' + combine_string_literals(rb_actions[GROUP_BY]['text'], string_literals) + ']';
     }
 
+
+    let input_header = await input_iterator.get_header();
     let join_variables_map = null;
     let join_header = null;
     if (rb_actions.hasOwnProperty(JOIN)) {
@@ -1813,6 +1830,12 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         }
         join_variables_map = await join_record_iterator.get_variables_map(query_text);
         join_header = await join_record_iterator.get_header();
+        if (input_header === null && join_header !== null) {
+            throw new RbqlIOHandlingError('Inconsistent modes: Input table doesn\'t have a header while the Join table has a header');
+        }
+        if (input_header !== null && join_header === null) {
+            throw new RbqlIOHandlingError('Inconsistent modes: Input table has a header while the Join table doesn\'t have a header');
+        }
         let [lhs_variables, rhs_indices] = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals);
         let sql_join_type = {'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'LEFT OUTER JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']];
         query_context.lhs_join_var_expression = lhs_variables.length == 1 ? lhs_variables[0] : 'JSON.stringify([' + lhs_variables.join(',') + '])';
@@ -1830,7 +1853,6 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         query_context.where_expression = combine_string_literals(where_expression, string_literals);
     }
 
-    let input_header = await input_iterator.get_header();
     if (rb_actions.hasOwnProperty(UPDATE)) {
         var update_expression = translate_update_expression(rb_actions[UPDATE]['text'], input_variables_map, string_literals, ' '.repeat(8));
         query_context.update_expressions = combine_string_literals(update_expression, string_literals);
@@ -1847,9 +1869,9 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
             query_context.select_expression = select_expression;
             query_context.writer.set_header(output_header);
         } else {
-            let [select_expression, select_expression_for_ast] = translate_select_expression(rb_actions[SELECT]['text']);
+            let [select_expression, select_expression_for_header] = translate_select_expression(rb_actions[SELECT]['text']);
             query_context.select_expression = combine_string_literals(select_expression, string_literals);
-            let column_infos = adhoc_parse_select_expression_to_column_infos(select_expression_for_ast, string_literals);
+            let column_infos = adhoc_parse_select_expression_to_column_infos(select_expression_for_header, string_literals);
             let output_header = select_output_header(input_header, join_header, column_infos);
             query_context.writer.set_header(output_header);
         }

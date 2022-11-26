@@ -108,13 +108,37 @@ def is_str6(val):
     return (PY3 and isinstance(val, str)) or (not PY3 and isinstance(val, basestring))
 
 
-QueryColumnInfo = namedtuple('QueryColumnInfo', ['table_name', 'column_index', 'column_name', 'is_star'])
+QueryColumnInfo = namedtuple('QueryColumnInfo', ['table_name', 'column_index', 'column_name', 'is_star', 'is_alias'])
 
 
 def get_field(root, field_name):
     for f in ast.iter_fields(root):
         if len(f) == 2 and f[0] == field_name:
             return f[1]
+    return None
+
+
+def search_for_as_alias_pseudo_function(root):
+    for node in ast.walk(root):
+        if not isinstance(node, ast.Call):
+            continue
+        func_root = get_field(node, 'func')
+        if not isinstance(func_root, ast.Name):
+            continue
+        func_id = get_field(func_root, 'id')
+        if (func_id != 'alias_column_as_pseudo_func'):
+            continue
+        # We found the function node. Since we created the node itself earlier it must have a very specific format: it is a free function call with a single id-like argument.
+        args_root = get_field(node, 'args')
+        if not args_root or len(args_root) != 1:
+            raise RbqlParsingError('Unable to parse "AS" column alias') # Should never happen
+        arg_name_node = args_root[0]
+        if not isinstance(arg_name_node, ast.Name):
+            raise RbqlParsingError('Unable to parse "AS" column alias') # Should never happen
+        alias_id = get_field(arg_name_node, 'id')
+        if not alias_id:
+            raise RbqlParsingError('Unable to parse "AS" column alias') # Should never happen
+        return alias_id
     return None
 
 
@@ -125,15 +149,15 @@ def column_info_from_node(root):
         if var_name is None:
             return None
         if var_name == rbql_star_marker:
-            return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=True)
+            return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=True, is_alias=False)
         good_column_name_rgx = '^([ab])([0-9][0-9]*)$'
         match_obj = re.match(good_column_name_rgx, var_name)
         if match_obj is not None:
             table_name = match_obj.group(1)
             column_index = int(match_obj.group(2)) - 1
-            return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=None, is_star=False)
+            return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=None, is_star=False, is_alias=False)
         # Some examples for this branch: NR, NF
-        return QueryColumnInfo(table_name=None, column_index=None, column_name=var_name, is_star=False)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=var_name, is_star=False, is_alias=False)
     if isinstance(root, ast.Attribute):
         column_name = get_field(root, 'attr')
         if not column_name:
@@ -147,8 +171,8 @@ def column_info_from_node(root):
         if table_name is None or table_name not in ['a', 'b']:
             return None
         if column_name == rbql_star_marker:
-            return QueryColumnInfo(table_name=table_name, column_index=None, column_name=None, is_star=True)
-        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_name, is_star=False)
+            return QueryColumnInfo(table_name=table_name, column_index=None, column_name=None, is_star=True, is_alias=False)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_name, is_star=False, is_alias=False)
     if isinstance(root, ast.Subscript):
         var_root = get_field(root, 'value')
         if not isinstance(var_root, ast.Name):
@@ -171,7 +195,10 @@ def column_info_from_node(root):
             return None
         if not PY3 and isinstance(column_name, str):
             column_name = column_name.decode('utf-8')
-        return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False)
+        return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False, is_alias=False)
+    column_alias_name = search_for_as_alias_pseudo_function(root)
+    if column_alias_name:
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_alias_name, is_star=False, is_alias=True)
     return None
 
 
@@ -1174,9 +1201,18 @@ def translate_update_expression(update_expression, input_variables_map, string_l
 
 
 def translate_select_expression(select_expression):
-    expression_without_stars = replace_star_count(select_expression)
-    translated = replace_star_vars(expression_without_stars).strip()
-    translated_for_ast = replace_star_vars_for_ast(expression_without_stars).strip()
+    regexp_for_as_column_alias = r' +(AS|as) +([a-zA-Z][a-zA-Z0-9_]*) *(?=$|,)'
+    expression_without_counting_stars = replace_star_count(select_expression)
+    # TODO the problem with these 2 replaments below is that they happen on global level, the right way to do this is to split the query into columns first by using stack-parsing.
+    # Or we can at least replace parentheses groups with literals e.g. `(.....)` -> `(PARENT_GROUP_1)`
+
+    expression_without_as_column_alias = re.sub(regexp_for_as_column_alias, '', expression_without_counting_stars).strip()
+    translated = replace_star_vars(expression_without_as_column_alias).strip()
+
+    expression_without_as_column_alias_for_ast = re.sub(regexp_for_as_column_alias, r' == alias_column_as_pseudo_func(\2)', expression_without_counting_stars).strip()
+    # Replace `as xyz` with `== alias_column_as_pseudo_func(xyz)` as a workaround to make it parsable to Python ast.
+    translated_for_ast = replace_star_vars_for_ast(expression_without_as_column_alias_for_ast).strip()
+
     if not len(translated):
         raise RbqlParsingError('"SELECT" expression is empty') # UT JSON
     return ('[{}]'.format(translated), translated_for_ast)
@@ -1372,11 +1408,15 @@ def remove_redundant_input_table_name(query_text):
 
 
 def select_output_header(input_header, join_header, query_column_infos):
-    if input_header is None and join_header is None:
-        return None
     if input_header is None:
-        input_header = []
+        assert join_header is None
+    if input_header is None:
+        for qci in query_column_infos:
+            if qci is not None and qci.is_alias:
+                raise RbqlParsingError('Specifying column alias "AS {}" is not allowed if input table has no header'.format(qci.column_name))
+        return None
     if join_header is None:
+        # This means that there is no join table.
         join_header = []
     output_header = []
     for qci in query_column_infos:
@@ -1439,6 +1479,7 @@ def shallow_parse_input_query(query_text, input_iterator, tables_registry, query
         query_context.aggregation_key_expression = '({},)'.format(combine_string_literals(rb_actions[GROUP_BY]['text'], string_literals))
 
 
+    input_header = input_iterator.get_header()
     join_variables_map = None
     join_header = None
     if JOIN in rb_actions:
@@ -1452,8 +1493,12 @@ def shallow_parse_input_query(query_text, input_iterator, tables_registry, query
             join_record_iterator.handle_query_modifier(rb_actions[WITH])
         join_variables_map = join_record_iterator.get_variables_map(query_text)
         join_header = join_record_iterator.get_header()
-        # TODO check ambiguous column names here instead of external check.
+        if input_header is None and join_header is not None:
+            raise RbqlIOHandlingError('Inconsistent modes: Input table doesn\'t have a header while the Join table has a header')
+        if input_header is not None and join_header is None:
+            raise RbqlIOHandlingError('Inconsistent modes: Input table has a header while the Join table doesn\'t have a header')
 
+        # TODO check ambiguous column names here instead of external check.
         lhs_variables, rhs_indices = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals)
         joiner_type = {JOIN: InnerJoiner, INNER_JOIN: InnerJoiner, LEFT_OUTER_JOIN: LeftJoiner, LEFT_JOIN: LeftJoiner, STRICT_LEFT_JOIN: StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']]
         query_context.lhs_join_var_expression = lhs_variables[0] if len(lhs_variables) == 1 else '({})'.format(', '.join(lhs_variables))
@@ -1474,7 +1519,7 @@ def shallow_parse_input_query(query_text, input_iterator, tables_registry, query
     if UPDATE in rb_actions:
         update_expression = translate_update_expression(rb_actions[UPDATE]['text'], input_variables_map, string_literals)
         query_context.update_expressions = combine_string_literals(update_expression, string_literals)
-        query_context.writer.set_header(input_iterator.get_header())
+        query_context.writer.set_header(input_header)
 
 
     if SELECT in rb_actions:
@@ -1483,14 +1528,14 @@ def shallow_parse_input_query(query_text, input_iterator, tables_registry, query
         if EXCEPT in rb_actions:
             if JOIN in rb_actions:
                 raise RbqlParsingError('EXCEPT and JOIN are not allowed in the same query') # UT JSON
-            output_header, select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_iterator.get_header())
+            output_header, select_expression = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_header)
         else:
             select_expression, select_expression_for_ast = translate_select_expression(rb_actions[SELECT]['text'])
             select_expression = combine_string_literals(select_expression, string_literals)
             # We need to add string literals back in order to have relevant errors in case of exceptions during parsing
             combined_select_expression_for_ast = combine_string_literals(select_expression_for_ast, string_literals)
             column_infos = ast_parse_select_expression_to_column_infos(combined_select_expression_for_ast)
-            output_header = select_output_header(input_iterator.get_header(), join_header, column_infos)
+            output_header = select_output_header(input_header, join_header, column_infos)
         query_context.select_expression = select_expression
         query_context.writer.set_header(output_header)
 
