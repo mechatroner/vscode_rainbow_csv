@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.4.0
+* Fix minor interoperability issue with other extensions (additional autodetection check, see [#123](https://github.com/mechatroner/vscode_rainbow_csv/issues/123)).
+* Update RBQL: support `AS` column alias in queries.
+
 ## 3.3.0
 * Support column alignment for CSV files with multiline fields (rfc-4180).
 * Remove uncommon csv dialects (such as tilde, colon and other separators) in favor of generic "dynamic csv".
