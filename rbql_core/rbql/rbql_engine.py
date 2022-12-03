@@ -108,7 +108,7 @@ def is_str6(val):
     return (PY3 and isinstance(val, str)) or (not PY3 and isinstance(val, basestring))
 
 
-QueryColumnInfo = namedtuple('QueryColumnInfo', ['table_name', 'column_index', 'column_name', 'is_star', 'is_alias'])
+QueryColumnInfo = namedtuple('QueryColumnInfo', ['table_name', 'column_index', 'column_name', 'is_star', 'alias_name'])
 
 
 def get_field(root, field_name):
@@ -149,15 +149,15 @@ def column_info_from_node(root):
         if var_name is None:
             return None
         if var_name == rbql_star_marker:
-            return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=True, is_alias=False)
+            return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=True, alias_name=None)
         good_column_name_rgx = '^([ab])([0-9][0-9]*)$'
         match_obj = re.match(good_column_name_rgx, var_name)
         if match_obj is not None:
             table_name = match_obj.group(1)
             column_index = int(match_obj.group(2)) - 1
-            return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=None, is_star=False, is_alias=False)
+            return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=None, is_star=False, alias_name=None)
         # Some examples for this branch: NR, NF
-        return QueryColumnInfo(table_name=None, column_index=None, column_name=var_name, is_star=False, is_alias=False)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=var_name, is_star=False, alias_name=None)
     if isinstance(root, ast.Attribute):
         column_name = get_field(root, 'attr')
         if not column_name:
@@ -171,8 +171,8 @@ def column_info_from_node(root):
         if table_name is None or table_name not in ['a', 'b']:
             return None
         if column_name == rbql_star_marker:
-            return QueryColumnInfo(table_name=table_name, column_index=None, column_name=None, is_star=True, is_alias=False)
-        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_name, is_star=False, is_alias=False)
+            return QueryColumnInfo(table_name=table_name, column_index=None, column_name=None, is_star=True, alias_name=None)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_name, is_star=False, alias_name=None)
     if isinstance(root, ast.Subscript):
         var_root = get_field(root, 'value')
         if not isinstance(var_root, ast.Name):
@@ -195,10 +195,10 @@ def column_info_from_node(root):
             return None
         if not PY3 and isinstance(column_name, str):
             column_name = column_name.decode('utf-8')
-        return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False, is_alias=False)
+        return QueryColumnInfo(table_name=table_name, column_index=column_index, column_name=column_name, is_star=False, alias_name=None)
     column_alias_name = search_for_as_alias_pseudo_function(root)
     if column_alias_name:
-        return QueryColumnInfo(table_name=None, column_index=None, column_name=column_alias_name, is_star=False, is_alias=True)
+        return QueryColumnInfo(table_name=None, column_index=None, column_name=None, is_star=False, alias_name=column_alias_name)
     return None
 
 
@@ -1144,7 +1144,7 @@ def generate_init_statements(query_text, variables_map, join_variables_map):
 
 
 def replace_star_count(aggregate_expression):
-    return re.sub(r'(^|(?<=,)) *COUNT\( *\* *\) *($|(?=,))', ' COUNT(1)', aggregate_expression, flags=re.IGNORECASE).lstrip(' ')
+    return re.sub(r'(?:(?<=^)|(?<=,)) *COUNT\( *\* *\)', ' COUNT(1)', aggregate_expression, flags=re.IGNORECASE).lstrip(' ')
 
 
 def replace_star_vars(rbql_expression):
@@ -1203,7 +1203,8 @@ def translate_update_expression(update_expression, input_variables_map, string_l
 def translate_select_expression(select_expression):
     regexp_for_as_column_alias = r' +(AS|as) +([a-zA-Z][a-zA-Z0-9_]*) *(?=$|,)'
     expression_without_counting_stars = replace_star_count(select_expression)
-    # TODO the problem with these 2 replaments below is that they happen on global level, the right way to do this is to split the query into columns first by using stack-parsing.
+
+    # TODO the problem with these replaments is that they happen on global level, the right way to do this is to split the query into columns first by using stack-parsing.
     # Or we can at least replace parentheses groups with literals e.g. `(.....)` -> `(PARENT_GROUP_1)`
 
     expression_without_as_column_alias = re.sub(regexp_for_as_column_alias, '', expression_without_counting_stars).strip()
@@ -1410,11 +1411,19 @@ def remove_redundant_input_table_name(query_text):
 def select_output_header(input_header, join_header, query_column_infos):
     if input_header is None:
         assert join_header is None
+    query_has_star = False
+    query_has_column_alias = False
+    for qci in query_column_infos:
+        query_has_star = query_has_star or (qci is not None and qci.is_star)
+        query_has_column_alias = query_has_column_alias or (qci is not None and qci.alias_name is not None)
+
     if input_header is None:
-        for qci in query_column_infos:
-            if qci is not None and qci.is_alias:
-                raise RbqlParsingError('Specifying column alias "AS {}" is not allowed if input table has no header'.format(qci.column_name))
-        return None
+        if query_has_star and query_has_column_alias:
+            raise RbqlParsingError('Using both * (star) and AS alias in the same query is not allowed for input tables without header')
+        if not query_has_column_alias:
+            return None
+        input_header = []
+        join_header = []
     if join_header is None:
         # This means that there is no join table.
         join_header = []
@@ -1431,6 +1440,8 @@ def select_output_header(input_header, join_header, query_column_infos):
                 output_header += join_header
         elif qci.column_name is not None:
             output_header.append(qci.column_name)
+        elif qci.alias_name is not None:
+            output_header.append(qci.alias_name)
         elif qci.column_index is not None:
             if qci.table_name == 'a' and qci.column_index < len(input_header):
                 output_header.append(input_header[qci.column_index])

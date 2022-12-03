@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions.
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.26.0';
+const RBQL_VERSION = '0.27.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -130,30 +130,30 @@ function column_info_from_text_span(text_span, string_literals) {
     let subscript_str_match = /^([ab])\[___RBQL_STRING_LITERAL([0-9]+)___\]$/.exec(text_span);
     let as_alias_match = /^(.*) (as|AS) +([a-zA-Z][a-zA-Z0-9_]*) *$/.exec(text_span);
     if (as_alias_match !== null) {
-        return {table_name: null, column_index: null, column_name: as_alias_match[3], is_star: false, is_alias: true};
+        return {table_name: null, column_index: null, column_name: null, is_star: false, alias_name: as_alias_match[3]};
     }
     if (simple_var_match !== null) {
         if (text_span == rbql_star_marker)
-            return {table_name: null, column_index: null, column_name: null, is_star: true, is_alias: false};
+            return {table_name: null, column_index: null, column_name: null, is_star: true, alias_name: null};
         if (text_span.startsWith('___RBQL_STRING_LITERAL'))
             return null;
         let match = /^([ab])([0-9]+)$/.exec(text_span);
         if (match !== null) {
-            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false, is_alias: false};
+            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false, alias_name: null};
         }
         // Some examples for this branch: NR, NF
-        return {table_name: null, column_index: null, column_name: text_span, is_star: false, is_alias: false};
+        return {table_name: null, column_index: null, column_name: text_span, is_star: false, alias_name: null};
     } else if (attribute_match !== null) {
         let table_name = attribute_match[1];
         let column_name = attribute_match[2];
         if (column_name == rbql_star_marker) {
-            return {table_name: table_name, column_index: null, column_name: null, is_star: true, is_alias: false};
+            return {table_name: table_name, column_index: null, column_name: null, is_star: true, alias_name: null};
         }
-        return {table_name: null, column_index: null, column_name: column_name, is_star: false, is_alias: false};
+        return {table_name: null, column_index: null, column_name: column_name, is_star: false, alias_name: null};
     } else if (subscript_int_match != null) {
         let table_name = subscript_int_match[1];
         let column_index = parseInt(subscript_int_match[2]) - 1;
-        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false, is_alias: false};
+        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false, alias_name: null};
     } else if (subscript_str_match != null) {
         let table_name = subscript_str_match[1];
         let replaced_string_literal_id = subscript_str_match[2];
@@ -161,7 +161,7 @@ function column_info_from_text_span(text_span, string_literals) {
             let quoted_column_name = string_literals[replaced_string_literal_id];
             let unquoted_column_name = unquote_string(quoted_column_name);
             if (unquoted_column_name !== null && unquoted_column_name !== undefined) {
-                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false, is_alias: false};
+                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false, alias_name: null};
             }
         }
     }
@@ -1259,8 +1259,8 @@ function generate_init_statements(query_text, variables_map, join_variables_map,
 
 
 function replace_star_count(aggregate_expression) {
-    var rgx = /(^|,) *COUNT\( *\* *\) *(?:$|(?=,))/ig;
-    var result = aggregate_expression.replace(rgx, '$1 COUNT(1)');
+    var rgx = /(?:(?<=^)|(?<=,)) *COUNT\( *\* *\)/ig;
+    var result = aggregate_expression.replace(rgx, ' COUNT(1)');
     return str_strip(result);
 }
 
@@ -1580,13 +1580,22 @@ function select_output_header(input_header, join_header, query_column_infos) {
     if (input_header === null) {
         assert(join_header === null);
     }
+    let query_has_star = false;
+    let query_has_column_alias = false;
+    for (let qci of query_column_infos) {
+        query_has_star = query_has_star || (qci !== null && qci.is_star);
+        query_has_column_alias = query_has_column_alias || (qci !== null && qci.alias_name !== null);
+    }
     if (input_header === null) {
-        for (let qci of query_column_infos) {
-            if (qci !== null && qci.is_alias) {
-                throw new RbqlParsingError(`Specifying column alias "AS ${qci.column_name}" is not allowed if input table has no header`);
-            }
+        if (query_has_star && query_has_column_alias) {
+            throw new RbqlParsingError('Using both * (star) and AS alias in the same query is not allowed for input tables without header');
         }
-        return null;
+        if (!query_has_column_alias) {
+            // Input table has no header and query has no aliases therefore the output table will be without header.
+            return null;
+        }
+        input_header = [];
+        join_header = [];
     }
     if (join_header === null) {
         // This means there is no JOIN table.
@@ -1607,6 +1616,8 @@ function select_output_header(input_header, join_header, query_column_infos) {
             }
         } else if (qci.column_name !== null) {
             output_header.push(qci.column_name);
+        } else if (qci.alias_name !== null) {
+            output_header.push(qci.alias_name);
         } else if (qci.column_index !== null) {
             if (qci.table_name == 'a' && qci.column_index < input_header.length) {
                 output_header.push(input_header[qci.column_index]);
