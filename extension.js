@@ -9,6 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 // FIXME add an updated README.md RBQL screenshot.
+// FIXME column info on hover is not colored again.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -68,6 +69,7 @@ let cursor_timeout_handle = null;
 
 let rainbow_token_event = null;
 let comment_token_event = null;
+let sticky_header_disposable = null;
 
 const DYNAMIC_CSV = 'dynamic csv';
 
@@ -271,6 +273,7 @@ class StickyHeaderProvider {
     async provideDocumentSymbols(document) {
         // FIXME early return or don't register povider at all if sticky setting is disabled to avoid showing annoying entry in the upper navig bar.
         // FIXME looks like this thing adds multiple entries into the navigation path last entry dropdown menu. Fix this.
+        // FIXME fix the logic - skip first comment lines until the actual header and correspondingly adjust the lineCount <= 2 condition.
         let [_delim, policy, _comment_prefix] = get_dialect(document);
         if (!policy) {
             return null;
@@ -283,6 +286,7 @@ class StickyHeaderProvider {
         let header_range = new vscode.Range(0, 0, 0, 65535);
         let symbol_kind = vscode.SymbolKind.File; // It is vscode.SymbolKind.File because it shows a nice "File" icon in the upper navigational panel. Another nice option is "Class".
         let header_symbol = new vscode.DocumentSymbol('data', '', symbol_kind, full_range, header_range);
+        // FIXME apparently this is called multiple times on file entry. Should probably be just once.
         console.log("Enabled sticky header for " + document.fileName); // FIXME delete this.
         return [header_symbol];
     }
@@ -291,6 +295,9 @@ class StickyHeaderProvider {
 
 function register_sticky_header_provider() {
     // FIXME consider early return if sticky header is disabled in the settings.
+    if (sticky_header_disposable !== null) {
+        return;
+    }
     let header_symbol_provider = new StickyHeaderProvider();
     let document_selector = [];
     for (let language_id in dialect_map) {
@@ -298,7 +305,7 @@ function register_sticky_header_provider() {
             document_selector.push({language: language_id});
         }
     }
-    vscode.languages.registerDocumentSymbolProvider(document_selector, header_symbol_provider);
+    sticky_header_disposable = vscode.languages.registerDocumentSymbolProvider(document_selector, header_symbol_provider);
 }
 
 
@@ -981,7 +988,6 @@ async function set_comment_prefix() {
         // Re-enable comment tokenization to explicitly adjust the comment highligthing (sometimes to disable it if comment prefix is set to an empty string).
         register_comment_tokenization_handler();
     }
-    register_sticky_header_provider();
 }
 
 
