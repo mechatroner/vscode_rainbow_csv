@@ -264,6 +264,38 @@ function show_status_bar_items(active_doc) {
 }
 
 
+class StickyHeaderProvider {
+    // We don't utilize typescript `implement` interface keyword, because TS doesn't seem to be exporting interfaces to JS (unlike classes).
+    constructor() {
+    }
+    async provideDocumentSymbols(document) {
+        let [_delim, policy, _comment_prefix] = get_dialect(document);
+        if (!policy) {
+            return null;
+        }
+        let invalid_range = new vscode.Range(0, 0, document.lineCount /* Intentionally missing the '-1' */, 0);
+        let full_range = document.validateRange(invalid_range);
+        let header_range = new vscode.Range(0, 0, 0, 65535);
+        let header_symbol = new vscode.DocumentSymbol('csv_header', '', vscode.SymbolKind.Method, full_range, header_range); // FIXME try to change to vscode.SymbolKind.Struct
+        console.log("Enabled sticky header for " + document.fileName);
+        return [header_symbol];
+    }
+}
+
+
+function register_sticky_header_provider() {
+    // FIXME consider early return if sticky header is disabled in the settings.
+    let header_symbol_provider = new StickyHeaderProvider();
+    let document_selector = [];
+    for (let language_id in dialect_map) {
+        if (dialect_map.hasOwnProperty(language_id)) {
+            document_selector.push({language: language_id});
+        }
+    }
+    vscode.languages.registerDocumentSymbolProvider(document_selector, header_symbol_provider);
+}
+
+
 function enable_dynamic_semantic_tokenization() {
     let token_provider = new RainbowTokenProvider();
     if (rainbow_token_event !== null) {
@@ -380,6 +412,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
+    register_sticky_header_provider();
     show_status_bar_items(active_doc);
     await csv_lint(active_doc, false);
 }
@@ -942,6 +975,7 @@ async function set_comment_prefix() {
         // Re-enable comment tokenization to explicitly adjust the comment highligthing (sometimes to disable it if comment prefix is set to an empty string).
         register_comment_tokenization_handler();
     }
+    register_sticky_header_provider();
 }
 
 
@@ -1529,9 +1563,9 @@ async function handle_doc_open(active_doc) {
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument again! The previous languageId is reset.
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
-    
+
     if (active_doc.uri.scheme != 'file' && active_doc.uri.scheme != 'untitled' && active_doc.uri.scheme != 'vscode-test-web') {
-        // Current document has unknown file scheme. One reason for this could be that it was created by another extension, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123 
+        // Current document has unknown file scheme. One reason for this could be that it was created by another extension, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123
         // "vscode-test-web" scheme is used for browser unit tests.
         return;
     }
