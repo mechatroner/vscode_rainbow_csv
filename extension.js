@@ -269,15 +269,21 @@ class StickyHeaderProvider {
     constructor() {
     }
     async provideDocumentSymbols(document) {
+        // FIXME early return or don't register povider at all if sticky setting is disabled to avoid showing annoying entry in the upper navig bar.
+        // FIXME looks like this thing adds multiple entries into the navigation path last entry dropdown menu. Fix this.
         let [_delim, policy, _comment_prefix] = get_dialect(document);
         if (!policy) {
+            return null;
+        }
+        if (document.lineCount <= 2) {
             return null;
         }
         let invalid_range = new vscode.Range(0, 0, document.lineCount /* Intentionally missing the '-1' */, 0);
         let full_range = document.validateRange(invalid_range);
         let header_range = new vscode.Range(0, 0, 0, 65535);
-        let header_symbol = new vscode.DocumentSymbol('csv_header', '', vscode.SymbolKind.Method, full_range, header_range); // FIXME try to change to vscode.SymbolKind.Struct
-        console.log("Enabled sticky header for " + document.fileName);
+        let symbol_kind = vscode.SymbolKind.File; // It is vscode.SymbolKind.File because it shows a nice "File" icon in the upper navigational panel. Another nice option is "Class".
+        let header_symbol = new vscode.DocumentSymbol('data', '', symbol_kind, full_range, header_range);
+        console.log("Enabled sticky header for " + document.fileName); // FIXME delete this.
         return [header_symbol];
     }
 }
