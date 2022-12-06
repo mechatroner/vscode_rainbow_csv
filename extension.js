@@ -209,7 +209,8 @@ function get_from_config(param_name, default_value, config=null) {
 
 
 function get_header_from_document(document, delim, policy, comment_prefix) {
-    let header_line = ll_rainbow_utils().get_header_line(document, comment_prefix);
+    // FIXME test what hapens if document has no header at all i.e. this function returns [null, null]
+    let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
     return csv_utils.smart_split(header_line, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0];
 }
 
@@ -271,23 +272,24 @@ class StickyHeaderProvider {
     constructor() {
     }
     async provideDocumentSymbols(document) {
+        // This can trigger multiple times for the same doc because otherwise this won't work in case of e.g. header edit.
         // FIXME early return or don't register povider at all if sticky setting is disabled to avoid showing annoying entry in the upper navig bar.
-        // FIXME looks like this thing adds multiple entries into the navigation path last entry dropdown menu. Fix this.
-        // FIXME fix the logic - skip first comment lines until the actual header and correspondingly adjust the lineCount <= 2 condition.
-        let [_delim, policy, _comment_prefix] = get_dialect(document);
+        let [_delim, policy, comment_prefix] = get_dialect(document);
         if (!policy) {
             return null;
         }
-        if (document.lineCount <= 2) {
+        let [header_lnum, _header_text] = ll_rainbow_utils().get_header_line(document, comment_prefix);
+        if (header_lnum === null || header_lnum >= document.lineCount - 1) {
             return null;
         }
-        let invalid_range = new vscode.Range(0, 0, document.lineCount /* Intentionally missing the '-1' */, 0);
-        let full_range = document.validateRange(invalid_range);
-        let header_range = new vscode.Range(0, 0, 0, 65535);
+        let full_range = new vscode.Range(header_lnum, 0, document.lineCount - 1, 65535);
+        full_range = document.validateRange(full_range); // Just in case, should be always NOOP.
+        let header_range = new vscode.Range(header_lnum, 0, header_lnum, 65535);
+        if (!full_range.contains(header_range)) {
+            return; // Should never happen.
+        }
         let symbol_kind = vscode.SymbolKind.File; // It is vscode.SymbolKind.File because it shows a nice "File" icon in the upper navigational panel. Another nice option is "Class".
         let header_symbol = new vscode.DocumentSymbol('data', '', symbol_kind, full_range, header_range);
-        // FIXME apparently this is called multiple times on file entry. Should probably be just once.
-        console.log("Enabled sticky header for " + document.fileName); // FIXME delete this.
         return [header_symbol];
     }
 }

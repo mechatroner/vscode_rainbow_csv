@@ -388,10 +388,10 @@ function get_header_line(document, comment_prefix) {
     for (let lnum = 0; lnum < num_lines; ++lnum) {
         const line_text = document.lineAt(lnum).text;
         if (!comment_prefix || !line_text.startsWith(comment_prefix)) {
-            return line_text;
+            return [lnum, line_text];
         }
     }
-    return null;
+    return [null, null];
 }
 
 
