@@ -9,7 +9,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 // FIXME add an updated README.md RBQL screenshot.
-// FIXME column info on hover is not colored again.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -527,6 +526,7 @@ function make_hover(document, language_id, position, cancellation_token) {
     if (language_id == DYNAMIC_CSV) {
         mds = short_report; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
     } else {
+        // TODO The syntax highlighting doesn't always work here, perhaps due to https://github.com/microsoft/vscode/issues/53723. Consider getting rid of it altogether.
         mds = new vscode.MarkdownString();
         mds.appendCodeblock(short_report, 'rainbow hover markup');
     }

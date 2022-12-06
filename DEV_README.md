@@ -146,6 +146,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Add `"csv (tab)"` alias to TSV language if/when https://github.com/microsoft/vscode/issues/167208 is resolved
 
+* Fix or consider getting rid of hover syntax highlighting, it doesn't always work perhaps due to https://github.com/microsoft/vscode/issues/53723.
+
 
 ## RFC Support plan
 We need:
