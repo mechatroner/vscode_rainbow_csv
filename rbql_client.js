@@ -296,7 +296,7 @@ function handle_message(msg_event) {
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
         }
-        global_header = message['header'];
+        global_header = message['header_for_ui'];
         is_web_ext = message['is_web_ext'];
         let with_headers = message['with_headers'];
         let header = with_headers ? global_header : null;
@@ -326,8 +326,8 @@ function handle_message(msg_event) {
     }
 
     if (message_type == 'fetch_table_header_response') {
-        if (adjust_join_table_header_callback && message['header']) {
-            adjust_join_table_header_callback(message['header']);
+        if (adjust_join_table_header_callback && message['header_for_ui']) {
+            adjust_join_table_header_callback(message['header_for_ui']);
         }
     }
 

@@ -210,13 +210,16 @@ function get_from_config(param_name, default_value, config=null) {
 function get_header_from_document(document, delim, policy, comment_prefix) {
     // FIXME test what hapens if document has no header at all i.e. this function returns [null, null]
     let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
+    if (!header_line) {
+        return null;
+    }
     return csv_utils.smart_split(header_line, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0];
 }
 
 
 function get_header(document, delim, policy, comment_prefix) {
     var file_path = document.fileName;
-    if (file_path) {
+    if (file_path && document.uri.scheme == 'file') {
         let raw_header = get_from_global_state(make_header_key(file_path), null);
         if (raw_header) {
             return JSON.parse(raw_header);
@@ -524,6 +527,9 @@ function make_hover(document, language_id, position, cancellation_token) {
         return null;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let header = get_header(document, delim, policy, comment_prefix);
+    if (!header) {
+        return null;
+    }
     let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/true, /*max_label_length=*/25);
     let mds = null;
     if (language_id == DYNAMIC_CSV) {
@@ -553,6 +559,8 @@ function show_column_info_button() {
         return false;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
     let header = get_header(active_doc, delim, policy, comment_prefix);
+    if (!header)
+        return false;
     let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
     do_show_column_info_button(full_report, short_report);
     return true;
@@ -891,7 +899,7 @@ async function set_header_line() {
         return;
     }
     let file_path = active_doc.fileName;
-    if (!file_path) {
+    if (!file_path || active_doc.uri.scheme != 'file') {
         show_single_line_error('Unable to set header line for non-file documents');
         return;
     }
@@ -1049,13 +1057,13 @@ async function set_virtual_header() {
         return;
     }
     var file_path = active_doc.fileName;
-    if (!file_path) {
+    if (!file_path || active_doc.uri.scheme != 'file') {
         show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
     var old_header = get_header(active_doc, delim, policy, comment_prefix);
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
-    var old_header_str = quoted_join(old_header, delim);
+    var old_header_str = old_header ? quoted_join(old_header, delim) : '';
     var input_box_props = {"prompt": title, "value": old_header_str};
     let raw_new_header = await vscode.window.showInputBox(input_box_props);
     if (!raw_new_header)
@@ -1238,7 +1246,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         init_msg['query_history'] = history_list;
         init_msg['policy'] = rbql_context.policy;
         init_msg['with_headers'] = rbql_context.with_headers;
-        init_msg['header'] = rbql_context.header;
+        init_msg['header_for_ui'] = rbql_context.header_for_ui;
         init_msg['is_web_ext'] = is_web_ext;
         if (integration_test_options) {
             init_msg['integration_test_language'] = integration_test_options.rbql_backend;
@@ -1259,9 +1267,12 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             if (!table_path)
                 return;
             let header_line = await ll_rainbow_utils().read_header(table_path, encoding);
+            if (!header_line) {
+                return;
+            }
             let [fields, warning] = csv_utils.smart_split(header_line, rbql_context.delim, rbql_context.policy, false);
             if (!warning) {
-                webview.postMessage({'msg_type': 'fetch_table_header_response', 'header': fields});
+                webview.postMessage({'msg_type': 'fetch_table_header_response', 'header_for_ui': fields});
             }
         } catch (e) {
             console.error('Unable to get join table header: ' + String(e));
@@ -1394,7 +1405,7 @@ async function edit_rbql(integration_test_options=null) {
     }
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
-    let header = get_header_from_document(active_doc, delim, policy, comment_prefix);
+    let header_for_ui = get_header_from_document(active_doc, delim, policy, comment_prefix);
     rbql_context = {
         "input_document": active_doc,
         "input_document_path": input_path,
@@ -1403,7 +1414,7 @@ async function edit_rbql(integration_test_options=null) {
         "policy": policy,
         "comment_prefix": comment_prefix,
         "with_headers": with_headers,
-        "header": header
+        "header_for_ui": header_for_ui
     };
 
     preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
