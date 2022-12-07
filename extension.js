@@ -272,7 +272,6 @@ class StickyHeaderProvider {
     }
     async provideDocumentSymbols(document) {
         // This can trigger multiple times for the same doc because otherwise this won't work in case of e.g. header edit.
-        // FIXME early return or don't register povider at all if sticky setting is disabled to avoid showing annoying entry in the upper navig bar.
         let [_delim, policy, comment_prefix] = get_dialect(document);
         if (!policy) {
             return null;
@@ -295,10 +294,14 @@ class StickyHeaderProvider {
 
 
 function register_sticky_header_provider() {
-    // FIXME consider early return if sticky header is disabled in the settings.
     if (sticky_header_disposable !== null) {
         return;
     }
+    let sticky_scroll_enabled = vscode.workspace.getConfiguration('editor.stickyScroll').get('enabled') === true;
+    if (!sticky_scroll_enabled) {
+        return; // Do not register symbol provider to avoid showing annoying entry in the upper navig bar and other possible side effects.
+    }
+
     let header_symbol_provider = new StickyHeaderProvider();
     let document_selector = [];
     for (let language_id in dialect_map) {
