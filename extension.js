@@ -208,7 +208,6 @@ function get_from_config(param_name, default_value, config=null) {
 
 
 function get_header_from_document(document, delim, policy, comment_prefix) {
-    // FIXME test what hapens if document has no header at all i.e. this function returns [null, null]
     let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
     if (!header_line) {
         return null;
@@ -300,7 +299,8 @@ function register_sticky_header_provider() {
     if (sticky_header_disposable !== null) {
         return;
     }
-    let sticky_scroll_enabled = vscode.workspace.getConfiguration('editor.stickyScroll').get('enabled') === true;
+    // TODO consider enabling the provider unconditionally, consider checking all supported languages and not just csv.
+    let sticky_scroll_enabled = vscode.workspace.getConfiguration('editor.stickyScroll').get('enabled') === true || vscode.workspace.getConfiguration('editor.stickyScroll', {languageId : 'csv'}).get('enabled') === true;
     if (!sticky_scroll_enabled) {
         return; // Do not register symbol provider to avoid showing annoying entry in the upper navig bar and other possible side effects.
     }
