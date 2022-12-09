@@ -3,11 +3,11 @@
 ## Main Features
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Transform and filter tables using built-in SQL-like query language.
+* Fixed sticky header line (optional).
 * Provide info about column on hover.
 * Automatic consistency check for csv files (CSVLint).
-* Multi-cursor column edit.
 * Align columns with spaces and Shrink (trim spaces from fields).
-* Fixed sticky header line (optional).
+* Multi-cursor column edit.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
 ![screenshot](https://i.imgur.com/6eJqeUN.png)

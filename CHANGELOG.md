@@ -1,4 +1,7 @@
 # Rainbow CSV for Visual Studio Code Change Log
+## 3.5.0
+* Add Fixed Sticky Header support. Proposed by @BeneKenobi, see [#124](https://github.com/mechatroner/vscode_rainbow_csv/issues/124).
+* Minor fixes.
 
 ## 3.4.0
 * Fix minor interoperability issue with other extensions (additional autodetection check, see [#123](https://github.com/mechatroner/vscode_rainbow_csv/issues/123)).
