@@ -10,7 +10,7 @@
 * Multi-cursor column edit.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
-![screenshot](https://i.imgur.com/6eJqeUN.png)
+![screenshot](https://i.imgur.com/ryjBI1R.png)
 
 ## Usage
 
