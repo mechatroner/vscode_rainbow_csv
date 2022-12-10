@@ -148,6 +148,8 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Fix or consider getting rid of hover syntax highlighting, it doesn't always work perhaps due to https://github.com/microsoft/vscode/issues/53723.
 
+* Fix sticky header for 'Set Header Line' command case.
+
 
 ## RFC Support plan
 We need:
