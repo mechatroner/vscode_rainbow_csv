@@ -93,6 +93,17 @@ Unlike vsce publishing for the official Microsoft VSCode marketplace, ovsx tool 
 
 See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
 
+
+### Testing for remote development
+1. Install code on the remote machine. Note: In my case "snap" installation didn't work, but the deb package worked without issues.
+2. Run `code tunnel`, see more here: https://code.visualstudio.com/docs/remote/tunnels#_using-the-code-cli
+3. Access the link from the browser or through the desktop VSCode app using `Remote - Tunnels` extension https://code.visualstudio.com/blogs/2022/12/07/remote-even-better
+   Enter `Remote - Tunnels: Connect to Tunnel` command in the pallete.
+
+
+
+
+
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
