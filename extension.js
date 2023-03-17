@@ -1593,7 +1593,7 @@ async function handle_doc_open(active_doc) {
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
     // We got an invalid document object, processing will lead to null access errors below
-    if (active_doc === undefined || active_doc.uri === undefined) {
+    if (!active_doc || !active_doc.uri) {
         return;
     }
 
