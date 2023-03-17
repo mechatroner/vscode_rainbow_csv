@@ -1592,6 +1592,11 @@ async function handle_doc_open(active_doc) {
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
+    // We got an invalid document object, processing will lead to null access errors below
+    if (active_doc === undefined || active_doc.uri === undefined) {
+        return;
+    }
+
     if (active_doc.uri.scheme != 'file' && active_doc.uri.scheme != 'untitled' && active_doc.uri.scheme != 'vscode-test-web') {
         // Current document has unknown file scheme. One reason for this could be that it was created by another extension, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123
         // "vscode-test-web" scheme is used for browser unit tests.
