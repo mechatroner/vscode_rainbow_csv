@@ -8,7 +8,6 @@ const child_process = require('child_process');
 const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
-// FIXME add an updated README.md RBQL screenshot.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
