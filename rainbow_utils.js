@@ -186,7 +186,7 @@ function adjust_column_stats(column_stats, delim_length) {
 function align_field(field, is_first_record, max_field_components_lens) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     field = field.trim();
-    let visual_field_length = max_field_components_lens.has_wide_chars ? wcwidth.wcwidth(field) : field.length;
+    let visual_field_length = max_field_components_lens.has_wide_chars ? wcwidth(field) : field.length;
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
         let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
         return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
