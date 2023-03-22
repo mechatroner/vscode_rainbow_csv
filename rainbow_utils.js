@@ -8,6 +8,9 @@ const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 const fast_load_utils = require('./fast_load_utils.js');
 
+// FIXME optimize and make sure this works in web.
+const wcwidth = require('./contrib/wcwidth/index.js');
+
 const non_numeric_sentinel = -1;
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
@@ -67,9 +70,11 @@ function get_default_python_udf_content() {
 }
 
 
-function update_subcomponent_stats(field, is_first_record, max_field_components_lens) {
+function update_subcomponent_stats(field, is_first_record, max_field_components_lens, calc_visual_char_width) {
     // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
-    max_field_components_lens.max_total_length = Math.max(max_field_components_lens.max_total_length, field.length);
+    let visual_field_length = calc_visual_char_width ? wcwidth(field) : field.length;
+    max_field_components_lens.has_wide_chars = max_field_components_lens.has_wide_chars || visual_field_length != field.length;
+    max_field_components_lens.max_total_length = Math.max(max_field_components_lens.max_total_length, visual_field_length);
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
         // Column is not a number, early return.
         return;
@@ -106,6 +111,11 @@ function get_cursor_position_if_unambiguous(active_editor) {
 }
 
 
+function is_ascii(src_str) {
+    return /^[\x00-\x7F]*$/.test(src_str);
+}
+
+
 function calc_column_stats(active_doc, delim, policy, comment_prefix) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
@@ -113,12 +123,16 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
     }
     let column_stats = [];
     let is_first_record = true;
+    let calc_visual_char_width = false; // FIXME consider having this var per-column if stat calculation is not o(alignment).
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (column_stats.length <= fnum) {
-                column_stats.push({max_total_length: 0, max_int_length: 0, max_fractional_length: 0});
+                column_stats.push({max_total_length: 0, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
             }
             let field = record[fnum];
+            if (!calc_visual_char_width) {
+                calc_visual_char_width = !is_ascii(field);
+            }
             let field_lines = field.split('\n');
             if (field_lines.length > 1) {
                 // We don't allow multiline fields to be numeric for simplicity.
@@ -126,7 +140,7 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
                 column_stats[fnum].max_fractional_length = non_numeric_sentinel;
             }
             for (let field_line of field_lines) {
-                update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum]);
+                update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum], calc_visual_char_width);
             }
         }
         is_first_record = false;
@@ -172,14 +186,15 @@ function adjust_column_stats(column_stats, delim_length) {
 function align_field(field, is_first_record, max_field_components_lens) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     field = field.trim();
+    let visual_field_length = max_field_components_lens.has_wide_chars ? wcwidth.wcwidth(field) : field.length;
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
-        let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
+        let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
         return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
     }
     if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
-            let delta_length = Math.max(max_field_components_lens.max_total_length - field.length, 0);
+            let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
             return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
         }
     }
