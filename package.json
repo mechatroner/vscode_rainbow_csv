@@ -78,6 +78,11 @@
                     "default": true,
                     "description": "Show column names in tooltip"
                 },
+                "rainbow_csv.double_width_alignment": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "If enabled treat double width unicode chars e.g. Chinese or Japanese chars as double wide when aligning."
+                },
                 "rainbow_csv.rbql_with_headers_by_default": {
                     "type": "boolean",
                     "default": false,

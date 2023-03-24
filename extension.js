@@ -1157,7 +1157,8 @@ async function align_table() {
     await vscode.window.withProgress(progress_options, async (progress) => {
         progress.report({message: 'Calculating column statistics'});
         await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix);
+        let double_width_alignment = get_from_config('double_width_alignment', true);
+        let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
         if (first_failed_line) {
             show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
             return;

@@ -116,7 +116,7 @@ function is_ascii(src_str) {
 }
 
 
-function calc_column_stats(active_doc, delim, policy, comment_prefix) {
+function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_double_width_alignment) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
         return [null, first_defective_line + 1, null, null];
@@ -130,7 +130,7 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix) {
                 column_stats.push({max_total_length: 0, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
             }
             let field = record[fnum];
-            if (!calc_visual_char_width) {
+            if (!calc_visual_char_width && enable_double_width_alignment) {
                 calc_visual_char_width = !is_ascii(field);
             }
             let field_lines = field.split('\n');
@@ -218,10 +218,6 @@ function rfc_align_field(field, is_first_record, max_field_components_lens, is_f
 }
 
 
-function strip_trailing_spaces(src) {
-    return src.replace(new RegExp(/  *$/, 'mg'), '');
-}
-
 class RecordCommentMerger {
     constructor(records, comments) {
         this.records = records;
@@ -283,7 +279,7 @@ function align_columns(records, comments, column_stats, delim) {
             let field_lines = field.split('\n');
             for (let i = 0; i < field_lines.length; i++) {
                 if (i > 0) {
-                    result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
+                    result_lines.push(aligned_fields.join(delim));
                     aligned_fields = [];
                     is_field_segment = true;
                 }
@@ -293,7 +289,7 @@ function align_columns(records, comments, column_stats, delim) {
             }
         }
         is_first_record = false;
-        result_lines.push(strip_trailing_spaces(aligned_fields.join(delim)));
+        result_lines.push(aligned_fields.join(delim));
     }
     return result_lines.join('\n');
 }
