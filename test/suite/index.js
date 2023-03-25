@@ -264,6 +264,33 @@ async function test_rbql_web(workspace_folder_uri) {
 }
 
 
+async function test_double_width_chars_alignment(workspace_folder_uri) {
+    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'double_width_chars.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    let length_original = active_doc.getText().length;
+    log_message(`Original length: ${length_original}`)
+    assert.equal(274, length_original);
+    await sleep(2000);
+
+    await vscode.commands.executeCommand('rainbow-csv.Align');
+    let length_aligned = active_doc.getText().length;
+    log_message(`Aligned length: ${length_aligned}`)
+    assert.equal(461, length_aligned);
+    assert(length_aligned > length_original);
+    let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
+    assert(lint_report.is_ok);
+    await sleep(2000);
+
+    await vscode.commands.executeCommand('rainbow-csv.Shrink');
+    let length_shrinked = active_doc.getText().length;
+    log_message(`Shrinked length: ${length_shrinked}`)
+    // This is to ensure that after original -> align -> shrink sequence we get back to original doc.
+    assert.equal(length_original, length_shrinked);
+    await sleep(500);
+}
+
+
 async function test_align_shrink_lint(workspace_folder_uri) {
     let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -903,6 +930,7 @@ async function run() {
         }
 
         await test_align_shrink_lint(workspace_folder_uri);
+        await test_double_width_chars_alignment(workspace_folder_uri);
         await test_column_edit(workspace_folder_uri);
 
         log_message('Finishing tests');
