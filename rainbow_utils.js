@@ -8,7 +8,6 @@ const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 const fast_load_utils = require('./fast_load_utils.js');
 
-// FIXME optimize and make sure this works in web.
 const wcwidth = require('./contrib/wcwidth/index.js');
 
 const non_numeric_sentinel = -1;
@@ -123,7 +122,7 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
     }
     let column_stats = [];
     let is_first_record = true;
-    let calc_visual_char_width = false; // FIXME consider having this var per-column if stat calculation is not o(alignment).
+    let calc_visual_char_width = false;
     for (let record of records) {
         for (let fnum = 0; fnum < record.length; fnum++) {
             if (column_stats.length <= fnum) {
@@ -183,19 +182,19 @@ function adjust_column_stats(column_stats, delim_length) {
 }
 
 
-function align_field(field, is_first_record, max_field_components_lens) {
+function align_field(field, is_first_record, max_field_components_lens, is_last_in_line) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     field = field.trim();
     let visual_field_length = max_field_components_lens.has_wide_chars ? wcwidth(field) : field.length;
     if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
         let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
-        return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+        return is_last_in_line ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
     }
     if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
             let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
-            return field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+            return is_last_in_line ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
         }
     }
     let dot_pos = field.indexOf('.');
@@ -204,13 +203,13 @@ function align_field(field, is_first_record, max_field_components_lens) {
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
     let integer_delta_length = Math.max(max_field_components_lens.max_int_length - cur_integer_part_length, 0);
     let fractional_delta_length = Math.max(max_field_components_lens.max_fractional_length - cur_fractional_part_length);
-    let trailing_spaces = ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
+    let trailing_spaces = is_last_in_line ? '' : ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
     return ' '.repeat(integer_delta_length) + field + trailing_spaces;
 }
 
 
-function rfc_align_field(field, is_first_record, max_field_components_lens, is_field_segment) {
-    let aligned = align_field(field, is_first_record, max_field_components_lens);
+function rfc_align_field(field, is_first_record, max_field_components_lens, is_field_segment, is_last_in_line) {
+    let aligned = align_field(field, is_first_record, max_field_components_lens, is_last_in_line);
     if (is_field_segment) {
         aligned = ' '.repeat(max_field_components_lens.start_offset) + aligned;
     }
@@ -283,7 +282,8 @@ function align_columns(records, comments, column_stats, delim) {
                     aligned_fields = [];
                     is_field_segment = true;
                 }
-                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment);
+                let is_last_in_line = fnum + 1 == record.length || (field_lines.length > 1 && i + 1 < field_lines.length);
+                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
                 is_field_segment = false;
                 aligned_fields.push(aligned_field);
             }
