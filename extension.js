@@ -157,7 +157,9 @@ function sleep(ms) {
 }
 
 
-async function push_current_stack_to_js_callback_queue_to_allow_ui_update() {
+async function report_progress(progress, status_message) {
+    progress.report({message: status_message});
+    // Push the current stack to the JS callback queue to allow UI update.
     await sleep(0);
 }
 
@@ -1121,8 +1123,7 @@ async function shrink_table() {
     }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
-        progress.report({message: 'Preparing'});
-        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await report_progress(progress, 'Preparing');
         let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy, comment_prefix);
         if (first_failed_line) {
             show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
@@ -1134,8 +1135,7 @@ async function shrink_table() {
             vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
             return;
         }
-        progress.report({message: 'Shrinking columns'});
-        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await report_progress(progress, 'Shrinking columns');
         await replace_doc_content(active_editor, active_doc, shrinked_doc_text);
     });
 }
@@ -1155,8 +1155,7 @@ async function align_table() {
     }
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
-        progress.report({message: 'Calculating column statistics'});
-        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await report_progress(progress, 'Calculating column statistics');
         let double_width_alignment = get_from_config('double_width_alignment', true);
         let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
         if (first_failed_line) {
@@ -1168,15 +1167,23 @@ async function align_table() {
             show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
             return;
         }
-        progress.report({message: 'Preparing final alignment'});
-        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
+        await report_progress(progress, 'Preparing final alignment');
         let aligned_doc_text = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
-        aligned_files.add(active_doc.fileName);
-        show_align_shrink_button(active_doc.fileName);
-        // The last stage of actually applying the edits takes almost 80% of the whole alignment runtime.
-        progress.report({message: 'Aligning columns'});
-        await push_current_stack_to_js_callback_queue_to_allow_ui_update();
-        await replace_doc_content(active_editor, active_doc, aligned_doc_text);
+
+        await report_progress(progress, 'Aligning columns');
+        let align_in_scratch_file = get_from_config('align_in_scratch_file', false);
+        let is_scratch_file = active_doc.uri && active_doc.uri.scheme == 'untitled';
+        if (align_in_scratch_file && !is_scratch_file) {
+            let aligned_doc_cfg = {content: aligned_doc_text, language: language_id};
+            let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
+            aligned_files.add(scratch_doc.fileName);
+            await vscode.window.showTextDocument(scratch_doc);
+            show_align_shrink_button(scratch_doc.fileName); // This is likely redundant but won't hurt.
+        } else {
+            await replace_doc_content(active_editor, active_doc, aligned_doc_text);
+            aligned_files.add(active_doc.fileName);
+            show_align_shrink_button(active_doc.fileName);
+        }
     });
 }
 
