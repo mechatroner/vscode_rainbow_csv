@@ -191,7 +191,7 @@ async function replace_doc_content(active_editor, active_doc, new_content) {
 
 
 function make_header_key(file_path) {
-    return 'rbql_header:' + file_path;
+    return 'rbql_header_info:' + file_path;
 }
 
 
@@ -220,9 +220,9 @@ function get_header_from_document(document, delim, policy, comment_prefix) {
 function get_header(document, delim, policy, comment_prefix) {
     var file_path = document.fileName;
     if (file_path && document.uri.scheme == 'file') {
-        let raw_header = get_from_global_state(make_header_key(file_path), null);
-        if (raw_header) {
-            return JSON.parse(raw_header);
+        let header_info = get_from_global_state(make_header_key(file_path), null);
+        if (header_info !== null && header_info.header !== null) {
+            return header_info.header;
         }
     }
     return get_header_from_document(document, delim, policy, comment_prefix);
@@ -279,7 +279,19 @@ class StickyHeaderProvider {
         if (!policy) {
             return null;
         }
-        let [header_lnum, _header_text] = ll_rainbow_utils().get_header_line(document, comment_prefix);
+        let header_lnum = null;
+        var file_path = document.fileName;
+        if (file_path && document.uri.scheme == 'file') {
+            // FIXME check that this works in browser.
+            let header_info = get_from_global_state(make_header_key(file_path), null);
+            if (header_info !== null && header_info.header_line_num !== null) {
+                header_lnum = header_info.header_line_num;
+            }
+        }
+
+        if (header_lnum === null) {
+            header_lnum = ll_rainbow_utils().get_header_line(document, comment_prefix)[0];
+        }
         if (header_lnum === null || header_lnum >= document.lineCount - 1) {
             return null;
         }
@@ -296,9 +308,13 @@ class StickyHeaderProvider {
 }
 
 
-function register_sticky_header_provider() {
+function register_sticky_header_provider(force=false) {
     if (sticky_header_disposable !== null) {
-        return;
+        if (force) {
+            sticky_header_disposable.dispose();
+        } else {
+            return;
+        }
     }
     // TODO consider enabling the provider unconditionally, consider checking all supported languages and not just csv.
     let sticky_scroll_enabled = vscode.workspace.getConfiguration('editor.stickyScroll').get('enabled') === true || vscode.workspace.getConfiguration('editor.stickyScroll', {languageId : 'csv'}).get('enabled') === true;
@@ -905,10 +921,18 @@ async function set_header_line() {
         return;
     }
     let selection = active_editor.selection;
-    let raw_header = active_doc.lineAt(selection.start.line).text;
-
+    let header_line = selection.start.line;
+    let raw_header = active_doc.lineAt(header_line).text;
     let header = csv_utils.smart_split(raw_header, delim, policy, false)[0];
-    await save_to_global_state(make_header_key(file_path), JSON.stringify(header));
+
+    // The advantage of saving the parsed list of column names is that it would stay consistent even if some lines are added/deleted before the header line (line migration).
+    // The advantage of saving the line number is that it is resilient to modifications of header line itself.
+    // It is also possible to verify consistency of header line and header column names and return null if they are inconsistent and return null.
+    // But discarding the inconsistent header line is probably not very obvious and user-friendly way of handling this.
+    // Showing the inconsistent header is probably better since these column names are only used for UI/readability and a wrong sticky line obviously hints on what happened and how to fix it, while a suddenly disappeared sticky line could be seen as a bug.
+    await save_to_global_state(make_header_key(file_path), {header_line_num: header_line, header: header});
+    // Re-register sticky header provider because otherwise it won't re-generate the symbols unless there were no edits to the file.
+    register_sticky_header_provider(/*force=*/true)
 }
 
 
@@ -1070,7 +1094,7 @@ async function set_virtual_header() {
     if (!raw_new_header)
         return; // User pressed Esc and closed the input box.
     let new_header = csv_utils.smart_split(raw_new_header, delim, policy, false)[0];
-    await save_to_global_state(make_header_key(file_path), JSON.stringify(new_header));
+    await save_to_global_state(make_header_key(file_path), {header_line_num: null, header: new_header});
 }
 
 
