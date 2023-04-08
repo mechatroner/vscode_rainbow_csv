@@ -219,7 +219,7 @@ function get_header_from_document(document, delim, policy, comment_prefix) {
 
 function get_header(document, delim, policy, comment_prefix) {
     var file_path = document.fileName;
-    if (file_path && document.uri.scheme == 'file') {
+    if (file_path) {
         let header_info = get_from_global_state(make_header_key(file_path), null);
         if (header_info !== null && header_info.header !== null) {
             return header_info.header;
@@ -281,8 +281,7 @@ class StickyHeaderProvider {
         }
         let header_lnum = null;
         var file_path = document.fileName;
-        if (file_path && document.uri.scheme == 'file') {
-            // FIXME check that this works in browser.
+        if (file_path) {
             let header_info = get_from_global_state(make_header_key(file_path), null);
             if (header_info !== null && header_info.header_line_num !== null) {
                 header_lnum = header_info.header_line_num;
@@ -916,7 +915,7 @@ async function set_header_line() {
         return;
     }
     let file_path = active_doc.fileName;
-    if (!file_path || active_doc.uri.scheme != 'file') {
+    if (!file_path) {
         show_single_line_error('Unable to set header line for non-file documents');
         return;
     }
@@ -932,7 +931,7 @@ async function set_header_line() {
     // Showing the inconsistent header is probably better since these column names are only used for UI/readability and a wrong sticky line obviously hints on what happened and how to fix it, while a suddenly disappeared sticky line could be seen as a bug.
     await save_to_global_state(make_header_key(file_path), {header_line_num: header_line, header: header});
     // Re-register sticky header provider because otherwise it won't re-generate the symbols unless there were no edits to the file.
-    register_sticky_header_provider(/*force=*/true)
+    register_sticky_header_provider(/*force=*/true);
 }
 
 
@@ -1082,7 +1081,7 @@ async function set_virtual_header() {
         return;
     }
     var file_path = active_doc.fileName;
-    if (!file_path || active_doc.uri.scheme != 'file') {
+    if (!file_path) {
         show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
