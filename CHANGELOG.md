@@ -1,4 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
+
+## 3.7.0
+* Add config option to align in a new file, see [#62](https://github.com/mechatroner/vscode_rainbow_csv/issues/62).
+* Other minor fixes and improvements.
+
 ## 3.6.0
 * Improve CSV alignment for files containing double-width characters e.g. Chinese or Japanese characters.
 * Fix performance bug in CSV alignment procedure - alignment should work noticeable faster for large files.

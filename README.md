@@ -99,7 +99,8 @@ To allow CSVLint, content-based autodetection algorithms, and _Align_, _Shrink_,
 
 
 #### Aligning/Shrinking table
-You can align columns in CSV files by clicking "Align" status-line button or using _Align_ command  
+You can align columns in CSV files by clicking "Align" status-line button or using _Align_ command.  
+To avoid modifying the original file you can configure the extension to align in a temp scratch file instead.  
 To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink" status-line button or use _Shrink_ command  
 
 
