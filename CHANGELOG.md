@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.7.1
+* Update RBQL: Fix GROUP BY queries with bare columns, see [#144](https://github.com/mechatroner/vscode_rainbow_csv/issues/144)
+
 ## 3.7.0
 * Add config option to align in a new file, see [#62](https://github.com/mechatroner/vscode_rainbow_csv/issues/62).
 * Other minor fixes and improvements.
