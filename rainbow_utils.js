@@ -987,7 +987,6 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
         lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${lint_report.first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
         extension_context.lint_status_bar_button.color = COLOR_WARNING;
         extension_context.lint_status_bar_button.text = '$(alert) CSVLint';
-        
     } else {
         assert(lint_report.is_ok);
         extension_context.lint_status_bar_button.color = COLOR_OK;
