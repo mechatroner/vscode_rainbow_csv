@@ -942,32 +942,56 @@ function sample_preview_records_from_context(rbql_context, dst_message, preview_
     dst_message.actual_start_record = rbql_context.requested_start_record;
 }
 
-
 function show_lint_status_bar_button(vscode, extension_context, file_path, language_id) {
+
+    const COLOR_PROCESSING = '#A0A0A0';
+    const COLOR_ERROR      = '#f44242';
+    const COLOR_WARNING    = '#ffff28';
+    const COLOR_OK         = '#62f442';
+
     let lint_cache_key = `${file_path}.${language_id}`;
-    if (!extension_context.lint_results.has(lint_cache_key))
-        return;
+
+    if (!extension_context.lint_results.has(lint_cache_key)){
+      return;
+    }
+
     var lint_report = extension_context.lint_results.get(lint_cache_key);
-    if (!extension_context.lint_status_bar_button)
-        extension_context.lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+
+    if (!extension_context.lint_status_bar_button){
+      extension_context.lint_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    }
+
     extension_context.lint_status_bar_button.text = 'CSVLint';
     let lint_report_msg = '';
     if (lint_report.is_processing) {
-        extension_context.lint_status_bar_button.color = '#A0A0A0';
+
+        extension_context.lint_status_bar_button.color = COLOR_PROCESSING;
+        extension_context.lint_status_bar_button.text = '$(clock) CSVLint';
         lint_report_msg = 'Processing';
+
     } else if (Number.isInteger(lint_report.first_defective_line)) {
+
         lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
-        extension_context.lint_status_bar_button.color = '#f44242';
+        extension_context.lint_status_bar_button.color = COLOR_ERROR;
+        extension_context.lint_status_bar_button.text = '$(error) CSVLint';
+
     } else if (lint_report.fields_info && lint_report.fields_info.size > 1) {
+
         let [record_num_1, num_fields_1, record_num_2, num_fields_2] = rbql.sample_first_two_inconsistent_records(lint_report.fields_info);
         lint_report_msg = `Error. Number of fields is not consistent: e.g. record ${record_num_1 + 1} has ${num_fields_1} fields, and record ${record_num_2 + 1} has ${num_fields_2} fields`;
-        extension_context.lint_status_bar_button.color = '#f44242';
+        extension_context.lint_status_bar_button.color = COLOR_ERROR;
+        extension_context.lint_status_bar_button.text = '$(error) CSVLint';
+
     } else if (Number.isInteger(lint_report.first_trailing_space_line)) {
+
         lint_report_msg = `Leading/Trailing spaces detected: e.g. at line ${lint_report.first_trailing_space_line + 1}. Run "Shrink" command to remove them`;
-        extension_context.lint_status_bar_button.color = '#ffff28';
+        extension_context.lint_status_bar_button.color = COLOR_WARNING;
+        extension_context.lint_status_bar_button.text = '$(alert) CSVLint';
+        
     } else {
         assert(lint_report.is_ok);
-        extension_context.lint_status_bar_button.color = '#62f442';
+        extension_context.lint_status_bar_button.color = COLOR_OK;
+        extension_context.lint_status_bar_button.text = '$(pass) CSVLint';
         lint_report_msg = 'OK';
     }
     extension_context.lint_status_bar_button.tooltip = lint_report_msg + '\nClick to recheck';
