@@ -27,6 +27,13 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
+// FIXME test new CSVLint icons (all states).
+// FIXME merge ANY_VALUE from RBQL.
+// FIXME Add "Rainbow On".
+// FIXME Start RBQL with python3 first and switch to python on failure.
+// FIXME Add uppercase CSV handling.
+// FIXME Add a way to separate output directory setting for different systems.
+
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 const preview_window_size = 100;

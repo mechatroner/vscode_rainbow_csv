@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.8.0
+* UI improvement: Better "CSVLint" status button by [@kostasx](https://github.com/kostasx).
+
 ## 3.7.1
 * Update RBQL: Fix GROUP BY queries with bare columns, see [#144](https://github.com/mechatroner/vscode_rainbow_csv/issues/144)
 
