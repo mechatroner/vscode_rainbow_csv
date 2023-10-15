@@ -28,7 +28,8 @@ function ll_rainbow_utils() {
 }
 
 // FIXME test new CSVLint icons (all states).
-// FIXME merge ANY_VALUE from RBQL.
+// FIXME Test ANY_VALUE aggregate function.
+// FIXME Test built-in RBQL html help.
 // FIXME Add "Rainbow On".
 // FIXME Start RBQL with python3 first and switch to python on failure.
 // FIXME Add uppercase CSV handling.

@@ -19,7 +19,7 @@ Matrix of data formats that RBQL supports out of the box. R=Read, W=Write
 |Pandas dataframe       | **RW**   |         |
 |Sqlite databases       | **R**    |         |
 
-If you use RBQL as a library you can write implementation for a couple of classes to support additional formats.  
+If you use RBQL as a library it is possible to support additional formats with some customizations.  
 
 ### Main Features
 
@@ -84,7 +84,7 @@ _UPDATE_ query produces a new table where original values are replaced according
 ### Aggregate functions and queries
 
 RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:  
-_COUNT_, _ARRAY_AGG_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_  
+_COUNT_, _ARRAY_AGG_, _MIN_, _MAX_, _ANY_VALUE_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_  
 
 Limitation: aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.  
 E.g. `MAX(float(a1) / 1000)` - valid; `MAX(a1) / 1000` - invalid.  

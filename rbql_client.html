@@ -499,7 +499,7 @@ table th:first-child, table td:first-child {
         <li>Use Python or JavaScript expressions inside <em>SELECT</em>, <em>UPDATE</em>, <em>WHERE</em> and <em>ORDER BY</em> statements</li>
         <li>Supports multiple input formats</li>
         <li>Result set of any query immediately becomes a first-class table on its own</li>
-        <li>No need to provide FROM statement in the query - input table is defined by the current context</li>
+        <li>No need to provide FROM statement in the query when the input table is defined by the current context.</li>
         <li>Supports all main SQL keywords</li>
         <li>Supports aggregate functions and GROUP BY queries</li>
         <li>Supports user-defined functions (UDF)</li>
@@ -522,6 +522,7 @@ table th:first-child, table td:first-child {
         <li>GROUP BY</li>
         <li>TOP <em>N</em></li>
         <li>LIMIT <em>N</em></li>
+        <li>AS</li>
         </ul>
         <p>All keywords have the same meaning as in SQL queries. You can check them <a href="https://www.w3schools.com/sql/default.asp">online</a>  </p>
         <h3 id="rbql-variables">RBQL variables</h3>
@@ -547,18 +548,18 @@ table th:first-child, table td:first-child {
         Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the header</li>
         </ul>
         <h3 id="update-statement">UPDATE statement</h3>
-        <p><em>UPDATE</em> query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query. This prevents accidental data loss from poorly written queries.  <br />
-        <em>UPDATE SET</em> is synonym to <em>UPDATE</em>, because in RBQL there is no need to specify the source table.  </p>
+        <p><em>UPDATE</em> query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query.</p>
         <h3 id="aggregate-functions-and-queries">Aggregate functions and queries</h3>
         <p>RBQL supports the following aggregate functions, which can also be used with <em>GROUP BY</em> keyword:  <br />
-        <em>COUNT</em>, <em>ARRAY_AGG</em>, <em>MIN</em>, <em>MAX</em>, <em>SUM</em>, <em>AVG</em>, <em>VARIANCE</em>, <em>MEDIAN</em>  </p>
+        <em>COUNT</em>, <em>ARRAY_AGG</em>, <em>MIN</em>, <em>MAX</em>, <em>ANY_VALUE</em>, <em>SUM</em>, <em>AVG</em>, <em>VARIANCE</em>, <em>MEDIAN</em>  </p>
         <p>Limitation: aggregate functions inside Python (or JS) expressions are not supported. Although you can use expressions inside aggregate functions.  <br />
         E.g. <code>MAX(float(a1) / 1000)</code> - valid; <code>MAX(a1) / 1000</code> - invalid.  <br />
         There is a workaround for the limitation above for <em>ARRAY_AGG</em> function which supports an optional parameter - a callback function that can do something with the aggregated array. Example:  <br />
-        <code>select a2, ARRAY_AGG(a1, lambda v: sorted(v)[:5]) group by a2</code> - Python; <code>select a2, ARRAY_AGG(a1, v =&gt; v.sort().slice(0, 5)) group by a2</code> - JS</p>
+        <code>SELECT a2, ARRAY_AGG(a1, lambda v: sorted(v)[:5]) GROUP BY a2</code> - Python; <code>SELECT a2, ARRAY_AGG(a1, v =&gt; v.sort().slice(0, 5)) GROUP BY a2</code> - JS</p>
         <h3 id="join-statements">JOIN statements</h3>
         <p>Join table B can be referenced either by its file path or by its name - an arbitrary string which the user should provide before executing the JOIN query.  <br />
         RBQL supports <em>STRICT LEFT JOIN</em> which is like <em>LEFT JOIN</em>, but generates an error if any key in the left table "A" doesn't have exactly one matching key in the right table "B".  <br />
+        Table B path can be either relative to the working dir, relative to the main table or absolute.  <br />
         Limitation: <em>JOIN</em> statements can't contain Python/JS expressions and must have the following form: <em><JOIN_KEYWORD> (/path/to/table.tsv | table_name ) ON a… == b… [AND a… == b… [AND … ]]</em></p>
         <h3 id="select-except-statement">SELECT EXCEPT statement</h3>
         <p>SELECT EXCEPT can be used to select everything except specific columns. E.g. to select everything but columns 2 and 4, run: <code>SELECT * EXCEPT a2, a4</code>  <br />
@@ -583,26 +584,28 @@ table th:first-child, table td:first-child {
         <h2 id="examples-of-rbql-queries">Examples of RBQL queries</h2>
         <h4 id="with-python-expressions">With Python expressions</h4>
         <ul>
-        <li><code>select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2) desc</code></li>
-        <li><code>select * order by random.random()</code> - random sort</li>
-        <li><code>select len(a.vehicle_price) / 10, a2 where int(a.vehicle_price) &lt; 500 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20</code> - referencing columns by names from header and using Python's "in" to emulate SQL's "in"</li>
-        <li><code>update set a3 = 'NPC' where a3.find('Non-playable character') != -1</code></li>
-        <li><code>select NR, *</code> - enumerate records, NR is 1-based</li>
-        <li><code>select * where re.match(".*ab.*", a1) is not None</code> - select entries where first column has "ab" pattern</li>
-        <li><code>select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3</code> - example of join query</li>
-        <li><code>select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3</code> - example of aggregate query</li>
-        <li><code>select *a1.split(':')</code> - Using Python3 unpack operator to split one column into many. Do not try this with other SQL engines!</li>
+        <li><code>SELECT TOP 100 a1, int(a2) * 10, len(a4) WHERE a1 == "Buy" ORDER BY int(a2) DESC</code></li>
+        <li><code>SELECT a.id, a.weight / 1000 AS weight_kg</code></li>
+        <li><code>SELECT * ORDER BY random.random()</code> - random sort</li>
+        <li><code>SELECT len(a.vehicle_price) / 10, a2 WHERE int(a.vehicle_price) &lt; 500 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20</code> - referencing columns by names from header and using Python's "in" to emulate SQL's "in"</li>
+        <li><code>UPDATE SET a3 = 'NPC' WHERE a3.find('Non-playable character') != -1</code></li>
+        <li><code>SELECT NR, *</code> - enumerate records, NR is 1-based</li>
+        <li><code>SELECT * WHERE re.match(".*ab.*", a1) is not None</code> - select entries where first column has "ab" pattern</li>
+        <li><code>SELECT a1, b1, b2 INNER JOIN ./countries.txt ON a2 == b1 ORDER BY a1, a3</code> - example of join query</li>
+        <li><code>SELECT MAX(a1), MIN(a1) WHERE a.Name != 'John' GROUP BY a2, a3</code> - example of aggregate query</li>
+        <li><code>SELECT *a1.split(':')</code> - Using Python3 unpack operator to split one column into many. Do not try this with other SQL engines!</li>
         </ul>
         <h4 id="with-javascript-expressions">With JavaScript expressions</h4>
         <ul>
-        <li><code>select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc</code></li>
-        <li><code>select * order by Math.random()</code> - random sort</li>
-        <li><code>select top 20 a.vehicle_price.length / 10, a2 where parseInt(a.vehicle_price) &lt; 500 &amp;&amp; ["car", "plane", "boat"].indexOf(a['Vehicle type']) &gt; -1 limit 20</code> - referencing columns by names from header</li>
-        <li><code>update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1</code></li>
-        <li><code>select NR, *</code> - enumerate records, NR is 1-based</li>
-        <li><code>select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3</code> - example of join query</li>
-        <li><code>select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3</code> - example of aggregate query</li>
-        <li><code>select ...a1.split(':')</code> - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!</li>
+        <li><code>SELECT TOP 100 a1, a2 * 10, a4.length WHERE a1 == "Buy" ORDER BY parseInt(a2) DESC</code></li>
+        <li><code>SELECT a.id, a.weight / 1000 AS weight_kg</code></li>
+        <li><code>SELECT * ORDER BY Math.random()</code> - random sort</li>
+        <li><code>SELECT TOP 20 a.vehicle_price.length / 10, a2 WHERE parseInt(a.vehicle_price) &lt; 500 &amp;&amp; ["car", "plane", "boat"].indexOf(a['Vehicle type']) &gt; -1 limit 20</code> - referencing columns by names from header</li>
+        <li><code>UPDATE SET a3 = 'NPC' WHERE a3.indexOf('Non-playable character') != -1</code></li>
+        <li><code>SELECT NR, *</code> - enumerate records, NR is 1-based</li>
+        <li><code>SELECT a1, b1, b2 INNER JOIN ./countries.txt ON a2 == b1 ORDER BY a1, a3</code> - example of join query</li>
+        <li><code>SELECT MAX(a1), MIN(a1) WHERE a.Name != 'John' GROUP BY a2, a3</code> - example of aggregate query</li>
+        <li><code>SELECT ...a1.split(':')</code> - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!</li>
         </ul>
     </div>
 </div>
