@@ -32,7 +32,6 @@ function ll_rainbow_utils() {
 // FIXME Test built-in RBQL html help.
 // FIXME Add "Rainbow On".
 // FIXME Start RBQL with python3 first and switch to python on failure.
-// FIXME Add uppercase CSV handling.
 // FIXME Add a way to separate output directory setting for different systems.
 
 
@@ -1550,7 +1549,7 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     if (!file_path || extension_context.autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
         return active_doc;
     }
-    let is_default_csv = file_path.endsWith('.csv') && original_language_id == 'csv';
+    let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
     let comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config) || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
