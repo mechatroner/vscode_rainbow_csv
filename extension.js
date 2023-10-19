@@ -27,10 +27,10 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME test new CSVLint icons (all states).
+// FIXME Test new CSVLint icons (all states).
 // FIXME Test ANY_VALUE aggregate function.
 // FIXME Test built-in RBQL html help.
-// FIXME Add "Rainbow On".
+// FIXME Test: Make sure you show "Rainbow On" even if you close the file and then re-open it.
 // FIXME Start RBQL with python3 first and switch to python on failure.
 // FIXME Add a way to separate output directory setting for different systems.
 
@@ -50,6 +50,7 @@ var manual_comment_prefix_stoplist = new Set();
 var rbql_status_bar_button = null;
 var align_shrink_button = null;
 var rainbow_off_status_bar_button = null;
+var rainbow_on_status_bar_button = null;
 var copy_back_button = null;
 var column_info_button = null;
 var dynamic_dialect_select_button = null;
@@ -90,6 +91,7 @@ let extension_context = {
     dynamic_document_dialects: new Map(),
     custom_comment_prefixes: new Map(),
     original_language_ids: new Map(),
+    reenable_rainbow_language_infos: new Map(), // This only needed for "Rainbow On" functionality that reverts "Rainbow Off" effect.
     autodetection_stoplist: new Set(),
     autodetection_temporarily_disabled_for_rbql: false,
     dynamic_dialect_for_next_request: null,
@@ -472,6 +474,16 @@ function hide_buttons() {
 
 function disable_rainbow_features_if_non_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
+
+    if (extension_context.reenable_rainbow_language_infos.has(file_path)) {
+        // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
+        show_rainbow_on_status_bar_button();
+    } else {
+        if (rainbow_on_status_bar_button) {
+            rainbow_on_status_bar_button.hide();
+        }
+    }
+
     if (!active_doc) {
         // This can happen when openning settings tab for example.
         hide_buttons();
@@ -597,6 +609,16 @@ function show_rainbow_off_status_bar_button() {
     rainbow_off_status_bar_button.tooltip = 'Click to restore original file type and syntax';
     rainbow_off_status_bar_button.command = 'rainbow-csv.RainbowSeparatorOff';
     rainbow_off_status_bar_button.show();
+}
+
+
+function show_rainbow_on_status_bar_button() {
+    if (!rainbow_on_status_bar_button)
+        rainbow_on_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    rainbow_on_status_bar_button.text = 'Rainbow ON';
+    rainbow_on_status_bar_button.tooltip = 'Click to reenable Rainbow CSV for this file';
+    rainbow_on_status_bar_button.command = 'rainbow-csv.RainbowSeparatorOn';
+    rainbow_on_status_bar_button.show();
 }
 
 
@@ -1045,9 +1067,20 @@ async function restore_original_language() {
     if (extension_context.original_language_ids.has(file_path)) {
         original_language_id = extension_context.original_language_ids.get(file_path);
     }
-    if (!original_language_id || original_language_id == active_doc.languageId) {
+    let current_language_id = active_doc.languageId;
+    if (!original_language_id || original_language_id == current_language_id) {
         show_single_line_error("Unable to restore original language");
         return;
+    }
+
+    if (file_path) {
+        // Preserve rainbow language info, so that the user can later re-enable it for this file.
+        let current_language_info = {"language_id": current_language_id};
+        if (extension_context.dynamic_document_dialects.has(file_path)) {
+            let current_dialect_info = extension_context.dynamic_document_dialects.get(file_path);
+            current_language_info.dynamic_dialect_info = current_dialect_info;
+        }
+        extension_context.reenable_rainbow_language_infos.set(file_path, current_language_info);
     }
 
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
@@ -1055,6 +1088,30 @@ async function restore_original_language() {
     disable_rainbow_features_if_non_csv(doc);
     // If the previous language is restored via native VSCode filetype selection the custom dialect info will be kept and in case of future manual Dynamic CSV selection the highlighting will be automatically activated without separator entry dialog.
     extension_context.dynamic_document_dialects.delete(file_path);
+}
+
+
+async function reenable_rainbow_language() {
+    var active_doc = get_active_doc();
+    if (!active_doc)
+        return;
+    let file_path = active_doc.fileName;
+    if (!extension_context.reenable_rainbow_language_infos.has(file_path)) {
+        // Make sure we have previous rainbow dialect saved.
+        show_single_line_error("Unable to re-enable rainbow highlighting automatically, select filetype manually or select a new separator with cursor.");
+        return;
+    }
+    let rainbow_language_info = extension_context.reenable_rainbow_language_infos.get(file_path);
+    // Delete from stoplist to revert "Rainbow Off" side-effects.
+    extension_context.autodetection_stoplist.delete(file_path);
+    if (rainbow_language_info.hasOwnProperty('dynamic_dialect_info')) {
+        extension_context.dynamic_document_dialects.set(file_path, rainbow_language_info.dynamic_dialect_info);
+    }
+    // Preserve current (non-rainbow) language id to allow switching between "Rainbow Off"/"Rainbow On".
+    preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
+    // Delete from the "reenable" map to hide the "Rainbow ON" button on next refresh.
+    extension_context.reenable_rainbow_language_infos.delete(file_path);
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_language_info.language_id);
 }
 
 
@@ -1822,6 +1879,7 @@ async function activate(context) {
     var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { manually_set_rainbow_separator(/*policy=*/null); });
     var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { manually_set_rainbow_separator(QUOTED_RFC_POLICY); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
+    var rainbow_on_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOn', reenable_rainbow_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
     var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', align_table);
@@ -1848,6 +1906,7 @@ async function activate(context) {
     context.subscriptions.push(set_separator_cmd);
     context.subscriptions.push(set_separator_multiline_cmd);
     context.subscriptions.push(rainbow_off_cmd);
+    context.subscriptions.push(rainbow_on_cmd);
     context.subscriptions.push(sample_head_cmd);
     context.subscriptions.push(sample_tail_cmd);
     context.subscriptions.push(set_join_table_name_cmd);

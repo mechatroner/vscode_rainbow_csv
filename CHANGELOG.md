@@ -2,6 +2,7 @@
 
 ## 3.8.0
 * UI improvement: Better "CSVLint" status button by [@kostasx](https://github.com/kostasx).
+* Add "Rainbow ON" conditional button.
 * Update RBQL: Add `ANY_VALUE` aggregate function.
 * Other minor improvements.
 

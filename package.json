@@ -301,6 +301,10 @@
                 "title": "RainbowSeparatorOff"
             },
             {
+                "command": "rainbow-csv.RainbowSeparatorOn",
+                "title": "RainbowSeparatorOn"
+            },
+            {
                 "command": "rainbow-csv.Align",
                 "category": "Rainbow CSV",
                 "title": "Align CSV Columns"
