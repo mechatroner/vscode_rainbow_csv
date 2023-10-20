@@ -27,13 +27,9 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME Test new CSVLint icons (all states).
-// FIXME Test ANY_VALUE aggregate function.
-// FIXME Test built-in RBQL html help.
-// FIXME Test: Make sure you show "Rainbow On" even if you close the file and then re-open it.
-// FIXME Start RBQL with python3 first and switch to python on failure.
 // FIXME Add a way to separate output directory setting for different systems.
-
+// FIXME convert run_command to async version and ...
+// FIXME Start RBQL with python3 first and switch to python on failure.
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 const preview_window_size = 100;
