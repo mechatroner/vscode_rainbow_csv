@@ -27,6 +27,12 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
+// FIXME `global_state` is persistent - document this and make sure you are using it properly.
+// FIXME switching to 'txt'/text filetype in the right hand corner doesn't really switch it for .csv files - i.e. don't autodetect twice!
+// FIXME Dynamic CSV doesn't seem to be working for TAB and/or it doesn't allow to conveniently set a new separator when the user manually selects "Dynamic CSV" filetype again.
+// FIXME manually switching from Dynamic CSV to some other filetype should discard the selected separator.
+// FIXME consider keeping selected separator for Dynamic CSV in the persistent global state.
+
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
@@ -57,6 +63,7 @@ var last_rbql_queries = new Map(); // Query history does not replace this struct
 
 var client_html_template = null;
 
+// This `global_state` is persistent across VSCode restarts.
 var global_state = null;
 
 var preview_panel = null;

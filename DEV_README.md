@@ -1,5 +1,9 @@
 ## Instructions
 
+### Key Info
+* VSCode filetypes (in the bottom-right corner) are preserved across restarts, even "Dynamic CSV".
+
+
 ### Pre-publishing checklist
 * Make sure that comments are highlighted with a separate comment color (this can also be seen in integration tests).
 * Make sure that "sticky header" feature works if enabled.
