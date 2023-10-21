@@ -471,7 +471,7 @@ function hide_buttons() {
 function disable_rainbow_features_if_non_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
 
-    if (extension_context.reenable_rainbow_language_infos.has(file_path)) {
+    if (file_path && extension_context.reenable_rainbow_language_infos.has(file_path)) {
         // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
         show_rainbow_on_status_bar_button();
     } else {
