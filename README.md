@@ -72,6 +72,7 @@ You can add the separator to the list of autodetected separators in the VSCode s
 
 `Dynamic CSV` filetype also supports multiline CSV fields escaped in double quotes as described in RFC-4180.
 
+Note: In rare cases `Dynamic CSV` highlighting might not work at all due to compatibility issues with some other third-party extensions.
 
 #### CSVLint consistency check
 

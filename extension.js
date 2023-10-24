@@ -27,8 +27,10 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME `global_state` is persistent - document this and make sure you are using it properly.
-// FIXME switching to 'txt'/text filetype in the right hand corner doesn't really switch it for .csv files - i.e. don't autodetect twice!
+// FIXME switching to 'txt'/text filetype in the right hand corner doesn't really switch it for .csv files - i.e. don't autodetect twice! - 
+// - but would it work for preview vs non-preview logic? maybe autodetect once for preview and once for non-preview max (even with the same path?)
+// FIXME The Plan: register onDidCloseTextDocument - if the same doc is closed and then imediately opened with csv -> txt language id it probably means that the user has manually changed the lang, so we better show "Rainbow On" button instead of autodetection.
+
 // FIXME Dynamic CSV doesn't seem to be working for TAB and/or it doesn't allow to conveniently set a new separator when the user manually selects "Dynamic CSV" filetype again.
 // FIXME manually switching from Dynamic CSV to some other filetype should discard the selected separator.
 // FIXME consider keeping selected separator for Dynamic CSV in the persistent global state.
@@ -177,6 +179,7 @@ async function report_progress(progress, status_message) {
 
 
 function get_from_global_state(key, default_value) {
+    // Load KV pair from the "global state" which is persistent across VSCode restarts.
     if (global_state) {
         var value = global_state.get(key);
         if (value !== null && value !== undefined)
@@ -187,6 +190,7 @@ function get_from_global_state(key, default_value) {
 
 
 async function save_to_global_state(key, value) {
+    // Save KV pair to the "global state" which is persistent across VSCode restarts.
     if (global_state && key) {
         await global_state.update(key, value);
         return true;
@@ -345,6 +349,7 @@ function register_sticky_header_provider(force=false) {
 
 
 function enable_dynamic_semantic_tokenization() {
+    // Conflict with some other extensions can cause semantic highlighting to completely fail, see https://github.com/mechatroner/vscode_rainbow_csv/issues/149. TODO: Investigate.
     let token_provider = new RainbowTokenProvider();
     if (rainbow_token_event !== null) {
         rainbow_token_event.dispose();
@@ -1630,6 +1635,10 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
+
+    // We can't add the doc path to autodetection_stoplist here (for autodetect-once semantic)
+    // because the doc could be in preview mode and VSCode won't remember language_id so we might need to autodetect it again later.
+
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     preserve_original_language_id_if_needed(file_path, original_language_id, extension_context.original_language_ids);
     return doc;

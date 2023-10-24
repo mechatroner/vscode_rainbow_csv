@@ -2,6 +2,7 @@
 
 ### Key Info
 * VSCode filetypes (in the bottom-right corner) are preserved across restarts, even "Dynamic CSV".
+* "Dynamic CSV" highlighting might not work because of the conflict with some other extensions.
 
 
 ### Pre-publishing checklist
