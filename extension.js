@@ -27,13 +27,13 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME switching to 'txt'/text filetype in the right hand corner doesn't really switch it for .csv files - i.e. don't autodetect twice! - 
-// - but would it work for preview vs non-preview logic? maybe autodetect once for preview and once for non-preview max (even with the same path?)
-// FIXME The Plan: register onDidCloseTextDocument - if the same doc is closed and then imediately opened with csv -> txt language id it probably means that the user has manually changed the lang, so we better show "Rainbow On" button instead of autodetection.
+
+// FIXME run unit tests in browser
+
+// FIXME DEV_README says that filetypes can be preserved across VSCode restarts - check if this is the case indeed.
 
 // FIXME Dynamic CSV doesn't seem to be working for TAB and/or it doesn't allow to conveniently set a new separator when the user manually selects "Dynamic CSV" filetype again.
 // FIXME manually switching from Dynamic CSV to some other filetype should discard the selected separator.
-// FIXME consider keeping selected separator for Dynamic CSV in the persistent global state.
 
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
@@ -72,6 +72,8 @@ var preview_panel = null;
 
 var doc_first_edit_subscription = null;
 var keyboard_cursor_subscription = null;
+
+var last_closed_rainbow_doc_info = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
 var _unit_test_last_warnings = null; // For unit tests only.
@@ -113,6 +115,25 @@ const dialect_map = {
 
 const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
 const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
+
+
+function is_supported_scheme(vscode_doc)  {
+    // Make sure that the the doc has a valid scheme.
+    // We don't want to handle virtual docs and docs created by other extensions, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123
+    // VScode also opens pairing virtual `.git` documents for git-controlled files that we also want to skip, see https://github.com/microsoft/vscode/issues/22561.
+    // "vscode-test-web" scheme is used for browser unit tests.
+    return vscode_doc && vscode_doc.uri && ['file', 'untitled', 'vscode-test-web'].indexOf(vscode_doc.uri.scheme) != -1;
+}
+
+
+function make_dialect_info(delim, policy) {
+    return {'delim': delim, 'policy': policy};
+}
+
+
+function save_dynamic_info(file_path, dialect_info) {
+    extension_context.dynamic_document_dialects.set(file_path, dialect_info);
+}
 
 
 function safe_lower(src_str) {
@@ -260,12 +281,9 @@ function get_dialect(document) {
         [delim, policy] = dialect_map[language_id];
         return [delim, policy, comment_prefix];
     }
-    // Here we don't check if language_id is DYNAMIC_CSV because we want to return the once selected dialect anyway even if file is now 'plaintext' or some other non-csv filetype.
-    if (extension_context.dynamic_document_dialects.has(document.fileName)) {
+    if (language_id == DYNAMIC_CSV && extension_context.dynamic_document_dialects.has(document.fileName)) {
         let dialect_info = extension_context.dynamic_document_dialects.get(document.fileName);
-        delim = dialect_info.delim;
-        policy = dialect_info.policy;
-        return [delim, policy, comment_prefix];
+        return [dialect_info.delim, dialect_info.policy, comment_prefix];
     }
     // The language id can be `dynamic csv` here e.g. if user just now manually selected the "Dynamic CSV" filetype.
     return [null, null, null];
@@ -398,7 +416,7 @@ async function choose_dynamic_separator() {
         show_single_line_error('Unable to use empty string separator');
         return;
     }
-    extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
     await enable_rainbow_features_if_csv(active_doc);
 }
 
@@ -417,7 +435,10 @@ async function enable_rainbow_features_if_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
     if (!active_doc || !file_path || file_path.endsWith('.git')) {
         // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
-        // Sometimes for git-controlled dirs VSCode opens mysterious .git files - skip them.
+        // Also check for virtual `.git` just in case, but this should also be handled by the `is_supported_scheme` check below.
+        return;
+    }
+    if (!is_supported_scheme(active_doc)) {
         return;
     }
     var language_id = active_doc.languageId;
@@ -426,24 +447,20 @@ async function enable_rainbow_features_if_csv(active_doc) {
     }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!policy && extension_context.dynamic_dialect_for_next_request != null) {
-        [delim, policy] = extension_context.dynamic_dialect_for_next_request;
-        extension_context.dynamic_document_dialects.set(file_path, {delim: delim, policy: policy});
+        save_dynamic_info(file_path, extension_context.dynamic_dialect_for_next_request);
         extension_context.dynamic_dialect_for_next_request = null;
         [delim, policy, comment_prefix] = get_dialect(active_doc);
     }
     if (!policy) {
         if (language_id == DYNAMIC_CSV) {
+            // Filetype was selected through the built-in VSCode filetype selection menu, ask user to provide the dialect.
             [delim, policy] = await get_dialect_from_user_dialog();
-            if (!policy) {
-                // Last attempt: retry getting dialect, because it can be set asynchronously: after opening the (which would trigger enable_rainbow_features_if_csv in the end) the caller could update dynamic_document_dialects for example this happens in RBQL queries handling.
-                [delim, policy, comment_prefix] = get_dialect(active_doc);
-            }
             if (!policy) {
                 hide_buttons(); // Hide buttons when switching "csv" -> "dynamic csv".
                 show_choose_dynamic_separator_button();
                 return;
             }
-            extension_context.dynamic_document_dialects.set(file_path, {delim: delim, policy: policy});
+            save_dynamic_info(file_path, make_dialect_info(delim, policy));
         } else {
             return;
         }
@@ -498,7 +515,7 @@ function disable_rainbow_features_if_non_csv(active_doc) {
         return;
     }
     if (file_path && file_path.endsWith('.git')) {
-        // Sometimes for git-controlled dirs VSCode opens mysterious .git files which are not even present - skip them, don't disable features.
+        // Consider getting rid of this branch - it seem to be useless, since virtual `.git` files have "git" scheme which is handled by the caller.
         return;
     }
     var language_id = active_doc.languageId;
@@ -815,9 +832,9 @@ async function handle_command_result(src_table_path, dst_table_path, dst_delim, 
     let target_language_id = map_dialect_to_language_id(dst_delim, dst_policy);
     let doc = await vscode.workspace.openTextDocument(dst_table_path);
     extension_context.autodetection_temporarily_disabled_for_rbql = false;
+    // We need dynamic_dialect_for_next_request here because we can't open the doc with DYNAMIC_CSV, it will be switched on doc-ropen.
     if (target_language_id == DYNAMIC_CSV) {
-        // TODO it would be better to set this before openTextDocument and adjust the logic so this would affect autodetection.
-        extension_context.dynamic_dialect_for_next_request = [dst_delim, dst_policy];
+        extension_context.dynamic_dialect_for_next_request = make_dialect_info(dst_delim, dst_policy);
     }
     await handle_rbql_result_file_node(doc, dst_delim, dst_policy, warnings);
     extension_context.dynamic_dialect_for_next_request = null;
@@ -893,7 +910,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: target_language_id};
                 if (target_language_id == DYNAMIC_CSV) {
-                    extension_context.dynamic_dialect_for_next_request = [output_delim, output_policy];
+                    extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
                 }
                 extension_context.autodetection_temporarily_disabled_for_rbql = true;
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
@@ -911,7 +928,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 webview_report_handler(null, null);
                 if (target_language_id == DYNAMIC_CSV) {
                     // TODO it would be better to set this before openTextDocument and adjust the logic so this would affect autodetection.
-                    extension_context.dynamic_dialect_for_next_request = [output_delim, output_policy];
+                    extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
                 }
                 await handle_rbql_result_file_node(result_doc, output_delim, output_policy, warnings);
                 extension_context.dynamic_dialect_for_next_request = null;
@@ -973,12 +990,12 @@ async function set_header_line() {
 
 
 function preserve_original_language_id_if_needed(file_path, original_language_id, original_language_ids) {
-    if (original_language_id == DYNAMIC_CSV) {
-        // This is to prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
+    if (!file_path) {
         return;
     }
-    if (original_language_ids.has(file_path)) {
-        // Rainbow Off should act more like an actuall off i.e. return to the first filetype in the chain instead of the previous one.
+    if (dialect_map.hasOwnProperty(original_language_id)) {
+        // This is to prevent invalid noop "dynamic csv" -> "dynamic csv" switch without carying dialect info.
+        // And to simplify state management in general by not storing any rainbow dialects.
         return;
     }
     original_language_ids.set(file_path, original_language_id);
@@ -1017,9 +1034,6 @@ async function manually_set_rainbow_separator(policy=null) {
     let language_id = map_dialect_to_language_id(separator, policy);
     // Adding to stoplist just in case: this is the manual op, so the user now fully controls the filetype.
     extension_context.autodetection_stoplist.add(active_doc.fileName);
-    if (language_id == DYNAMIC_CSV) {
-        extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: separator, policy: policy});
-    }
     let original_language_id = active_doc.languageId;
     if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
         // We need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
@@ -1027,6 +1041,9 @@ async function manually_set_rainbow_separator(policy=null) {
         extension_context.autodetection_temporarily_disabled_for_rbql = true;
         active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
         extension_context.autodetection_temporarily_disabled_for_rbql = false;
+    }
+    if (language_id == DYNAMIC_CSV) {
+        save_dynamic_info(active_doc.fileName, make_dialect_info(separator, policy));
     }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
@@ -1070,32 +1087,27 @@ async function restore_original_language() {
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
-    extension_context.autodetection_stoplist.add(file_path);
     let original_language_id = 'plaintext';
     if (extension_context.original_language_ids.has(file_path)) {
         original_language_id = extension_context.original_language_ids.get(file_path);
     }
-    let current_language_id = active_doc.languageId;
-    if (!original_language_id || original_language_id == current_language_id) {
+    if (dialect_map.hasOwnProperty(original_language_id) || !dialect_map.hasOwnProperty(active_doc.languageId)) {
         show_single_line_error("Unable to restore original language");
         return;
     }
 
     if (file_path) {
         // Preserve rainbow language info, so that the user can later re-enable it for this file.
-        let current_language_info = {"language_id": current_language_id};
+        let current_language_info = {language_id: active_doc.languageId};
         if (extension_context.dynamic_document_dialects.has(file_path)) {
-            let current_dialect_info = extension_context.dynamic_document_dialects.get(file_path);
-            current_language_info.dynamic_dialect_info = current_dialect_info;
+            current_language_info.dynamic_dialect_info = extension_context.dynamic_document_dialects.get(file_path);
         }
         extension_context.reenable_rainbow_language_infos.set(file_path, current_language_info);
+        extension_context.autodetection_stoplist.add(file_path);
     }
 
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
-    extension_context.original_language_ids.delete(file_path);
-    disable_rainbow_features_if_non_csv(doc);
-    // If the previous language is restored via native VSCode filetype selection the custom dialect info will be kept and in case of future manual Dynamic CSV selection the highlighting will be automatically activated without separator entry dialog.
-    extension_context.dynamic_document_dialects.delete(file_path);
+    // FIXME test that this actually disables rainbow features (we removed the explicit disable_rainbow_features_if_non_csv() call)
+    await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
 }
 
 
@@ -1110,10 +1122,10 @@ async function reenable_rainbow_language() {
         return;
     }
     let rainbow_language_info = extension_context.reenable_rainbow_language_infos.get(file_path);
-    // Delete from stoplist to revert "Rainbow Off" side-effects.
+    // Delete from the stoplist to revert "Rainbow Off" side-effects.
     extension_context.autodetection_stoplist.delete(file_path);
     if (rainbow_language_info.hasOwnProperty('dynamic_dialect_info')) {
-        extension_context.dynamic_document_dialects.set(file_path, rainbow_language_info.dynamic_dialect_info);
+        save_dynamic_info(file_path, rainbow_language_info.dynamic_dialect_info);
     }
     // Preserve current (non-rainbow) language id to allow switching between "Rainbow Off"/"Rainbow On".
     preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
@@ -1608,20 +1620,35 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
         return active_doc;
     if (!get_from_config('enable_separator_autodetection', false, config))
         return active_doc;
+    if (!is_supported_scheme(active_doc)) {
+        return active_doc;
+    }
     let candidate_separators = get_from_config('autodetect_separators', [], config).map((s) => s === 'TAB' ? '\t' : s);
     var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
-    if (!file_path || extension_context.autodetection_stoplist.has(file_path) || file_path.endsWith('.git')) { // For some reason there are some ghost '.git' files. TODO figure this out!
+    if (!file_path || extension_context.autodetection_stoplist.has(file_path)) {
         return active_doc;
     }
+
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
+
+    if (!dialect_map.hasOwnProperty(original_language_id) &&
+        last_closed_rainbow_doc_info &&
+        last_closed_rainbow_doc_info.file_path === file_path &&
+        Math.abs(Date.now() - last_closed_rainbow_doc_info.timestamp) < 1000) {
+        // The same file was recently closed with rainbow dialect and re-opened as another filetype, most likely manual language switch, do not autodetect.
+        // Do not add to autodetection_stoplist because it goes against VSCode approach to discard all language mode state on reopen.
+        // Do not initialize "Rainbow ON" because either it was already enabled or user goes through the native UI and therefore showing Rainbow ON is not idiomatic/consistent/relevant.
+        return active_doc;
+    }
+
     let comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config) || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
     let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators, comment_prefix_for_autodetection);
     if (rainbow_csv_language_id) {
         // Add the file to lint results to avoid re-parsing it with CSV Lint later.
-        extension_context.lint_results.set(`${active_doc.fileName}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
+        extension_context.lint_results.set(`${file_path}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
     } else if (!rainbow_csv_language_id && is_default_csv) {
         // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one within the first N characters.
         [rainbow_csv_language_id, delim, policy] = autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000);
@@ -1630,8 +1657,8 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
         return active_doc;
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
-    if (rainbow_csv_language_id == DYNAMIC_CSV)  {
-        extension_context.dynamic_document_dialects.set(active_doc.fileName, {delim: delim, policy: policy});
+    if (rainbow_csv_language_id == DYNAMIC_CSV) {
+        save_dynamic_info(file_path, make_dialect_info(delim, policy));
     }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
@@ -1639,8 +1666,8 @@ async function try_autoenable_rainbow_csv(vscode, config, extension_context, act
     // We can't add the doc path to autodetection_stoplist here (for autodetect-once semantic)
     // because the doc could be in preview mode and VSCode won't remember language_id so we might need to autodetect it again later.
 
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     preserve_original_language_id_if_needed(file_path, original_language_id, extension_context.original_language_ids);
+    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
     return doc;
 }
 
@@ -1702,16 +1729,29 @@ async function handle_doc_open(active_doc) {
     if (!active_doc || !active_doc.uri) {
         return;
     }
-
-    if (active_doc.uri.scheme != 'file' && active_doc.uri.scheme != 'untitled' && active_doc.uri.scheme != 'vscode-test-web') {
-        // Current document has unknown file scheme. One reason for this could be that it was created by another extension, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123
-        // "vscode-test-web" scheme is used for browser unit tests.
+    if (!is_supported_scheme(active_doc)) {
         return;
     }
     register_csv_copy_paste_for_empty_doc(active_doc);
     active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
+}
+
+
+async function handle_doc_close(active_doc) {
+    // This is a workaround hack to prevent repeated autodetection on csv -> txt language switch.
+    // In that case a csv file will be closed and shortly after a txt file with the same path will be opened, so we don't want to apply autodetection to it.
+    // This will also trigger when virtual docs (e.g. `.git` pairs) are closed, but it is probably fine to reset last_closed_rainbow_doc_info in that case.
+    // Also this cleans up dynamic_document_dialects and keeps no dynamic lang => no dynamic dialect invariant.
+    if (!dialect_map.hasOwnProperty(active_doc.languageId)) {
+        last_closed_rainbow_doc_info = null;
+        return;
+    }
+    last_closed_rainbow_doc_info = {file_path: active_doc.fileName, timestamp: Date.now()};
+    // We don't want to retain dynamic info across doc reopen.
+    // This is because other filetypes selected through the language mode menu are also not retained (both in preview and non-preview modes).
+    extension_context.dynamic_document_dialects.delete(active_doc.fileName);
 }
 
 
@@ -1900,6 +1940,7 @@ async function activate(context) {
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
+    var doc_close_event = vscode.workspace.onDidCloseTextDocument(handle_doc_close);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
 
     enable_dynamic_semantic_tokenization();
@@ -1931,6 +1972,7 @@ async function activate(context) {
     context.subscriptions.push(choose_dynamic_separator_cmd);
 
     context.subscriptions.push(doc_open_event);
+    context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
 
 

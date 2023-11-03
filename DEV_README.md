@@ -6,7 +6,7 @@
 
 
 ### Pre-publishing checklist
-* Make sure that comments are highlighted with a separate comment color (this can also be seen in integration tests).
+* Make sure to run unit tests in browser.
 * Make sure that "sticky header" feature works if enabled.
 * Make sure that "Dynamic CSV" -> "Dynamic CSV" switch from one separator to another works.
 * Run `npm run lint`
