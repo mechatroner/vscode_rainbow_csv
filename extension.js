@@ -30,8 +30,6 @@ function ll_rainbow_utils() {
 
 // FIXME run unit tests in browser
 
-// FIXME DEV_README says that filetypes can be preserved across VSCode restarts - check if this is the case indeed.
-
 // FIXME Dynamic CSV doesn't seem to be working for TAB and/or it doesn't allow to conveniently set a new separator when the user manually selects "Dynamic CSV" filetype again.
 // FIXME manually switching from Dynamic CSV to some other filetype should discard the selected separator.
 
@@ -95,6 +93,7 @@ const SIMPLE_POLICY = 'simple';
 let extension_context = {
     lint_results: new Map(),
     lint_status_bar_button: null,
+    // Filetypes (lang modes) are not preserved across doc reopen but surprisingly preserved across VSCode restarts so might consider storing dialect info in persistent global state.
     dynamic_document_dialects: new Map(),
     custom_comment_prefixes: new Map(),
     original_language_ids: new Map(),
@@ -1750,6 +1749,7 @@ async function handle_doc_close(active_doc) {
     }
     last_closed_rainbow_doc_info = {file_path: active_doc.fileName, timestamp: Date.now()};
     // We don't want to retain dynamic info across doc reopen.
+    // On the other hand filetypes including (Dynamic CSV) are oftentimes (always?) preserved across VSCode restarts, but saving the dialect into the dynamic map won't help anyway (unless we keep it int the persistent storage)
     // This is because other filetypes selected through the language mode menu are also not retained (both in preview and non-preview modes).
     extension_context.dynamic_document_dialects.delete(active_doc.fileName);
 }
