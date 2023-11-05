@@ -30,9 +30,6 @@ function ll_rainbow_utils() {
 
 // FIXME run unit tests in browser
 
-// FIXME Dynamic CSV doesn't seem to be working for TAB and/or it doesn't allow to conveniently set a new separator when the user manually selects "Dynamic CSV" filetype again.
-// FIXME manually switching from Dynamic CSV to some other filetype should discard the selected separator.
-
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
@@ -398,6 +395,9 @@ async function get_dialect_from_user_dialog() {
     let delim = await vscode.window.showInputBox(input_box_props);
     if (!delim) {
         return [null, null];
+    }
+    if (delim == 'TAB') {
+        delim = '\t';
     }
     let policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
     return [delim, policy];
