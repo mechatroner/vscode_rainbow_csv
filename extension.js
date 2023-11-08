@@ -286,7 +286,7 @@ function get_dialect(document) {
 }
 
 
-function show_status_bar_items(active_doc) {
+function enable_rainbow_ui(active_doc) {
     if (dynamic_dialect_select_button) {
         dynamic_dialect_select_button.hide();
     }
@@ -296,6 +296,10 @@ function show_status_bar_items(active_doc) {
     show_rainbow_off_status_bar_button();
     show_rbql_copy_to_source_button(active_doc.fileName);
     show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
+
+    if (get_from_config('enable_cursor_position_info', false)) {
+        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    }
 }
 
 
@@ -429,6 +433,29 @@ function show_choose_dynamic_separator_button() {
     dynamic_dialect_select_button.show();
 }
 
+async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) {
+    if (!active_doc || !active_doc.fileName) {
+        return;
+    }
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (delim && policy) {
+        return; // All good already.
+    }
+    if (extension_context.dynamic_dialect_for_next_request != null) {
+        save_dynamic_info(active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
+        extension_context.dynamic_dialect_for_next_request = null;
+        return;
+    }
+    [delim, policy] = await get_dialect_from_user_dialog();
+    if (delim && policy) {
+        save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
+        return;
+    }
+    hide_buttons(); // FIXME get rid of this - hide all buttons on doc_close event instead.
+    // Still no luck, show the button so that the user can at least complete the dialect later.
+    show_choose_dynamic_separator_button();
+}
+
 
 async function enable_rainbow_features_if_csv(active_doc) {
     let file_path = active_doc ? active_doc.fileName : null;
@@ -444,31 +471,12 @@ async function enable_rainbow_features_if_csv(active_doc) {
     if (!dialect_map.hasOwnProperty(language_id)) {
         return;
     }
+    if (language_id == DYNAMIC_CSV) {
+        await try_resolve_incomplete_dynamic_csv_dialect_if_needed();
+    }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
-    if (!policy && extension_context.dynamic_dialect_for_next_request != null) {
-        save_dynamic_info(file_path, extension_context.dynamic_dialect_for_next_request);
-        extension_context.dynamic_dialect_for_next_request = null;
-        [delim, policy, comment_prefix] = get_dialect(active_doc);
-    }
-    if (!policy) {
-        if (language_id == DYNAMIC_CSV) {
-            // Filetype was selected through the built-in VSCode filetype selection menu, ask user to provide the dialect.
-            [delim, policy] = await get_dialect_from_user_dialog();
-            if (!policy) {
-                hide_buttons(); // Hide buttons when switching "csv" -> "dynamic csv".
-                show_choose_dynamic_separator_button();
-                return;
-            }
-            save_dynamic_info(file_path, make_dialect_info(delim, policy));
-        } else {
-            return;
-        }
-    }
-    if (!delim) {
-        return; // Adding this condition JIC, this should never happen at this point - we would return earlier if there were no policy (hence no delim).
-    }
-    if (get_from_config('enable_cursor_position_info', false)) {
-        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    if (!delim || !policy) {
+        return;
     }
     if (comment_prefix) {
         // It is currently impoossible to set comment_prefix on document level, so we have to set it on language level instead.
@@ -476,13 +484,12 @@ async function enable_rainbow_features_if_csv(active_doc) {
         // Applying 'setLanguageConfiguration' doesn't disable static configuration in language-configuration.json.
         vscode.languages.setLanguageConfiguration(language_id, { comments: { lineComment: comment_prefix } });
     }
-
     if (language_id == DYNAMIC_CSV) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
     register_sticky_header_provider();
-    show_status_bar_items(active_doc);
+    enable_rainbow_ui(active_doc);
     await csv_lint(active_doc, false);
 }
 
@@ -1608,7 +1615,7 @@ function autodetect_dialect_frequency_based(active_doc, candidate_separators, ma
 }
 
 
-async function try_autoenable_rainbow_csv(vscode, config, extension_context, active_doc) {
+async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension_context, active_doc) {
     // VSCode to some extent is capable of "remembering" doc id in the previous invocation, at least when used in debug mode.
 
     // VSCode may (and will?) forget documentId of a document "A" if document "B" is opened in the tab where "A" was (double VS single click in file browser panel).
@@ -1678,22 +1685,13 @@ async function handle_first_edit_for_an_empty_doc(change_event) {
         doc_first_edit_subscription.dispose();
         doc_first_edit_subscription = null;
     }
-    await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, change_event.document);
-}
-
-
-function register_csv_copy_paste_for_empty_doc(active_doc) {
-    if (!get_from_config('enable_separator_autodetection', false))
-        return;
-    if (!active_doc || doc_first_edit_subscription)
-        return;
-    if (!active_doc.isUntitled && active_doc.lineCount != 0)
-        return;
-    doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
+    await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, change_event.document);
 }
 
 
 async function handle_editor_switch(editor) {
+    // This event is not triggered when language mode is changed but does trigger in case of preview doc openings.
+    // FIXME see if it is possible to get rid of this even in favor of doc close / doc open only. Document if this handler is still needed.
     let active_doc = get_active_doc(editor);
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
@@ -1731,8 +1729,15 @@ async function handle_doc_open(active_doc) {
     if (!is_supported_scheme(active_doc)) {
         return;
     }
-    register_csv_copy_paste_for_empty_doc(active_doc);
-    active_doc = await try_autoenable_rainbow_csv(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
+
+    // Register a handler for copy-pasting CSV-formated data into an empty doc.
+    if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && active_doc.isUntitled && active_doc.lineCount == 0) {
+        // FIXME test this, the logic was fixed here.
+        doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
+        return;
+    }
+
+    active_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
@@ -1994,4 +1999,4 @@ exports.deactivate = deactivate;
 
 // Exports just for unit tests:
 exports.autodetect_dialect_frequency_based = autodetect_dialect_frequency_based;
-exports.try_autoenable_rainbow_csv = try_autoenable_rainbow_csv;
+exports.try_autodetect_and_set_rainbow_filetype = try_autodetect_and_set_rainbow_filetype;

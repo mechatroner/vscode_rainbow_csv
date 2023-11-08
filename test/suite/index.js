@@ -630,7 +630,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set(['other_fake.txt'])};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.txt.csv (pipe)', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -641,7 +641,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -652,7 +652,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', false], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -663,7 +663,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', false], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -674,7 +674,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set(['fake.txt'])};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -685,7 +685,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, '', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -696,7 +696,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.git', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -707,7 +707,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'foobar');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('foobar', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -718,7 +718,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.csv', 'csv');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.csv.csv (pipe)', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -729,7 +729,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('dynamic csv', active_doc.languageId);
     assert.deepEqual([['fake.txt.dynamic csv', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([['fake.txt', {delim: ',', policy: 'quoted_rfc'}]], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -740,7 +740,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -751,7 +751,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set(['other_fake.txt'])};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', true], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.txt.csv (pipe)', {is_ok: true, first_trailing_space_line: 1}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -762,7 +762,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 4], ['comment_prefix', '#']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -773,7 +773,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.txt.csv (pipe)', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -784,7 +784,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '$$']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.txt.csv (pipe)', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -795,7 +795,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -806,7 +806,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', 'TAB']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '$$']]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('tsv', active_doc.languageId);
     assert.deepEqual([['fake.txt.tsv', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -817,7 +817,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -828,7 +828,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -839,7 +839,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.csv', 'csv');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', 'TAB']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('tsv', active_doc.languageId);
     // In case of frequency based autodetection we will have lint results cache empty - this is probably fine because we will recalculate it later after enabling rainbow features for the file.
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
@@ -851,7 +851,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.csv', 'csv');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', 'TAB']], ['csv_lint_detect_trailing_spaces', true], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('csv', active_doc.languageId);
     assert.deepEqual([['fake.csv.csv', {is_ok: true, first_trailing_space_line: 2}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -863,7 +863,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', 'TAB']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
@@ -874,7 +874,7 @@ async function test_try_autoenable_rainbow_csv() {
     active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.txt', 'plaintext');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', 'TAB']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3]]);
-    await extension.try_autoenable_rainbow_csv(unit_tests.vscode_test_double, config, extension_context, active_doc);
+    await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
     assert.equal('plaintext', active_doc.languageId);
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
