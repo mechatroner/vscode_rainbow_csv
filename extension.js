@@ -113,12 +113,23 @@ const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'param
 const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
-function is_supported_scheme(vscode_doc)  {
+function is_eligible_scheme(vscode_doc)  {
     // Make sure that the the doc has a valid scheme.
     // We don't want to handle virtual docs and docs created by other extensions, see https://code.visualstudio.com/api/extension-guides/virtual-documents#events-and-visibility and https://github.com/mechatroner/vscode_rainbow_csv/issues/123
     // VScode also opens pairing virtual `.git` documents for git-controlled files that we also want to skip, see https://github.com/microsoft/vscode/issues/22561.
     // "vscode-test-web" scheme is used for browser unit tests.
     return vscode_doc && vscode_doc.uri && ['file', 'untitled', 'vscode-test-web'].indexOf(vscode_doc.uri.scheme) != -1;
+}
+
+
+function is_eligible_doc(vscode_doc) {
+    // For new untitled scratch documents `fileName` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
+    return vscode_doc && vscode_doc.fileName && is_eligible_scheme(vscode_doc);
+}
+
+
+function is_rainbow_dialect_doc(vscode_doc) {
+    return is_eligible_doc(vscode_doc) && dialect_map.hasOwnProperty(vscode_doc.languageId);
 }
 
 
@@ -451,31 +462,23 @@ async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) 
         save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
         return;
     }
-    hide_buttons(); // FIXME get rid of this - hide all buttons on doc_close event instead.
     // Still no luck, show the button so that the user can at least complete the dialect later.
     show_choose_dynamic_separator_button();
 }
 
 
 async function enable_rainbow_features_if_csv(active_doc) {
-    let file_path = active_doc ? active_doc.fileName : null;
-    if (!active_doc || !file_path || file_path.endsWith('.git')) {
-        // For new untitled scratch documents `file_path` would be "Untitled-1", "Untitled-2", etc, so we won't enter this branch.
-        // Also check for virtual `.git` just in case, but this should also be handled by the `is_supported_scheme` check below.
-        return;
-    }
-    if (!is_supported_scheme(active_doc)) {
+    if (!is_rainbow_dialect_doc(active_doc)) {
         return;
     }
     var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id)) {
-        return;
-    }
     if (language_id == DYNAMIC_CSV) {
         await try_resolve_incomplete_dynamic_csv_dialect_if_needed();
     }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!delim || !policy) {
+        // Make sure UI elements are disabled.
+        disable_ui_elements();
         return;
     }
     if (comment_prefix) {
@@ -494,19 +497,21 @@ async function enable_rainbow_features_if_csv(active_doc) {
 }
 
 
-function hide_buttons() {
+function disable_ui_elements() {
     let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
     }
+    if (keyboard_cursor_subscription) {
+        keyboard_cursor_subscription.dispose();
+        keyboard_cursor_subscription = null;
+    }
 }
 
 
 function disable_rainbow_features_if_non_csv(active_doc) {
-    let file_path = active_doc ? active_doc.fileName : null;
-
-    if (file_path && extension_context.reenable_rainbow_language_infos.has(file_path)) {
+    if (is_eligible_doc(active_doc) && extension_context.reenable_rainbow_language_infos.has(active_doc.fileName)) {
         // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
         show_rainbow_on_status_bar_button();
     } else {
@@ -514,23 +519,9 @@ function disable_rainbow_features_if_non_csv(active_doc) {
             rainbow_on_status_bar_button.hide();
         }
     }
-
-    if (!active_doc) {
+    if (!is_rainbow_dialect_doc(active_doc)) {
         // This can happen when openning settings tab for example.
-        hide_buttons();
-        return;
-    }
-    if (file_path && file_path.endsWith('.git')) {
-        // Consider getting rid of this branch - it seem to be useless, since virtual `.git` files have "git" scheme which is handled by the caller.
-        return;
-    }
-    var language_id = active_doc.languageId;
-    if (dialect_map.hasOwnProperty(language_id))
-        return;
-    hide_buttons();
-    if (keyboard_cursor_subscription) {
-        keyboard_cursor_subscription.dispose();
-        keyboard_cursor_subscription = null;
+        disable_ui_elements();
     }
 }
 
@@ -680,14 +671,11 @@ function show_rbql_copy_to_source_button(file_path) {
 async function csv_lint(active_doc, is_manual_op) {
     if (!active_doc)
         active_doc = get_active_doc();
-    if (!active_doc)
+    if (!is_rainbow_dialect_doc(active_doc)) {
         return null;
+    }
     var file_path = active_doc.fileName; // For new untitled scratch documents this would be "Untitled-1", "Untitled-2", etc...
-    if (!file_path)
-        return null;
     var language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return null;
     let lint_cache_key = `${file_path}.${language_id}`;
     if (!is_manual_op) {
         if (extension_context.lint_results.has(lint_cache_key))
@@ -1014,8 +1002,9 @@ async function manually_set_rainbow_separator(policy=null) {
     if (!active_editor)
         return;
     var active_doc = get_active_doc(active_editor);
-    if (!active_doc)
+    if (!is_eligible_doc(active_doc)) {
         return;
+    }
     let selection = active_editor.selection;
     if (!selection) {
         show_single_line_error("Selection is empty");
@@ -1089,7 +1078,7 @@ async function set_comment_prefix() {
 
 
 async function restore_original_language() {
-    var active_doc = get_active_doc();
+    let active_doc = get_active_doc();
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
@@ -1112,8 +1101,9 @@ async function restore_original_language() {
         extension_context.autodetection_stoplist.add(file_path);
     }
 
-    // FIXME test that this actually disables rainbow features (we removed the explicit disable_rainbow_features_if_non_csv() call)
-    await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
+    active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
+    // There is no onDidChangeActiveTextEditor even for language change so we need to explicitly disable rainbow features.
+    disable_rainbow_features_if_non_csv(active_doc);
 }
 
 
@@ -1225,11 +1215,9 @@ async function column_edit(edit_mode) {
 async function shrink_table() {
     let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
-    if (!active_doc)
+    if (!is_rainbow_dialect_doc(active_doc)) {
         return;
-    let language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
-        return;
+    }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null) {
         return;
@@ -1257,10 +1245,7 @@ async function shrink_table() {
 async function align_table() {
     let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
-    if (!active_doc)
-        return;
-    let language_id = active_doc.languageId;
-    if (!dialect_map.hasOwnProperty(language_id))
+    if (!is_rainbow_dialect_doc(active_doc))
         return;
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null) {
@@ -1287,7 +1272,7 @@ async function align_table() {
         let align_in_scratch_file = get_from_config('align_in_scratch_file', false);
         let is_scratch_file = active_doc.uri && active_doc.uri.scheme == 'untitled';
         if (align_in_scratch_file && !is_scratch_file) {
-            let aligned_doc_cfg = {content: aligned_doc_text, language: language_id};
+            let aligned_doc_cfg = {content: aligned_doc_text, language: active_doc.languageId};
             let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
             aligned_files.add(scratch_doc.fileName);
             await vscode.window.showTextDocument(scratch_doc);
@@ -1622,24 +1607,21 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
     // see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
     if (extension_context.autodetection_temporarily_disabled_for_rbql)
         return active_doc;
-    if (!active_doc)
+    if (!is_eligible_doc(active_doc)) {
         return active_doc;
+    }
     if (!get_from_config('enable_separator_autodetection', false, config))
         return active_doc;
-    if (!is_supported_scheme(active_doc)) {
-        return active_doc;
-    }
-    let candidate_separators = get_from_config('autodetect_separators', [], config).map((s) => s === 'TAB' ? '\t' : s);
-    var original_language_id = active_doc.languageId;
     var file_path = active_doc.fileName;
-    if (!file_path || extension_context.autodetection_stoplist.has(file_path)) {
+    if (extension_context.autodetection_stoplist.has(file_path)) {
         return active_doc;
     }
-
+    var original_language_id = active_doc.languageId;
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv)
         return active_doc;
 
+    let candidate_separators = get_from_config('autodetect_separators', [], config).map((s) => s === 'TAB' ? '\t' : s);
     if (!dialect_map.hasOwnProperty(original_language_id) &&
         last_closed_rainbow_doc_info &&
         last_closed_rainbow_doc_info.file_path === file_path &&
@@ -1690,9 +1672,18 @@ async function handle_first_edit_for_an_empty_doc(change_event) {
 
 
 async function handle_editor_switch(editor) {
-    // This event is not triggered when language mode is changed but does trigger in case of preview doc openings.
-    // FIXME see if it is possible to get rid of this even in favor of doc close / doc open only. Document if this handler is still needed.
+    // This event is not triggered when language mode is changed.
+    // We need the handler to hide and show UI elements when user switches between the doc tabs.
+
+    // When switching between the open non-preview doc tabs the doc open/close events are not triggered for the actual files,
+    // but open and close events could (and will) be triggered for some virtual files e.g. paired files with .git scheme.
+
     let active_doc = get_active_doc(editor);
+    if (active_doc) {
+        console.log('FIXME Switching editor for doc "' + active_doc.fileName + '" ,' + active_doc.languageId + ' timestamp: ' + debug_get_date_ts());
+    } else {
+        console.log('FIXME Switching editor for null doc,' + ' timestamp: ' + debug_get_date_ts());
+    }
     disable_rainbow_features_if_non_csv(active_doc);
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
@@ -1715,6 +1706,11 @@ function handle_cursor_movement(_unused_cursor_event) {
 
 
 async function handle_doc_open(active_doc) {
+    if (active_doc) {
+        console.log('FIXME Opening doc "' + active_doc.fileName + '" ,' + active_doc.languageId + ' timestamp: ' + debug_get_date_ts());
+    } else {
+        console.log('FIXME Opening empty doc, ' + ' timestamp: ' + debug_get_date_ts());
+    }
     // The onDidOpenTextDocument handler will trigger for already "opened" docs too if they are re-opened in the same tab. Example
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument
     // Document "B" opens in tab1 -> triggers onDidOpenTextDocument  (this could happen if user clicks on document "B" in the left file browser panel)
@@ -1722,11 +1718,7 @@ async function handle_doc_open(active_doc) {
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
-    // We got an invalid document object, processing will lead to null access errors below
-    if (!active_doc || !active_doc.uri) {
-        return;
-    }
-    if (!is_supported_scheme(active_doc)) {
+    if (!is_eligible_doc(active_doc)) {
         return;
     }
 
@@ -1738,25 +1730,44 @@ async function handle_doc_open(active_doc) {
     }
 
     active_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
-    disable_rainbow_features_if_non_csv(active_doc);
+    //disable_rainbow_features_if_non_csv(active_doc); // FIXME either delete disable from here or write a use case why it is needed here.
     await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
 }
 
 
+function debug_get_date_ts() {
+    // FIXME delete this, for debug only
+    var datetime = new Date();
+    return JSON.stringify(datetime);
+}
+
 async function handle_doc_close(active_doc) {
+    if (active_doc) {
+        console.log('FIXME Closing doc "' + active_doc.fileName + '" ,' + active_doc.languageId + ' timestamp: ' + debug_get_date_ts());
+    } else {
+        console.log('FIXME Closing empty doc, ' + ' timestamp: ' + debug_get_date_ts());
+    }
+    // We don't want to call disable_rainbow_features_if_non_csv in this handler because:
+    //   * A common event is open/close of virtual files that have nothing to do with csv and frequently happens on the background.
+    //   * CSV closing can also happen in the background without active editor and active CSV change e.g. if user closes with "x" top-right corner button another inactive tab with another CSV file.
+
     // This is a workaround hack to prevent repeated autodetection on csv -> txt language switch.
     // In that case a csv file will be closed and shortly after a txt file with the same path will be opened, so we don't want to apply autodetection to it.
     // This will also trigger when virtual docs (e.g. `.git` pairs) are closed, but it is probably fine to reset last_closed_rainbow_doc_info in that case.
     // Also this cleans up dynamic_document_dialects and keeps no dynamic lang => no dynamic dialect invariant.
-    if (!dialect_map.hasOwnProperty(active_doc.languageId)) {
+    if (!is_rainbow_dialect_doc(active_doc)) {
         last_closed_rainbow_doc_info = null;
         return;
     }
     last_closed_rainbow_doc_info = {file_path: active_doc.fileName, timestamp: Date.now()};
     // We don't want to retain dynamic info across doc reopen.
-    // On the other hand filetypes including (Dynamic CSV) are oftentimes (always?) preserved across VSCode restarts, but saving the dialect into the dynamic map won't help anyway (unless we keep it int the persistent storage)
+    // On the other hand filetypes including (Dynamic CSV) are oftentimes (always?) preserved across VSCode restarts, but saving the dialect into the dynamic map won't help anyway (unless we keep it int the persistent storage).
     // This is because other filetypes selected through the language mode menu are also not retained (both in preview and non-preview modes).
     extension_context.dynamic_document_dialects.delete(active_doc.fileName);
+
+    // FIXME we have an issue: manually switching filetype to txt from csv doesn't immidiately disable rainbow UI.
+    // FIXME so proposed fix for this: on doc open and/or doc close check if currently opened/closed doc is the active doc - you can use get_active_doc and compare uris.
+    // FIXME so if the current doc is active doc then adjust the UI.
 }
 
 
