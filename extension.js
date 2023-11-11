@@ -27,6 +27,11 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
+// FIXME apparently "curious doc reopening" problem can also affect the reverse situation and switch from plaintext back to e.g. TSV when we select TSV manually, then click "Rainbow Off", switch tabs and it is "On" again. So somehow manual "language mode" selection is more persistent than setTextDocumentLanguage.
+
+// FIXME also apparently `Dynamic CSV` present doesn't always show the separator selection dialog even when no separator is initialized
+// FIXME even setting it manually doesn't immediately trigger the dialog. what?
+
 
 // FIXME run unit tests in browser
 
@@ -998,6 +1003,7 @@ function preserve_original_language_id_if_needed(file_path, original_language_id
 
 async function manually_set_rainbow_separator(policy=null) {
     // The effect of manually setting the separator will disapear in the preview mode when the file is toggled in preview tab: see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
+    // Also the effect may disappear in case of "curious doc reopening" problem, see DEV_README for more info.
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -1628,6 +1634,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         Math.abs(Date.now() - last_closed_rainbow_doc_info.timestamp) < 1000) {
         // The same file was recently closed with rainbow dialect and re-opened as another filetype, most likely manual language switch, do not autodetect.
         // Do not add to autodetection_stoplist because it goes against VSCode approach to discard all language mode state on reopen.
+        // Also adding to autodetection_stoplist would make "curious doc reopening" problem worse.
         // Do not initialize "Rainbow ON" because either it was already enabled or user goes through the native UI and therefore showing Rainbow ON is not idiomatic/consistent/relevant.
         return active_doc;
     }
@@ -1705,9 +1712,9 @@ function handle_cursor_movement(_unused_cursor_event) {
 }
 
 
-async function handle_doc_open(active_doc) {
-    if (active_doc) {
-        console.log('FIXME Opening doc "' + active_doc.fileName + '" ,' + active_doc.languageId + ' timestamp: ' + debug_get_date_ts());
+async function handle_doc_open(new_doc) {
+    if (new_doc) {
+        console.log('FIXME Opening doc "' + new_doc.fileName + '" ,' + new_doc.languageId + ' timestamp: ' + debug_get_date_ts());
     } else {
         console.log('FIXME Opening empty doc, ' + ' timestamp: ' + debug_get_date_ts());
     }
@@ -1718,20 +1725,21 @@ async function handle_doc_open(active_doc) {
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
-    if (!is_eligible_doc(active_doc)) {
+    if (!is_eligible_doc(new_doc)) {
         return;
     }
 
     // Register a handler for copy-pasting CSV-formated data into an empty doc.
-    if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && active_doc.isUntitled && active_doc.lineCount == 0) {
+    if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && new_doc.isUntitled && new_doc.lineCount == 0) {
         // FIXME test this, the logic was fixed here.
         doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
         return;
     }
 
-    active_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, active_doc);
-    //disable_rainbow_features_if_non_csv(active_doc); // FIXME either delete disable from here or write a use case why it is needed here.
-    await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
+    new_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, new_doc);
+    // TODO ideally we want to wrap disable and enable features calls into a condition that checks if the `new_doc` is actually in the active editor. FIXME impl in the next release.
+    disable_rainbow_features_if_non_csv(new_doc); // We need this to handle manual switch from csv to txt, this would immediately remove UI elements, that would stay otherwise
+    await enable_rainbow_features_if_csv(new_doc); // No-op if non-csv.
 }
 
 
@@ -1741,12 +1749,15 @@ function debug_get_date_ts() {
     return JSON.stringify(datetime);
 }
 
-async function handle_doc_close(active_doc) {
-    if (active_doc) {
-        console.log('FIXME Closing doc "' + active_doc.fileName + '" ,' + active_doc.languageId + ' timestamp: ' + debug_get_date_ts());
+async function handle_doc_close(doc_to_close) {
+    // FIXME this might affect the curious doc-switch behavior when we switch to another tab and back it would close csv version of the file and re-open plaintext version.
+
+    if (doc_to_close) {
+        console.log('FIXME Closing doc "' + doc_to_close.fileName + '" ,' + doc_to_close.languageId + ' timestamp: ' + debug_get_date_ts());
     } else {
         console.log('FIXME Closing empty doc, ' + ' timestamp: ' + debug_get_date_ts());
     }
+
     // We don't want to call disable_rainbow_features_if_non_csv in this handler because:
     //   * A common event is open/close of virtual files that have nothing to do with csv and frequently happens on the background.
     //   * CSV closing can also happen in the background without active editor and active CSV change e.g. if user closes with "x" top-right corner button another inactive tab with another CSV file.
@@ -1755,15 +1766,16 @@ async function handle_doc_close(active_doc) {
     // In that case a csv file will be closed and shortly after a txt file with the same path will be opened, so we don't want to apply autodetection to it.
     // This will also trigger when virtual docs (e.g. `.git` pairs) are closed, but it is probably fine to reset last_closed_rainbow_doc_info in that case.
     // Also this cleans up dynamic_document_dialects and keeps no dynamic lang => no dynamic dialect invariant.
-    if (!is_rainbow_dialect_doc(active_doc)) {
+    if (!is_rainbow_dialect_doc(doc_to_close)) {
         last_closed_rainbow_doc_info = null;
         return;
     }
-    last_closed_rainbow_doc_info = {file_path: active_doc.fileName, timestamp: Date.now()};
+    last_closed_rainbow_doc_info = {file_path: doc_to_close.fileName, timestamp: Date.now()};
     // We don't want to retain dynamic info across doc reopen.
     // On the other hand filetypes including (Dynamic CSV) are oftentimes (always?) preserved across VSCode restarts, but saving the dialect into the dynamic map won't help anyway (unless we keep it int the persistent storage).
     // This is because other filetypes selected through the language mode menu are also not retained (both in preview and non-preview modes).
-    extension_context.dynamic_document_dialects.delete(active_doc.fileName);
+    extension_context.dynamic_document_dialects.delete(doc_to_close.fileName);
+    // TODO consider adjusting UI on doc open and close after checking that the currently opened/closed doc is the active doc - you can use get_active_doc and compare uris.
 
     // FIXME we have an issue: manually switching filetype to txt from csv doesn't immidiately disable rainbow UI.
     // FIXME so proposed fix for this: on doc open and/or doc close check if currently opened/closed doc is the active doc - you can use get_active_doc and compare uris.
