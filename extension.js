@@ -9,6 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -476,6 +477,9 @@ async function enable_rainbow_features_if_csv(active_doc) {
     if (!is_rainbow_dialect_doc(active_doc)) {
         return;
     }
+    if (rainbow_on_status_bar_button) {
+        rainbow_on_status_bar_button.hide();
+    }
     var language_id = active_doc.languageId;
     if (language_id == DYNAMIC_CSV) {
         await try_resolve_incomplete_dynamic_csv_dialect_if_needed();
@@ -516,18 +520,22 @@ function disable_ui_elements() {
 
 
 function disable_rainbow_features_if_non_csv(active_doc) {
+    if (is_rainbow_dialect_doc(active_doc)) {
+        if (rainbow_on_status_bar_button) {
+            rainbow_on_status_bar_button.hide();
+        }
+        return;
+    }
     if (is_eligible_doc(active_doc) && extension_context.reenable_rainbow_language_infos.has(active_doc.fileName)) {
         // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
+        // Only show for non-rainbow docs since this mechanism can interfere with manual filetype selection UI.
         show_rainbow_on_status_bar_button();
     } else {
         if (rainbow_on_status_bar_button) {
             rainbow_on_status_bar_button.hide();
         }
     }
-    if (!is_rainbow_dialect_doc(active_doc)) {
-        // This can happen when openning settings tab for example.
-        disable_ui_elements();
-    }
+    disable_ui_elements();
 }
 
 
@@ -1133,6 +1141,10 @@ async function reenable_rainbow_language() {
     preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
     // Delete from the "reenable" map to hide the "Rainbow ON" button on next refresh.
     extension_context.reenable_rainbow_language_infos.delete(file_path);
+    if (rainbow_on_status_bar_button) {
+        // Hide the button explicitly.
+        rainbow_on_status_bar_button.hide();
+    }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_language_info.language_id);
 }
 
@@ -1738,7 +1750,9 @@ async function handle_doc_open(new_doc) {
 
     new_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, new_doc);
     // TODO ideally we want to wrap disable and enable features calls into a condition that checks if the `new_doc` is actually in the active editor. FIXME impl in the next release.
-    disable_rainbow_features_if_non_csv(new_doc); // We need this to handle manual switch from csv to txt, this would immediately remove UI elements, that would stay otherwise
+    // There might be some redundancy between this code and onDidChangeActiveTextEditor handler, but this actually desired as long as methods are idempotent.
+    // Trust, but verify - it is much better to do the same thing twice (if it is idempotent) to ensure the required behavior than rely on assumptions about external VSCode mechanisms.
+    disable_rainbow_features_if_non_csv(new_doc); // We need this to handle manual switch from csv to txt, this would immediately remove UI elements, that would stay otherwise.
     await enable_rainbow_features_if_csv(new_doc); // No-op if non-csv.
 }
 

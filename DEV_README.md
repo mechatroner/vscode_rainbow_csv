@@ -9,6 +9,8 @@
     Now "Dynamic CSV" and highlighting would disappear if user clicks another tab and back - the "dynamic csv" version of the doc would be closed and plaintext doc opened.
     It is possible to "fix" this scenario for a particular doc by explicitly closing and opening it again.
 * "Dynamic CSV" highlighting might not work because of the conflict with some other extensions.
+* To ensure the required behaviour there might be some redundancy in the method invocation (e.g. we might disable/enable something twice both on doc opening and closing), this is fine as long as the invocations are idempotent.
+
 
 
 ### Pre-publishing checklist
