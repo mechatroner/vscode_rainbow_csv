@@ -8,8 +8,10 @@
     this is reproducible when first selecting a manual separator e.g. `~#~`, then switching to "plain text" through the lang selection menu, than back to "dynamic csv".
     Now "Dynamic CSV" and highlighting would disappear if user clicks another tab and back - the "dynamic csv" version of the doc would be closed and plaintext doc opened.
     It is possible to "fix" this scenario for a particular doc by explicitly closing and opening it again.
+    Apparently this also affects the reverse situation and switch from plaintext back to e.g. TSV when we select TSV manually, then click "Rainbow Off", switch tabs and it is "On" again. So somehow manual "language mode" selection is more persistent than setTextDocumentLanguage effect.
+
 * "Dynamic CSV" highlighting might not work because of the conflict with some other extensions.
-* To ensure the required behaviour there might be some redundancy in the method invocation (e.g. we might disable/enable something twice both on doc opening and closing), this is fine as long as the invocations are idempotent.
+* To ensure the required behaviour we will use "defensive programming" paradigm and there might be some redundancy in the method invocation (e.g. we might disable/enable something twice both on doc opening and closing), this is fine as long as the invocations are idempotent.
 
 
 
