@@ -1,3 +1,14 @@
+## Key Info
+* Surprising VSCode filetype (language mode in the bottom-right corner) persistence behaviour:
+  - filetypes are often (or always?) preserved across restarts, even "Dynamic CSV".
+  - filetypes are not preserved on file re-open (both non-preview and preview modes)
+  - sometimes filetype are not preserved across tab back-and-forth switching (let's call this "curious doc reopening" problem)
+    this is reproducible when first selecting a manual separator e.g. `~#~`, then switching to "plain text" through the lang selection menu, than back to "dynamic csv".
+    Now "Dynamic CSV" and highlighting would disappear if user clicks another tab and back - the "dynamic csv" version of the doc would be closed and plaintext doc opened.
+    It is possible to "fix" this scenario for a particular doc by explicitly closing and opening it again.
+* "Dynamic CSV" highlighting might not work because of the conflict with some other extensions.
+* To ensure the required behaviour there might be some redundancy in the method invocation (e.g. we might disable/enable something twice both on doc opening and closing), this is fine as long as the invocations are idempotent.
+
 ## Instructions
 
 ### Pre-publishing checklist
