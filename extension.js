@@ -1729,9 +1729,8 @@ async function handle_doc_open(new_doc) {
         return;
     }
 
-    // Register a handler for copy-pasting CSV-formated data into an empty doc.
-    if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && new_doc.isUntitled && new_doc.lineCount == 0) {
-        // FIXME test this, the logic was fixed here.
+    // Register a handler for copy-pasting CSV-formated data into an empty doc. Empty docs have lineCount equal 1.
+    if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && new_doc.isUntitled && new_doc.lineCount <= 1) {
         doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
         return;
     }
