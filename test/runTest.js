@@ -15,6 +15,7 @@ async function main() {
         const extensionTestsPath = path.resolve(__dirname, './suite/index');
         // Download VS Code, unzip it and run the integration test
         console.log("extensionDevelopmentPath:" + extensionDevelopmentPath + ", extensionTestsPath:" + extensionTestsPath);
+        //await (0, test_electron_1.runTests)({ extensionDevelopmentPath, extensionTestsPath: extensionTestsPath, launchArgs: [testWorkspace], version: '1.83.1'});
         await (0, test_electron_1.runTests)({ extensionDevelopmentPath, extensionTestsPath: extensionTestsPath, launchArgs: [testWorkspace]});
     }
     catch (err) {
