@@ -1,4 +1,5 @@
 // A launch configuration that launches the extension inside a new window
+// See https://stackoverflow.com/questions/73240956/open-workspace-when-testing-vs-code-extension for the first "workspace" arg explanation in the "Extension Tests" config.
 {
     "version": "0.1.0",
     "configurations": [
@@ -27,7 +28,8 @@
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": ["--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test" ],
+            "args": [ "${workspaceRoot}/test/test.code-workspace", "--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test/suite/index" ],
+            "cwd": "${workspaceRoot}",
             "stopOnEntry": false
         }
     ]

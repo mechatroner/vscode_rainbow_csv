@@ -888,9 +888,14 @@ async function run() {
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
 
-        assert(vscode.workspace.workspaceFolders);
-        assert.equal(1, vscode.workspace.workspaceFolders.length);
-        let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+        use_script_based_root = false; // This is a workaround for running unit tests from inside VSCode UI instead of command line, but we probably don't need this since we are passing the workspace file explicitly.
+        if (!is_web_ext && use_script_based_root) {
+            let workspace_folder_uri = vscode.Uri.file('file:/' + __dirname)
+        } else {
+            assert(vscode.workspace.workspaceFolders);
+            assert.equal(1, vscode.workspace.workspaceFolders.length);
+            let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+        }
 
         test_range_position_contains_equivalence();
 

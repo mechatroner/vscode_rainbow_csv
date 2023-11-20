@@ -30,7 +30,7 @@
 
 
 #### For web-based VSCode:
-1. Run `npm install --only=dev` - OK to run in WSL
+1. Run `npm install` - OK to run in WSL.
 2. Run `npm run compile-web && npm run start-web-server` - OK to run in WSL. - This should start a local server at http://localhost:3000/
 3. Point your browser to http://localhost:3000/
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
@@ -40,7 +40,7 @@ The difference between running in win and in WSL is that in WSL it would only ru
 ### Running unit tests for the extension inside VSCode:
 #### For standard VSCode:
 1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed (otherwise will might get some weird caching/webworker errors or other issues)!
-2. run `npm install --only=dev` (If you have WSL - run in Windows, don't run in WSL).
+2. run `npm install` (If you have WSL - run in Windows, don't run in WSL).
 3. run `npm run test` in Windows (If you have WSL - run in Windows, don't run in WSL). Make sure that the tests are successful.
 
 #### For web-based VSCode:
@@ -50,7 +50,7 @@ The difference between running in win and in WSL is that in WSL it would only ru
 
 
 ### Running unit tests for the extension inside VSCode:
-1. In console in rainbow_csv directory run `npm install --only=dev` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
+1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
 
 Example of minimalistic test setup:
@@ -94,12 +94,12 @@ Steps:
 
 
 ### Publishing
-1. Make sure you have webpack installed: run `npm install --only=dev` (Better to avoid running this in WSL).
+1. Make sure you have webpack installed: run `npm install` (Better to avoid running this in WSL).
    Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
 2. Run `vsce publish minor -p <key>` as usual. vsce will also automatically run `vscode:prepublish` / `npm run package-web` command.
 
 ### Publishing to openvsx
-1. Make sure you have webpack installed: run `npm install --only=dev` (Better to avoid running this in WSL).
+1. Make sure you have webpack installed: run `npm install` (Better to avoid running this in WSL).
    Although this would create `node_modules/` and `package-lock.json` file this is not a problem because they are excluded from final package via the `.vscodeignore` file.
 2. Run `npx ovsx publish -p <openvsx_token>`
 
