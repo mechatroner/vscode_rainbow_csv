@@ -374,8 +374,8 @@
         "lint": "eslint rainbow_utils.js fast_load_utils.js extension.js test/runTest.js && eslint -c .eslintrc_browser.json rainbow_utils.js rbql_client.js",
         "watch-web": "webpack --watch",
         "package-web": "webpack --mode production --devtool hidden-source-map",
-        "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. .",
-        "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js .",
+        "start-web-server": "vscode-test-web --version stable --browser=none --extensionDevelopmentPath=. test",
+        "test-in-browser": "vscode-test-web --version stable --browser=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js test",
         "test": "node ./test/runTest.js",
         "unit-test-only": "node ./test/suite/run_unit_tests.js"
     },

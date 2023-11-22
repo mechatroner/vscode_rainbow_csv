@@ -29,14 +29,20 @@ class VscodeRangeTestDouble {
     }
 }
 
+class UriTestDouble {
+    constructor(scheme) {
+        this.scheme = scheme;
+    }
+}
 
 class VscodeDocumentTestDouble {
-    constructor(lines_buffer, fileName='TestDouble.txt', language_id='plaintext') {
+    constructor(lines_buffer, fileName='TestDouble.txt', language_id='plaintext', scheme='file') {
         this.lines_buffer = lines_buffer;
         this.lineCount = lines_buffer.length;
         this.fileName = fileName;
         this.version = 1;
         this.languageId = language_id;
+        this.uri = new UriTestDouble(scheme);
     }
     lineAt(lnum) {
         return {text: this.lines_buffer[lnum]};

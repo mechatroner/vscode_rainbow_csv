@@ -1665,7 +1665,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
     if (rainbow_csv_language_id == DYNAMIC_CSV) {
-        save_dynamic_info(file_path, make_dialect_info(delim, policy));
+        extension_context.dynamic_document_dialects.set(file_path, make_dialect_info(delim, policy));
     }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;

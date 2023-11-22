@@ -29,9 +29,9 @@ function log_message(msg) {
 }
 
 
-async function test_comment_prefix_js(workspace_folder_uri) {
+async function test_comment_prefix_js(test_folder_uri) {
     let [uri, active_doc, editor, lint_report] = [null, null, null, null];
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries_with_comments.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -80,9 +80,9 @@ async function test_comment_prefix_js(workspace_folder_uri) {
     assert.equal(expected_num_lines, num_lines_after_query);
 }
 
-async function test_comment_prefix_python_rbql(workspace_folder_uri) {
+async function test_comment_prefix_python_rbql(test_folder_uri) {
     let [uri, active_doc, editor, lint_report] = [null, null, null, null];
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries_with_comments.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries_with_comments.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -98,16 +98,16 @@ async function test_comment_prefix_python_rbql(workspace_folder_uri) {
 }
 
 
-async function test_rbql_node(workspace_folder_uri) {
+async function test_rbql_node(test_folder_uri) {
     let [uri, active_doc, editor] = [null, null, null];
 
     // Test comment prefix and js query with it.
-    await test_comment_prefix_js(workspace_folder_uri);
+    await test_comment_prefix_js(test_folder_uri);
     // Test comment prefix with python query.
-    await test_comment_prefix_python_rbql(workspace_folder_uri);
+    await test_comment_prefix_python_rbql(test_folder_uri);
 
     // Test Python query.
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -121,6 +121,9 @@ async function test_rbql_node(workspace_folder_uri) {
     let length_after_query = active_doc.getText().length;
     log_message(`Length after python query: ${length_after_query}`);
     assert.equal(868, length_after_query); // wc -c gives smaller value. Probably VSCode uses '\r\n' as line ends.
+    
+    // FIXME write the src and resulting texts to debug files to see what went wrong
+
 
     // Test JS query.
     test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length where NR > 1 order by a3.length limit 10"};
@@ -140,7 +143,7 @@ async function test_rbql_node(workspace_folder_uri) {
     assert.equal("At record 1, Details: name 'nonexistent_function' is not defined", state_report.error_msg);
 
     // Test with multiline records.
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'synthetic_rfc_newline_data.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'synthetic_rfc_newline_data.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -154,7 +157,7 @@ async function test_rbql_node(workspace_folder_uri) {
     assert.equal(645, length_after_query);
 
     // Test RBQL JOIN query.
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -172,7 +175,7 @@ async function test_rbql_node(workspace_folder_uri) {
     assert.equal(202, active_doc.lineCount);
 
     // Test UPDATE, no warnings and copy back.
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'countries.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     let filename_before = active_doc.fileName;
     let length_before_query = active_doc.getText().length;
@@ -207,13 +210,13 @@ async function test_rbql_node(workspace_folder_uri) {
 }
 
 
-async function test_rbql_web(workspace_folder_uri) {
+async function test_rbql_web(test_folder_uri) {
     let [uri, active_doc, editor] = [null, null, null];
 
     // Test comment prefix and js query with it.
-    await test_comment_prefix_js(workspace_folder_uri);
+    await test_comment_prefix_js(test_folder_uri);
 
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -248,7 +251,7 @@ async function test_rbql_web(workspace_folder_uri) {
 
     // Test with multiline records.
     log_message('Starting multiline records test');
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'synthetic_rfc_newline_data.csv');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'synthetic_rfc_newline_data.csv');
     active_doc = await vscode.workspace.openTextDocument(uri);
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -264,8 +267,8 @@ async function test_rbql_web(workspace_folder_uri) {
 }
 
 
-async function test_double_width_chars_alignment(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'double_width_chars.csv');
+async function test_double_width_chars_alignment(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'double_width_chars.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -291,8 +294,8 @@ async function test_double_width_chars_alignment(workspace_folder_uri) {
 }
 
 
-async function test_align_shrink_lint(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking.csv');
+async function test_align_shrink_lint(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -329,8 +332,8 @@ async function test_align_shrink_lint(workspace_folder_uri) {
 }
 
 
-async function test_column_edit(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'movies.txt');
+async function test_column_edit(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
@@ -356,22 +359,22 @@ async function test_column_edit(workspace_folder_uri) {
 }
 
 
-async function test_no_autodetection(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'lorem_ipsum.txt');
+async function test_no_autodetection(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'lorem_ipsum.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'suite', 'index.js');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'suite', 'index.js');
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for index.js: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'javascript');
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
-    uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'lorem_ipsum');
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'lorem_ipsum');
     active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -380,8 +383,8 @@ async function test_no_autodetection(workspace_folder_uri) {
 }
 
 
-async function test_dynamic_csv(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'movies_multichar_separator.txt');
+async function test_dynamic_csv(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies_multichar_separator.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for movies_multichar_separator.txt: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -443,11 +446,11 @@ async function test_dynamic_csv(workspace_folder_uri) {
     assert.equal(expected_num_lines, length_after_query);
 }
 
-async function test_huge_file(workspace_folder_uri) {
+async function test_huge_file(test_folder_uri) {
     // Test huge file close to VSCode syntax highlighting limit (20MB Or 300K lines).
     // Do some basic navigation commands and some basic editing to ensure that performance is OK.
     let start_time = performance.now();
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'books_huge.txt');
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'books_huge.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     assert.equal(active_doc.languageId, 'csv');
@@ -474,8 +477,8 @@ async function test_huge_file(workspace_folder_uri) {
     assert(total_adjusted_latency < 20000);
 }
 
-async function test_autodetection(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'university_ranking_semicolon.txt');
+async function test_autodetection(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking_semicolon.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`)
@@ -484,8 +487,8 @@ async function test_autodetection(workspace_folder_uri) {
 }
 
 
-async function test_manual_enable_disable(workspace_folder_uri) {
-    let uri = vscode.Uri.joinPath(workspace_folder_uri, 'test', 'csv_files', 'small_movies.pipe');
+async function test_manual_enable_disable(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'small_movies.pipe');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     log_message(`languageId for small_movies.pipe: ${active_doc.languageId}`)
     assert.equal(active_doc.languageId, 'plaintext');
@@ -691,9 +694,9 @@ async function test_try_autoenable_rainbow_csv() {
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
     assert.deepEqual([], Array.from(extension_context.original_language_ids.entries()));
 
-    // Mysterious .git filename - no autodetection. TODO figure out why do we have these .git files.
+    // Emulating a virtual .git file - no autodetection.
     doc_lines = ['a|b', 'c|d', 'e|f'];
-    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.git', 'plaintext');
+    active_doc = new unit_tests.VscodeDocumentTestDouble(doc_lines, 'fake.git', 'plaintext', 'git');
     extension_context = {lint_results: new Map(), dynamic_document_dialects: new Map(), original_language_ids: new Map(), autodetection_stoplist: new Set()};
     config = new Map([['enable_separator_autodetection', true], ['autodetect_separators', [',', ';', '\t', '|']], ['csv_lint_detect_trailing_spaces', false], ['autodetection_min_line_count', 3], ['comment_prefix', '#']]);
     await extension.try_autodetect_and_set_rainbow_filetype(unit_tests.vscode_test_double, config, extension_context, active_doc);
@@ -722,7 +725,8 @@ async function test_try_autoenable_rainbow_csv() {
     assert.equal('csv (pipe)', active_doc.languageId);
     assert.deepEqual([['fake.csv.csv (pipe)', {is_ok: true, first_trailing_space_line: null}]], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
-    assert.deepEqual([['fake.csv', 'csv']], Array.from(extension_context.original_language_ids.entries()));
+    // We don't save `csv` and other rainbow dialects into original_language_ids.
+    assert.deepEqual([], Array.from(extension_context.original_language_ids.entries()));
 
     // Test quoted_rfc policy autodetection for `,` and `;` separators.
     doc_lines = ['a,b', 'c,"d', 'a""sd""f', 'ef"', 'g,h', 'i,j'];
@@ -844,7 +848,7 @@ async function test_try_autoenable_rainbow_csv() {
     // In case of frequency based autodetection we will have lint results cache empty - this is probably fine because we will recalculate it later after enabling rainbow features for the file.
     assert.deepEqual([], Array.from(extension_context.lint_results.entries()));
     assert.deepEqual([], Array.from(extension_context.dynamic_document_dialects.entries()));
-    assert.deepEqual([['fake.csv', 'csv']], Array.from(extension_context.original_language_ids.entries()));
+    assert.deepEqual([], Array.from(extension_context.original_language_ids.entries()));
 
     // Test that autodetected language matches the original language id.
     doc_lines = ['a,b,c', 'a,b,c', 'a,b ,c', '#comment'];
@@ -889,13 +893,15 @@ async function run() {
         assert.equal(-1, [1, 2, 3].indexOf(0));
 
         use_script_based_root = false; // This is a workaround for running unit tests from inside VSCode UI instead of command line, but we probably don't need this since we are passing the workspace file explicitly.
+        let workspace_folder_uri = null;
         if (!is_web_ext && use_script_based_root) {
-            let workspace_folder_uri = vscode.Uri.file('file:/' + __dirname)
+            workspace_folder_uri = vscode.Uri.file('file:/' + __dirname)
         } else {
             assert(vscode.workspace.workspaceFolders);
             assert.equal(1, vscode.workspace.workspaceFolders.length);
-            let workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
+            workspace_folder_uri = vscode.workspace.workspaceFolders[0].uri;
         }
+        let test_folder_uri = workspace_folder_uri; // FIXME check if need to adjust for web test, but better start web version in the test directory (last arg in cmd) instead of the cwd.
 
         test_range_position_contains_equivalence();
 
@@ -905,7 +911,7 @@ async function run() {
 
         await test_try_autoenable_rainbow_csv();
 
-        await test_no_autodetection(workspace_folder_uri);
+        await test_no_autodetection(test_folder_uri);
         if (!is_web_ext) {
             // Ensure that opening non-csv files doesn't cause rainbow csv to import relatively heavy lazy-loaded code.
             // There is no point to check this in web since all of the files are bundled into a single script anyway.
@@ -914,17 +920,17 @@ async function run() {
             assert(!state_report.lazy_loaded);
         }
 
-        await test_autodetection(workspace_folder_uri);
-        await test_manual_enable_disable(workspace_folder_uri);
+        await test_autodetection(test_folder_uri);
+        await test_manual_enable_disable(test_folder_uri);
 
-        await test_huge_file(workspace_folder_uri);
+        await test_huge_file(test_folder_uri);
 
-        await test_dynamic_csv(workspace_folder_uri);
+        await test_dynamic_csv(test_folder_uri);
 
         if (is_web_ext) {
-            await test_rbql_web(workspace_folder_uri);
+            await test_rbql_web(test_folder_uri);
         } else {
-            await test_rbql_node(workspace_folder_uri);
+            await test_rbql_node(test_folder_uri);
         }
 
         if (!is_web_ext) {
@@ -934,9 +940,9 @@ async function run() {
             assert(state_report.lazy_loaded);
         }
 
-        await test_align_shrink_lint(workspace_folder_uri);
-        await test_double_width_chars_alignment(workspace_folder_uri);
-        await test_column_edit(workspace_folder_uri);
+        await test_align_shrink_lint(test_folder_uri);
+        await test_double_width_chars_alignment(test_folder_uri);
+        await test_column_edit(test_folder_uri);
 
         log_message('Finishing tests');
     } catch (e) {
