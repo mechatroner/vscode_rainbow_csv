@@ -52,6 +52,8 @@ The difference between running in win and in WSL is that in WSL it would only ru
 ### Running unit tests for the extension inside VSCode:
 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
+**IMPORTANT** for some reason unit tests that are run from inside VSCode will often start with some files reopened from the previous session, this among other issues could cause `is_lazy_loaded` check to fail. An only known workaround is to quickly close all tabs in the test run and then restart the tests.
+
 
 Example of minimalistic test setup:
 https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-sample

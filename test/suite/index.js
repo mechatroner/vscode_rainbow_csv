@@ -7,7 +7,7 @@ const rainbow_utils = require('../../rainbow_utils.js');
 const unit_tests = require('./unit_tests.js');
 
 
-// The only reason why we are importing extension as a module here is to run some small unit tests like autodetect_dialect_frequency_based. 
+// The only reason why we are importing extension as a module here is to run some small unit tests like autodetect_dialect_frequency_based.
 // All other functionality such as commands and highlighting would work without this import/require line, since the extension is activated using VSCode internal mechanisms.
 // So the require/import extension line below can be deleted and all of the main integration tests would still pass.
 const extension = require('../../extension.js');
@@ -21,6 +21,14 @@ const poor_rbql_async_design_workaround_timeout = 6000;
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+async function SetCursorToTheTopAtStartWorkaround() {
+    await sleep(200);
+    // Calling "cursorTop" is a workaround for in-UI testing mode - the file can be reopened with the cursor at some random position.
+    // It is not clear how to properly fix this.
+    await vscode.commands.executeCommand("cursorTop");
 }
 
 
@@ -39,6 +47,7 @@ async function test_comment_prefix_js(test_folder_uri) {
     lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
     assert(!lint_report.is_ok); // Lint is failing because we mistakenly treat comment lines as records.
 
+    await SetCursorToTheTopAtStartWorkaround();
     await vscode.commands.executeCommand("cursorRightSelect");
     await vscode.commands.executeCommand("cursorRightSelect");
     await sleep(1000);
@@ -67,11 +76,11 @@ async function test_comment_prefix_js(test_folder_uri) {
     await vscode.commands.executeCommand("undo");
     await sleep(1000);
 
-    test_task = {rbql_backend: "js", rbql_query: "SELECT a.Country, a.Population", with_headers: true, integration_test_delay: 1500};
+    let test_task = {rbql_backend: "js", rbql_query: "SELECT a.Country, a.Population", with_headers: true, integration_test_delay: 1500};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
-    num_lines_after_query = active_doc.lineCount;
+    let num_lines_after_query = active_doc.lineCount;
     log_message(`Length after js query: ${num_lines_after_query}`);
     let expected_num_lines = 11; // 10 records + header.
     if (!is_web_ext) {
@@ -88,11 +97,11 @@ async function test_comment_prefix_python_rbql(test_folder_uri) {
     await sleep(1000);
     // Don't need to select comment prefix again since we already did it for this file in the previous test.
     // Using Python native expressions to make sure that we are running python query.
-    test_task = {rbql_backend: "python", rbql_query: "SELECT '[{}]'.format(a.Country), int(a.Population) / 10", with_headers: true, integration_test_delay: 1500};
+    let test_task = {rbql_backend: "python", rbql_query: "SELECT '[{}]'.format(a.Country), int(a.Population) / 10", with_headers: true, integration_test_delay: 1500};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
-    num_lines_after_query = active_doc.lineCount;
+    let num_lines_after_query = active_doc.lineCount;
     log_message(`Length after python query: ${num_lines_after_query}`);
     assert.equal(12, num_lines_after_query); // Ten records + header + trailing empty line = 12
 }
@@ -121,12 +130,9 @@ async function test_rbql_node(test_folder_uri) {
     let length_after_query = active_doc.getText().length;
     log_message(`Length after python query: ${length_after_query}`);
     assert.equal(868, length_after_query); // wc -c gives smaller value. Probably VSCode uses '\r\n' as line ends.
-    
-    // FIXME write the src and resulting texts to debug files to see what went wrong
-
 
     // Test JS query.
-    test_task = {rbql_backend: "js", rbql_query: "select a2 * 10, a3, a3.length where NR > 1 order by a3.length limit 10"};
+    test_task = {rbql_backend: "js", with_headers: false, rbql_query: "select a2 * 10, a3, a3.length where NR > 1 order by a3.length limit 10"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
@@ -272,13 +278,13 @@ async function test_double_width_chars_alignment(test_folder_uri) {
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
-    log_message(`Original length: ${length_original}`)
+    log_message(`Original length: ${length_original}`);
     assert.equal(274, length_original);
     await sleep(2000);
 
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
-    log_message(`Aligned length: ${length_aligned}`)
+    log_message(`Aligned length: ${length_aligned}`);
     assert.equal(461, length_aligned);
     assert(length_aligned > length_original);
     let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
@@ -287,7 +293,7 @@ async function test_double_width_chars_alignment(test_folder_uri) {
 
     await vscode.commands.executeCommand('rainbow-csv.Shrink');
     let length_shrinked = active_doc.getText().length;
-    log_message(`Shrinked length: ${length_shrinked}`)
+    log_message(`Shrinked length: ${length_shrinked}`);
     // This is to ensure that after original -> align -> shrink sequence we get back to original doc.
     assert.equal(length_original, length_shrinked);
     await sleep(500);
@@ -299,13 +305,13 @@ async function test_align_shrink_lint(test_folder_uri) {
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
-    log_message(`Original length: ${length_original}`)
+    log_message(`Original length: ${length_original}`);
     assert.equal(12538, length_original);
     await sleep(2000);
 
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
-    log_message(`Aligned length: ${length_aligned}`)
+    log_message(`Aligned length: ${length_aligned}`);
     assert.equal(25896, length_aligned);
     assert(length_aligned > length_original);
     let lint_report = await vscode.commands.executeCommand('rainbow-csv.CSVLint');
@@ -314,7 +320,7 @@ async function test_align_shrink_lint(test_folder_uri) {
 
     await vscode.commands.executeCommand('rainbow-csv.Shrink');
     let length_shrinked = active_doc.getText().length;
-    log_message(`Shrinked length: ${length_shrinked}`)
+    log_message(`Shrinked length: ${length_shrinked}`);
     // This is to ensure that after original -> align -> shrink sequence we get back to original doc.
     assert.equal(length_original, length_shrinked);
     await sleep(500);
@@ -338,6 +344,7 @@ async function test_column_edit(test_folder_uri) {
     let editor = await vscode.window.showTextDocument(active_doc);
     let length_original = active_doc.getText().length;
     assert.equal(9986, length_original);
+    await SetCursorToTheTopAtStartWorkaround();
     for (let i = 0; i < 10; i++) {
         await vscode.commands.executeCommand("cursorRight");
     }
@@ -362,21 +369,21 @@ async function test_column_edit(test_folder_uri) {
 async function test_no_autodetection(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'lorem_ipsum.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`)
+    log_message(`languageId for lorem_ipsum.txt: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
     uri = vscode.Uri.joinPath(test_folder_uri, 'suite', 'index.js');
     active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for index.js: ${active_doc.languageId}`)
+    log_message(`languageId for index.js: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'javascript');
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
 
     uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'lorem_ipsum');
     active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`)
+    log_message(`languageId for lorem_ipsum: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1000);
@@ -386,9 +393,10 @@ async function test_no_autodetection(test_folder_uri) {
 async function test_dynamic_csv(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies_multichar_separator.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for movies_multichar_separator.txt: ${active_doc.languageId}`)
+    log_message(`languageId for movies_multichar_separator.txt: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
+    await SetCursorToTheTopAtStartWorkaround();
     await sleep(1000);
     for (let i = 0; i < 6; i++) {
         await vscode.commands.executeCommand("cursorRight");
@@ -399,11 +407,11 @@ async function test_dynamic_csv(test_folder_uri) {
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(2000);
-    log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`)
+    log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'dynamic csv');
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparatorOff');
     await sleep(2000);
-    log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`)
+    log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     await sleep(1000);
 
@@ -432,11 +440,11 @@ async function test_dynamic_csv(test_folder_uri) {
     await vscode.commands.executeCommand('undo'); // Undo Align.
     await sleep(500);
 
-    test_task = {rbql_backend: "js", rbql_query: "select a1, a4 % 100, a5 order by a1 limit 20"};
+    let test_task = {rbql_backend: "js", rbql_query: "select a1, a4 % 100, a5 order by a1 limit 20"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
     active_doc = vscode.window.activeTextEditor.document;
-    length_after_query = active_doc.getText().length;
+    let length_after_query = active_doc.getText().length;
     log_message(`Length after js query: ${length_after_query}`);
     await sleep(1000);
     let expected_num_lines = 742;
@@ -473,7 +481,7 @@ async function test_huge_file(test_folder_uri) {
     let end_time = performance.now();
     let total_sleep_time = 500 * 4 - 10 * 100 - 10 * 10;
     let total_adjusted_latency = (end_time - start_time) - total_sleep_time;
-    log_message(`total adjusted latency: ${total_adjusted_latency}`)
+    log_message(`total adjusted latency: ${total_adjusted_latency}`);
     assert(total_adjusted_latency < 20000);
 }
 
@@ -481,7 +489,7 @@ async function test_autodetection(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking_semicolon.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
     let editor = await vscode.window.showTextDocument(active_doc);
-    log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`)
+    log_message(`languageId for university_ranking_semicolon.txt: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'csv (semicolon)');
     await sleep(1000);
 }
@@ -490,9 +498,10 @@ async function test_autodetection(test_folder_uri) {
 async function test_manual_enable_disable(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'small_movies.pipe');
     let active_doc = await vscode.workspace.openTextDocument(uri);
-    log_message(`languageId for small_movies.pipe: ${active_doc.languageId}`)
+    log_message(`languageId for small_movies.pipe: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     let editor = await vscode.window.showTextDocument(active_doc);
+    await SetCursorToTheTopAtStartWorkaround();
     await sleep(1000);
     for (let i = 0; i < 6; i++) {
         await vscode.commands.executeCommand("cursorRight");
@@ -501,11 +510,11 @@ async function test_manual_enable_disable(test_folder_uri) {
     await sleep(1000);
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
     await sleep(2000);
-    log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`)
+    log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'csv (pipe)');
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparatorOff');
     await sleep(2000);
-    log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`)
+    log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'plaintext');
     await sleep(1000);
 }
@@ -892,10 +901,10 @@ async function run() {
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
 
-        use_script_based_root = false; // This is a workaround for running unit tests from inside VSCode UI instead of command line, but we probably don't need this since we are passing the workspace file explicitly.
+        let use_script_based_root = false; // This is a workaround for running unit tests from inside VSCode UI instead of command line, but we probably don't need this since we are passing the workspace file explicitly.
         let workspace_folder_uri = null;
         if (!is_web_ext && use_script_based_root) {
-            workspace_folder_uri = vscode.Uri.file('file:/' + __dirname)
+            workspace_folder_uri = vscode.Uri.file('file:/' + __dirname);
         } else {
             assert(vscode.workspace.workspaceFolders);
             assert.equal(1, vscode.workspace.workspaceFolders.length);
@@ -922,9 +931,9 @@ async function run() {
 
         await test_autodetection(test_folder_uri);
         await test_manual_enable_disable(test_folder_uri);
-
+        
         await test_huge_file(test_folder_uri);
-
+        
         await test_dynamic_csv(test_folder_uri);
 
         if (is_web_ext) {

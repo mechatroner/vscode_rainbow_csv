@@ -4,5 +4,8 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+        "window.restoreWindows": "none",
+        "files.hotExit": "off"
+    }
 }

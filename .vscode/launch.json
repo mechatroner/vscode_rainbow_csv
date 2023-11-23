@@ -28,8 +28,7 @@
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": [ "${workspaceRoot}/test/test.code-workspace", "--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test/suite/index" ],
-            "cwd": "${workspaceRoot}",
+            "args": [ "${workspaceRoot}/test/test.code-workspace", "--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test/suite/index", "--new-window" ],
             "stopOnEntry": false
         }
     ]
