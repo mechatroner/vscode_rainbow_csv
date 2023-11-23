@@ -931,9 +931,9 @@ async function run() {
 
         await test_autodetection(test_folder_uri);
         await test_manual_enable_disable(test_folder_uri);
-        
+
         await test_huge_file(test_folder_uri);
-        
+
         await test_dynamic_csv(test_folder_uri);
 
         if (is_web_ext) {

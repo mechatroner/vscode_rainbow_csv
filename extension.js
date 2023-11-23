@@ -1118,6 +1118,8 @@ async function restore_original_language() {
     active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     // There is no onDidChangeActiveTextEditor even for language change so we need to explicitly disable rainbow features.
     disable_rainbow_features_if_non_csv(active_doc);
+    // The only reason why we might want to clean up `dynamic_document_dialects` here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype swith at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
+    extension_context.dynamic_document_dialects.delete(file_path);
 }
 
 
@@ -1751,16 +1753,11 @@ async function handle_doc_close(doc_to_close) {
     // This is a workaround hack to prevent repeated autodetection on csv -> txt language switch.
     // In that case a csv file will be closed and shortly after a txt file with the same path will be opened, so we don't want to apply autodetection to it.
     // This will also trigger when virtual docs (e.g. `.git` pairs) are closed, but it is probably fine to reset last_closed_rainbow_doc_info in that case.
-    // Also this cleans up dynamic_document_dialects and keeps no dynamic lang => no dynamic dialect invariant.
     if (!is_rainbow_dialect_doc(doc_to_close)) {
         last_closed_rainbow_doc_info = null;
         return;
     }
     last_closed_rainbow_doc_info = {file_path: doc_to_close.fileName, timestamp: Date.now()};
-    // We don't want to retain dynamic info across doc reopen.
-    // On the other hand filetypes including (Dynamic CSV) are oftentimes (always?) preserved across VSCode restarts, but saving the dialect into the dynamic map won't help anyway (unless we keep it int the persistent storage).
-    // This is because other filetypes selected through the language mode menu are also not retained (both in preview and non-preview modes).
-    extension_context.dynamic_document_dialects.delete(doc_to_close.fileName);
 
     if (is_active_doc(doc_to_close)) {
         // In order to disable elements we need to check that the closed rainbow doc is in fact active doc to avoid removing UI when a non-focused CSV or non-csv file is being closed.
