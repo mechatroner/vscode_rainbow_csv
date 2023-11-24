@@ -28,8 +28,6 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME run unit tests in browser
-
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
@@ -1695,6 +1693,7 @@ async function handle_first_edit_for_an_empty_doc(change_event) {
 async function handle_editor_switch(editor) {
     // This event is not triggered when language mode is changed.
     // We need this handler to hide and show UI elements when user switches between the doc tabs.
+    // When the file is larger than 50MB, editor and active_doc are null/undefined.
     let active_doc = get_active_doc(editor);
     // When switching between the open non-preview doc tabs the doc open/close events are (typically) not triggered for the actual files (exception is "curious doc reopening" problem, see DEV_README.md)
     // but open and close events could (and will) be triggered for some virtual files e.g. paired files with .git scheme.

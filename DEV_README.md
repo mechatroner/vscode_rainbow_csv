@@ -36,6 +36,7 @@
 It is possible to run this in windows cmd too, but it could be that the node_modules dir has to be deleted and installed from scratch.
 The difference between running in win and in WSL is that in WSL it would only run with `--browser=none` option and this option doesn't run unit tests automatically which could be an issue if you want to run tests instead of manual debugging.
 
+NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
 
 ### Running unit tests for the extension inside VSCode:
 #### For standard VSCode:
@@ -47,6 +48,8 @@ The difference between running in win and in WSL is that in WSL it would only ru
 1. run `npm install` (If you have WSL - run in Windows, don't run in WSL).
 2. run `npm run compile-web` (If you have WSL - run in Windows, don't run in WSL). This will combine all scripts into a single web script and put it into the `dist` folder.
 3. run `npm run test-in-browser` (If you have WSL - run in Windows, don't run in WSL). This will open a new browser windows and run all the unit tests. Make sure that the tests are successful.
+
+NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
 
 
 ### Running unit tests for the extension inside VSCode:
