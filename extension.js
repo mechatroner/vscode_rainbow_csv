@@ -28,6 +28,7 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
+// FIXME get rid of rainbow hover markup.
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
@@ -88,7 +89,6 @@ const SIMPLE_POLICY = 'simple';
 let extension_context = {
     lint_results: new Map(),
     lint_status_bar_button: null,
-    // Filetypes (lang modes) are not preserved across doc reopen but surprisingly preserved across VSCode restarts so might consider storing dialect info in persistent global state.
     dynamic_document_dialects: new Map(),
     custom_comment_prefixes: new Map(),
     original_language_ids: new Map(),
@@ -136,8 +136,36 @@ function make_dialect_info(delim, policy) {
 }
 
 
-function save_dynamic_info(file_path, dialect_info) {
+function make_dynamic_dialect_key(file_path) {
+    return 'dynamic_dialect:' + file_path;
+}
+
+
+async function save_dynamic_info(file_path, dialect_info) {
+    await save_to_global_state(make_dynamic_dialect_key(file_path), dialect_info);
     extension_context.dynamic_document_dialects.set(file_path, dialect_info);
+}
+
+
+async function remove_dynamic_info(file_path) {
+    await save_to_global_state(make_dynamic_dialect_key(file_path), undefined);
+    extension_context.dynamic_document_dialects.delete(file_path);
+}
+
+
+function get_dynamic_info(file_path) {
+    // Filetypes (lang modes) are not preserved across doc reopen but surprisingly preserved across VSCode restarts so we are also storing them in persistent global state.
+    // Persistent dialect info has some minor drawbacks (e.g. performance also restart not completely resetting the state is an issue by itself in some contexts) and could be reconsidered if more serious issues are found.
+    if (extension_context.dynamic_document_dialects.has(file_path)) {
+        return extension_context.dynamic_document_dialects.get(file_path);
+    }
+    // Failed to get from the session-local dynamic_document_dialects - check if we have it persistently stored from a previous session.
+    let dialect_info = get_from_global_state(make_dynamic_dialect_key(file_path), null);
+    if (dialect_info && dialect_info.hasOwnProperty('delim') && dialect_info.hasOwnProperty('policy')) {
+        extension_context.dynamic_document_dialects.set(file_path, dialect_info);
+        return dialect_info;
+    }
+    return null;
 }
 
 
@@ -286,8 +314,11 @@ function get_dialect(document) {
         [delim, policy] = dialect_map[language_id];
         return [delim, policy, comment_prefix];
     }
-    if (language_id == DYNAMIC_CSV && extension_context.dynamic_document_dialects.has(document.fileName)) {
-        let dialect_info = extension_context.dynamic_document_dialects.get(document.fileName);
+    let dialect_info = null;
+    if (language_id == DYNAMIC_CSV) {
+        dialect_info = get_dynamic_info(document.fileName);
+    }
+    if (dialect_info) {
         return [dialect_info.delim, dialect_info.policy, comment_prefix];
     }
     // The language id can be `dynamic csv` here e.g. if user just now manually selected the "Dynamic CSV" filetype.
@@ -428,7 +459,7 @@ async function choose_dynamic_separator() {
         show_single_line_error('Unable to use empty string separator');
         return;
     }
-    save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
+    await save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
     await enable_rainbow_features_if_csv(active_doc);
 }
 
@@ -451,13 +482,13 @@ async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) 
         return; // All good already.
     }
     if (extension_context.dynamic_dialect_for_next_request != null) {
-        save_dynamic_info(active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
+        await save_dynamic_info(active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
         extension_context.dynamic_dialect_for_next_request = null;
         return;
     }
     [delim, policy] = await get_dialect_from_user_dialog();
     if (delim && policy) {
-        save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
+        await save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
         return;
     }
     // Still no luck, show the button so that the user can at least complete the dialect later.
@@ -1019,7 +1050,7 @@ async function manually_set_rainbow_separator(policy=null) {
     }
     let selection = active_editor.selection;
     if (!selection) {
-        show_single_line_error("Selection is empty");
+        show_single_line_error("Selection is empty: separator must be selected with the editor cursor");
         return;
     }
     if (selection.start.line != selection.end.line) {
@@ -1050,7 +1081,7 @@ async function manually_set_rainbow_separator(policy=null) {
         extension_context.autodetection_temporarily_disabled_for_rbql = false;
     }
     if (language_id == DYNAMIC_CSV) {
-        save_dynamic_info(active_doc.fileName, make_dialect_info(separator, policy));
+        await save_dynamic_info(active_doc.fileName, make_dialect_info(separator, policy));
     }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
@@ -1106,8 +1137,9 @@ async function restore_original_language() {
     if (file_path) {
         // Preserve rainbow language info, so that the user can later re-enable it for this file.
         let current_language_info = {language_id: active_doc.languageId};
-        if (extension_context.dynamic_document_dialects.has(file_path)) {
-            current_language_info.dynamic_dialect_info = extension_context.dynamic_document_dialects.get(file_path);
+        let dynamic_dialect_info = get_dynamic_info(file_path);
+        if (dynamic_dialect_info) {
+            current_language_info.dynamic_dialect_info = dynamic_dialect_info;
         }
         extension_context.reenable_rainbow_language_infos.set(file_path, current_language_info);
         extension_context.autodetection_stoplist.add(file_path);
@@ -1116,8 +1148,8 @@ async function restore_original_language() {
     active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     // There is no onDidChangeActiveTextEditor even for language change so we need to explicitly disable rainbow features.
     disable_rainbow_features_if_non_csv(active_doc);
-    // The only reason why we might want to clean up `dynamic_document_dialects` here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype swith at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
-    extension_context.dynamic_document_dialects.delete(file_path);
+    // The only reason why we might want to clean up dynamic dialect info here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype swith at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
+    remove_dynamic_info(file_path);
 }
 
 
@@ -1135,7 +1167,7 @@ async function reenable_rainbow_language() {
     // Delete from the stoplist to revert "Rainbow Off" side-effects.
     extension_context.autodetection_stoplist.delete(file_path);
     if (rainbow_language_info.hasOwnProperty('dynamic_dialect_info')) {
-        save_dynamic_info(file_path, rainbow_language_info.dynamic_dialect_info);
+        await save_dynamic_info(file_path, rainbow_language_info.dynamic_dialect_info);
     }
     // Preserve current (non-rainbow) language id to allow switching between "Rainbow Off"/"Rainbow On".
     preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
@@ -1665,7 +1697,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
     if (rainbow_csv_language_id == DYNAMIC_CSV) {
-        extension_context.dynamic_document_dialects.set(file_path, make_dialect_info(delim, policy));
+        await save_dynamic_info(file_path, make_dialect_info(delim, policy));
     }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
