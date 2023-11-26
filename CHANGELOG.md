@@ -2,6 +2,7 @@
 
 ## 3.9.0
 * Adjust state transition logic and improve UX for some edge cases.
+* Get rid of rainbow hover text colorizing since it probably didn't work anyway.
 
 ## 3.8.0
 * UI improvement: Better "CSVLint" status button by [@kostasx](https://github.com/kostasx).

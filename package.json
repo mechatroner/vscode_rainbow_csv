@@ -230,10 +230,6 @@
                 ],
                 "extensions": [],
                 "configuration": "./language-configuration.json"
-            },
-            {
-                "id": "rainbow hover markup",
-                "extensions": []
             }
         ],
         "commands": [
@@ -357,11 +353,6 @@
                 "language": "dynamic csv",
                 "scopeName": "text.dynamiccsv",
                 "path": "./syntaxes/dynamic_csv.tmLanguage.json"
-            },
-            {
-                "language": "rainbow hover markup",
-                "scopeName": "text.rbhover",
-                "path": "./syntaxes/rb_hover.tmLanguage.json"
             }
         ]
     },

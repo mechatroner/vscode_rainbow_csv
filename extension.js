@@ -28,7 +28,6 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME get rid of rainbow hover markup.
 // FIXME Add a way to separate output directory setting for different systems.
 // FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
@@ -630,15 +629,7 @@ function make_hover(document, language_id, position, cancellation_token) {
         return null;
     }
     let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/true, /*max_label_length=*/25);
-    let mds = null;
-    if (language_id == DYNAMIC_CSV) {
-        mds = short_report; // Do not colorize hover text because dynamic csv provides inconsistent colors for some of the tokens.
-    } else {
-        // TODO The syntax highlighting doesn't always work here, perhaps due to https://github.com/microsoft/vscode/issues/53723. Consider getting rid of it altogether.
-        mds = new vscode.MarkdownString();
-        mds.appendCodeblock(short_report, 'rainbow hover markup');
-    }
-    return new vscode.Hover(mds);
+    return new vscode.Hover(short_report);
 }
 
 
