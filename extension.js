@@ -140,7 +140,7 @@ function make_dynamic_dialect_key(file_path) {
 }
 
 
-async function save_dynamic_info(file_path, dialect_info) {
+async function save_dynamic_info(extension_context, file_path, dialect_info) {
     await save_to_global_state(make_dynamic_dialect_key(file_path), dialect_info);
     extension_context.dynamic_document_dialects.set(file_path, dialect_info);
 }
@@ -458,7 +458,7 @@ async function choose_dynamic_separator() {
         show_single_line_error('Unable to use empty string separator');
         return;
     }
-    await save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
+    await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
     await enable_rainbow_features_if_csv(active_doc);
 }
 
@@ -481,13 +481,13 @@ async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) 
         return; // All good already.
     }
     if (extension_context.dynamic_dialect_for_next_request != null) {
-        await save_dynamic_info(active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
+        await save_dynamic_info(extension_context, active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
         extension_context.dynamic_dialect_for_next_request = null;
         return;
     }
     [delim, policy] = await get_dialect_from_user_dialog();
     if (delim && policy) {
-        await save_dynamic_info(active_doc.fileName, make_dialect_info(delim, policy));
+        await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
         return;
     }
     // Still no luck, show the button so that the user can at least complete the dialect later.
@@ -1072,7 +1072,7 @@ async function manually_set_rainbow_separator(policy=null) {
         extension_context.autodetection_temporarily_disabled_for_rbql = false;
     }
     if (language_id == DYNAMIC_CSV) {
-        await save_dynamic_info(active_doc.fileName, make_dialect_info(separator, policy));
+        await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(separator, policy));
     }
     let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
     preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
@@ -1158,7 +1158,7 @@ async function reenable_rainbow_language() {
     // Delete from the stoplist to revert "Rainbow Off" side-effects.
     extension_context.autodetection_stoplist.delete(file_path);
     if (rainbow_language_info.hasOwnProperty('dynamic_dialect_info')) {
-        await save_dynamic_info(file_path, rainbow_language_info.dynamic_dialect_info);
+        await save_dynamic_info(extension_context, file_path, rainbow_language_info.dynamic_dialect_info);
     }
     // Preserve current (non-rainbow) language id to allow switching between "Rainbow Off"/"Rainbow On".
     preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
@@ -1688,7 +1688,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
     if (rainbow_csv_language_id == DYNAMIC_CSV) {
-        await save_dynamic_info(file_path, make_dialect_info(delim, policy));
+        await save_dynamic_info(extension_context, file_path, make_dialect_info(delim, policy), extension_context);
     }
     if (rainbow_csv_language_id == original_language_id)
         return active_doc;
