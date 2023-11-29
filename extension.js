@@ -29,7 +29,6 @@ function ll_rainbow_utils() {
 }
 
 // FIXME Add a way to separate output directory setting for different systems.
-// FIXME convert run_command to async version and ...
 // FIXME Start RBQL with python3 first and switch to python on failure.
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
@@ -154,7 +153,7 @@ async function remove_dynamic_info(file_path) {
 
 function get_dynamic_info(file_path) {
     // Filetypes (lang modes) are not preserved across doc reopen but surprisingly preserved across VSCode restarts so we are also storing them in persistent global state.
-    // Persistent dialect info has some minor drawbacks (e.g. performance also restart not completely resetting the state is an issue by itself in some contexts) and could be reconsidered if more serious issues are found.
+    // Persistent dialect info has some minor drawbacks (e.g. performance also restart not completely resetting the state is an issue by itself in some scenarios) and could be reconsidered if more serious issues are found.
     if (extension_context.dynamic_document_dialects.has(file_path)) {
         return extension_context.dynamic_document_dialects.get(file_path);
     }
@@ -490,7 +489,7 @@ async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) 
         await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
         return;
     }
-    // Still no luck, show the button so that the user can at least complete the dialect later.
+    // Still no luck, show the button so that the user can at least complete the dialog later.
     show_choose_dynamic_separator_button();
 }
 
@@ -800,71 +799,25 @@ async function handle_rbql_result_file_web(text_doc, warnings) {
 }
 
 
-function run_command(cmd, args, close_and_error_guard, callback_func) {
-    var command = child_process.spawn(cmd, args, {'windowsHide': true});
-    var stdout = '';
-    var stderr = '';
-    command.stdout.on('data', function(data) {
-        stdout += data.toString();
-    });
-    command.stderr.on('data', function(data) {
-        stderr += data.toString();
-    });
-    command.on('close', function(code) {
-        if (!close_and_error_guard['process_reported']) {
-            close_and_error_guard['process_reported'] = true;
-            callback_func(code, stdout, stderr);
-        }
-    });
-    command.on('error', function(error) {
-        var error_msg = error ? error.name + ': ' + error.message : '';
-        if (!close_and_error_guard['process_reported']) {
-            close_and_error_guard['process_reported'] = true;
-            callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
-        }
-    });
-}
 
-
-async function handle_command_result(src_table_path, dst_table_path, dst_delim, dst_policy, error_code, stdout, stderr, webview_report_handler) {
-    let json_report = stdout;
-    let error_type = null;
-    let error_msg = null;
-    let warnings = [];
-    if (error_code || !json_report || stderr) {
-        error_type = 'Integration';
-        error_msg = stderr ? stderr : 'empty error';
-    } else {
-        try {
-            let report = JSON.parse(json_report);
-            if (report.hasOwnProperty('error_type'))
-                error_type = report['error_type'];
-            if (report.hasOwnProperty('error_msg'))
-                error_msg = report['error_msg'];
-            if (report.hasOwnProperty('warnings'))
-                warnings = report['warnings'];
-        } catch (e) {
-            error_type = 'Integration';
-            error_msg = 'Unable to parse JSON report';
-        }
-    }
-    webview_report_handler(error_type, error_msg);
-    if (error_type || error_msg) {
-        return; // Just exit: error would be shown in the preview window.
-    }
-    // No need to close the RBQL console here, better to leave it open so it can be used to quickly adjust the query if needed.
-    extension_context.autodetection_stoplist.add(dst_table_path);
-    result_set_parent_map.set(safe_lower(dst_table_path), src_table_path);
-    extension_context.autodetection_temporarily_disabled_for_rbql = true;
-    let target_language_id = map_dialect_to_language_id(dst_delim, dst_policy);
-    let doc = await vscode.workspace.openTextDocument(dst_table_path);
-    extension_context.autodetection_temporarily_disabled_for_rbql = false;
-    // We need dynamic_dialect_for_next_request here because we can't open the doc with DYNAMIC_CSV, it will be switched on doc-ropen.
-    if (target_language_id == DYNAMIC_CSV) {
-        extension_context.dynamic_dialect_for_next_request = make_dialect_info(dst_delim, dst_policy);
-    }
-    await handle_rbql_result_file_node(doc, dst_delim, dst_policy, warnings);
-    extension_context.dynamic_dialect_for_next_request = null;
+function command_async_wrapper(cmd, args) {
+    return new Promise(function (resolve, reject) {
+        let stdout_data = '';
+        let stderr_data = '';
+        let process = child_process.spawn(cmd, args, {'windowsHide': true});
+        process.stdout.on('data', function(data) {
+            stdout_data += data.toString();
+        });
+        process.stderr.on('data', function(data) {
+            stderr_data += data.toString();
+        });
+        process.on('close', function (code) { // Consider replacing 'close' with 'exit'.
+            resolve({'exit_code': code, 'stdout': stdout_data, 'stderr': stderr_data});
+        });
+        process.on('error', function (err) {
+            reject(err);
+        });
+    });
 }
 
 
@@ -903,7 +856,41 @@ function get_dst_table_dir(input_table_path) {
 }
 
 
-async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers, webview_report_handler) {
+async function run_command_and_parse_output(cmd, args) {
+    let execution_result = null;
+    try {
+        execution_result = await command_async_wrapper(cmd, args);
+    } catch (error) {
+        let error_details = error ? error.name + ': ' + error.message : '';
+        let error_msg = 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_details;
+        return {error_type: 'Integration', error_msg: error_msg};
+    }
+    let json_report = execution_result.stdout;
+    if (!json_report || execution_result.stderr) {
+        let error_msg = execution_result.stderr || 'empty error';
+        return {error_type: 'Integration', error_msg: error_msg};
+    }
+    try {
+        return JSON.parse(json_report);
+    } catch (e) {
+        return {error_type: 'Integration', error_msg: 'Unable to parse JSON report'};
+    }
+}
+
+
+async function send_report_to_webview(webview, error_type, error_msg) {
+    let report_msg = {'msg_type': 'rbql_report'};
+    if (error_type)
+        report_msg["error_type"] = error_type;
+    if (error_msg)
+        report_msg["error_msg"] = error_msg;
+    _unit_test_last_rbql_report = report_msg;
+    await webview.postMessage(report_msg);
+}
+
+
+async function run_rbql_query(webview, input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers) {
+    // TODO refactor this function.
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
@@ -925,7 +912,13 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             cmd = 'nopython';
         }
         let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, output_delim, output_policy, error_code, stdout, stderr, webview_report_handler); });
+        let execution_result = await run_command_and_parse_output(cmd, args);
+        console.log(JSON.stringify(execution_result));
+        if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
+            await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
+            return;
+        }
+        await send_report_to_webview(webview, null, null);
         return;
     }
     if (backend_language == 'js') {
@@ -943,7 +936,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
                 extension_context.dynamic_dialect_for_next_request = null;
                 extension_context.autodetection_temporarily_disabled_for_rbql = false;
-                webview_report_handler(null, null);
+                await send_report_to_webview(webview, null, null);
                 await handle_rbql_result_file_web(result_doc, warnings);
             } else {
                 let csv_options = {'bulk_read': true};
@@ -952,7 +945,7 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
                 extension_context.autodetection_temporarily_disabled_for_rbql = true;
                 result_doc = await vscode.workspace.openTextDocument(output_path);
                 extension_context.autodetection_temporarily_disabled_for_rbql = false;
-                webview_report_handler(null, null);
+                await send_report_to_webview(webview, null, null);
                 if (target_language_id == DYNAMIC_CSV) {
                     // TODO it would be better to set this before openTextDocument and adjust the logic so this would affect autodetection.
                     extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
@@ -962,12 +955,12 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
             }
         } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
-            webview_report_handler(error_type, error_msg);
+            await send_report_to_webview(webview, error_type, error_msg);
             return;
         }
     } else {
         if (is_web_ext) {
-            webview_report_handler('Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
+            await send_report_to_webview(webview, 'Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
             return;
         }
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
@@ -977,7 +970,24 @@ async function run_rbql_query(input_path, csv_encoding, backend_language, rbql_q
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, comment_prefix, csv_encoding];
         if (with_headers)
             args.push('--with_headers');
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(input_path, output_path, output_delim, output_policy, error_code, stdout, stderr, webview_report_handler); });
+        let execution_result = await run_command_and_parse_output(cmd, args);
+        if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
+            await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
+            return;
+        }
+        await send_report_to_webview(webview, null, null);
+        extension_context.autodetection_stoplist.add(output_path);
+        result_set_parent_map.set(safe_lower(output_path), input_path);
+        extension_context.autodetection_temporarily_disabled_for_rbql = true;
+        let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
+        let output_doc = await vscode.workspace.openTextDocument(output_path);
+        extension_context.autodetection_temporarily_disabled_for_rbql = false;
+        // We need dynamic_dialect_for_next_request here because we can't open the output_doc with DYNAMIC_CSV, it will be switched on doc-ropen.
+        if (target_language_id == DYNAMIC_CSV) {
+            extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
+        }
+        await handle_rbql_result_file_node(output_doc, output_delim, output_policy, execution_result.warnings);
+        extension_context.dynamic_dialect_for_next_request = null;
     }
 }
 
@@ -1370,16 +1380,6 @@ async function update_query_history(query) {
 async function handle_rbql_client_message(webview, message, integration_test_options=null) {
     let message_type = message['msg_type'];
 
-    let webview_report_handler = async function(error_type, error_msg) {
-        let report_msg = {'msg_type': 'rbql_report'};
-        if (error_type)
-            report_msg["error_type"] = error_type;
-        if (error_msg)
-            report_msg["error_msg"] = error_msg;
-        _unit_test_last_rbql_report = report_msg;
-        await webview.postMessage(report_msg);
-    };
-
     if (message_type == 'handshake') {
         var backend_language = get_from_global_state('rbql_backend_language', 'js');
         var encoding = get_from_global_state('rbql_encoding', 'utf-8');
@@ -1462,12 +1462,12 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         let output_dialect = message['output_dialect'];
         let with_headers = message['with_headers'];
         await update_query_history(rbql_query);
-        await run_rbql_query(rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, with_headers, webview_report_handler);
+        await run_rbql_query(webview, rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, with_headers);
     }
 
     if (message_type == 'edit_udf') {
         if (is_web_ext) {
-            webview_report_handler('Input error', 'UDFs are currently not supported in web version');
+            await send_report_to_webview(webview, 'Input error', 'UDFs are currently not supported in web version');
             return;
         }
         let backend_language = message['backend_language'];

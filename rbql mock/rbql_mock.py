@@ -43,12 +43,14 @@ def main():
         sleep_time = float(params['sleep'])
         time.sleep(sleep_time)
 
-    if 'error' in params:
-        report['error_type'] = 'Mock Error'
-        report['error_details'] = params['error']
+    if 'error_type' in params:
+        report['error_type'] = params['error_type']
 
-    if 'warning' in params:
-        report['warnings'] = params['warning'].split(';')
+    if 'error_msg' in params:
+        report['error_msg'] = params['error_msg']
+
+    if 'warnings' in params:
+        report['warnings'] = params['warnings'].split(';')
 
     if 'unhandled_exception' in params:
         raise MockException('Unhandled Mock Exception')
@@ -58,7 +60,7 @@ def main():
             raise MockException('Handled Mock Exception')
         except Exception as e:
             report['error_type'] = 'Exception'
-            report['error_details'] = str(e)
+            report['error_msg'] = str(e)
 
     if 'stderr' in params:
         sys.stderr.write(params['stderr'])
