@@ -25,7 +25,7 @@
         "onLanguage:csv (semicolon)",
         "onLanguage:csv (pipe)",
         "onLanguage:csv (whitespace)",
-        "onLanguage:csv dynamic",
+        "onLanguage:dynamic csv",
         "onLanguage:plaintext",
         "onCommand:rainbow-csv.RBQL",
         "onCommand:rainbow-csv.RainbowSeparator",
