@@ -53,6 +53,8 @@ var dynamic_dialect_select_button = null;
 
 var rbql_context = null;
 
+var debug_log_output_channel = null;
+
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
 
 var client_html_template = null;
@@ -94,6 +96,8 @@ let extension_context = {
     autodetection_stoplist: new Set(),
     autodetection_temporarily_disabled_for_rbql: false,
     dynamic_dialect_for_next_request: null,
+    logging_enabled: false,
+    logging_next_context_id: 1,
 };
 
 const dialect_map = {
@@ -276,6 +280,47 @@ function get_from_config(param_name, default_value, config=null) {
 }
 
 
+class StackContextLogWrapper {
+    // Use class instead of pure function to avoid passing context name and checking if logging is enabled in the config in each call.
+    constructor(context_name, logging_enabled) {
+        this.context_name = context_name;
+        this.logging_enabled = extension_context.logging_enabled;
+        this.context_id = extension_context.logging_next_context_id;
+        extension_context.logging_next_context_id += 1;
+    }
+
+    log_doc_event(event_name, vscode_doc=null) {
+        if (!this.logging_enabled)
+            return;
+        try {
+            let full_event = {context_name: this.context_name, cid: this.context_id, event_name: event_name, has_doc: !!vscode_doc};
+            if (vscode_doc) {
+                full_event.language_id = vscode_doc.languageId;
+                if (vscode_doc.uri) {
+                    full_event.uri = vscode_doc.uri.toString(/*skipEncoding=*/true);
+                }
+            }
+            debug_log_output_channel.debug(JSON.stringify(full_event));
+        } catch (error) {
+            console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
+            return;
+        }
+    }
+
+    log_simple_event(event_name) {
+        if (!this.logging_enabled)
+            return;
+        try {
+            let full_event = {context_name: this.context_name, event_name: event_name};
+            debug_log_output_channel.debug(JSON.stringify(full_event));
+        } catch (error) {
+            console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
+            return;
+        }
+    }
+}
+
+
 function get_header_from_document(document, delim, policy, comment_prefix) {
     let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
     if (!header_line) {
@@ -447,7 +492,9 @@ async function get_dialect_from_user_dialog() {
 
 
 async function choose_dynamic_separator() {
+    let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     let active_doc = get_active_doc();
+    log_wrapper.log_doc_event('starting', active_doc);
     if (active_doc.languageId != DYNAMIC_CSV) {
         show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
         return;
@@ -458,7 +505,7 @@ async function choose_dynamic_separator() {
         return;
     }
     await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
-    await enable_rainbow_features_if_csv(active_doc);
+    await enable_rainbow_features_if_csv(active_doc, log_wrapper);
 }
 
 
@@ -495,8 +542,10 @@ async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) 
 }
 
 
-async function enable_rainbow_features_if_csv(active_doc) {
+async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
+    log_wrapper.log_doc_event('start enable-rainbow-features-if-csv', active_doc);
     if (!is_rainbow_dialect_doc(active_doc)) {
+        log_wrapper.log_doc_event('abort enable-rainbow-features-if-csv', active_doc);
         return;
     }
     if (rainbow_on_status_bar_button) {
@@ -509,6 +558,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!delim || !policy) {
         // Make sure UI elements are disabled.
+        log_wrapper.log_doc_event('abort enable-rainbow-features-if-csv: missing delim or policy', active_doc);
         disable_ui_elements();
         return;
     }
@@ -525,6 +575,7 @@ async function enable_rainbow_features_if_csv(active_doc) {
     register_sticky_header_provider();
     enable_rainbow_ui(active_doc);
     await csv_lint(active_doc, false);
+    log_wrapper.log_doc_event('finish enable-rainbow-features-if-csv', active_doc);
 }
 
 
@@ -541,11 +592,13 @@ function disable_ui_elements() {
 }
 
 
-function disable_rainbow_features_if_non_csv(active_doc) {
+function disable_rainbow_features_if_non_csv(active_doc, log_wrapper) {
+    log_wrapper.log_doc_event('start disable-rainbow-features-if-non-csv', active_doc);
     if (is_rainbow_dialect_doc(active_doc)) {
         if (rainbow_on_status_bar_button) {
             rainbow_on_status_bar_button.hide();
         }
+        log_wrapper.log_doc_event('abort disable-rainbow-features-if-non-csv', active_doc);
         return;
     }
     if (is_eligible_doc(active_doc) && extension_context.reenable_rainbow_language_infos.has(active_doc.fileName)) {
@@ -557,6 +610,7 @@ function disable_rainbow_features_if_non_csv(active_doc) {
             rainbow_on_status_bar_button.hide();
         }
     }
+    log_wrapper.log_doc_event('perform disable-rainbow-features-if-non-csv', active_doc);
     disable_ui_elements();
 }
 
@@ -1122,7 +1176,9 @@ async function set_comment_prefix() {
 
 
 async function restore_original_language() {
+    let log_wrapper = new StackContextLogWrapper('restore_original_language');
     let active_doc = get_active_doc();
+    log_wrapper.log_doc_event('starting', active_doc);
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
@@ -1148,7 +1204,7 @@ async function restore_original_language() {
 
     active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     // There is no onDidChangeActiveTextEditor even for language change so we need to explicitly disable rainbow features.
-    disable_rainbow_features_if_non_csv(active_doc);
+    disable_rainbow_features_if_non_csv(active_doc, log_wrapper);
     // The only reason why we might want to clean up dynamic dialect info here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype swith at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
     remove_dynamic_info(file_path);
 }
@@ -1646,21 +1702,32 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
 
     // VSCode may (and will?) forget documentId of a document "A" if document "B" is opened in the tab where "A" was (double VS single click in file browser panel).
     // see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
-    if (extension_context.autodetection_temporarily_disabled_for_rbql)
-        return active_doc;
+    let log_wrapper = new StackContextLogWrapper('autodetection');
+    log_wrapper.log_doc_event('autodetection started', active_doc);
+    if (extension_context.autodetection_temporarily_disabled_for_rbql) {
+        log_wrapper.log_simple_event('disabled for rbql');
+        return [active_doc, false];
+    }
     if (!is_eligible_doc(active_doc)) {
-        return active_doc;
+        log_wrapper.log_doc_event('ineligible doc', active_doc);
+        return [active_doc, false];
     }
-    if (!get_from_config('enable_separator_autodetection', false, config))
-        return active_doc;
+    if (!get_from_config('enable_separator_autodetection', false, config)) {
+        log_wrapper.log_simple_event('autodetection disabled in config');
+        return [active_doc, false];
+    }
     var file_path = active_doc.fileName;
-    if (extension_context.autodetection_stoplist.has(file_path)) {
-        return active_doc;
-    }
     var original_language_id = active_doc.languageId;
+    if (extension_context.autodetection_stoplist.has(file_path)) {
+        log_wrapper.log_doc_event('doc path in stoplist', active_doc);
+        return [active_doc, false];
+    }
+    // The check below also prevents double autodetection from handle_doc_open fork in the new_doc with adjusted language id.
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
-    if (original_language_id != 'plaintext' && !is_default_csv)
-        return active_doc;
+    if (original_language_id != 'plaintext' && !is_default_csv) {
+        log_wrapper.log_doc_event('ineligible original language id', active_doc);
+        return [active_doc, false];
+    }
 
     let candidate_separators = get_from_config('autodetect_separators', [], config).map((s) => s === 'TAB' ? '\t' : s);
     if (!dialect_map.hasOwnProperty(original_language_id) &&
@@ -1671,34 +1738,42 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         // Do not add to autodetection_stoplist because it goes against VSCode approach to discard all language mode state on reopen.
         // Also adding to autodetection_stoplist would make "curious doc reopening" problem worse.
         // Do not initialize "Rainbow ON" because either it was already enabled or user goes through the native UI and therefore showing Rainbow ON is not idiomatic/consistent/relevant.
-        return active_doc;
+        log_wrapper.log_doc_event('recent doc language switch prevention', active_doc);
+        return [active_doc, false];
     }
 
     let comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config) || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
+    log_wrapper.log_doc_event('starting standard dialect autodetection', active_doc);
     let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators, comment_prefix_for_autodetection);
     if (rainbow_csv_language_id) {
         // Add the file to lint results to avoid re-parsing it with CSV Lint later.
         extension_context.lint_results.set(`${file_path}.${rainbow_csv_language_id}`, {'is_ok': true, 'first_trailing_space_line': first_trailing_space_line});
     } else if (!rainbow_csv_language_id && is_default_csv) {
         // Smart autodetection method has failed, but we need to choose a separator because this is a csv file. Let's just find the most popular one within the first N characters.
+        log_wrapper.log_doc_event('starting frequency-based dialect autodetection', active_doc);
         [rainbow_csv_language_id, delim, policy] = autodetect_dialect_frequency_based(active_doc, candidate_separators, /*max_num_chars_to_test=*/10000);
     }
-    if (!rainbow_csv_language_id)
-        return active_doc;
+    if (!rainbow_csv_language_id) {
+        log_wrapper.log_doc_event('content-based autodetection failed', active_doc);
+        return [active_doc, false];
+    }
     // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
     // And in case if user changes it in the settings it would immediately affect the autodetected files.
     if (rainbow_csv_language_id == DYNAMIC_CSV) {
         await save_dynamic_info(extension_context, file_path, make_dialect_info(delim, policy), extension_context);
     }
-    if (rainbow_csv_language_id == original_language_id)
-        return active_doc;
+    if (rainbow_csv_language_id == original_language_id) {
+        log_wrapper.log_doc_event('autodetected dialect matches the original one', active_doc);
+        return [active_doc, false];
+    }
 
     // We can't add the doc path to autodetection_stoplist here (for autodetect-once semantic)
     // because the doc could be in preview mode and VSCode won't remember language_id so we might need to autodetect it again later.
 
     preserve_original_language_id_if_needed(file_path, original_language_id, extension_context.original_language_ids);
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
-    return doc;
+    let new_doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_csv_language_id);
+    log_wrapper.log_doc_event('autodetection successful', new_doc);
+    return [new_doc, true];
 }
 
 
@@ -1714,14 +1789,16 @@ async function handle_first_edit_for_an_empty_doc(change_event) {
 
 
 async function handle_editor_switch(editor) {
+    let log_wrapper = new StackContextLogWrapper('handle_editor_switch');
     // This event is not triggered when language mode is changed.
     // We need this handler to hide and show UI elements when user switches between the doc tabs.
     // When the file is larger than 50MB, editor and active_doc are null/undefined.
     let active_doc = get_active_doc(editor);
+    log_wrapper.log_doc_event('editor switch', active_doc);
     // When switching between the open non-preview doc tabs the doc open/close events are (typically) not triggered for the actual files (exception is "curious doc reopening" problem, see DEV_README.md)
     // but open and close events could (and will) be triggered for some virtual files e.g. paired files with .git scheme.
-    disable_rainbow_features_if_non_csv(active_doc);
-    await enable_rainbow_features_if_csv(active_doc); // No-op if non-csv.
+    disable_rainbow_features_if_non_csv(active_doc, log_wrapper);
+    await enable_rainbow_features_if_csv(active_doc, log_wrapper); // No-op if non-csv.
 }
 
 
@@ -1749,23 +1826,34 @@ async function handle_doc_open(new_doc) {
     // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
+    let log_wrapper = new StackContextLogWrapper('handle_doc_open');
+    log_wrapper.log_doc_event('opening doc', new_doc);
+
     if (!is_eligible_doc(new_doc)) {
+        log_wrapper.log_doc_event('ineligible doc', new_doc);
         return;
     }
 
     // Register a handler for copy-pasting CSV-formated data into an empty doc. Empty docs have lineCount equal 1.
     if (get_from_config('enable_separator_autodetection', false) && doc_first_edit_subscription === null && new_doc.isUntitled && new_doc.lineCount <= 1) {
         doc_first_edit_subscription = vscode.workspace.onDidChangeTextDocument(handle_first_edit_for_an_empty_doc);
+        log_wrapper.log_doc_event('creating empty doc subscription', new_doc);
         return;
     }
+    let filetype_changed = false;
+    [new_doc, filetype_changed] = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, new_doc);
 
-    new_doc = await try_autodetect_and_set_rainbow_filetype(vscode, vscode.workspace.getConfiguration('rainbow_csv'), extension_context, new_doc);
+    // If autodetection was successful we are essentially forking this handler for the new doc and the code below will be executed twice: here and in the handle_doc_open for the `new_doc`.
+    // There is still some benefit for not having and additional check to prevent this double execution: disable/enable ui calls are idempotent and the code is more robust/reliable this way.
+    log_wrapper.log_doc_event(`after autodetection. filetype changed: ${filetype_changed}`, new_doc);
     // There might be some redundancy between this code and onDidChangeActiveTextEditor handler, but this actually desired as long as methods are idempotent.
     // It is much better to do the same thing twice (if it is idempotent) to ensure the required behavior than rely on assumptions about external VSCode mechanisms (aka Defensive Programming).
     if (is_active_doc(new_doc)) {
-        disable_rainbow_features_if_non_csv(new_doc); // We need this to handle manual switch from csv to txt, this would immediately remove UI elements, that would stay otherwise.
-        await enable_rainbow_features_if_csv(new_doc); // No-op if non-csv.
+        log_wrapper.log_doc_event('enabling features', new_doc);
+        disable_rainbow_features_if_non_csv(new_doc, log_wrapper); // We need this to handle manual switch from csv to txt, this would immediately remove UI elements, that would stay otherwise.
+        await enable_rainbow_features_if_csv(new_doc, log_wrapper); // No-op if non-csv.
     }
+    log_wrapper.log_doc_event('finishing', new_doc);
 }
 
 
@@ -1775,18 +1863,35 @@ async function handle_doc_close(doc_to_close) {
     // This is a workaround hack to prevent repeated autodetection on csv -> txt language switch.
     // In that case a csv file will be closed and shortly after a txt file with the same path will be opened, so we don't want to apply autodetection to it.
     // This will also trigger when virtual docs (e.g. `.git` pairs) are closed, but it is probably fine to reset last_closed_rainbow_doc_info in that case.
+    let log_wrapper = new StackContextLogWrapper('handle_doc_close');
+    log_wrapper.log_doc_event('closing doc', doc_to_close);
     if (!is_rainbow_dialect_doc(doc_to_close)) {
+        log_wrapper.log_doc_event('non rainbow', doc_to_close);
         last_closed_rainbow_doc_info = null;
         return;
     }
+
     last_closed_rainbow_doc_info = {file_path: doc_to_close.fileName, timestamp: Date.now()};
 
     if (is_active_doc(doc_to_close)) {
+        log_wrapper.log_doc_event('disabling ui elements', doc_to_close);
         // In order to disable elements we need to check that the closed rainbow doc is in fact active doc to avoid removing UI when a non-focused CSV or non-csv file is being closed.
         // Inactive CSV closing can happen in the background if user closes with "x" top-right corner button another inactive tab with another CSV file.
         disable_ui_elements();
     }
+    log_wrapper.log_doc_event('finalizing', doc_to_close);
 }
+
+async function handle_config_change(config_change_event) {
+    // Here `config_change_event` allows to check if a specific configuration was affected but another way to do this is just to compare before and after values.
+    let logging_enabled_before = extension_context.logging_enabled;
+    extension_context.logging_enabled = get_from_config('enable_debug_logging', false);
+    if (extension_context.logging_enabled && !logging_enabled_before) {
+        let log_wrapper = new StackContextLogWrapper('config change');
+        log_wrapper.log_simple_event('logging enabled');
+    }
+}
+
 
 
 function quote_field(field, delim) {
@@ -1951,6 +2056,7 @@ async function activate(context) {
             }
         }
     }
+    extension_context.logging_enabled = get_from_config('enable_debug_logging', false);
 
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
@@ -1973,9 +2079,17 @@ async function activate(context) {
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
+    // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var doc_close_event = vscode.workspace.onDidCloseTextDocument(handle_doc_close);
+    var config_change_event = vscode.workspace.onDidChangeConfiguration(handle_config_change);
+
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
+    try {
+        debug_log_output_channel = vscode.window.createOutputChannel('rainbow_csv_debug_channel', {log: true});
+    } catch (error) {
+        console.error('Rainbow CSV: Failed to create output log channel');
+    }
 
     enable_dynamic_semantic_tokenization();
 
@@ -2008,6 +2122,7 @@ async function activate(context) {
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
+    context.subscriptions.push(config_change_event);
 
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.

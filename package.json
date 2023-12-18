@@ -137,6 +137,12 @@
                     "default": false,
                     "order": 15,
                     "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
+                },
+                "rainbow_csv.enable_debug_logging": {
+                    "type": "boolean",
+                    "default": false,
+                    "order": 16,
+                    "description": "Dev Mode: Enable Debug Logging."
                 }
             }
         },
