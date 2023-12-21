@@ -303,7 +303,8 @@ class StackContextLogWrapper {
             } else {
                 full_event = `${full_event}, no_doc:1`;
             }
-            debug_log_output_channel.debug(JSON.stringify(full_event));
+            // Use "info" level because logging is flag-guarded by the extension-level setting.
+            debug_log_output_channel.info(full_event);
         } catch (error) {
             console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
             return;
@@ -315,7 +316,7 @@ class StackContextLogWrapper {
             return;
         try {
             let full_event = `CID:${this.context_id}, ${this.context_name}:${event_name}`;
-            debug_log_output_channel.debug(JSON.stringify(full_event));
+            debug_log_output_channel.info(full_event);
         } catch (error) {
             console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
             return;
