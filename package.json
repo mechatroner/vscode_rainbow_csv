@@ -142,7 +142,7 @@
                     "type": "boolean",
                     "default": false,
                     "order": 16,
-                    "description": "Dev Mode: Enable Debug Logging."
+                    "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }
         },

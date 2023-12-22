@@ -922,7 +922,7 @@ async function run_command_and_parse_output(cmd, args) {
     } catch (error) {
         let error_details = error ? error.name + ': ' + error.message : '';
         let error_msg = 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_details;
-        return {error_type: 'Integration', error_msg: error_msg};
+        return {error_type: 'Integration', error_msg: error_msg, invocation_error: 1};
     }
     let json_report = execution_result.stdout;
     if (!json_report || execution_result.stderr) {
@@ -934,6 +934,21 @@ async function run_command_and_parse_output(cmd, args) {
     } catch (e) {
         return {error_type: 'Integration', error_msg: 'Unable to parse JSON report'};
     }
+}
+
+
+async function run_first_working_interpreter_command_and_parse_output(interpreters_list, args, log_wrapper) {
+    // The main use case of this function is to try 'python3' first and then fall back to 'python' if 'python3' is unavailable for some reason.
+    let execution_result = null;
+    for (let interpreter_cmd of interpreters_list) {
+        log_wrapper.log_simple_event(`Attempting interpreter '${interpreter_cmd}' ...`);
+        execution_result = await run_command_and_parse_output(interpreter_cmd, args);
+        if (!execution_result || !execution_result.hasOwnProperty('invocation_error') || !execution_result.invocation_error) {
+            return execution_result;
+        }
+        log_wrapper.log_simple_event(`Interpreter '${interpreter_cmd}' invocation failed.`);
+    }
+    return execution_result;
 }
 
 
@@ -950,8 +965,10 @@ async function send_report_to_webview(webview, error_type, error_msg) {
 
 async function run_rbql_query(webview, input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers) {
     // TODO refactor this function.
+    let log_wrapper = new StackContextLogWrapper('run-rbql-query');
+    log_wrapper.log_simple_event('start');
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
-    var cmd = 'python';
+    let interpreters_preference_list = ['python3', 'python'];
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
 
@@ -967,11 +984,14 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
 
     if (rbql_query.startsWith(test_marker)) {
-        if (rbql_query.indexOf('nopython') != -1) {
-            cmd = 'nopython';
+        log_wrapper.log_simple_event('test mode');
+        let re = new RegExp("cmd_list:([^,]*),");
+        let cmd_match = rbql_query.match(re);
+        if (cmd_match && cmd_match.length > 1) {
+            interpreters_preference_list = cmd_match[1].split(';').map(v => v.trim());
         }
         let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
-        let execution_result = await run_command_and_parse_output(cmd, args);
+        let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
         console.log(JSON.stringify(execution_result));
         if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
             await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
@@ -981,11 +1001,13 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
         return;
     }
     if (backend_language == 'js') {
+        log_wrapper.log_simple_event('using js backend');
         let warnings = [];
         let result_doc = null;
         let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
         try {
             if (is_web_ext) {
+                log_wrapper.log_simple_event('using web mode');
                 let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: target_language_id};
                 if (target_language_id == DYNAMIC_CSV) {
@@ -997,7 +1019,9 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 await handle_rbql_result_file_web(result_doc, warnings);
                 extension_context.dynamic_dialect_for_next_request = null;
                 extension_context.autodetection_temporarily_disabled_for_rbql = false;
+                log_wrapper.log_simple_event('finished OK');
             } else {
+                log_wrapper.log_simple_event('using electron mode');
                 let csv_options = {'bulk_read': true};
                 await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, /*user_init_code=*/'', csv_options);
                 result_set_parent_map.set(safe_lower(output_path), input_path);
@@ -1010,13 +1034,16 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 await handle_rbql_result_file_node(result_doc, output_delim, output_policy, warnings);
                 extension_context.dynamic_dialect_for_next_request = null;
                 extension_context.autodetection_temporarily_disabled_for_rbql = false;
+                log_wrapper.log_simple_event('finished OK');
             }
         } catch (e) {
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
+            log_wrapper.log_simple_event('finished with error');
             await send_report_to_webview(webview, error_type, error_msg);
             return;
         }
     } else {
+        log_wrapper.log_simple_event('using python backend');
         if (is_web_ext) {
             await send_report_to_webview(webview, 'Input error', 'Python backend for RBQL is not supported in web version, please use JavaScript backend.');
             return;
@@ -1028,11 +1055,13 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, comment_prefix, csv_encoding];
         if (with_headers)
             args.push('--with_headers');
-        let execution_result = await run_command_and_parse_output(cmd, args);
+        let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
         if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
+            log_wrapper.log_simple_event('finished with error');
             await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
             return;
         }
+        log_wrapper.log_simple_event('finished OK');
         await send_report_to_webview(webview, null, null);
         extension_context.autodetection_stoplist.add(output_path);
         result_set_parent_map.set(safe_lower(output_path), input_path);
