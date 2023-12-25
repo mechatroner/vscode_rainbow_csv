@@ -455,6 +455,7 @@ function register_sticky_header_provider(force=false) {
 
 function enable_dynamic_semantic_tokenization() {
     // Conflict with some other extensions can cause semantic highlighting to completely fail, see https://github.com/mechatroner/vscode_rainbow_csv/issues/149. TODO: Investigate.
+    // Some themes can disable semantic highlighting (but it is also possible to override this, consider doing so), see https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#enablement-of-semantic-highlighting
     let token_provider = new RainbowTokenProvider();
     if (rainbow_token_event !== null) {
         rainbow_token_event.dispose();

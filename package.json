@@ -329,6 +329,23 @@
                 "title": "Preview big CSV: tail"
             }
         ],
+        "semanticTokenScopes": [
+          {
+            "language": "dynamic csv",
+            "scopes": {
+              "rainbow1": ["rainbow1"],
+              "macro": ["keyword.rainbow2"],
+              "function": ["entity.name.function.rainbow3"],
+              "comment": ["comment.rainbow4"],
+              "string": ["string.rainbow5"],
+              "parameter": ["variable.parameter.rainbow6"],
+              "type": ["constant.numeric.rainbow7"],
+              "enumMember": ["entity.name.type.rainbow8"],
+              "keyword": ["markup.bold.rainbow9"],
+              "regexp": ["invalid.rainbow10"]
+            }
+          }
+        ],
         "grammars": [
             {
                 "language": "csv",
