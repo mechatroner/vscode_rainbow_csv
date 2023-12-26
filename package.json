@@ -334,18 +334,23 @@
             "language": "dynamic csv",
             "scopes": {
               "rainbow1": ["rainbow1"],
-              "macro": ["keyword.rainbow2"],
-              "function": ["entity.name.function.rainbow3"],
-              "comment": ["comment.rainbow4"],
-              "string": ["string.rainbow5"],
-              "parameter": ["variable.parameter.rainbow6"],
-              "type": ["constant.numeric.rainbow7"],
-              "enumMember": ["entity.name.type.rainbow8"],
-              "keyword": ["markup.bold.rainbow9"],
-              "regexp": ["invalid.rainbow10"]
+              "rainbow2": ["keyword.rainbow2"],
+              "rainbow3": ["entity.name.function.rainbow3"],
+              "rainbow4": ["comment.rainbow4"],
+              "rainbow5": ["string.rainbow5"],
+              "rainbow6": ["variable.parameter.rainbow6"],
+              "rainbow7": ["constant.numeric.rainbow7"],
+              "rainbow8": ["entity.name.type.rainbow8"],
+              "rainbow9": ["markup.bold.rainbow9"],
+              "rainbow10": ["invalid.rainbow10"]
             }
           }
         ],
+        "configurationDefaults": {
+          "[dynamic csv]": {
+            "editor.semanticHighlighting.enabled": true
+          }
+        },
         "grammars": [
             {
                 "language": "csv",

@@ -28,8 +28,7 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME Add a way to separate output directory setting for different systems.
-// FIXME Start RBQL with python3 first and switch to python on failure.
+// FIXME Consider enabling sticky scroll by default through "configurationDefaults" in package.json. Make a separate release just with this feature enabled to be able to quickly revert if there are any complaints.
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 const preview_window_size = 100;
@@ -109,7 +108,7 @@ const dialect_map = {
     [DYNAMIC_CSV]: [null, null]
 };
 
-const tokenTypes = ['rainbow1', 'macro', 'function', 'comment', 'string', 'parameter', 'type', 'enumMember', 'keyword', 'regexp'];
+const tokenTypes = ['rainbow1', 'rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10'];
 const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
 
 
@@ -454,8 +453,8 @@ function register_sticky_header_provider(force=false) {
 
 
 function enable_dynamic_semantic_tokenization() {
-    // Conflict with some other extensions can cause semantic highlighting to completely fail, see https://github.com/mechatroner/vscode_rainbow_csv/issues/149. TODO: Investigate.
-    // Some themes can disable semantic highlighting (but it is also possible to override this, consider doing so), see https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#enablement-of-semantic-highlighting
+    // Some themes can disable semantic highlighting e.g. "Tokyo Night" https://marketplace.visualstudio.com/items?itemName=enkia.tokyo-night, so we explicitly override the default setting in "configurationDefaults" section of package.json.
+    // Conflict with some other extensions might also cause semantic highlighting to completely fail (although this could be caused by the theme issue described above), see https://github.com/mechatroner/vscode_rainbow_csv/issues/149.
     let token_provider = new RainbowTokenProvider();
     if (rainbow_token_event !== null) {
         rainbow_token_event.dispose();
