@@ -342,12 +342,13 @@
               "rainbow7": ["constant.numeric.rainbow7"],
               "rainbow8": ["entity.name.type.rainbow8"],
               "rainbow9": ["markup.bold.rainbow9"],
-              "rainbow10": ["invalid.rainbow10"]
+              "rainbow10": ["invalid.rainbow10"],
+              "comment": ["comment"]
             }
           }
         ],
         "configurationDefaults": {
-          "[dynamic csv]": {
+          "[dynamic csv][csv][tsv][csv (semicolon)][csv (pipe)][csv (whitespace)]": {
             "editor.semanticHighlighting.enabled": true
           }
         },

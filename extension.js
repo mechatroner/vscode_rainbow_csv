@@ -108,8 +108,12 @@ const dialect_map = {
     [DYNAMIC_CSV]: [null, null]
 };
 
-const tokenTypes = ['rainbow1', 'rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10'];
-const tokens_legend = new vscode.SemanticTokensLegend(tokenTypes);
+
+// FIXME test with color customization instruction.
+const COMMENT_TOKEN = 'comment';
+const rainbow_token_types = ['rainbow1', 'rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10'];
+const all_token_types = rainbow_token_types.concat([COMMENT_TOKEN]);
+const tokens_legend = new vscode.SemanticTokensLegend(all_token_types);
 
 
 function is_eligible_scheme(vscode_doc)  {
@@ -454,6 +458,7 @@ function register_sticky_header_provider(force=false) {
 
 function enable_dynamic_semantic_tokenization() {
     // Some themes can disable semantic highlighting e.g. "Tokyo Night" https://marketplace.visualstudio.com/items?itemName=enkia.tokyo-night, so we explicitly override the default setting in "configurationDefaults" section of package.json.
+    // We also add all other csv dialects to "configurationDefaults":"editor.semanticHighlighting.enabled" override in order to enable comment line highlighting.
     // Conflict with some other extensions might also cause semantic highlighting to completely fail (although this could be caused by the theme issue described above), see https://github.com/mechatroner/vscode_rainbow_csv/issues/149.
     let token_provider = new RainbowTokenProvider();
     if (rainbow_token_event !== null) {
@@ -2022,12 +2027,12 @@ class RainbowTokenProvider {
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {
             if (row_info.hasOwnProperty('comment_range')) {
-                builder.push(row_info.comment_range, 'comment');
+                builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
                 for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
                     for (let record_range of row_info.record_ranges[col_num]) {
                         // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
-                        builder.push(record_range, tokenTypes[col_num % tokenTypes.length]);
+                        builder.push(record_range, rainbow_token_types[col_num % rainbow_token_types.length]);
                     }
                 }
             }
@@ -2056,7 +2061,7 @@ class CommentTokenProvider {
         for (let lnum = begin_line; lnum < end_line; lnum++) {
             let line_text = doc.lineAt(lnum).text;
             if (line_text.startsWith(comment_prefix)) {
-                builder.push(new vscode.Range(lnum, 0, lnum, line_text.length), 'comment');
+                builder.push(new vscode.Range(lnum, 0, lnum, line_text.length), COMMENT_TOKEN);
             }
         }
         return builder.build();
