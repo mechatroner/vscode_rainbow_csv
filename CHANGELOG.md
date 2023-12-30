@@ -1,7 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
 ## 3.10.0
-* Fix critical dynamic csv semantic highlighting bug for many non-built-in color themes [#149](https://github.com/mechatroner/vscode_rainbow_csv/issues/149)
+* Fix major dynamic csv semantic highlighting bug for many non-built-in color themes [#149](https://github.com/mechatroner/vscode_rainbow_csv/issues/149)
+* Fix comment lines highlighting for many non-built-in color themes
 * Make dynamic csv semantic highlighting colors consistent with regular texmate grammar colors [#149](https://github.com/mechatroner/vscode_rainbow_csv/issues/149)
 * RBQL: More robust python invocation order, see [#148](https://github.com/mechatroner/vscode_rainbow_csv/issues/148)
 * Add debug logging option to facilitate bug reporting and triaging.

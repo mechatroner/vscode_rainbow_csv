@@ -109,7 +109,6 @@ const dialect_map = {
 };
 
 
-// FIXME test with color customization instruction.
 const COMMENT_TOKEN = 'comment';
 const rainbow_token_types = ['rainbow1', 'rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10'];
 const all_token_types = rainbow_token_types.concat([COMMENT_TOKEN]);
