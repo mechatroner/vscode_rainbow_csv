@@ -695,7 +695,10 @@ function make_hover(document, language_id, position, cancellation_token) {
         return null;
     }
     let [_full_text, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/true, /*max_label_length=*/25);
-    return new vscode.Hover(short_report);
+    let mds = new vscode.MarkdownString();
+    // Using a special pseudo-language grammar trick for highlighting the hover text using the same color as the column doesn't work anymore due to https://github.com/microsoft/vscode/issues/53723.
+    mds.appendText(short_report);
+    return new vscode.Hover(mds);
 }
 
 
