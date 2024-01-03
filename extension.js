@@ -993,11 +993,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
 
     if (rbql_query.startsWith(test_marker)) {
         log_wrapper.log_simple_event('test mode');
-        let re = new RegExp("cmd_list:([^,]*),");
-        let cmd_match = rbql_query.match(re);
-        if (cmd_match && cmd_match.length > 1) {
-            interpreters_preference_list = cmd_match[1].split(';').map(v => v.trim());
-        }
+        // interpreters_preference_list = ['nopython', 'python3', 'python']; // interpreters_preference_list can be adjusted for testing
         let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
         let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
         console.log(JSON.stringify(execution_result));
