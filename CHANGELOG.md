@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.11.0
+* Add user-friendly sticky header config option.
+* Enable sticky header by default.
+
 ## 3.10.0
 * Fix major dynamic csv semantic highlighting bug for many non-built-in color themes [#149](https://github.com/mechatroner/vscode_rainbow_csv/issues/149)
 * Fix comment lines highlighting for many non-built-in color themes

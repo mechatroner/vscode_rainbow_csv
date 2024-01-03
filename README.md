@@ -3,7 +3,7 @@
 ## Main Features
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Transform and filter tables using built-in SQL-like query language.
-* Fixed sticky header line (optional).
+* Optional sticky header line.
 * Provide info about column on hover.
 * Automatic consistency check for csv files (CSVLint).
 * Align columns with spaces and Shrink (trim spaces from fields).
@@ -34,19 +34,6 @@ Another way to do this: select one separator character with mouse cursor -> righ
 Rainbow CSV runs a table autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases, this is a very cheap operation because autodetection usually stops after checking only 1 or 2 topmost lines.  
 Autodetection can be disabled in the extension settings.  
 By default only comma, tab, semicolon and pipe are tried during autodetection, but you can adjust the list of candidate separators in extension settings.  
-
-
-#### Enabling fixed sticky header line
-You can enable sticky (fixed) header line by turning on VSCode [sticky scroll](https://code.visualstudio.com/updates/v1_71#_sticky-scroll) feature: `editor.stickyScroll.enabled` setting.  
-You can see the sticky header in action on the main screenshot.  
-
-Sticky scroll setting will affect every filetype in VSCode so if you want to limit the setting to CSV files only, enter the following command: `Open User Settings (JSON)`; And add the following lines to the JSON config:
-```
-    "[csv][dynamic csv][tsv][csv (semicolon)]": {
-        "editor.stickyScroll.enabled": true
-    },
-```
-You can adjust the list of CSV dialects here, but keeping "[csv]" entry is required due to a configuration quirk.
 
 
 #### Customizing file extension - separator association
