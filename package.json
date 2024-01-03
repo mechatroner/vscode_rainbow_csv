@@ -39,10 +39,16 @@
             "type": "object",
             "title": "Rainbow CSV",
             "properties": {
-                "rainbow_csv.enable_separator_autodetection": {
+                "rainbow_csv.enable_sticky_header": {
                     "type": "boolean",
                     "default": true,
                     "order": 1,
+                    "description": "Enable sticky header line at the top."
+                },
+                "rainbow_csv.enable_separator_autodetection": {
+                    "type": "boolean",
+                    "default": true,
+                    "order": 2,
                     "description": "Enable automatic content based separator autodetection."
                 },
                 "rainbow_csv.autodetect_separators": {
@@ -54,7 +60,7 @@
                         "|"
                     ],
                     "description": "Enable automatic content-based separator autodetection for the specified list of separators (multicharacter separators are supported).",
-                    "order": 2,
+                    "order": 3,
                     "items": {
                         "type": "string",
                         "description": "Separator"
@@ -63,85 +69,85 @@
                 "rainbow_csv.autodetection_min_line_count": {
                     "type": "number",
                     "default": 10,
-                    "order": 3,
+                    "order": 4,
                     "description": "Minimum number of non-comment lines in file for content-based autodetection."
                 },
                 "rainbow_csv.enable_tooltip": {
                     "type": "boolean",
                     "default": true,
-                    "order": 4,
+                    "order": 5,
                     "description": "Enable column-info tooltip on hover."
                 },
                 "rainbow_csv.enable_tooltip_column_names": {
                     "type": "boolean",
                     "default": true,
-                    "order": 5,
+                    "order": 6,
                     "description": "Show column names in tooltip."
                 },
                 "rainbow_csv.enable_cursor_position_info": {
                     "type": "boolean",
                     "default": true,
-                    "order": 6,
+                    "order": 7,
                     "description": "Keyboard input text cursor: show info about the cursor CSV column in the status bar."
                 },
                 "rainbow_csv.double_width_alignment": {
                     "type": "boolean",
                     "default": true,
-                    "order": 7,
+                    "order": 8,
                     "description": "If enabled treat double width unicode chars e.g. Chinese or Japanese chars as double wide when aligning."
                 },
                 "rainbow_csv.enable_auto_csv_lint": {
                     "type": "boolean",
                     "default": true,
-                    "order": 8,
+                    "order": 9,
                     "description": "Automatically run linter for every CSV file."
                 },
                 "rainbow_csv.csv_lint_detect_trailing_spaces": {
                     "type": "boolean",
                     "default": false,
-                    "order": 9,
+                    "order": 10,
                     "description": "CSV Lint: detect leading and trailing whitespaces in fields and show warning."
                 },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
                     "default": "",
-                    "order": 10,
+                    "order": 11,
                     "description": "Comment lines prefix, e.g. \"#\". Set to empty string to disable."
                 },
                 "rainbow_csv.rbql_output_dir": {
                     "type": "string",
                     "default": "TMP",
-                    "order": 11,
+                    "order": 12,
                     "description": "Output directory for RBQL result sets, can be `TMP`, `INPUT` or a custom absolute path. `TMP` - output in system tmp dir(default), `INPUT` - output in the same dir as input file, otherwise use provided path as the output directory e.g. `/path/to/custom/dir`."
                 },
                 "rainbow_csv.rbql_with_headers_by_default": {
                     "type": "boolean",
                     "default": false,
-                    "order": 12,
+                    "order": 13,
                     "description": "RBQL treats the first line as header by default."
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",
                     "default": false,
-                    "order": 13,
+                    "order": 14,
                     "description": "Enable \"Preview CSV head\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.enable_context_menu_tail": {
                     "type": "boolean",
                     "default": false,
-                    "order": 14,
+                    "order": 15,
                     "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.align_in_scratch_file": {
                     "type": "boolean",
                     "default": false,
-                    "order": 15,
+                    "order": 16,
                     "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
                 },
                 "rainbow_csv.enable_debug_logging": {
                     "type": "boolean",
                     "default": false,
-                    "order": 16,
+                    "order": 17,
                     "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }
@@ -349,7 +355,8 @@
         ],
         "configurationDefaults": {
           "[dynamic csv][csv][tsv][csv (semicolon)][csv (pipe)][csv (whitespace)]": {
-            "editor.semanticHighlighting.enabled": true
+            "editor.semanticHighlighting.enabled": true,
+            "editor.stickyScroll.enabled": true
           }
         },
         "grammars": [

@@ -430,20 +430,25 @@ class StickyHeaderProvider {
 }
 
 
-function register_sticky_header_provider(force=false) {
-    if (sticky_header_disposable !== null) {
-        if (force) {
+function reconfigure_sticky_header_provider(force=false) {
+    let enable_sticky_header = get_from_config('enable_sticky_header', false);
+    if (!enable_sticky_header) {
+        // FIXME test this, multiple cycles.
+        if (sticky_header_disposable !== null) {
             sticky_header_disposable.dispose();
-        } else {
-            return;
+            sticky_header_disposable = null;
         }
+        return;
     }
-    // TODO consider enabling the provider unconditionally, consider checking all supported languages and not just csv.
-    let sticky_scroll_enabled = vscode.workspace.getConfiguration('editor.stickyScroll').get('enabled') === true || vscode.workspace.getConfiguration('editor.stickyScroll', {languageId : 'csv'}).get('enabled') === true;
-    if (!sticky_scroll_enabled) {
-        return; // Do not register symbol provider to avoid showing annoying entry in the upper navig bar and other possible side effects.
+    if (sticky_header_disposable !== null && force) {
+        // FIXME test this, multiple cycles.
+        sticky_header_disposable.dispose();
+        sticky_header_disposable = null;
     }
-
+    if (sticky_header_disposable !== null) {
+        // Sticky header provider already exists, nothing to do.
+        return;
+    }
     let header_symbol_provider = new StickyHeaderProvider();
     let document_selector = [];
     for (let language_id in dialect_map) {
@@ -580,7 +585,6 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
-    register_sticky_header_provider();
     enable_rainbow_ui(active_doc);
     await csv_lint(active_doc, false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
@@ -1113,7 +1117,7 @@ async function set_header_line() {
     // Showing the inconsistent header is probably better since these column names are only used for UI/readability and a wrong sticky line obviously hints on what happened and how to fix it, while a suddenly disappeared sticky line could be seen as a bug.
     await save_to_global_state(make_header_key(file_path), {header_line_num: header_line, header: header});
     // Re-register sticky header provider because otherwise it won't re-generate the symbols unless there were no edits to the file.
-    register_sticky_header_provider(/*force=*/true);
+    reconfigure_sticky_header_provider(/*force=*/true);
 }
 
 
@@ -1930,6 +1934,7 @@ async function handle_config_change(config_change_event) {
         let log_wrapper = new StackContextLogWrapper('config change');
         log_wrapper.log_simple_event('logging enabled');
     }
+    reconfigure_sticky_header_provider();
 }
 
 
@@ -2132,6 +2137,7 @@ async function activate(context) {
     }
 
     enable_dynamic_semantic_tokenization();
+    reconfigure_sticky_header_provider();
 
     if (get_from_config('comment_prefix', null)) {
         register_comment_tokenization_handler();
