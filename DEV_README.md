@@ -38,7 +38,7 @@ The difference between running in win and in WSL is that in WSL it would only ru
 
 NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
 
-### Running unit tests for the extension inside VSCode:
+### Running unit tests for the extension OUTSIDE VSCode:
 #### For standard VSCode:
 1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed (otherwise will might get some weird caching/webworker errors or other issues)!
 2. run `npm install` (If you have WSL - run in Windows, don't run in WSL).
@@ -52,7 +52,7 @@ NOTE: if `npm run test-in-browser` fails with an error it could show a message t
 NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
 
 
-### Running unit tests for the extension inside VSCode:
+### Running unit tests for the extension INSIDE VSCode:
 1. In console in rainbow_csv directory run `npm install` - OK to run the command in WSL while launching in Windows. This will install the dependencies, including `vscode/lib/testrunner`
 2. Open rainbow_csv directory in VSCode switch to "Extension Tests" mode and click run
 **IMPORTANT** for some reason unit tests that are run from inside VSCode will often start with some files reopened from the previous session, this among other issues could cause `is_lazy_loaded` check to fail. An only known workaround is to quickly close all tabs in the test run and then restart the tests.
