@@ -28,8 +28,6 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
-// FIXME Consider enabling sticky scroll by default through "configurationDefaults" in package.json. Make a separate release just with this feature enabled to be able to quickly revert if there are any complaints.
-
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 const preview_window_size = 100;
 const scratch_buf_marker = 'vscode_rbql_scratch';
@@ -433,7 +431,6 @@ class StickyHeaderProvider {
 function reconfigure_sticky_header_provider(force=false) {
     let enable_sticky_header = get_from_config('enable_sticky_header', false);
     if (!enable_sticky_header) {
-        // FIXME test this, multiple cycles.
         if (sticky_header_disposable !== null) {
             sticky_header_disposable.dispose();
             sticky_header_disposable = null;
@@ -441,7 +438,6 @@ function reconfigure_sticky_header_provider(force=false) {
         return;
     }
     if (sticky_header_disposable !== null && force) {
-        // FIXME test this, multiple cycles.
         sticky_header_disposable.dispose();
         sticky_header_disposable = null;
     }
