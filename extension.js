@@ -9,6 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // Please see DEV_README.md file for additional info.
 
+// FIXME test editor.largeFileOptimizations override for csvs - it should work for csvs but not for other filetypes.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 

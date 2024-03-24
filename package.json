@@ -356,7 +356,8 @@
         "configurationDefaults": {
           "[dynamic csv][csv][tsv][csv (semicolon)][csv (pipe)][csv (whitespace)]": {
             "editor.semanticHighlighting.enabled": true,
-            "editor.stickyScroll.enabled": true
+            "editor.stickyScroll.enabled": true,
+            "editor.largeFileOptimizations": false
           }
         },
         "grammars": [
