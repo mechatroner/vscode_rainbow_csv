@@ -921,7 +921,7 @@ function sample_preview_records_from_context(rbql_context, dst_message, preview_
     let [document, delim, policy, comment_prefix] = [rbql_context.input_document, rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     rbql_context.requested_start_record = Math.max(rbql_context.requested_start_record, 0);
     let stop_on_warning = policy == QUOTED_RFC_POLICY;
-    let [records, first_failed_line] = sample_records(document, delim, policy, comment_prefix, rbql_context.requested_start_record + preview_window_size, preview_window_size, stop_on_warning, cached_table_parse_result);;
+    let [records, first_failed_line] = sample_records(document, delim, policy, comment_prefix, rbql_context.requested_start_record + preview_window_size, preview_window_size, stop_on_warning, cached_table_parse_result);
     if (first_failed_line !== null && policy == QUOTED_RFC_POLICY) {
         dst_message.preview_sampling_error = `Double quotes are not consistent in record ${records.length + 1} which starts at line ${first_failed_line + 1}`;
         return;

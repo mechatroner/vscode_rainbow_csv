@@ -316,13 +316,22 @@ table th:first-child, table td:first-child {
     margin: 0px;
 }
 
+#flex_table_row {
+    display: flex;
+}
+
+#table_b_panel {
+    max-width: 95%;
+    overflow: scroll;
+    width:fit-content;
+    <!--display:none-->
+}
 
 #table_window {
     max-width: 95%;
     max-height: 350px;
     overflow: scroll;
     width:fit-content;
-    /*border: 2px solid black;*/
 }
 
 #rbql_error_message { 
@@ -392,16 +401,38 @@ table th:first-child, table td:first-child {
 <body>
 
 <div id="rbql_console">
-    <div id="table_group">
-        <div id="table_window">
-            <table id="preview_table">
-            </table>
+    <div id="flex_table_row">
+        <div id="table_panel">
+            <div id="table_window">
+                <table id="preview_table">
+                </table>
+            </div>
+            <div id="navig_bar">
+                <button class="navigation_button" title="Begin" id="go_begin">&#171;</button>
+                <button class="navigation_button" title="Back" id="go_backward">&#8249;</button>
+                <button class="navigation_button" title="Forward" id="go_forward">&#8250;</button>
+                <button class="navigation_button" title="End" id="go_end">&#187;</button>
+            </div>
         </div>
-        <div id="navig_bar">
-            <button class="navigation_button" title="Begin" id="go_begin">&#171;</button>
-            <button class="navigation_button" title="Back" id="go_backward">&#8249;</button>
-            <button class="navigation_button" title="Forward" id="go_forward">&#8250;</button>
-            <button class="navigation_button" title="End" id="go_end">&#187;</button>
+        <div id="table_separator_space">
+            <!-- Keep the button even when adding a join table - you can use it to toggle - show/hide join table. -->
+            <button id="toggle_join_table">Show Join Table</button>
+        </div>
+        <div id="table_b_panel">
+            <div id="table_b_window">
+                <table id="preview_table_b">
+                  <tr> <th>Column 1</th> <th>Column 2</th> <th>Column 3</th> </tr>
+                  <tr> <td>Data 1</td> <td>Data 2</td> <td>Data 3</td> </tr>
+                  <tr> <td>Data 4</td> <td>Data 5</td> <td>Data 6</td> </tr>
+                  <tr> <td>Data 7</td> <td>Data 8</td> <td>Data 9</td> </tr>
+                </table>
+            </div>
+            <div id="navig_bar">
+                <button class="navigation_button" title="Begin" id="go_begin_b">&#171;</button>
+                <button class="navigation_button" title="Back" id="go_backward_b">&#8249;</button>
+                <button class="navigation_button" title="Forward" id="go_forward_b">&#8250;</button>
+                <button class="navigation_button" title="End" id="go_end_b">&#187;</button>
+            </div>
         </div>
     </div>
     <div id="query_group" style="margin-top: 10px;">
