@@ -321,13 +321,10 @@ table th:first-child, table td:first-child {
 }
 
 #table_b_panel {
-    max-width: 95%;
-    overflow: scroll;
-    width:fit-content;
     <!--display:none-->
 }
 
-#table_window {
+.table_wrapper {
     max-width: 95%;
     max-height: 350px;
     overflow: scroll;
@@ -403,7 +400,7 @@ table th:first-child, table td:first-child {
 <div id="rbql_console">
     <div id="flex_table_row">
         <div id="table_panel">
-            <div id="table_window">
+            <div id="table_window" class="table_wrapper">
                 <table id="preview_table">
                 </table>
             </div>
@@ -414,12 +411,8 @@ table th:first-child, table td:first-child {
                 <button class="navigation_button" title="End" id="go_end">&#187;</button>
             </div>
         </div>
-        <div id="table_separator_space">
-            <!-- Keep the button even when adding a join table - you can use it to toggle - show/hide join table. -->
-            <button id="toggle_join_table">Show Join Table</button>
-        </div>
         <div id="table_b_panel">
-            <div id="table_b_window">
+            <div id="table_b_window" class="table_wrapper">
                 <table id="preview_table_b">
                   <tr> <th>Column 1</th> <th>Column 2</th> <th>Column 3</th> </tr>
                   <tr> <td>Data 1</td> <td>Data 2</td> <td>Data 3</td> </tr>
@@ -473,6 +466,14 @@ table th:first-child, table td:first-child {
             <select class="select_input" id="select_backend_language">
               <option class="select_input" value="js">JavaScript</option>
               <option class="select_input" value="pyhon">Python (Requires python installed)</option>
+            </select>
+        </div>
+        <div>
+            <div>
+              <span class="select_info">Show join table (optional)</span>
+            </div>
+            <select class="select_input" id="select_join_table">
+              <option class="select_input" value="none">None</option>
             </select>
         </div>
         <div>
