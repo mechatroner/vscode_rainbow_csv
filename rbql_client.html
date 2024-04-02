@@ -317,18 +317,32 @@ table th:first-child, table td:first-child {
 }
 
 #flex_table_row {
+    max-width: 95%;
     display: flex;
 }
 
 #table_b_panel {
+    background-color: #FF00FF;
     <!--display:none-->
 }
 
+#table_a_panel {
+    background-color: #00FF55;
+    <!--display:none-->
+}
+
+.table_panel {
+    margin-right: 0px;
+    margin-left: 0px;
+    padding-right: 0px;
+}
+
 .table_wrapper {
-    max-width: 95%;
     max-height: 350px;
     overflow: scroll;
     width:fit-content;
+    margin-right: 0px;
+    padding-right: 0px;
 }
 
 #rbql_error_message { 
@@ -399,7 +413,7 @@ table th:first-child, table td:first-child {
 
 <div id="rbql_console">
     <div id="flex_table_row">
-        <div id="table_panel">
+        <div id="table_a_panel" class="table_panel">
             <div id="table_window" class="table_wrapper">
                 <table id="preview_table">
                 </table>
@@ -411,7 +425,7 @@ table th:first-child, table td:first-child {
                 <button class="navigation_button" title="End" id="go_end">&#187;</button>
             </div>
         </div>
-        <div id="table_b_panel">
+        <div id="table_b_panel" class="table_panel">
             <div id="table_b_window" class="table_wrapper">
                 <table id="preview_table_b">
                   <tr> <th>Column 1</th> <th>Column 2</th> <th>Column 3</th> </tr>
