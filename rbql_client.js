@@ -29,6 +29,16 @@ function report_encoding_change() {
 }
 
 
+function filter_children(root_node, id_to_keep) {
+    let children_nodes = root_node.childNodes;
+    for (let node of children_nodes) {
+        if (node.id != id_to_keep) {
+            root_node.removeChild(node);
+        }
+    }
+}
+
+
 function remove_children(root_node) {
     while (root_node.firstChild) {
         root_node.removeChild(root_node.firstChild);
@@ -307,6 +317,7 @@ function handle_message(msg_event) {
         document.getElementById("select_encoding").value = message['encoding'];
         document.getElementById("with_headers").checked = with_headers;
         make_preview_table();
+        // FIXME make join list here? Better do it dynamically on button click maybe so that we can update when the list of docs has changed?
 
         let integration_test_query = message['integration_test_query'];
         let integration_test_language = message['integration_test_language'];
@@ -346,6 +357,20 @@ function handle_message(msg_event) {
             show_error(error_type, error_msg);
         }
         document.getElementById('rbql_run_btn').textContent = "Run";
+    }
+
+    if (message_type == 'join_tables_list') {
+        let dropdown = document.getElementById("select_join_table");
+        filter_children(dropdown, 'none_join_option')
+        let join_tables_list = message.hasOwnProperty('join_tables_list') ? message['join_tables_list'] : [];
+        for (let join_table_info of join_tables_list) {
+            // FIXME for some reason, when button is clicked second time we get 4 entries instead of 3.
+            let option = document.createElement("option");
+            option.value = join_table_info.value;
+            option.text = join_table_info.text;
+            option.id = join_table_info.id;
+            dropdown.appendChild(option);
+        }
     }
 }
 
@@ -391,6 +416,19 @@ function handle_udf_edit() {
 }
 
 
+async function handle_select_join_table_click() {
+    let dropdown = document.getElementById("select_join_table");
+    filter_children(dropdown, 'none_join_option')
+    let option = document.createElement("option");
+    option.value = 'fake_populating';
+    option.text = 'Populating...';
+    option.disabled = true;
+    option.id = 'fake_populating';
+    dropdown.appendChild(option);
+    vscode.postMessage({'msg_type': 'get_join_tables_list'});
+}
+
+
 function main() {
     global_css_style = getComputedStyle(document.body);
     assign_backend_lang_selection_title();
@@ -414,6 +452,7 @@ function main() {
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("udf_button").addEventListener("click", handle_udf_edit);
+    document.getElementById("select_join_table").addEventListener("click", handle_select_join_table_click);
     document.getElementById("rbql_input").focus();
 }
 

@@ -1582,6 +1582,13 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
     if (message_type == 'global_param_change') {
         await save_to_global_state(message['key'], message['value']);
     }
+    if (message_type == 'get_join_tables_list') {
+        join_tables_list = [];
+        join_tables_list.push({'value': 'jt1', 'id': 'jt1', 'text': 'foobarium'});
+        join_tables_list.push({'value': 'jt2', 'id': 'jt2', 'text': 'kasjdfkaasdf'});
+        join_tables_list.push({'value': 'jt3', 'id': 'jt3', 'text': 'mdasdf'});
+        webview.postMessage({'msg_type': 'join_tables_list', 'join_tables_list': join_tables_list});
+    }
 }
 
 
