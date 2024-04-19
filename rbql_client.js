@@ -16,6 +16,11 @@ var global_header = null;
 
 var is_web_ext = null;
 
+// FIXME make this more reliable.
+//var dropdown_armed = false;
+
+var join_tables_map = new Map();
+
 function report_backend_language_change() {
     let backend_language = document.getElementById('select_backend_language').value;
     vscode.postMessage({'msg_type': 'global_param_change', 'key': 'rbql_backend_language', 'value': backend_language});
@@ -29,14 +34,14 @@ function report_encoding_change() {
 }
 
 
-function filter_children(root_node, id_to_keep) {
-    let children_nodes = root_node.childNodes;
-    for (let node of children_nodes) {
-        if (node.id != id_to_keep) {
-            root_node.removeChild(node);
-        }
-    }
-}
+//function filter_children(root_node, id_to_keep) {
+//    let children_node_ids = Array.from(root_node.childNodes.values()).map((node) => node.id);
+//    for (let child_id of children_node_ids) {
+//        if (child_id && child_id != id_to_keep) {
+//            root_node.removeChild(document.getElementById(child_id));
+//        }
+//    }
+//}
 
 
 function remove_children(root_node) {
@@ -291,6 +296,15 @@ function start_rbql() {
 }
 
 
+function add_dropdown_option(dropdown, option_value, option_text, option_id) {
+    let option = document.createElement("option");
+    option.value = option_value;
+    option.text = option_text;
+    option.id = option_id;
+    dropdown.appendChild(option);
+}
+
+
 function handle_message(msg_event) {
     var message = msg_event.data;
     console.log('message received at client: ' + JSON.stringify(msg_event));
@@ -305,6 +319,18 @@ function handle_message(msg_event) {
         }
         if (message.hasOwnProperty('query_history')) {
             query_history = message['query_history'];
+        }
+        let dropdown = document.getElementById("select_join_table_dropdown");
+        remove_children(dropdown); // Cleanup just in case to make sure we don't create duplicate elements.
+        join_tables_map.clear();
+        add_dropdown_option(dropdown, 'none', 'None', 'join_table_none_opt');
+        if (message.hasOwnProperty('join_tables_list')) {
+            let join_tables_list = message['join_tables_list'];
+            for (let join_table_info of join_tables_list) {
+                let option_id = 'join_table_opt_' + join_tables_map.size + 1;
+                join_tables_map.set(option_id, join_table_info.full_path)
+                add_dropdown_option(dropdown, option_id, join_table_info.display_name, option_id);
+            }
         }
         global_header = message['header_for_ui'];
         is_web_ext = message['is_web_ext'];
@@ -359,19 +385,24 @@ function handle_message(msg_event) {
         document.getElementById('rbql_run_btn').textContent = "Run";
     }
 
-    if (message_type == 'join_tables_list') {
-        let dropdown = document.getElementById("select_join_table");
-        filter_children(dropdown, 'none_join_option')
-        let join_tables_list = message.hasOwnProperty('join_tables_list') ? message['join_tables_list'] : [];
-        for (let join_table_info of join_tables_list) {
-            // FIXME for some reason, when button is clicked second time we get 4 entries instead of 3.
-            let option = document.createElement("option");
-            option.value = join_table_info.value;
-            option.text = join_table_info.text;
-            option.id = join_table_info.id;
-            dropdown.appendChild(option);
-        }
-    }
+    //if (message_type == 'join_tables_list') {
+    //    let dropdown = document.getElementById("select_join_table_dropdown");
+    //    //filter_children(dropdown, 'none_join_option')
+    //    let join_tables_list = message.hasOwnProperty('join_tables_list') ? message['join_tables_list'] : [];
+    //    for (let join_table_info of join_tables_list) {
+    //        let encoded_path = join_table_info.value;
+    //        if (join_tables_set.has(encoded_path)) {
+    //            continue;
+    //        }
+    //        join_tables_set.add(encoded_path);
+    //        let option = document.createElement("option");
+    //        option.value = encoded_path;
+    //        option.text = join_table_info.text;
+    //        // FIXME - selection is not preserved across switching tabs. We can probably store it in the extension context, just like the partial query.
+    //        option.id = 'join_table_opt_' + join_tables_set.size;
+    //        dropdown.appendChild(option);
+    //    }
+    //}
 }
 
 
@@ -415,18 +446,33 @@ function handle_udf_edit() {
     vscode.postMessage({'msg_type': 'edit_udf', 'backend_language': backend_language});
 }
 
-
-async function handle_select_join_table_click() {
-    let dropdown = document.getElementById("select_join_table");
-    filter_children(dropdown, 'none_join_option')
-    let option = document.createElement("option");
-    option.value = 'fake_populating';
-    option.text = 'Populating...';
-    option.disabled = true;
-    option.id = 'fake_populating';
-    dropdown.appendChild(option);
-    vscode.postMessage({'msg_type': 'get_join_tables_list'});
+function handle_join_table_change(event) {
+    let join_table_path = join_tables_map.get(event.target.id);
+    // FIXME handle this in the extension.js
+    vscode.postMessage({'msg_type': 'select_join_table', 'join_table_path': join_table_path});
 }
+
+//function request_join_table_list() {
+//    vscode.postMessage({'msg_type': 'get_join_tables_list'});
+//    // FIXME strongly consider moving this to the handshake procedure - we only need to fetch this once along the other intermediate state such as partial query.
+//}
+
+//async function handle_select_join_table_click() {
+//    if (!dropdown_armed) {
+//        return;
+//    }
+//    console.log('handling the click!');
+//    let dropdown = document.getElementById("select_join_table_dropdown");
+//    filter_children(dropdown, 'none_join_option')
+//    let option = document.createElement("option");
+//    option.value = 'fake_populating';
+//    option.text = 'Populating...';
+//    option.disabled = true;
+//    option.id = 'fake_populating';
+//    dropdown.appendChild(option);
+//    vscode.postMessage({'msg_type': 'get_join_tables_list'});
+//    dropdown_armed = false;
+//}
 
 
 function main() {
@@ -452,8 +498,17 @@ function main() {
     document.getElementById("rbql_input").addEventListener("keyup", handle_input_keyup);
     document.getElementById("rbql_input").addEventListener("keydown", handle_input_keydown);
     document.getElementById("udf_button").addEventListener("click", handle_udf_edit);
-    document.getElementById("select_join_table").addEventListener("click", handle_select_join_table_click);
+    //document.getElementById("select_join_table_dropdown").addEventListener("click", handle_select_join_table_click);
+    //document.getElementById("select_join_table_dropdown").addEventListener("focusout", request_join_table_list);
+    document.getElementById("select_join_table_dropdown").addEventListener("change", handle_join_table_change);
     document.getElementById("rbql_input").focus();
+
+    //request_join_table_list();
+    //dropdown_armed = true;
+    //window.onfocus = function (ev) {
+    //    dropdown_armed = true;
+    //};
+
 }
 
 

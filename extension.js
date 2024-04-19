@@ -1492,6 +1492,14 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
             init_msg['integration_test_with_headers'] = integration_test_options.with_headers || false;
             init_msg['integration_test_delay'] = integration_test_options.integration_test_delay || 2000;
         }
+        init_msg['join_tables_list'] = [];
+        let workspace_docs = vscode.workspace.textDocuments;
+        for (let doc of workspace_docs) {
+            if (is_rainbow_dialect_doc(doc)) {
+                //init_msg['join_tables_list'].push({'value': encodeURI(doc.fileName), 'text': path.basename(doc.fileName)});
+                init_msg['join_tables_list'].push({'full_path': doc.fileName, 'display_name': path.basename(doc.fileName)});
+            }
+        }
         await webview.postMessage(init_msg);
     }
 
@@ -1547,6 +1555,20 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         await webview.postMessage(protocol_message);
     }
 
+    if (message_type == 'select_join_table') {
+        let join_table_path = message['join_table_path'];
+        let workspace_docs = vscode.workspace.textDocuments;
+        // FIXME error handling - join table has different delim/policy - input and join table delim,policy pairs must match.
+        // FIXME error handling - if join table can't be displayed report some sort of error message.
+        // FIXME test situation where join table can't be displayed.
+        for (let doc of workspace_docs) {
+            if (doc.fileName == join_table_path) {
+                // sample_preview_records_from_context()
+            }
+        }
+        // FIXME send back navigational message for join - unify it with your standard join message.
+    }
+
     if (message_type == 'run') {
         let rbql_query = message['query'];
         let backend_language = message['backend_language'];
@@ -1582,13 +1604,24 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
     if (message_type == 'global_param_change') {
         await save_to_global_state(message['key'], message['value']);
     }
-    if (message_type == 'get_join_tables_list') {
-        join_tables_list = [];
-        join_tables_list.push({'value': 'jt1', 'id': 'jt1', 'text': 'foobarium'});
-        join_tables_list.push({'value': 'jt2', 'id': 'jt2', 'text': 'kasjdfkaasdf'});
-        join_tables_list.push({'value': 'jt3', 'id': 'jt3', 'text': 'mdasdf'});
-        webview.postMessage({'msg_type': 'join_tables_list', 'join_tables_list': join_tables_list});
+    if (message_type == 'select_join_table') {
     }
+    //if (message_type == 'get_join_tables_list') {
+    //    join_tables_list = [];
+    //    //rbql_context.ui_join_tables_ids = new Map();
+    //    //join_tables_list.push({'value': 'jt1', 'id': 'jt1', 'text': 'foobarium'});
+    //    //join_tables_list.push({'value': 'jt2', 'id': 'jt2', 'text': 'kasjdfkaasdf'});
+    //    //join_tables_list.push({'value': 'jt3', 'id': 'jt3', 'text': 'mdasdf'});
+    //    let workspace_docs = vscode.workspace.textDocuments;
+    //    for (let doc of workspace_docs) {
+    //        if (is_rainbow_dialect_doc(doc)) {
+    //            //let current_id = 'join_table_opt_' + join_tables_list.length;
+    //            //join_tables_list.push({'value': encodeURI(doc.fileName), 'id': current_id, 'text': path.basename(doc.fileName)});
+    //            join_tables_list.push({'value': encodeURI(doc.fileName), 'text': path.basename(doc.fileName)});
+    //        }
+    //    }
+    //    webview.postMessage({'msg_type': 'join_tables_list', 'join_tables_list': join_tables_list});
+    //}
 }
 
 
