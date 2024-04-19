@@ -501,20 +501,25 @@ async function get_dialect_from_user_dialog() {
 
 
 async function choose_dynamic_separator() {
-    let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
-    let active_doc = get_active_doc();
-    log_wrapper.log_doc_event('starting', active_doc);
-    if (active_doc.languageId != DYNAMIC_CSV) {
-        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
-        return;
-    }
-    let [delim, policy] = await get_dialect_from_user_dialog();
-    if (!delim) {
-        show_single_line_error('Unable to use empty string separator');
-        return;
-    }
-    await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
-    await enable_rainbow_features_if_csv(active_doc, log_wrapper);
+    // FIXME show webview in the left panel.
+    let dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
+    //let dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.One, {enableScripts: true});
+    let select_html = '<!DOCTYPE html><html><body><input type="text" placeholder="Enter Text" /><button>OK</button></body></html>'
+    dialect_panel.webview.html = select_html;
+    //let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
+    //let active_doc = get_active_doc();
+    //log_wrapper.log_doc_event('starting', active_doc);
+    //if (active_doc.languageId != DYNAMIC_CSV) {
+    //    show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+    //    return;
+    //}
+    //let [delim, policy] = await get_dialect_from_user_dialog();
+    //if (!delim) {
+    //    show_single_line_error('Unable to use empty string separator');
+    //    return;
+    //}
+    //await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
+    //await enable_rainbow_features_if_csv(active_doc, log_wrapper);
 }
 
 
