@@ -29,11 +29,10 @@ function ll_rainbow_utils() {
 }
 
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
+var web_extension_uri = null;
 const preview_window_size = 100;
 const scratch_buf_marker = 'vscode_rbql_scratch';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable
-
-let client_html_template_web = null;
 
 var aligned_files = new Set();
 var result_set_parent_map = new Map();
@@ -55,11 +54,12 @@ var debug_log_output_channel = null;
 var last_rbql_queries = new Map(); // Query history does not replace this structure, it is also used to store partially entered queries for preview window switch.
 
 var client_html_template = null;
+var dialect_selection_html_template = null;
 
 // This `global_state` is persistent across VSCode restarts.
 var global_state = null;
 
-var preview_panel = null;
+var rbql_preview_panel = null;
 
 var doc_first_edit_subscription = null;
 var keyboard_cursor_subscription = null;
@@ -208,6 +208,8 @@ let absolute_path_map = {
     'rbql_suggest.js': null,
     'rbql_logo.svg': null,
     'rbql_client.html': null,
+    'dialect_select.html': null,
+    'dialect_select.js': null,
     'rbql mock/rbql_mock.py': null,
     'rbql_core/vscode_rbql.py': null
 };
@@ -502,10 +504,12 @@ async function get_dialect_from_user_dialog() {
 
 async function choose_dynamic_separator() {
     // FIXME show webview in the left panel.
+    if (!dialect_selection_html_template) {
+        // FIXME test for browser
+        dialect_selection_html_template = await load_resource_file_universal('dialect_select.html');
+    }
     let dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
-    //let dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.One, {enableScripts: true});
-    let select_html = '<!DOCTYPE html><html><body><input type="text" placeholder="Enter Text" /><button>OK</button></body></html>'
-    dialect_panel.webview.html = select_html;
+    dialect_panel.webview.html = adjust_webview_paths(dialect_panel, dialect_selection_html_template, ['dialect_select.js']);
     //let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     //let active_doc = get_active_doc();
     //log_wrapper.log_doc_event('starting', active_doc);
@@ -1590,7 +1594,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
 }
 
 
-function adjust_webview_paths(paths_list, client_html) {
+function adjust_webview_paths(preview_panel, client_html, paths_list) {
     for (const local_path of paths_list) {
         let adjusted_webview_url = null;
         if (is_web_ext) {
@@ -1660,18 +1664,12 @@ async function edit_rbql(integration_test_options=null) {
         "header_for_ui": header_for_ui
     };
 
-    preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
+    rbql_preview_panel = vscode.window.createWebviewPanel('rbql-console', 'RBQL Console', vscode.ViewColumn.Active, {enableScripts: true});
     if (!client_html_template) {
-        if (is_web_ext) {
-            client_html_template = client_html_template_web;
-        } else {
-            client_html_template = fs.readFileSync(absolute_path_map['rbql_client.html'], "utf8");
-        }
+        client_html_template = await load_resource_file_universal('rbql_client.html');
     }
-    let client_html = client_html_template;
-    client_html = adjust_webview_paths(['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'rbql_logo.svg'], client_html);
-    preview_panel.webview.html = client_html;
-    preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(preview_panel.webview, message, integration_test_options); });
+    rbql_preview_panel.webview.html = adjust_webview_paths(rbql_preview_panel, client_html_template, ['contrib/textarea-caret-position/index.js', 'rbql_suggest.js', 'rbql_client.js', 'rbql_logo.svg']);
+    rbql_preview_panel.webview.onDidReceiveMessage(function(message) { handle_rbql_client_message(rbql_preview_panel.webview, message, integration_test_options); });
 }
 
 
@@ -2073,15 +2071,29 @@ class CommentTokenProvider {
 }
 
 
+async function load_resource_file_for_web(extension_uri, resource_path) {
+    let resource_uri = vscode.Uri.joinPath(extension_uri, resource_path);
+    let bytes = await vscode.workspace.fs.readFile(resource_uri);
+    // Using TextDecoder because it should work fine in web extension.
+    return new TextDecoder().decode(bytes);
+}
+
+
+async function load_resource_file_universal(resource_path) {
+    if (is_web_ext) {
+        let resource_data = await load_resource_file_for_web(web_extension_uri, resource_path);
+        return resource_data;
+    }
+    return fs.readFileSync(absolute_path_map[resource_path], "utf8");
+}
+
+
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
 
     if (is_web_ext) {
-        let rbql_client_uri = vscode.Uri.joinPath(context.extensionUri, 'rbql_client.html');
-        let bytes = await vscode.workspace.fs.readFile(rbql_client_uri);
-        // Using TextDecoder because it should work fine in web extension.
-        client_html_template_web = new TextDecoder().decode(bytes);
+        web_extension_uri = context.extensionUri;
     }
 
     for (let local_path in absolute_path_map) {
