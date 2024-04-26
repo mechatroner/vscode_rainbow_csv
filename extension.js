@@ -10,6 +10,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // Please see DEV_README.md file for additional info.
 
 
+// FIXME make sure to check separators with trailing whitespaces in the free-form input field in the dialog.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -60,6 +62,7 @@ var dialect_selection_html_template = null;
 var global_state = null;
 
 var rbql_preview_panel = null;
+var dialect_panel = null;
 
 var doc_first_edit_subscription = null;
 var keyboard_cursor_subscription = null;
@@ -504,12 +507,21 @@ async function get_dialect_from_user_dialog() {
 
 async function choose_dynamic_separator() {
     // FIXME show webview in the left panel.
+    let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
+    let active_doc = get_active_doc();
+    log_wrapper.log_doc_event('starting', active_doc);
+    if (active_doc.languageId != DYNAMIC_CSV) {
+        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+        return;
+    }
     if (!dialect_selection_html_template) {
         // FIXME test for browser
         dialect_selection_html_template = await load_resource_file_universal('dialect_select.html');
     }
-    let dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
+    dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
     dialect_panel.webview.html = adjust_webview_paths(dialect_panel, dialect_selection_html_template, ['dialect_select.js']);
+    dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, message, log_wrapper); });
+
     //let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     //let active_doc = get_active_doc();
     //log_wrapper.log_doc_event('starting', active_doc);
@@ -1475,6 +1487,40 @@ async function update_query_history(query) {
     }
     history_list.push(query);
     await save_to_global_state('rbql_query_history', history_list);
+}
+
+
+async function handle_dialect_selection_message(origin_doc, message, log_wrapper) {
+    if (!message || message.msg_type != 'apply_dialect') {
+        return; // Something wrong has happened.
+    }
+    if (origin_doc.languageId != DYNAMIC_CSV) {
+        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+        return;
+    }
+    let delim = message.delim;
+    let policy = message.policy;
+    let comment_prefix = message.comment_prefix;
+    if (policy == 'whitespace' && delim != ' ') {
+        show_single_line_error("Selected policy can only be used with whitespace separator");
+        return;
+    }
+    if (policy == 'double_escape' && delim == '"') {
+        show_single_line_error("Double quote separator in incompatible with double quote escape policy");
+        return;
+    }
+    if (!delim) {
+        show_single_line_error("Separator is empty");
+        return;
+    }
+    if ([SIMPLE_POLICY, QUOTED_RFC_POLICY, QUOTED_POLICY, WHITESPACE_POLICY].indexOf(policy) == -1) {
+        show_single_line_error("Selected policy is empty or not supported");
+        return;
+    }
+    // FIXME for some reason if non-existing separator string is choosen e.g. `non_existent1234` nothing happens and recoloring doesn't occur.
+    await save_dynamic_info(extension_context, origin_doc.fileName, make_dialect_info(delim, policy));
+    extension_context.custom_comment_prefixes.set(origin_doc.fileName, comment_prefix);
+    await enable_rainbow_features_if_csv(origin_doc, log_wrapper);
 }
 
 

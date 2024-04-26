@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="utf-8">
+
+<style>
+
+html * {
+    font-size: 16px !important;
+}
+
+body {
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+}
+
+.select_input {
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    margin-bottom: 6px;
+    width: 400px;
+    font-size: 14px !important;
+    font-family: Consolas, Monaco, monospace;
+}
+
+.text_input {
+    margin: 0px;
+    height: 24px !important;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px !important;
+    padding-left: 2px;
+    background-color: var(--vscode-input-background);
+    caret-color: var(--vscode-input-foreground);
+    color: var(--vscode-input-foreground);
+    display: inline-block;
+    box-sizing: border-box; /* See css-submit-button-looks-smaller-than-text-input-and-textarea */
+    vertical-align:middle;
+    width: 400px;
+}
+
+#apply_button {
+    margin: 0px;
+    width: 70px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    height: 24px !important;
+    padding: 0px;
+    outline:none;
+    vertical-align:middle;
+    box-sizing: border-box;
+    border-width: 0px;
+    margin-top: 5px;
+}
+
+#apply_button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+</style>
+
+<script src="dialect_select.js"></script>
+
+</head>
+
+<meta charset="utf-8">
+
+<body>
+
+<div>
+    <div>
+      <span>Choose a separator - select from the list:</span>
+    </div>
+    <select class="select_input" id="select_separator" title="Select Separator">
+      <option class="select_input" value="comma">Comma `,`</option>
+      <option class="select_input" value="tab">Tab `\t`</option>
+      <option class="select_input" value="whitespace">Whitespace ` `</option>
+      <option class="select_input" id="manual_entry_option" value="manual">Other...</option>
+    </select>
+    <div>
+      <div>
+        <span>Or enter separator character or string manually:</span>
+      </div>
+      <input type="text" class="text_input" id="custom_separator_input">
+    </div>
+</div>
+
+<div style="margin-top: 5px;">
+    <div>
+      <span>Choose a policy:</span>
+    </div>
+    <select class="select_input" id="select_policy" title="Select Policy">
+      <option class="select_input" value="quoted_rfc">Double quote escape</option>
+      <option class="select_input" value="simple">Literal (separator is not escapable)</option>
+      <option class="select_input" value="whitespace">Merging (consecutive separators are merged)</option>
+    </select>
+</div>
+
+<div style="margin-top: 5px;">
+    <div>
+      <div>
+        <span>Enter a comment prefix or leave empty for none:</span>
+      </div>
+      <input type="text" class="text_input" id="custom_comment_prefix">
+    </div>
+</div>
+
+<button id="apply_button">Apply</button>
+
+</body>
+
+</html>
