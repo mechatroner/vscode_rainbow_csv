@@ -509,6 +509,9 @@ async function choose_dynamic_separator() {
     // FIXME show webview in the left panel.
     let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     let active_doc = get_active_doc();
+    if (!active_doc) {
+        return;
+    }
     log_wrapper.log_doc_event('starting', active_doc);
     if (active_doc.languageId != DYNAMIC_CSV) {
         show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
@@ -1517,7 +1520,7 @@ async function handle_dialect_selection_message(origin_doc, message, log_wrapper
         show_single_line_error("Selected policy is empty or not supported");
         return;
     }
-    // FIXME for some reason if non-existing separator string is choosen e.g. `non_existent1234` nothing happens and recoloring doesn't occur.
+    // FIXME test comment prefix selection.
     await save_dynamic_info(extension_context, origin_doc.fileName, make_dialect_info(delim, policy));
     extension_context.custom_comment_prefixes.set(origin_doc.fileName, comment_prefix);
     await enable_rainbow_features_if_csv(origin_doc, log_wrapper);
@@ -2078,9 +2081,16 @@ class RainbowTokenProvider {
                 builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
                 for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
+                    let token_id = col_num % rainbow_token_types.length;
+                    if (token_id == 0) {
+                        // Do not highlight the first `rainbow1` group altogether, since it has the default color anyway.
+                        // Dynamic highlighting with undefined syntax like `rainbow1` is a little glitchy e.g. in case when re-tokenization occurs these undefined groups may fail to override the previous defined groups.
+                        // Another benefit is that by reducing the number of groups we are speeding things up a little.
+                        continue;
+                    }
                     for (let record_range of row_info.record_ranges[col_num]) {
                         // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
-                        builder.push(record_range, rainbow_token_types[col_num % rainbow_token_types.length]);
+                        builder.push(record_range, rainbow_token_types[token_id]);
                     }
                 }
             }
