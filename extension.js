@@ -10,6 +10,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // Please see DEV_README.md file for additional info.
 
 
+// FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
+
 // FIXME make sure to check separators with trailing whitespaces in the free-form input field in the dialog.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -490,23 +492,7 @@ function register_comment_tokenization_handler() {
 }
 
 
-async function get_dialect_from_user_dialog() {
-    let title = "Select separator character or string e.g. `,` or `:=`. For tab use `TAB`";
-    let input_box_props = {"prompt": title, "value": ','};
-    let delim = await vscode.window.showInputBox(input_box_props);
-    if (!delim) {
-        return [null, null];
-    }
-    if (delim == 'TAB') {
-        delim = '\t';
-    }
-    let policy = (delim == ',' || delim == ';') ? QUOTED_RFC_POLICY : SIMPLE_POLICY;
-    return [delim, policy];
-}
-
-
 async function choose_dynamic_separator() {
-    // FIXME show webview in the left panel.
     let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     let active_doc = get_active_doc();
     if (!active_doc) {
@@ -524,54 +510,17 @@ async function choose_dynamic_separator() {
     dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
     dialect_panel.webview.html = adjust_webview_paths(dialect_panel, dialect_selection_html_template, ['dialect_select.js']);
     dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, message, log_wrapper); });
-
-    //let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
-    //let active_doc = get_active_doc();
-    //log_wrapper.log_doc_event('starting', active_doc);
-    //if (active_doc.languageId != DYNAMIC_CSV) {
-    //    show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
-    //    return;
-    //}
-    //let [delim, policy] = await get_dialect_from_user_dialog();
-    //if (!delim) {
-    //    show_single_line_error('Unable to use empty string separator');
-    //    return;
-    //}
-    //await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
-    //await enable_rainbow_features_if_csv(active_doc, log_wrapper);
 }
 
 
 function show_choose_dynamic_separator_button() {
+    // For some reason this is not shown in some unhighlighted docs.
     if (!dynamic_dialect_select_button)
         dynamic_dialect_select_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     dynamic_dialect_select_button.text = 'Choose Separator...';
     dynamic_dialect_select_button.tooltip = 'Click to choose Dynamic CSV separator';
     dynamic_dialect_select_button.command = 'rainbow-csv.ChooseDynamicSeparator';
     dynamic_dialect_select_button.show();
-}
-
-async function try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc) {
-    if (!active_doc || !active_doc.fileName) {
-        return;
-    }
-    if (extension_context.dynamic_dialect_for_next_request != null) {
-        // This branch has precedence over regular `get_dialect()` in the next branch because the same temp doc e.g. "Untitled-1" can be reused with a different dynamic dialect info that was previously set.
-        await save_dynamic_info(extension_context, active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
-        extension_context.dynamic_dialect_for_next_request = null;
-        return;
-    }
-    let [delim, policy, comment_prefix] = get_dialect(active_doc);
-    if (delim && policy) {
-        return; // All good.
-    }
-    [delim, policy] = await get_dialect_from_user_dialog();
-    if (delim && policy) {
-        await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(delim, policy));
-        return;
-    }
-    // Still no luck, show the button so that the user can at least complete the dialog later.
-    show_choose_dynamic_separator_button();
 }
 
 
@@ -585,14 +534,16 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         rainbow_on_status_bar_button.hide();
     }
     var language_id = active_doc.languageId;
-    if (language_id == DYNAMIC_CSV) {
-        await try_resolve_incomplete_dynamic_csv_dialect_if_needed(active_doc);
+    if (language_id == DYNAMIC_CSV && extension_context.dynamic_dialect_for_next_request != null) {
+        await save_dynamic_info(extension_context, active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
+        extension_context.dynamic_dialect_for_next_request = null;
     }
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (!delim || !policy) {
-        // Make sure UI elements are disabled.
         log_wrapper.log_simple_event('abort enable-rainbow-features-if-csv: missing delim or policy');
+        // Make sure UI elements are disabled except dynamic separator selection button.
         disable_ui_elements();
+        show_choose_dynamic_separator_button();
         return;
     }
     if (comment_prefix) {
@@ -638,6 +589,7 @@ function disable_rainbow_features_if_non_csv(active_doc, log_wrapper) {
         // Only show for non-rainbow docs since this mechanism can interfere with manual filetype selection UI.
         show_rainbow_on_status_bar_button();
     } else {
+        // FIXME consider removing this branch altogether and moving rainbow_on_status_bar_button inside disable_ui_elements() function. We can call show_rainbow_on_status_bar_button() after the tail disable_ui_elements() invocation.
         if (rainbow_on_status_bar_button) {
             rainbow_on_status_bar_button.hide();
         }
@@ -1811,6 +1763,8 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         return [active_doc, false];
     }
     // The check below also prevents double autodetection from handle_doc_open fork in the new_doc with adjusted language id.
+    // FIXME we can still consider following up with autodetection if original language is dynamic_csv but we lost delim and policy for some reason.
+    // This happens for some test docs on startup.
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv) {
         log_wrapper.log_simple_event('abort: ineligible original language id');
@@ -2106,7 +2060,7 @@ class CommentTokenProvider {
     async provideDocumentRangeSemanticTokens(doc, range, _token) {
         let [_delim, policy, comment_prefix] = get_dialect(doc);
         if (manual_comment_prefix_stoplist.has(doc.fileName) && !comment_prefix) {
-            // We can't use empty comment prefix (and early return) - in that case the previous highlighting would not go away due to a VSCode quirk, need to make an empty build instead to make sure that all previously highlighted lines were cleared.
+            // We can't use empty comment prefix (and early return) - in that case the previous highlighting would not go away due to a VSCode quirk, need to make an empty build instead to make sure that all previously highlighted lines were cleared. We also can't create an empty builder and early return it because in that case we won't highlight dynamic csv columns (highlighting would disappear)
             comment_prefix = '#####COMMENT_PREFIX_THAT_CAN_NOT_OCCURE_IN_A_NORMAL_FILE_AND_EVEN_IF_IT_OCCURES_NOT_A_BIG_DEAL####';
         }
         if (!comment_prefix || policy === null || policy == QUOTED_RFC_POLICY) {
