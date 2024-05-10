@@ -12,7 +12,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
 
-// FIXME make sure to check separators with trailing whitespaces in the free-form input field in the dialog.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -92,7 +91,7 @@ let extension_context = {
     lint_results: new Map(),
     lint_status_bar_button: null,
     dynamic_document_dialects: new Map(),
-    custom_comment_prefixes: new Map(),
+    custom_comment_prefixes: new Map(), // TODO consider making custom comment prefixes records persistent.
     original_language_ids: new Map(),
     reenable_rainbow_language_infos: new Map(), // This only needed for "Rainbow On" functionality that reverts "Rainbow Off" effect.
     autodetection_stoplist: new Set(),
@@ -1468,7 +1467,6 @@ async function handle_dialect_selection_message(origin_doc, message, log_wrapper
         show_single_line_error("Selected policy is empty or not supported");
         return;
     }
-    // FIXME test comment prefix selection.
     await save_dynamic_info(extension_context, origin_doc.fileName, make_dialect_info(delim, policy));
     extension_context.custom_comment_prefixes.set(origin_doc.fileName, comment_prefix);
     await enable_rainbow_features_if_csv(origin_doc, log_wrapper);
@@ -1759,7 +1757,6 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         return [active_doc, false];
     }
     // The check below also prevents double autodetection from handle_doc_open fork in the new_doc with adjusted language id.
-    // FIXME we can still consider following up with autodetection if original language is dynamic_csv but we lost delim and policy for some reason.
     // This happens for some test docs on startup.
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != 'plaintext' && !is_default_csv) {
@@ -1795,10 +1792,9 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         log_wrapper.log_simple_event('abort: content-based autodetection did not detect anything');
         return [active_doc, false];
     }
-    // Intentionally do not store comment prefix used for autodetection in the dialect info since it is not file-specific anyway and is stored in the settings.
-    // And in case if user changes it in the settings it would immediately affect the autodetected files.
+    // Comment prefix used here is global/default so we don't store it in custom comment prefix list.
     if (rainbow_csv_language_id == DYNAMIC_CSV) {
-        await save_dynamic_info(extension_context, file_path, make_dialect_info(delim, policy), extension_context);
+        await save_dynamic_info(extension_context, file_path, make_dialect_info(delim, policy));
     }
     if (rainbow_csv_language_id == original_language_id) {
         log_wrapper.log_simple_event('abort: autodetected dialect matches the original one');
