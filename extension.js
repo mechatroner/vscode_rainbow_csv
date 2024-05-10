@@ -563,7 +563,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
 
 
 function disable_ui_elements() {
-    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
+    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button, rainbow_on_status_bar_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -584,18 +584,14 @@ function disable_rainbow_features_if_non_csv(active_doc, log_wrapper) {
         log_wrapper.log_simple_event('abort disable-rainbow-features-if-non-csv: is rainbow dialect');
         return;
     }
+    log_wrapper.log_simple_event('perform disable-rainbow-features-if-non-csv');
+    disable_ui_elements();
     if (is_eligible_doc(active_doc) && extension_context.reenable_rainbow_language_infos.has(active_doc.fileName)) {
         // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
         // Only show for non-rainbow docs since this mechanism can interfere with manual filetype selection UI.
+        log_wrapper.log_simple_event('show rainbow-on status button');
         show_rainbow_on_status_bar_button();
-    } else {
-        // FIXME consider removing this branch altogether and moving rainbow_on_status_bar_button inside disable_ui_elements() function. We can call show_rainbow_on_status_bar_button() after the tail disable_ui_elements() invocation.
-        if (rainbow_on_status_bar_button) {
-            rainbow_on_status_bar_button.hide();
-        }
     }
-    log_wrapper.log_simple_event('perform disable-rainbow-features-if-non-csv');
-    disable_ui_elements();
 }
 
 
