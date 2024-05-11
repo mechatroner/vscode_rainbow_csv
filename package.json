@@ -297,7 +297,7 @@
             {
                 "command": "rainbow-csv.RainbowSeparator",
                 "category": "Rainbow CSV",
-                "title": "Set separator - Basic"
+                "title": "Set rainbow separator"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorMultiline",

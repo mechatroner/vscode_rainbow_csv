@@ -11,7 +11,9 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 
 // FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
-
+// FIXME test new custom dynamic cds dialects with RBQL, especially non-merging whitespace. Or double-quoted pipe, or something like that which was not possible before.
+// FIXME merge ChooseDynamicSeparator, RainbowSeparator and RainbowSeparatorMultiline into one command that would show the dialog and pull the selected text into the field if it is present.
+// FIXME update the docs.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -704,6 +706,7 @@ function show_rainbow_off_status_bar_button() {
 
 
 function show_rainbow_on_status_bar_button() {
+    // TODO consider showing ChooseDynamicSeparator dialog on "RainbowOn" button click instead of restoring the previous dialect.
     if (!rainbow_on_status_bar_button)
         rainbow_on_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     rainbow_on_status_bar_button.text = 'Rainbow ON';
