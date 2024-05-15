@@ -1,12 +1,33 @@
 const vscode = acquireVsCodeApi();
 
 function handle_manual_separator_change() {
-    document.getElementById("select_separator").value = document.getElementById("manual_entry_option").value;
+    document.getElementById("separator_selector").value = document.getElementById("manual_entry_option").value;
+}
+
+
+function handle_message(msg_event) {
+    console.log('message received at client: ' + JSON.stringify(msg_event));
+    var message = msg_event.data;
+    if (!message) {
+        return;
+    }
+    let message_type = message['msg_type'];
+    if (message_type == 'dialect_handshake') {
+        let selected_separator = message.selected_separator;
+        if (selected_separator == '\t') {
+            document.getElementById("separator_selector").value = document.getElementById("tab_option").value;
+        } else if (selected_separator == ' ') {
+            document.getElementById("separator_selector").value = document.getElementById("whitespace_option").value;
+        } else if (selected_separator) {
+            document.getElementById("custom_separator_input").value = selected_separator;
+            document.getElementById("separator_selector").value = document.getElementById("manual_entry_option").value;
+        }
+    }
 }
 
 
 function handle_apply_click() {
-    let separator_selection_option = document.getElementById("select_separator").value;
+    let separator_selection_option = document.getElementById("separator_selector").value;
     let manual_separator_text = document.getElementById("custom_separator_input").value;
     if (!manual_separator_text) {
         if (separator_selection_option == 'comma') {
@@ -24,6 +45,9 @@ function handle_apply_click() {
 
 
 function main() {
+    window.addEventListener('message', handle_message);
+    vscode.postMessage({'msg_type': 'dialect_handshake'});
+
     document.getElementById("custom_separator_input").addEventListener("input", handle_manual_separator_change);
     document.getElementById("apply_button").addEventListener("click", handle_apply_click);
 }

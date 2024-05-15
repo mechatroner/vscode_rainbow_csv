@@ -7,13 +7,14 @@ const child_process = require('child_process');
 
 const fast_load_utils = require('./fast_load_utils.js');
 
-// Please see DEV_README.md file for additional info.
+// See DEV_README.md file for additional info.
 
 
 // FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
 // FIXME test new custom dynamic cds dialects with RBQL, especially non-merging whitespace. Or double-quoted pipe, or something like that which was not possible before.
-// FIXME merge ChooseDynamicSeparator, RainbowSeparator and RainbowSeparatorMultiline into one command that would show the dialog and pull the selected text into the field if it is present.
 // FIXME update the docs.
+
+// FIXME also adjust policy depending on predefined set of dynamic separators, e.g. merged for whitespace, excel for comma and semicolon, literal for everything else.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -81,6 +82,7 @@ let rainbow_token_event = null;
 let comment_token_event = null;
 let sticky_header_disposable = null;
 
+const PLAINTEXT = 'plaintext';
 const DYNAMIC_CSV = 'dynamic csv';
 
 const QUOTED_POLICY = 'quoted';
@@ -493,24 +495,40 @@ function register_comment_tokenization_handler() {
 }
 
 
+function get_selected_separator(active_editor, active_doc) {
+    if (!active_editor || !active_doc)
+        return '';
+    let selection = active_editor.selection;
+    if (!selection) {
+        return '';
+    }
+    if (selection.start.line != selection.end.line) {
+        return '';
+    }
+    let separator = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
+    return separator;
+}
+
+
 async function choose_dynamic_separator() {
     let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
-    let active_doc = get_active_doc();
-    if (!active_doc) {
-        return;
-    }
     log_wrapper.log_doc_event('starting', active_doc);
-    if (active_doc.languageId != DYNAMIC_CSV) {
-        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+    let active_editor = get_active_editor();
+    if (!active_editor) {
         return;
     }
+    var active_doc = get_active_doc(active_editor);
+    if (!is_eligible_doc(active_doc)) {
+        return;
+    }
+    let selected_separator = get_selected_separator(active_editor, active_doc);
     if (!dialect_selection_html_template) {
         // FIXME test for browser
         dialect_selection_html_template = await load_resource_file_universal('dialect_select.html');
     }
     dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
     dialect_panel.webview.html = adjust_webview_paths(dialect_panel, dialect_selection_html_template, ['dialect_select.js']);
-    dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, message, log_wrapper); });
+    dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, dialect_panel, message, selected_separator, log_wrapper); });
 }
 
 
@@ -520,7 +538,7 @@ function show_choose_dynamic_separator_button() {
         dynamic_dialect_select_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     dynamic_dialect_select_button.text = 'Choose Separator...';
     dynamic_dialect_select_button.tooltip = 'Click to choose Dynamic CSV separator';
-    dynamic_dialect_select_button.command = 'rainbow-csv.ChooseDynamicSeparator';
+    dynamic_dialect_select_button.command = 'rainbow-csv.RainbowSeparator';
     dynamic_dialect_select_button.show();
 }
 
@@ -706,7 +724,7 @@ function show_rainbow_off_status_bar_button() {
 
 
 function show_rainbow_on_status_bar_button() {
-    // TODO consider showing ChooseDynamicSeparator dialog on "RainbowOn" button click instead of restoring the previous dialect.
+    // TODO consider showing the separator selection dialog on "RainbowOn" button click instead of restoring the previous dialect.
     if (!rainbow_on_status_bar_button)
         rainbow_on_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     rainbow_on_status_bar_button.text = 'Rainbow ON';
@@ -1103,56 +1121,6 @@ function preserve_original_language_id_if_needed(file_path, original_language_id
 }
 
 
-async function manually_set_rainbow_separator(policy=null) {
-    // The effect of manually setting the separator will disapear in the preview mode when the file is toggled in preview tab: see https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
-    // Also the effect may disappear in case of "curious doc reopening" problem, see DEV_README for more info.
-    let active_editor = get_active_editor();
-    if (!active_editor)
-        return;
-    var active_doc = get_active_doc(active_editor);
-    if (!is_eligible_doc(active_doc)) {
-        return;
-    }
-    let selection = active_editor.selection;
-    if (!selection) {
-        show_single_line_error("Selection is empty: separator must be selected with the editor cursor");
-        return;
-    }
-    if (selection.start.line != selection.end.line) {
-        show_single_line_error("Rainbow separator must not span multiple lines");
-        return;
-    }
-    let separator = active_doc.lineAt(selection.start.line).text.substring(selection.start.character, selection.end.character);
-    if (!separator) {
-        show_single_line_error("Make nonempty separator selection with the cursor");
-        return;
-    }
-    if (policy == QUOTED_RFC_POLICY && separator != ',' && separator != ';') {
-        show_single_line_error("Only comma and semicolon separators are currently supported to use with multiline fields.");
-        return;
-    }
-    if (policy === null) {
-        policy = get_default_policy(separator);
-    }
-    let language_id = map_dialect_to_language_id(separator, policy);
-    // Adding to stoplist just in case: this is the manual op, so the user now fully controls the filetype.
-    extension_context.autodetection_stoplist.add(active_doc.fileName);
-    let original_language_id = active_doc.languageId;
-    if (original_language_id == DYNAMIC_CSV && language_id == DYNAMIC_CSV) {
-        // We need to somehow explicitly re-tokenize file, because otherwise setTextDocumentLanguage would be a NO-OP, so we do this workaround with temporarily switching to plaintext and back.
-        extension_context.autodetection_stoplist.add(active_doc.fileName); // This is to avoid potential autodetection in plaintext.
-        extension_context.autodetection_temporarily_disabled_for_rbql = true;
-        active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, 'plaintext');
-        extension_context.autodetection_temporarily_disabled_for_rbql = false;
-    }
-    if (language_id == DYNAMIC_CSV) {
-        await save_dynamic_info(extension_context, active_doc.fileName, make_dialect_info(separator, policy));
-    }
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, language_id);
-    preserve_original_language_id_if_needed(doc.fileName, original_language_id, extension_context.original_language_ids);
-}
-
-
 async function set_comment_prefix() {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -1192,7 +1160,7 @@ async function restore_original_language() {
     if (!active_doc)
         return;
     let file_path = active_doc.fileName;
-    let original_language_id = 'plaintext';
+    let original_language_id = PLAINTEXT;
     if (extension_context.original_language_ids.has(file_path)) {
         original_language_id = extension_context.original_language_ids.get(file_path);
     }
@@ -1443,36 +1411,47 @@ async function update_query_history(query) {
 }
 
 
-async function handle_dialect_selection_message(origin_doc, message, log_wrapper) {
-    if (!message || message.msg_type != 'apply_dialect') {
-        return; // Something wrong has happened.
-    }
-    if (origin_doc.languageId != DYNAMIC_CSV) {
-        show_single_line_error('Dynamic separator can only be adjusted for "Dynamic CSV" filetype.');
+async function handle_dialect_selection_message(origin_doc, dialect_webview_panel, message, selected_separator, log_wrapper) {
+    if (!message) {
         return;
     }
-    let delim = message.delim;
-    let policy = message.policy;
-    let comment_prefix = message.comment_prefix;
-    if (policy == 'whitespace' && delim != ' ') {
-        show_single_line_error("Selected policy can only be used with whitespace separator");
-        return;
+    if (message.msg_type == 'dialect_handshake') {
+        let init_msg = {'msg_type': 'dialect_handshake', 'selected_separator': selected_separator};
+        await dialect_webview_panel.webview.postMessage(init_msg);
     }
-    if (policy == 'double_escape' && delim == '"') {
-        show_single_line_error("Double quote separator in incompatible with double quote escape policy");
-        return;
+
+    if (message.msg_type == 'apply_dialect') {
+        let delim = message.delim;
+        let policy = message.policy;
+        let comment_prefix = message.comment_prefix;
+        if (policy == 'whitespace' && delim != ' ') {
+            show_single_line_error("Selected policy can only be used with whitespace separator");
+            return;
+        }
+        if (policy == 'double_escape' && delim == '"') {
+            show_single_line_error("Double quote separator in incompatible with double quote escape policy");
+            return;
+        }
+        if (!delim) {
+            show_single_line_error("Separator is empty");
+            return;
+        }
+        if ([SIMPLE_POLICY, QUOTED_RFC_POLICY, QUOTED_POLICY, WHITESPACE_POLICY].indexOf(policy) == -1) {
+            show_single_line_error("Selected policy is empty or not supported");
+            return;
+        }
+        // Dispose/close the webview so that the origin_doc becomes active and rainbow features can be applied immediately.
+        dialect_webview_panel.dispose();
+
+        await save_dynamic_info(extension_context, origin_doc.fileName, make_dialect_info(delim, policy));
+        extension_context.custom_comment_prefixes.set(origin_doc.fileName, comment_prefix);
+        if (origin_doc.languageId == DYNAMIC_CSV && is_active_doc(origin_doc)) {
+            // Filetype was already "dynamic csv", just re-highlight the file properly.
+            await enable_rainbow_features_if_csv(origin_doc, log_wrapper);
+        } else {
+            await vscode.languages.setTextDocumentLanguage(origin_doc, DYNAMIC_CSV);
+        }
     }
-    if (!delim) {
-        show_single_line_error("Separator is empty");
-        return;
-    }
-    if ([SIMPLE_POLICY, QUOTED_RFC_POLICY, QUOTED_POLICY, WHITESPACE_POLICY].indexOf(policy) == -1) {
-        show_single_line_error("Selected policy is empty or not supported");
-        return;
-    }
-    await save_dynamic_info(extension_context, origin_doc.fileName, make_dialect_info(delim, policy));
-    extension_context.custom_comment_prefixes.set(origin_doc.fileName, comment_prefix);
-    await enable_rainbow_features_if_csv(origin_doc, log_wrapper);
 }
 
 
@@ -1762,7 +1741,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
     // The check below also prevents double autodetection from handle_doc_open fork in the new_doc with adjusted language id.
     // This happens for some test docs on startup.
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
-    if (original_language_id != 'plaintext' && !is_default_csv) {
+    if (original_language_id != PLAINTEXT && !is_default_csv) {
         log_wrapper.log_simple_event('abort: ineligible original language id');
         return [active_doc, false];
     }
@@ -2127,11 +2106,9 @@ async function activate(context) {
     var edit_column_names_cmd = vscode.commands.registerCommand('rainbow-csv.SetVirtualHeader', set_virtual_header);
     var set_join_table_name_cmd = vscode.commands.registerCommand('rainbow-csv.SetJoinTableName', set_join_table_name); // WEB_DISABLED
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
-    var choose_dynamic_separator_cmd = vscode.commands.registerCommand('rainbow-csv.ChooseDynamicSeparator', async function() { await choose_dynamic_separator(); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', () => { manually_set_rainbow_separator(/*policy=*/null); });
-    var set_separator_multiline_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorMultiline', () => { manually_set_rainbow_separator(QUOTED_RFC_POLICY); });
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', async function() { await choose_dynamic_separator(); });
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var rainbow_on_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOn', reenable_rainbow_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
@@ -2168,7 +2145,6 @@ async function activate(context) {
     context.subscriptions.push(column_edit_after_cmd);
     context.subscriptions.push(column_edit_select_cmd);
     context.subscriptions.push(set_separator_cmd);
-    context.subscriptions.push(set_separator_multiline_cmd);
     context.subscriptions.push(rainbow_off_cmd);
     context.subscriptions.push(rainbow_on_cmd);
     context.subscriptions.push(sample_head_cmd);
@@ -2180,7 +2156,6 @@ async function activate(context) {
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(internal_test_cmd);
-    context.subscriptions.push(choose_dynamic_separator_cmd);
 
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(doc_close_event);
