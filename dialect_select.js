@@ -14,6 +14,7 @@ function handle_message(msg_event) {
     let message_type = message['msg_type'];
     if (message_type == 'dialect_handshake') {
         let selected_separator = message.selected_separator;
+
         if (selected_separator == '\t') {
             document.getElementById("separator_selector").value = document.getElementById("tab_option").value;
         } else if (selected_separator == ' ') {
@@ -22,6 +23,14 @@ function handle_message(msg_event) {
             document.getElementById("custom_separator_input").value = selected_separator;
             document.getElementById("separator_selector").value = document.getElementById("manual_entry_option").value;
         }
+
+        let policy = document.getElementById("simple_option").value;
+        if (selected_separator == ' ') {
+            policy = document.getElementById("merging_option").value;
+        } else if (selected_separator == ',' || selected_separator == ';') {
+            policy = document.getElementById("rfc_option").value;
+        }
+        document.getElementById("policy_selector").value = policy;
     }
 }
 
@@ -38,7 +47,7 @@ function handle_apply_click() {
             manual_separator_text = ' ';
         }
     }
-    let policy = document.getElementById("select_policy").value;
+    let policy = document.getElementById("policy_selector").value;
     let custom_comment_prefix = document.getElementById("custom_comment_prefix").value;
     vscode.postMessage({'msg_type': 'apply_dialect', 'delim': manual_separator_text, 'policy': policy, 'comment_prefix': custom_comment_prefix});
 }

@@ -12,9 +12,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
 // FIXME test new custom dynamic cds dialects with RBQL, especially non-merging whitespace. Or double-quoted pipe, or something like that which was not possible before.
-// FIXME update the docs.
-
-// FIXME also adjust policy depending on predefined set of dynamic separators, e.g. merged for whitespace, excel for comma and semicolon, literal for everything else.
+// FIXME add (or fix) unit tests
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 

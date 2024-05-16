@@ -89,10 +89,10 @@ body {
     <div>
       <span>Choose a policy:</span>
     </div>
-    <select class="select_input" id="select_policy" title="Select Policy">
-      <option class="select_input" value="quoted_rfc">Double quote escape (Excel dialect)</option>
-      <option class="select_input" value="simple">Literal (separator is not escapable)</option>
-      <option class="select_input" value="whitespace">Merging (consecutive separators are merged)</option>
+    <select class="select_input" id="policy_selector" title="Select Policy">
+      <option class="select_input" id="rfc_option" value="quoted_rfc">Double quote escape (Excel dialect)</option>
+      <option class="select_input" id="simple_option" value="simple">Literal (separator is not escapable)</option>
+      <option class="select_input" id="merging_option" value="whitespace">Merging (consecutive separators are merged)</option>
     </select>
 </div>
 

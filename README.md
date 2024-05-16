@@ -15,8 +15,7 @@
 ## Usage
 
 Rainbow CSV looks better and is much more usable in general with dark mode.  
-If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283).  
-Another way to do this: select one separator character with mouse cursor -> right click -> "Set as Rainbow separator".  
+If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "Dynamic CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283).  
 
 #### Supported separators
 
@@ -32,8 +31,7 @@ Another way to do this: select one separator character with mouse cursor -> righ
 
 #### Content-based separator autodetection
 Rainbow CSV runs a table autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases, this is a very cheap operation because autodetection usually stops after checking only 1 or 2 topmost lines.  
-Autodetection can be disabled in the extension settings.  
-By default only comma, tab, semicolon and pipe are tried during autodetection, but you can adjust the list of candidate separators in extension settings.  
+Autodetection can be adjusted or disabled in the extension settings.  
 
 
 #### Customizing file extension - separator association
@@ -99,16 +97,15 @@ There you can find the list of available options and their description.
 
 ### Commands:
 
-#### Align, Shrink
-Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
-
 #### Set separator
 Set the currently selected text (single character or multiline string) as a separator and re-highlight the file.
+
+#### Align, Shrink
+Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for the column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
 **WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL if you are not sure.  
-To remove cursor/selection from the header line use "Alt+Click" on it.  
 
 #### SetVirtualHeader 
 Input a comma-separated string with column names to adjust column names displayed in hover tooltips. The actual header line and file content won't be affected.
