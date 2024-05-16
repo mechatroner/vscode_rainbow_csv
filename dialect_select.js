@@ -27,7 +27,7 @@ function handle_message(msg_event) {
         let policy = document.getElementById("simple_option").value;
         if (selected_separator == ' ') {
             policy = document.getElementById("merging_option").value;
-        } else if (selected_separator == ',' || selected_separator == ';') {
+        } else if (selected_separator == ',' || selected_separator == ';' || !selected_separator) {
             policy = document.getElementById("rfc_option").value;
         }
         document.getElementById("policy_selector").value = policy;

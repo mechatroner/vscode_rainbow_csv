@@ -280,11 +280,6 @@
                 "title": "Column edit before"
             },
             {
-                "command": "rainbow-csv.ChooseDynamicSeparator",
-                "category": "Rainbow CSV",
-                "title": "Choose Dynamic Separator"
-            },
-            {
                 "command": "rainbow-csv.ColumnEditAfter",
                 "category": "Rainbow CSV",
                 "title": "Column edit after"
@@ -298,11 +293,6 @@
                 "command": "rainbow-csv.RainbowSeparator",
                 "category": "Rainbow CSV",
                 "title": "Set rainbow separator"
-            },
-            {
-                "command": "rainbow-csv.RainbowSeparatorMultiline",
-                "category": "Rainbow CSV",
-                "title": "Set separator - Quoted Multiline Fields"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
