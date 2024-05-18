@@ -120,16 +120,13 @@ See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extension
    Enter `Remote - Tunnels: Connect to Tunnel` command in the pallete.
 
 
-
-
-
 ### Generating documentation with showdown
 In order to generate RBQL documentation use showdown - based markdown_to_html.js script from junk/rainbow_stuff
 Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.html`
 
 
-
-# TODO LIST
+## Other
+### TODO LIST
 * Improve RBQL encoding handling logic when VScode encoding info API is implemented, see https://github.com/microsoft/vscode/issues/824.
 
 * Consider keeping only one open RBQL console at any time - if another one opens automatically close the previous one.
@@ -150,51 +147,22 @@ Usage: `node markdown_to_html.js ~/vscode_rainbow_csv/rbql_core/README.md out.ht
 
 * Merge rbql_query_web and rbql_query_node
 
-* Show column info in statusline even when there are consistency issues, but highlight it in red/yellow
-
 * Add feature to decorate separators with a transparent box or different color or something, see the opened issue.
-
-* Consider speeding up autodetection by adding parse_rfc option. If it is false - we can only parse top N=10 lines and skip setting lint cache key until the actual lint.
 
 * Consider using RFC-like syntax by ajhyndman, see https://github.com/mechatroner/vscode_rainbow_csv/issues/4
 
 * Consider removing double quote autoclosing from non-csv/scsv dialects when native rfc csv is enabled.
 
-* Manual selection of separator is not remembered in preview mode (unlike filetype selection through the menu) - consider remembering the selected separator in dialect_info (this is already done) with the special "is_manual" flag and during doc_open restore the dialect.
-
-* FIXME: Unlike manual filetype selection, setTextDocumentLanguage sometimes doesn't survive tab switch, this is especially reproducible with `dynamic csv` language and subsequent `Rainbow Off` command. Figure out how to overcome this (perhaps it is possible to overcome this with `preview=fase` option in all `showTextDocument` calls?)
-
-* Consider getting rid of Rainbow Off button.
-
-* Alignment: Instead of extra trailing whitespace better use extra starting whitespace: `,hello ,` -> `, hello,`
-
 * Consider adding optional "keep-it-dark" mode that would force dark color theme even if all other filetypes use light color theme to improve csv readability.
-
-* Consider using readonly virtual documents for RBQL query results and align/shrink command results, see https://code.visualstudio.com/api/extension-guides/virtual-documents (use custom scheme with them too) 
-
-* Consider setting `preview=fase` option in all `showTextDocument` calls.
 
 * Add `"csv (tab)"` alias to TSV language if/when https://github.com/microsoft/vscode/issues/167208 is resolved
 
-* Fix or consider getting rid of hover syntax highlighting, it doesn't always work perhaps due to https://github.com/microsoft/vscode/issues/53723.
 
-* Fix sticky header for 'Set Header Line' command case.
-
-
-## RFC Support plan
-We need:
+### RFC Support plan
 1. Full doc tokenization (rbql + rbql UI preview sampling + lint + autodetection) - 100% correct, doesn't have to use VSCode ranges.
 2. Fragment tokenization (hover + highlighting) - best effort, fast, should use VSCode ranges.
 
 
-## OTHER
-Token modifiers to use if needed:
-```
-const tokenModifiers = ['rainbow2', 'rainbow3', 'rainbow4', 'rainbow5', 'rainbow6', 'rainbow7', 'rainbow8', 'rainbow9', 'rainbow10', 'name', 'function', 'parameter', 'numeric', 'type', 'bold'];
-const modifier_sequences = [[], ['rainbow2'], ['name', 'function', 'rainbow3'], ['rainbow4'], ['rainbow5'], ['parameter', 'rainbow6'], ['numeric', 'rainbow7'], ['name', 'type', 'rainbow8'], ['bold', 'rainbow9'], 'rainbow10'];
-```
-
-
-#### Maximum supported file size in VSCode
+### Maximum supported file size in VSCode
 https://stackoverflow.com/questions/53625687/what-is-the-largest-filesize-supported-by-vs-code-syntax-highlighting
 20MB Or 300K lines (avg 66 chars per line).
