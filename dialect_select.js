@@ -1,11 +1,34 @@
 const vscode = acquireVsCodeApi();
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
 function handle_manual_separator_change() {
     document.getElementById("separator_selector").value = document.getElementById("manual_entry_option").value;
 }
 
 
-function handle_message(msg_event) {
+function handle_apply_click() {
+    let separator_selection_option = document.getElementById("separator_selector").value;
+    let manual_separator_text = document.getElementById("custom_separator_input").value;
+    if (!manual_separator_text) {
+        if (separator_selection_option == 'comma') {
+            manual_separator_text = ',';
+        } else if (separator_selection_option == 'tab') {
+            manual_separator_text = '\t';
+        } else if (separator_selection_option == 'whitespace') {
+            manual_separator_text = ' ';
+        }
+    }
+    let policy = document.getElementById("policy_selector").value;
+    let custom_comment_prefix = document.getElementById("custom_comment_prefix").value;
+    vscode.postMessage({'msg_type': 'apply_dialect', 'delim': manual_separator_text, 'policy': policy, 'comment_prefix': custom_comment_prefix});
+}
+
+
+async function handle_message(msg_event) {
     console.log('message received at client: ' + JSON.stringify(msg_event));
     var message = msg_event.data;
     if (!message) {
@@ -31,25 +54,12 @@ function handle_message(msg_event) {
             policy = document.getElementById("rfc_option").value;
         }
         document.getElementById("policy_selector").value = policy;
-    }
-}
 
-
-function handle_apply_click() {
-    let separator_selection_option = document.getElementById("separator_selector").value;
-    let manual_separator_text = document.getElementById("custom_separator_input").value;
-    if (!manual_separator_text) {
-        if (separator_selection_option == 'comma') {
-            manual_separator_text = ',';
-        } else if (separator_selection_option == 'tab') {
-            manual_separator_text = '\t';
-        } else if (separator_selection_option == 'whitespace') {
-            manual_separator_text = ' ';
+        if (message.integration_test) {
+            await sleep(1500);
+            handle_apply_click();
         }
     }
-    let policy = document.getElementById("policy_selector").value;
-    let custom_comment_prefix = document.getElementById("custom_comment_prefix").value;
-    vscode.postMessage({'msg_type': 'apply_dialect', 'delim': manual_separator_text, 'policy': policy, 'comment_prefix': custom_comment_prefix});
 }
 
 

@@ -10,8 +10,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // See DEV_README.md file for additional info.
 
 
-// FIXME just run some workflow dynamic csv tests e.g. setting dynamic csv from csv filetype or from plaintext or selecting delim with cursor and see how it all works.
-// FIXME test new custom dynamic cds dialects with RBQL, especially non-merging whitespace. Or double-quoted pipe, or something like that which was not possible before.
 // FIXME add (or fix) unit tests
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -508,7 +506,7 @@ function get_selected_separator(active_editor, active_doc) {
 }
 
 
-async function choose_dynamic_separator() {
+async function choose_dynamic_separator(integration_test_options=null) {
     let log_wrapper = new StackContextLogWrapper('choose_dynamic_separator');
     log_wrapper.log_doc_event('starting', active_doc);
     let active_editor = get_active_editor();
@@ -526,7 +524,7 @@ async function choose_dynamic_separator() {
     }
     dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
     dialect_panel.webview.html = adjust_webview_paths(dialect_panel, dialect_selection_html_template, ['dialect_select.js']);
-    dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, dialect_panel, message, selected_separator, log_wrapper); });
+    dialect_panel.webview.onDidReceiveMessage(function(message) { handle_dialect_selection_message(active_doc, dialect_panel, message, selected_separator, log_wrapper, integration_test_options); });
 }
 
 
@@ -1409,12 +1407,15 @@ async function update_query_history(query) {
 }
 
 
-async function handle_dialect_selection_message(origin_doc, dialect_webview_panel, message, selected_separator, log_wrapper) {
+async function handle_dialect_selection_message(origin_doc, dialect_webview_panel, message, selected_separator, log_wrapper, integration_test_options) {
     if (!message) {
         return;
     }
     if (message.msg_type == 'dialect_handshake') {
         let init_msg = {'msg_type': 'dialect_handshake', 'selected_separator': selected_separator};
+        if (integration_test_options && integration_test_options.integration_test) {
+            init_msg['integration_test'] = true;
+        }
         await dialect_webview_panel.webview.postMessage(init_msg);
     }
 
@@ -2106,7 +2107,7 @@ async function activate(context) {
     var column_edit_before_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditBefore', async function() { await column_edit('ce_before'); });
     var column_edit_after_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditAfter', async function() { await column_edit('ce_after'); });
     var column_edit_select_cmd = vscode.commands.registerCommand('rainbow-csv.ColumnEditSelect', async function() { await column_edit('ce_select'); });
-    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', async function() { await choose_dynamic_separator(); });
+    var set_separator_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparator', choose_dynamic_separator);
     var rainbow_off_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOff', restore_original_language);
     var rainbow_on_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOn', reenable_rainbow_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED

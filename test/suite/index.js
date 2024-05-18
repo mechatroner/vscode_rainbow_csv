@@ -405,8 +405,9 @@ async function test_dynamic_csv(test_folder_uri) {
         await vscode.commands.executeCommand("cursorRightSelect");
     }
     await sleep(1000);
-    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
-    await sleep(2000);
+    let dialect_test_task = {'integration_test': true};
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator', dialect_test_task);
+    await sleep(4000);
     log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`);
     assert.equal(active_doc.languageId, 'dynamic csv');
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparatorOff');
@@ -415,8 +416,8 @@ async function test_dynamic_csv(test_folder_uri) {
     assert.equal(active_doc.languageId, 'plaintext');
     await sleep(1000);
 
-    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
-    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator', dialect_test_task);
+    await sleep(4000);
 
     // Scroll around to test.
     await vscode.commands.executeCommand("scrollPageDown");
@@ -508,10 +509,11 @@ async function test_manual_enable_disable(test_folder_uri) {
     }
     await vscode.commands.executeCommand("cursorRightSelect");
     await sleep(1000);
-    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator');
-    await sleep(2000);
+    let dialect_test_task = {'integration_test': true};
+    await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator', dialect_test_task);
+    await sleep(4000);
     log_message(`languageId for small_movies.pipe after RainbowSeparator: ${active_doc.languageId}`);
-    assert.equal(active_doc.languageId, 'csv (pipe)');
+    assert.equal(active_doc.languageId, 'dynamic csv');
     await vscode.commands.executeCommand('rainbow-csv.RainbowSeparatorOff');
     await sleep(2000);
     log_message(`languageId for small_movies.pipe after RainbowSeparatorOff: ${active_doc.languageId}`);
