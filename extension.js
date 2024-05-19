@@ -10,8 +10,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // See DEV_README.md file for additional info.
 
 
-// FIXME add (or fix) unit tests
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -519,7 +517,6 @@ async function choose_dynamic_separator(integration_test_options=null) {
     }
     let selected_separator = get_selected_separator(active_editor, active_doc);
     if (!dialect_selection_html_template) {
-        // FIXME test for browser
         dialect_selection_html_template = await load_resource_file_universal('dialect_select.html');
     }
     dialect_panel = vscode.window.createWebviewPanel('rainbow-dialect-select', 'Choose CSV Dialect', vscode.ViewColumn.Beside, {enableScripts: true});
