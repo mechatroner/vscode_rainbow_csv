@@ -526,7 +526,6 @@ async function choose_dynamic_separator(integration_test_options=null) {
 
 
 function show_choose_dynamic_separator_button() {
-    // For some reason this is not shown in some unhighlighted docs.
     if (!dynamic_dialect_select_button)
         dynamic_dialect_select_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     dynamic_dialect_select_button.text = 'Choose Separator...';
@@ -1735,7 +1734,6 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         return [active_doc, false];
     }
     // The check below also prevents double autodetection from handle_doc_open fork in the new_doc with adjusted language id.
-    // This happens for some test docs on startup.
     let is_default_csv = (file_path.endsWith('.csv') || file_path.endsWith('.CSV')) && original_language_id == 'csv';
     if (original_language_id != PLAINTEXT && !is_default_csv) {
         log_wrapper.log_simple_event('abort: ineligible original language id');

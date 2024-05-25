@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.12.0
+* Improved Dynamic CSV separator selection UI which allows more (separator, policy) combinations
+* Minor fixes
+
 ## 3.11.0
 * Add user-friendly sticky header config option.
 * Enable sticky header by default.
