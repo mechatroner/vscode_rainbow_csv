@@ -15,7 +15,7 @@
 ## Usage
 
 Rainbow CSV looks better and is much more usable in general with dark mode.  
-If your csv, semicolon-separated or tab-separated file doesn't have .csv or .tsv extension, you can manually enable highlighting by clicking on the current language label mark in the right bottom corner and then choosing "CSV", "Dynamic CSV", "TSV", "CSV (semicolon)" or "CSV (pipe)" depending on the file content, see this [screenshot](https://stackoverflow.com/a/30776845/2898283).  
+You can manually enable highlighting by executing `Set rainbow separator` command or by clicking on the current language button in the bottom right corner and choosing one of the built-in CSV dialects from the table below.
 
 #### Supported separators
 
@@ -53,7 +53,7 @@ List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", 
 Rainbow CSV allows using an arbitrary character or string as a separator.
 You can add the separator to the list of autodetected separators in the VSCode settings or if you just want to use it once you can either:
 * Select `Dynamic CSV` filetype (bottom right corner) and then enter the separator text in the popup dialog.
-* Select the separator text with the cursor and run `Rainbow CSV: Set separator ... ` command.
+* Select the separator text with the cursor and run `Rainbow CSV: Set rainbow separator` command.
 
 `Dynamic CSV` filetype also supports multiline CSV fields escaped in double quotes as described in RFC-4180.
 
@@ -97,7 +97,7 @@ There you can find the list of available options and their description.
 
 ### Commands:
 
-#### Set separator
+#### Set rainbow separator
 Set the currently selected text (single character or multiline string) as a separator and re-highlight the file.
 
 #### Align, Shrink
