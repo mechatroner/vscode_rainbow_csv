@@ -115,6 +115,29 @@ function is_ascii(src_str) {
 }
 
 
+function calc_rudimentary_column_stats_for_ranges(table_ranges) {
+    // TODO we should have the same logic here as in calc_column_stats. Find a way to unify them.
+    let max_column_widths = [];
+    for (let row_info of table_ranges) {
+        if (row_info.hasOwnProperty('comment_range')) {
+            continue;
+        }
+        for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
+            if (max_column_widths.length <= fnum) {
+                max_column_widths.push(0);
+            }
+            // A single rfc field can contain multiple ranges located on different lines.
+            let field_ranges = row_info.record_ranges[fnum];
+            for (let range_id = 0; range_id < field_ranges.length; range_id += 1) {
+                let range = field_ranges[range_id];
+                max_column_widths[fnum] = Math.max(max_column_widths[fnum], range.end.character - range.start.character);
+            }
+        }
+    }
+    return max_column_widths;
+}
+
+
 function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_double_width_alignment) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
@@ -790,6 +813,13 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
 
 
 function parse_document_range(vscode, doc, delim, policy, comment_prefix, range) {
+    // A single field can contain multiple ranges if it spans multiple lines.
+    // A generic example for an rfc file:
+    // [
+    //     record_ranges: [[field_1_range_1, field_1_range_2, ... ,field_1_range_n], ... [field_n_range_1]]
+    //     ...
+    //     record_ranges: [[field_1_range_1], ..., [field_n_range_1]]
+    // ]
     if (policy == QUOTED_RFC_POLICY) {
         return parse_document_range_rfc(vscode, doc, delim, comment_prefix, range);
     } else {
@@ -1060,6 +1090,7 @@ module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
+module.exports.calc_rudimentary_column_stats_for_ranges = calc_rudimentary_column_stats_for_ranges;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_subcomponent_stats = update_subcomponent_stats;
 module.exports.align_field = align_field;

@@ -75,6 +75,7 @@ let cursor_timeout_handle = null;
 let rainbow_token_event = null;
 let comment_token_event = null;
 let sticky_header_disposable = null;
+let inlay_hint_disposable = null;
 
 const PLAINTEXT = 'plaintext';
 const DYNAMIC_CSV = 'dynamic csv';
@@ -432,6 +433,17 @@ class StickyHeaderProvider {
 }
 
 
+function get_all_rainbow_lang_selector() {
+    let document_selector = [];
+    for (let language_id in dialect_map) {
+        if (dialect_map.hasOwnProperty(language_id)) {
+            document_selector.push({language: language_id});
+        }
+    }
+    return document_selector;
+}
+
+
 function reconfigure_sticky_header_provider(force=false) {
     let enable_sticky_header = get_from_config('enable_sticky_header', false);
     if (!enable_sticky_header) {
@@ -450,13 +462,16 @@ function reconfigure_sticky_header_provider(force=false) {
         return;
     }
     let header_symbol_provider = new StickyHeaderProvider();
-    let document_selector = [];
-    for (let language_id in dialect_map) {
-        if (dialect_map.hasOwnProperty(language_id)) {
-            document_selector.push({language: language_id});
-        }
+    sticky_header_disposable = vscode.languages.registerDocumentSymbolProvider(get_all_rainbow_lang_selector(), header_symbol_provider);
+}
+
+
+function enable_inlay_hint_alignment() {
+    if (inlay_hint_disposable !== null) {
+        return;
     }
-    sticky_header_disposable = vscode.languages.registerDocumentSymbolProvider(document_selector, header_symbol_provider);
+    let inlay_hints_provider = new InlayHintProvider();
+    inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
 }
 
 
@@ -961,7 +976,6 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
     let interpreters_preference_list = ['python3', 'python'];
     const test_marker = 'test ';
-    let close_and_error_guard = {'process_reported': false};
 
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
     let [output_delim, output_policy] = [input_delim, input_policy];
@@ -1204,7 +1218,7 @@ async function reenable_rainbow_language() {
         // Hide the button explicitly.
         rainbow_on_status_bar_button.hide();
     }
-    let doc = await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_language_info.language_id);
+    await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_language_info.language_id);
 }
 
 
@@ -1895,8 +1909,8 @@ async function handle_doc_close(doc_to_close) {
     log_wrapper.log_simple_event('finalizing');
 }
 
-async function handle_config_change(config_change_event) {
-    // Here `config_change_event` allows to check if a specific configuration was affected but another way to do this is just to compare before and after values.
+async function handle_config_change(_config_change_event) {
+    // Here `_config_change_event` allows to check if a specific configuration was affected but another way to do this is just to compare before and after values.
     let logging_enabled_before = extension_context.logging_enabled;
     extension_context.logging_enabled = get_from_config('enable_debug_logging', false);
     if (extension_context.logging_enabled && !logging_enabled_before) {
@@ -2049,6 +2063,50 @@ class CommentTokenProvider {
 }
 
 
+class InlayHintProvider {
+    // Inlay Hints maximum length `"editor.inlayHints.maximumLength": 0` config option has to be set in the user settings, setting it in the extension settings doesn't work for some reason.
+    // FIXME: Add the entry above to the readme file and to the settings description.
+    constructor() {
+    }
+    async provideInlayHints(document, range, _cancellation_token) {
+        debug_log_output_channel.info('providing inlay hints...');
+        // TODO consider handling _cancellation_token here and in other providers.
+        let [delim, policy, comment_prefix] = get_dialect(document);
+        let inlay_hints = [];
+        if (policy === null) {
+            debug_log_output_channel.info('skipping inlay hints...');
+            return inlay_hints;
+        }
+        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
+        debug_log_output_channel.info(`found ${table_ranges.length} table ranges`);
+        let column_widths = ll_rainbow_utils().calc_rudimentary_column_stats_for_ranges(table_ranges);
+        debug_log_output_channel.info(`found ${column_widths.length} column widths`);
+        for (let row_info of table_ranges) {
+            if (row_info.hasOwnProperty('comment_range')) {
+                continue;
+            }
+            for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
+                // We can't skip the last column because it could be rfc and we need to align its line components.
+                let field_ranges = row_info.record_ranges[fnum];
+                for (let range_id = 0; range_id < field_ranges.length; range_id++) {
+                    let range = field_ranges[range_id];
+                    if (fnum >= column_widths.length)
+                        continue; // Should never happen.
+                    let deficit = column_widths[fnum] - (range.end.character - range.start.character);
+                    if (deficit > 0) {
+                        let hint_label = ' '.repeat(deficit);
+                        inlay_hints.push(new vscode.InlayHint(range.end, hint_label));
+                    }
+                    // FIXME handle situation with prefix alignment for rfc records
+                }
+            }
+        }
+        debug_log_output_channel.info(`created ${inlay_hints.length} inlay hints`);
+        return inlay_hints;
+    }
+}
+
+
 async function load_resource_file_for_web(extension_uri, resource_path) {
     let resource_uri = vscode.Uri.joinPath(extension_uri, resource_path);
     let bytes = await vscode.workspace.fs.readFile(resource_uri);
@@ -2124,6 +2182,7 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
+    enable_inlay_hint_alignment();
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 
