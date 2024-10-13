@@ -9,6 +9,15 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
+// FIXME add option to enable experimental inlay-alignment.
+// FIXME disable regular alignment when IA is enabled (you only need to show the Shrink button after that or no button at all).
+// FIXME test IA for multi-char separators and rfc
+// FIXME fix IA for ints and floats
+// FIXME rewrite whole-file alignment to use range-based logic same as local parsing.
+// FIXME add proper IA docs
+// FIXME cleanup the dynamic config adjustment for IA limit.
+
+// FIXME add warning that unlimited inlay hint length is not set if IA is enabled - this might actually not be needed
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -470,6 +479,13 @@ function enable_inlay_hint_alignment() {
     if (inlay_hint_disposable !== null) {
         return;
     }
+
+    // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
+    // FIXME figure out how to limit to csv languages only and maybe only limit to the current workspace even.
+    // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
+    config = vscode.workspace.getConfiguration('editor');
+    config.update('inlayHints.maximumLength', 0);
+
     let inlay_hints_provider = new InlayHintProvider();
     inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
 }
