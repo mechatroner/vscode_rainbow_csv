@@ -476,6 +476,14 @@ function reconfigure_sticky_header_provider(force=false) {
 
 
 function enable_inlay_hint_alignment() {
+    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+    if (virtual_alignment_mode == 'disabled') {
+        if (inlay_hint_disposable !== null) {
+            inlay_hint_disposable.dispose();
+            inlay_hint_disposable = null;
+        }
+        return;
+    }
     if (inlay_hint_disposable !== null) {
         return;
     }
@@ -598,6 +606,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
+    enable_inlay_hint_alignment();
     enable_rainbow_ui(active_doc);
     await csv_lint(active_doc, false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
@@ -676,7 +685,12 @@ function show_align_shrink_button(file_path) {
     } else {
         align_shrink_button.text = 'Align';
         align_shrink_button.tooltip = 'Click to align table (Then you can click again to shrink)';
-        align_shrink_button.command = 'rainbow-csv.Align';
+        let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+        if (virtual_alignment_mode == 'manual') {
+            align_shrink_button.command = 'rainbow-csv.VirtualAlign';
+        } else {
+            align_shrink_button.command = 'rainbow-csv.Align';
+        }
     }
     align_shrink_button.show();
 }
@@ -1346,6 +1360,26 @@ async function shrink_table() {
         await report_progress(progress, 'Shrinking columns');
         await replace_doc_content(active_editor, active_doc, shrinked_doc_text);
     });
+}
+
+
+async function virtual_align_table() {
+    let active_doc = get_active_doc();
+    if (!is_rainbow_dialect_doc(active_doc))
+        return;
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
+    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+    if (virtual_alignment_mode != 'manual') {
+        vscode.window.showErrorMessage('You must set the virtual alignment mode setting to "manual" to use this command');
+        return;
+    }
+    aligned_files.add(active_doc.fileName);
+    // Just in case: make sure that inlay hints is enabled, might be useful if the setting was just switched to "manual". 
+    enable_inlay_hint_alignment();
+    show_align_shrink_button(active_doc.fileName);
 }
 
 
@@ -2080,23 +2114,21 @@ class CommentTokenProvider {
 
 
 class InlayHintProvider {
-    // Inlay Hints maximum length `"editor.inlayHints.maximumLength": 0` config option has to be set in the user settings, setting it in the extension settings doesn't work for some reason.
-    // FIXME: Add the entry above to the readme file and to the settings description.
     constructor() {
     }
     async provideInlayHints(document, range, _cancellation_token) {
-        debug_log_output_channel.info('providing inlay hints...');
-        // TODO consider handling _cancellation_token here and in other providers.
+        // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
+        let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+        if (virtual_alignment_mode == 'disabled' || (virtual_alignment_mode == 'manual' && !aligned_files.has(document.fileName))) {
+            return;
+        }
         let [delim, policy, comment_prefix] = get_dialect(document);
         let inlay_hints = [];
         if (policy === null) {
-            debug_log_output_channel.info('skipping inlay hints...');
             return inlay_hints;
         }
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
-        debug_log_output_channel.info(`found ${table_ranges.length} table ranges`);
         let column_widths = ll_rainbow_utils().calc_rudimentary_column_stats_for_ranges(table_ranges);
-        debug_log_output_channel.info(`found ${column_widths.length} column widths`);
         for (let row_info of table_ranges) {
             if (row_info.hasOwnProperty('comment_range')) {
                 continue;
@@ -2117,7 +2149,6 @@ class InlayHintProvider {
                 }
             }
         }
-        debug_log_output_channel.info(`created ${inlay_hints.length} inlay hints`);
         return inlay_hints;
     }
 }
@@ -2182,6 +2213,7 @@ async function activate(context) {
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
     var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', align_table);
+    var align_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualAlign', virtual_align_table);
     var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
