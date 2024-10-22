@@ -67,6 +67,7 @@ class RecordTextConsumer {
 
 
 function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, preserve_quotes_and_whitespaces=false, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
+    // TODO consider switching to a single row_info array format that would have (comment, record_ranges and the record itself) - this would make it more compatible with the incremental parsing functions.
     let num_lines = document.lineCount;
     let record_start_line = 0;
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);

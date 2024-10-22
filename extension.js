@@ -12,9 +12,11 @@ const fast_load_utils = require('./fast_load_utils.js');
 // FIXME add option to enable experimental inlay-alignment.
 // FIXME disable regular alignment when IA is enabled (you only need to show the Shrink button after that or no button at all).
 // FIXME test IA for multi-char separators and rfc
+// FIXME test IA for double-width chars (e.g. Chinese)
 // FIXME fix IA for ints and floats
 // FIXME rewrite whole-file alignment to use range-based logic same as local parsing.
 // FIXME add proper IA docs
+// FIXME check how it works with editing, does it re-align well?
 // FIXME cleanup the dynamic config adjustment for IA limit.
 
 // FIXME add warning that unlimited inlay hint length is not set if IA is enabled - this might actually not be needed

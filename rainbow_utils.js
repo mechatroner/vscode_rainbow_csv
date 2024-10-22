@@ -10,7 +10,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
-const non_numeric_sentinel = -1;
+//const non_numeric_sentinel = -1;
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
 // Copypasted from extension.js
@@ -69,31 +69,6 @@ function get_default_python_udf_content() {
 }
 
 
-function update_subcomponent_stats(field, is_first_record, max_field_components_lens, calc_visual_char_width) {
-    // Extract overall field length and length of integer and fractional parts of the field if it represents a number.
-    let visual_field_length = calc_visual_char_width ? wcwidth(field) : field.length;
-    max_field_components_lens.has_wide_chars = max_field_components_lens.has_wide_chars || visual_field_length != field.length;
-    max_field_components_lens.max_total_length = Math.max(max_field_components_lens.max_total_length, visual_field_length);
-    if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
-        // Column is not a number, early return.
-        return;
-    }
-    let match_result = number_regex.exec(field);
-    if (match_result === null) {
-        if (!is_first_record && field.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
-            // We only mark the column as non-header if we know that this is not a header line.
-            max_field_components_lens.max_int_length = non_numeric_sentinel;
-            max_field_components_lens.max_fractional_length = non_numeric_sentinel;
-        }
-        return;
-    }
-    let cur_integer_part_length = match_result[1].length;
-    max_field_components_lens.max_int_length = Math.max(max_field_components_lens.max_int_length, cur_integer_part_length);
-    let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
-    max_field_components_lens.max_fractional_length = Math.max(max_field_components_lens.max_fractional_length, cur_fractional_part_length);
-}
-
-
 function get_cursor_position_if_unambiguous(active_editor) {
     let selections = active_editor.selections;
     if (!selections || selections.length != 1) {
@@ -119,7 +94,7 @@ function calc_rudimentary_column_stats_for_ranges(table_ranges) {
     // TODO we should have the same logic here as in calc_column_stats. Find a way to unify them.
     let max_column_widths = [];
     for (let row_info of table_ranges) {
-        if (row_info.hasOwnProperty('comment_range')) {
+        if (row_info.comment_range !== null) {
             continue;
         }
         for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
@@ -138,48 +113,109 @@ function calc_rudimentary_column_stats_for_ranges(table_ranges) {
 }
 
 
+class ColumnStat {
+    constructor(enable_double_width_alignment) {
+        this.max_total_length = 0;
+        this.max_int_length = 0;
+        this.max_fractional_length = 0;
+        this.has_mutiline_fields = false;
+        this.only_ascii = enable_double_width_alignment ? true : null;
+        this.has_wide_chars = enable_double_width_alignment ? false : null;
+        this.start_offset = null;
+    }
+    mark_non_numeric() {
+        this.max_int_length = null;
+        this.max_fractional_length = null;
+        this.has_mutiline_fields = true;
+    }
+    is_numeric() {
+        return this.max_total_length !== null;
+    }
+}
+
+
+function update_column_stats_from_field(multiline_field_singleline_components, is_first_record, column_stats, enable_double_width_alignment) {
+    if (multiline_field_singleline_components.length > 1) {
+        // We don't allow multiline fields to be numeric for simplicity.
+        column_stats.mark_non_numeric();
+    }
+    for (let raw_field_line of multiline_field_singleline_components) {
+        let field_line = raw_field_line.trim();
+        column_stats.max_total_length = Math.max(column_stats.max_total_length, field_line.length);
+        if (enable_double_width_alignment) {
+            column_stats.only_ascii = column_stats.only_ascii && is_ascii(field);
+            let visual_field_length = column_stats.only_ascii ? field_line.length : wcwidth(field_line);
+            column_stats.has_wide_chars = column_stats.has_wide_chars || visual_field_length != field_line.length;
+            column_stats.max_total_length = Math.max(column_stats.max_total_length, visual_field_length);
+        }
+        if (!column_stats.is_numeric()) {
+            continue;
+        }
+        let match_result = number_regex.exec(field_line);
+        if (match_result === null) {
+            if (!is_first_record && field_line.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+                // We only mark the column as non-numeric if we know that this is not a header line.
+                column_stats.mark_non_numeric();
+            }
+            continue;
+        }
+        let cur_integer_part_length = match_result[1].length;
+        column_stats.max_int_length = Math.max(column_stats.max_int_length, cur_integer_part_length);
+        let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
+        column_stats.max_fractional_length = Math.max(column_stats.max_fractional_length, cur_fractional_part_length);
+    }
+}
+
+
+function update_column_stats_from_record(record_fields, is_first_record, all_columns_stats, enable_double_width_alignment) {
+    for (let fnum = 0; fnum < record_fields.length; fnum++) {
+        if (all_columns_stats.length <= fnum) {
+            all_columns_stats.push(new ColumnStat(enable_double_width_alignment));
+        }
+        update_column_stats_from_field(record_fields[fnum], is_first_record, all_columns_stats[fnum], enable_double_width_alignment);
+    }
+}
+
+
+function calc_column_stats_fragment(row_infos, enable_double_width_alignment) {
+    // FIXME impl -should be trivial
+    let all_columns_stats = [];
+    for (let row_info of row_infos) {
+        let is_first_record = // FIXME
+        update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
+    }
+    return all_columns_stats;
+}
+
+
 function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_double_width_alignment) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
         return [null, first_defective_line + 1, null, null];
     }
-    let column_stats = [];
+    let all_columns_stats = [];
     let is_first_record = true;
-    let calc_visual_char_width = false;
     for (let record of records) {
+        let record_fields = [];
         for (let fnum = 0; fnum < record.length; fnum++) {
-            if (column_stats.length <= fnum) {
-                column_stats.push({max_total_length: 0, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
-            }
-            let field = record[fnum];
-            if (!calc_visual_char_width && enable_double_width_alignment) {
-                calc_visual_char_width = !is_ascii(field);
-            }
-            let field_lines = field.split('\n');
-            if (field_lines.length > 1) {
-                // We don't allow multiline fields to be numeric for simplicity.
-                column_stats[fnum].max_int_length = non_numeric_sentinel;
-                column_stats[fnum].max_fractional_length = non_numeric_sentinel;
-            }
-            for (let field_line of field_lines) {
-                update_subcomponent_stats(field_line.trim(), is_first_record, column_stats[fnum], calc_visual_char_width);
-            }
+            record_fields.push(record[fnum].split('\n'));
         }
+        update_column_stats_from_record(record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
     }
-    return [column_stats, null, records, comments];
+    return [all_columns_stats, null, records, comments];
 }
 
 
 function adjust_column_stats(column_stats, delim_length) {
+    // FIXME fix the signature here - return true on success, false on failure. column_stats are adjusted anyway because the objects in the array are mutable.
     // Ensure that numeric components max widths are consistent with non-numeric (header) width.
     let adjusted_stats = [];
     for (let column_stat of column_stats) {
-        if (column_stat.max_int_length <= 0) {
-            column_stat.max_int_length = -1;
-            column_stat.max_fractional_length = -1;
+        if (column_stat.is_numeric() && column_stat.max_int_length <= 0) {
+            column_stat.mark_non_numeric();
         }
-        if (column_stat.max_int_length > 0) {
+        if (column_stat.is_numeric()) {
             // The sum of integer and float parts can be bigger than the max width, e.g. here:
             // value
             // 0.12
@@ -277,6 +313,7 @@ class RecordCommentMerger {
 }
 
 
+// FIXME we probably don't even have to unify this with the virtual alignment the function is super basic.
 function align_columns(records, comments, column_stats, delim) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
@@ -696,37 +733,44 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 }
 
 
-function make_multiline_record_ranges(vscode, delim_length, newline_marker, fields, start_line, expected_end_line_for_control) {
+function make_multiline_row_info(vscode, delim_length, newline_marker, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
+    let record_fields = [];
     let lnum_current = start_line;
     let pos_in_editor_line = 0;
     let next_pos_in_editor_line = 0;
     for (let i = 0; i < fields.length; i++) {
-        let pos_in_logical_field = 0;
+        let pos_in_multiline_field = 0;
         // Group tokens belonging to the same logical field.
-        let logical_field_tokens = [];
+        let multiline_field_singleline_ranges = [];
+        let multiline_field_singleline_components = [];
         while (true) {
-            let newline_marker_pos = fields[i].indexOf(newline_marker, pos_in_logical_field);
+            let newline_marker_pos = fields[i].indexOf(newline_marker, pos_in_multiline_field);
             if (newline_marker_pos == -1)
                 break;
-            logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + newline_marker_pos - pos_in_logical_field));
+            multiline_field_singleline_components.push(fields[i].substring(pos_in_multiline_field, newline_marker_pos));
+            multiline_field_singleline_ranges.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, pos_in_editor_line + newline_marker_pos - pos_in_multiline_field));
             lnum_current += 1;
             pos_in_editor_line = 0;
             next_pos_in_editor_line = 0;
-            pos_in_logical_field = newline_marker_pos + newline_marker.length;
+            pos_in_multiline_field = newline_marker_pos + newline_marker.length;
         }
-        next_pos_in_editor_line += fields[i].length - pos_in_logical_field;
+        next_pos_in_editor_line += fields[i].length - pos_in_multiline_field;
         if (i + 1 < fields.length) {
             next_pos_in_editor_line += delim_length;
         }
-        logical_field_tokens.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
-        record_ranges.push(logical_field_tokens);
+        multiline_field_singleline_components.push(fields[i].substring(pos_in_multiline_field));
+        multiline_field_singleline_ranges.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
+        record_fields.push(multiline_field_singleline_components);
+        record_ranges.push(multiline_field_singleline_ranges);
         // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
         pos_in_editor_line = next_pos_in_editor_line;
     }
-    assert(lnum_current == expected_end_line_for_control);
-    return record_ranges;
+    if (lnum_current != expected_end_line_for_control) {
+        return null;
+    }
+    return new RowInfo(record_ranges, record_fields, /*comment_prefix=*/null);
 }
 
 
@@ -735,6 +779,16 @@ function is_opening_rfc_line(line_text, delim) {
     // Some lines can be simultaneously opening and closing, e.g. `",a1,a2` or `a1,a2,"`
     let [_record, warning] = csv_utils.split_quoted_str(line_text + 'x"', delim);
     return !warning;
+}
+
+
+class RowInfo {
+    // TODO consider adding parsing_error_range.
+    constructor(record_ranges, comment_range, record_fields) {
+        this.record_ranges = record_ranges;
+        this.comment_range = comment_range;
+        this.record_fields = record_fields;
+    }
 }
 
 
@@ -763,15 +817,22 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             }
         }
         if (line_aggregator.has_comment_line) {
-            table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
+            //table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
+            let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length)
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range);
             line_aggregator.reset();
         } else if (line_aggregator.has_full_record) {
-            const newline_marker = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves.
+            const newline_marker = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves. We also compare expected_end_line_for_control at the end.
             let combined_line = line_aggregator.get_full_line(newline_marker);
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
             if (!warning) {
-                table_ranges.push({record_ranges: make_multiline_record_ranges(vscode, delim.length, newline_marker, fields, start_line, lnum)});
+                //table_ranges.push({record_ranges: make_multiline_row_info(vscode, delim.length, newline_marker, fields, start_line, lnum)});
+                let row_info = make_multiline_row_info(vscode, delim.length, newline_marker, fields, start_line, /*expected_end_line_for_control=*/lnum);
+                if (row_info !== null) {
+                    // If row_info is null it means that `expected_end_line_for_control` doesn't match and something went very wrong with the newline_marker join workaround.
+                    table_ranges.push(row_info);
+                }
             }
         }
     }
@@ -785,15 +846,19 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
     let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
+        let record_fields = [];
         let line_text = doc.lineAt(lnum).text;
         if (lnum + 1 == doc.lineCount && !line_text)
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
-            table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
+            let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length);
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range);
             continue;
         }
-        let split_result = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
-        // TODO consider handling comments and warnings
+        let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
+        if (warning) {
+            continue; // FIXME unit test this! And integration test / UI - check how it looks like.
+        }
         let fields = split_result[0];
         let cpos = 0;
         let next_cpos = 0;
@@ -802,16 +867,20 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
             if (i + 1 < fields.length) {
                 next_cpos += delim.length;
             }
+            record_fields.push([fields[i]]);
             record_ranges.push([new vscode.Range(lnum, cpos, lnum, next_cpos)]);
             // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
             cpos = next_cpos;
         }
-        table_ranges.push({record_ranges: record_ranges});
+        //table_ranges.push({record_ranges: record_ranges, record_fields: record_fields});
+        table_ranges.push(new RowInfo(record_ranges, record_fields, /*comment_range=*/null));
     }
     return table_ranges;
 }
 
 
+// FIXME add option to return the records themselves, not only ranges
+// FIXME and possibly an option to not include delim.length into ranges themselves (if needed)
 function parse_document_range(vscode, doc, delim, policy, comment_prefix, range) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
@@ -820,6 +889,7 @@ function parse_document_range(vscode, doc, delim, policy, comment_prefix, range)
     //     ...
     //     record_ranges: [[field_1_range_1], ..., [field_n_range_1]]
     // ]
+    // There is no warning returned because on parsing failure it would just return a partial range.
     if (policy == QUOTED_RFC_POLICY) {
         return parse_document_range_rfc(vscode, doc, delim, comment_prefix, range);
     } else {
@@ -847,7 +917,7 @@ function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, p
     let table_ranges = parse_document_range_rfc(vscode, document, delim, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
-        if (row_info.hasOwnProperty('comment_range')) {
+        if (row_info.comment_range !== null) {
             if (row_info.comment_range.contains(position)) {
                 last_found_position_info = {is_comment: true};
             }
@@ -1092,7 +1162,7 @@ module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.calc_rudimentary_column_stats_for_ranges = calc_rudimentary_column_stats_for_ranges;
 module.exports.adjust_column_stats = adjust_column_stats;
-module.exports.update_subcomponent_stats = update_subcomponent_stats;
+module.exports.update_column_stats_from_field = update_column_stats_from_field;
 module.exports.align_field = align_field;
 module.exports.rfc_align_field = rfc_align_field;
 module.exports.assert = assert;
