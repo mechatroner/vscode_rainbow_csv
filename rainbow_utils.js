@@ -90,29 +90,6 @@ function is_ascii(src_str) {
 }
 
 
-function calc_rudimentary_column_stats_for_ranges(table_ranges) {
-    // TODO we should have the same logic here as in calc_column_stats. Find a way to unify them.
-    let max_column_widths = [];
-    for (let row_info of table_ranges) {
-        if (row_info.comment_range !== null) {
-            continue;
-        }
-        for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
-            if (max_column_widths.length <= fnum) {
-                max_column_widths.push(0);
-            }
-            // A single rfc field can contain multiple ranges located on different lines.
-            let field_ranges = row_info.record_ranges[fnum];
-            for (let range_id = 0; range_id < field_ranges.length; range_id += 1) {
-                let range = field_ranges[range_id];
-                max_column_widths[fnum] = Math.max(max_column_widths[fnum], range.end.character - range.start.character);
-            }
-        }
-    }
-    return max_column_widths;
-}
-
-
 class ColumnStat {
     constructor(enable_double_width_alignment) {
         this.max_total_length = 0;
@@ -134,26 +111,27 @@ class ColumnStat {
 }
 
 
-function update_column_stats_from_field(multiline_field_singleline_components, is_first_record, column_stats, enable_double_width_alignment) {
-    if (multiline_field_singleline_components.length > 1) {
+// FIXME unit test this
+function update_column_stats_from_field(multiline_field_segments, is_first_record, column_stats, enable_double_width_alignment) {
+    if (multiline_field_segments.length > 1) {
         // We don't allow multiline fields to be numeric for simplicity.
         column_stats.mark_non_numeric();
     }
-    for (let raw_field_line of multiline_field_singleline_components) {
-        let field_line = raw_field_line.trim();
-        column_stats.max_total_length = Math.max(column_stats.max_total_length, field_line.length);
+    for (let field_segment of multiline_field_segments) {
+        column_stats.max_total_length = Math.max(column_stats.max_total_length, field_segment.length);
         if (enable_double_width_alignment) {
-            column_stats.only_ascii = column_stats.only_ascii && is_ascii(field);
-            let visual_field_length = column_stats.only_ascii ? field_line.length : wcwidth(field_line);
-            column_stats.has_wide_chars = column_stats.has_wide_chars || visual_field_length != field_line.length;
+            column_stats.only_ascii = column_stats.only_ascii && is_ascii(field_segment);
+            let visual_field_length = column_stats.only_ascii ? field_segment.length : wcwidth(field_segment);
+            column_stats.has_wide_chars = column_stats.has_wide_chars || visual_field_length != field_segment.length;
             column_stats.max_total_length = Math.max(column_stats.max_total_length, visual_field_length);
         }
         if (!column_stats.is_numeric()) {
             continue;
         }
-        let match_result = number_regex.exec(field_line);
+        // TODO improve number_regex and subsequent logic to work with numeric fields with leading/trailing spaces for virtual alignment.
+        let match_result = number_regex.exec(field_segment);
         if (match_result === null) {
-            if (!is_first_record && field_line.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+            if (!is_first_record && field_segment.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
                 // We only mark the column as non-numeric if we know that this is not a header line.
                 column_stats.mark_non_numeric();
             }
@@ -177,14 +155,32 @@ function update_column_stats_from_record(record_fields, is_first_record, all_col
 }
 
 
-function calc_column_stats_fragment(row_infos, enable_double_width_alignment) {
-    // FIXME impl -should be trivial
+// FIXME unit test this
+function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
     let all_columns_stats = [];
+    let is_first_record = true;
     for (let row_info of row_infos) {
-        let is_first_record = // FIXME
+        if (row_info.comment_range !== null) {
+            continue;
+        }
+        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
+        // FIXME integration-test this with a file with integers/floats and a header to make sure it does align the numbers properly despite the header presence.
+        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
         update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
+        is_first_record = false;
     }
     return all_columns_stats;
+}
+
+
+function get_trimmed_rfc_record_fields_from_record(record) {
+    let record_fields = [];
+    for (let fnum = 0; fnum < record.length; fnum++) {
+        let field_segments = record[fnum].split('\n');
+        field_segments = field_segments.map(v => v.trim());
+        record_fields.push(field_segments);
+    }
+    return record_fields;
 }
 
 
@@ -196,10 +192,8 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
     let all_columns_stats = [];
     let is_first_record = true;
     for (let record of records) {
-        let record_fields = [];
-        for (let fnum = 0; fnum < record.length; fnum++) {
-            record_fields.push(record[fnum].split('\n'));
-        }
+        // TODO for optimization we can actually return a new array of record_fields to avoid doing the same thing again in align.
+        let record_fields = get_trimmed_rfc_record_fields_from_record(record);
         update_column_stats_from_record(record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
     }
@@ -241,39 +235,115 @@ function adjust_column_stats(column_stats, delim_length) {
 }
 
 
-function align_field(field, is_first_record, max_field_components_lens, is_last_in_line) {
+function evaluate_align_field(field, is_first_record, column_stat, is_last_in_line) {
     // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
-    field = field.trim();
-    let visual_field_length = max_field_components_lens.has_wide_chars ? wcwidth(field) : field.length;
-    if (max_field_components_lens.max_int_length == non_numeric_sentinel) {
-        let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
-        return is_last_in_line ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+    let visual_field_length = column_stat.has_wide_chars ? wcwidth(field) : field.length;
+    if (!column_stat.is_numeric()) {
+        let delta_length = Math.max(column_stat.max_total_length - visual_field_length, 0);
+        return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
     }
     if (is_first_record) {
         if (number_regex.exec(field) === null) {
             // The line must be a header - align it using max_width rule.
-            let delta_length = Math.max(max_field_components_lens.max_total_length - visual_field_length, 0);
-            return is_last_in_line ? field : field + ' '.repeat(delta_length + alignment_extra_readability_whitespace_length);
+            let delta_length = Math.max(column_stat.max_total_length - visual_field_length, 0);
+            return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
         }
     }
     let dot_pos = field.indexOf('.');
     let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
-    // Here cur_fractional_part_length includes the leading dot too.
+    // Here `cur_fractional_part_length` includes the leading dot too.
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
-    let integer_delta_length = Math.max(max_field_components_lens.max_int_length - cur_integer_part_length, 0);
-    let fractional_delta_length = Math.max(max_field_components_lens.max_fractional_length - cur_fractional_part_length);
-    let trailing_spaces = is_last_in_line ? '' : ' '.repeat(fractional_delta_length + alignment_extra_readability_whitespace_length);
-    return ' '.repeat(integer_delta_length) + field + trailing_spaces;
+    let integer_delta_length = Math.max(column_stat.max_int_length - cur_integer_part_length, 0);
+    let fractional_delta_length = Math.max(column_stat.max_fractional_length - cur_fractional_part_length);
+    let trailing_spaces = is_last_in_line ? 0 : fractional_delta_length + alignment_extra_readability_whitespace_length;
+    return [integer_delta_length, trailing_spaces];
 }
 
 
-function rfc_align_field(field, is_first_record, max_field_components_lens, is_field_segment, is_last_in_line) {
-    let aligned = align_field(field, is_first_record, max_field_components_lens, is_last_in_line);
+function evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line) {
+    let [num_before, num_after] = evaluate_align_field(field, is_first_record, column_stat, is_last_in_line);
     if (is_field_segment) {
-        aligned = ' '.repeat(max_field_components_lens.start_offset) + aligned;
+        num_before += column_stat.start_offset;
     }
-    return aligned;
+    return [num_before, num_after];
 }
+
+
+function rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line) {
+    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line);
+    return ' '.repeat(num_before) + field + ' '.repeat(num_after);
+}
+
+
+//class AlignedLineLayout {
+//    constructor() {
+//        // Invariant: each of these arrays have equal lengths because they essentially form triplets, this structure is just an optimization (premature?).
+//        this.single_line_field_components = [];
+//        this.space_counts_before = [];
+//        this.space_counts_after = [];
+//    }
+//
+//    add_to_layout(field_component, num_before, num_after) {
+//        this.single_line_field_components.push(field_component);
+//        this.space_counts_before.push(num_before);
+//        this.space_counts_after.push(num_after);
+//    }
+//}
+
+
+//function add_field_to_aligned_layout(field, is_first_record, column_stat, is_field_segment, is_last_in_line, dst_layout) {
+//    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line);
+//    dst_layout.add_to_layout(field, num_before, num_after);
+//}
+
+
+//function align_record(record_fields, all_columns_stats) {
+//    let aligned_record_lines_layouts = [];
+//    let current_layout = new AlignedLineLayout();
+//    for (let fnum = 0; fnum < record_fields.length; fnum++) {
+//        if (all_columns_stats.length <= fnum) {
+//            break; // This could happen due to async doc edit perhaps?
+//        }
+//        let is_last_field = fnum + 1 == record_fields.length;
+//        let field_segments = record_fields[fnum];
+//        for (let i = 0; i < field_segments.length; i++) {
+//            let is_field_segment = i > 0;
+//            if (is_field_segment) {
+//                aligned_record_lines_layouts.push(current_layout);
+//                current_layout = new AlignedLineLayout();
+//            }
+//            let is_last_in_line = is_last_field || i + 1 < field_segments.length;
+//            add_field_to_aligned_layout(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line, current_layout);
+//        }
+//    }
+//    aligned_record_lines_layouts.push(current_layout);
+//    return aligned_record_lines_layouts;
+//}
+
+// FIXME probably don't need this
+//function align_field_infos(record_fields, all_columns_stats) {
+//    let aligned_record_lines_layouts = [];
+//    let current_layout = new AlignedLineLayout();
+//    for (let fnum = 0; fnum < record_fields.length; fnum++) {
+//        if (all_columns_stats.length <= fnum) {
+//            break; // This could happen due to async doc edit perhaps?
+//        }
+//        let is_last_field = fnum + 1 == record_fields.length;
+//        let field_segments = record_fields[fnum];
+//        for (let i = 0; i < field_segments.length; i++) {
+//            let is_field_segment = i > 0;
+//            if (is_field_segment) {
+//                aligned_record_lines_layouts.push(current_layout);
+//                current_layout = new AlignedLineLayout();
+//            }
+//            let is_last_in_line = is_last_field || i + 1 < field_segments.length;
+//            add_field_to_aligned_layout(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line, current_layout);
+//        }
+//    }
+//    aligned_record_lines_layouts.push(current_layout);
+//    return aligned_record_lines_layouts;
+//}
+
 
 
 class RecordCommentMerger {
@@ -313,7 +383,7 @@ class RecordCommentMerger {
 }
 
 
-// FIXME we probably don't even have to unify this with the virtual alignment the function is super basic.
+
 function align_columns(records, comments, column_stats, delim) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
@@ -330,21 +400,20 @@ function align_columns(records, comments, column_stats, delim) {
             continue;
         }
         let aligned_fields = [];
-        for (let fnum = 0; fnum < record.length; fnum++) {
+        let record_fields = get_trimmed_rfc_record_fields_from_record(record);
+        for (let fnum = 0; fnum < record_fields.length; fnum++) {
             if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
                 break;
-            let is_field_segment = false;
-            let field = record[fnum];
-            let field_lines = field.split('\n');
-            for (let i = 0; i < field_lines.length; i++) {
-                if (i > 0) {
+            let is_last_field = fnum + 1 == record_fields.length;
+            let field_segments = record_fields[fnum];
+            for (let i = 0; i < field_segments.length; i++) {
+                let is_field_segment = i > 0;
+                if (is_field_segment) {
                     result_lines.push(aligned_fields.join(delim));
                     aligned_fields = [];
-                    is_field_segment = true;
                 }
-                let is_last_in_line = fnum + 1 == record.length || (field_lines.length > 1 && i + 1 < field_lines.length);
-                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
-                is_field_segment = false;
+                let is_last_in_line = is_last_field || i + 1 < field_segments.length;
+                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
                 aligned_fields.push(aligned_field);
             }
         }
@@ -353,6 +422,49 @@ function align_columns(records, comments, column_stats, delim) {
     }
     return result_lines.join('\n');
 }
+
+
+//function align_columns(records, comments, column_stats, delim) {
+//    // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
+//    // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
+//    // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
+//    // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
+//    let result_lines = [];
+//    let is_first_record = true;
+//    let merger = new RecordCommentMerger(records, comments);
+//    while (merger.has_entries_left()) {
+//        let [record, comment] = merger.get_next();
+//        assert((comment === null) != (record === null));
+//        if (record === null) {
+//            result_lines.push(comment);
+//            continue;
+//        }
+//        let aligned_fields = [];
+//        for (let fnum = 0; fnum < record.length; fnum++) {
+//            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
+//                break;
+//            // FIXME simplify `is_field_segment` logic here - we only need to assign it twice, not 3 times.
+//            let is_field_segment = false;
+//            let field = record[fnum];
+//            let field_lines = field.split('\n');
+//            // FIXME extract this whole field_lines alignment logic into a single function?
+//            for (let i = 0; i < field_lines.length; i++) {
+//                if (i > 0) {
+//                    result_lines.push(aligned_fields.join(delim));
+//                    aligned_fields = [];
+//                    is_field_segment = true;
+//                }
+//                let is_last_in_line = fnum + 1 == record.length || (field_lines.length > 1 && i + 1 < field_lines.length);
+//                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
+//                is_field_segment = false;
+//                aligned_fields.push(aligned_field);
+//            }
+//        }
+//        is_first_record = false;
+//        result_lines.push(aligned_fields.join(delim));
+//    }
+//    return result_lines.join('\n');
+//}
 
 
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
@@ -784,10 +896,10 @@ function is_opening_rfc_line(line_text, delim) {
 
 class RowInfo {
     // TODO consider adding parsing_error_range.
-    constructor(record_ranges, comment_range, record_fields) {
+    constructor(record_ranges, record_fields, comment_range) {
         this.record_ranges = record_ranges;
-        this.comment_range = comment_range;
         this.record_fields = record_fields;
+        this.comment_range = comment_range;
     }
 }
 
@@ -817,9 +929,8 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             }
         }
         if (line_aggregator.has_comment_line) {
-            //table_ranges.push({comment_range: new vscode.Range(lnum, 0, lnum, line_text.length)});
-            let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length)
-            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range);
+            let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length);
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range));
             line_aggregator.reset();
         } else if (line_aggregator.has_full_record) {
             const newline_marker = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves. We also compare expected_end_line_for_control at the end.
@@ -827,7 +938,6 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
             if (!warning) {
-                //table_ranges.push({record_ranges: make_multiline_row_info(vscode, delim.length, newline_marker, fields, start_line, lnum)});
                 let row_info = make_multiline_row_info(vscode, delim.length, newline_marker, fields, start_line, /*expected_end_line_for_control=*/lnum);
                 if (row_info !== null) {
                     // If row_info is null it means that `expected_end_line_for_control` doesn't match and something went very wrong with the newline_marker join workaround.
@@ -852,14 +962,13 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
             let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length);
-            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range);
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range));
             continue;
         }
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
         if (warning) {
             continue; // FIXME unit test this! And integration test / UI - check how it looks like.
         }
-        let fields = split_result[0];
         let cpos = 0;
         let next_cpos = 0;
         for (let i = 0; i < fields.length; i++) {
@@ -879,8 +988,6 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
 }
 
 
-// FIXME add option to return the records themselves, not only ranges
-// FIXME and possibly an option to not include delim.length into ranges themselves (if needed)
 function parse_document_range(vscode, doc, delim, policy, comment_prefix, range) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
@@ -1160,11 +1267,13 @@ module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
-module.exports.calc_rudimentary_column_stats_for_ranges = calc_rudimentary_column_stats_for_ranges;
+module.exports.calc_column_stats_for_fragment = calc_column_stats_for_fragment;
+//module.exports.calc_rudimentary_column_stats_for_ranges = calc_rudimentary_column_stats_for_ranges;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_column_stats_from_field = update_column_stats_from_field;
-module.exports.align_field = align_field;
+module.exports.evaluate_align_field = evaluate_align_field; // Only for unit tests.
 module.exports.rfc_align_field = rfc_align_field;
+module.exports.evaluate_rfc_align_field = evaluate_rfc_align_field;
 module.exports.assert = assert;
 module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.get_cursor_position_info = get_cursor_position_info;

@@ -493,7 +493,7 @@ function enable_inlay_hint_alignment() {
     // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
     // FIXME figure out how to limit to csv languages only and maybe only limit to the current workspace even.
     // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
-    config = vscode.workspace.getConfiguration('editor');
+    let config = vscode.workspace.getConfiguration('editor');
     config.update('inlayHints.maximumLength', 0);
 
     let inlay_hints_provider = new InlayHintProvider();
@@ -1369,7 +1369,7 @@ async function virtual_align_table() {
     let active_doc = get_active_doc();
     if (!is_rainbow_dialect_doc(active_doc))
         return;
-    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    let [_delim, policy, _comment_prefix] = get_dialect(active_doc);
     if (policy === null) {
         return;
     }
@@ -1379,7 +1379,7 @@ async function virtual_align_table() {
         return;
     }
     aligned_files.add(active_doc.fileName);
-    // Just in case: make sure that inlay hints is enabled, might be useful if the setting was just switched to "manual". 
+    // Just in case: make sure that inlay hints is enabled, might be useful if the setting was just switched to "manual".
     enable_inlay_hint_alignment();
     show_align_shrink_button(active_doc.fileName);
 }
@@ -2065,7 +2065,7 @@ class RainbowTokenProvider {
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {
-            if (row_info.hasOwnProperty('comment_range')) {
+            if (row_info.comment_range !== null) {
                 builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
                 for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
@@ -2118,6 +2118,42 @@ class CommentTokenProvider {
 class InlayHintProvider {
     constructor() {
     }
+    //async provideInlayHints(document, range, _cancellation_token) {
+    //    // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
+    //    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+    //    if (virtual_alignment_mode == 'disabled' || (virtual_alignment_mode == 'manual' && !aligned_files.has(document.fileName))) {
+    //        return;
+    //    }
+    //    let [delim, policy, comment_prefix] = get_dialect(document);
+    //    let inlay_hints = [];
+    //    if (policy === null) {
+    //        return inlay_hints;
+    //    }
+    //    let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
+    //    let column_widths = ll_rainbow_utils().calc_rudimentary_column_stats_for_ranges(table_ranges);
+    //    for (let row_info of table_ranges) {
+    //        if (row_info.comment_range !== null) {
+    //            continue;
+    //        }
+    //        for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
+    //            // We can't skip the last column because it could be rfc and we need to align its line components.
+    //            let field_ranges = row_info.record_ranges[fnum];
+    //            for (let range_id = 0; range_id < field_ranges.length; range_id++) {
+    //                let range = field_ranges[range_id];
+    //                if (fnum >= column_widths.length)
+    //                    continue; // Should never happen.
+    //                let deficit = column_widths[fnum] - (range.end.character - range.start.character);
+    //                if (deficit > 0) {
+    //                    let hint_label = ' '.repeat(deficit);
+    //                    inlay_hints.push(new vscode.InlayHint(range.end, hint_label));
+    //                }
+    //            }
+    //        }
+    //    }
+    //    return inlay_hints;
+    //}
+
+
     async provideInlayHints(document, range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
         let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
@@ -2125,31 +2161,53 @@ class InlayHintProvider {
             return;
         }
         let [delim, policy, comment_prefix] = get_dialect(document);
-        let inlay_hints = [];
         if (policy === null) {
-            return inlay_hints;
+            return [];
         }
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
-        let column_widths = ll_rainbow_utils().calc_rudimentary_column_stats_for_ranges(table_ranges);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges);
+        all_columns_stats = ll_rainbow_utils().adjust_column_stats(all_columns_stats, delim.length);
+        if (all_columns_stats === null) {
+            return [];
+        }
+        let inlay_hints = [];
+        let is_first_record = true;
         for (let row_info of table_ranges) {
-            if (row_info.hasOwnProperty('comment_range')) {
+            if (row_info.comment_range !== null) {
                 continue;
             }
-            for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
-                // We can't skip the last column because it could be rfc and we need to align its line components.
-                let field_ranges = row_info.record_ranges[fnum];
-                for (let range_id = 0; range_id < field_ranges.length; range_id++) {
-                    let range = field_ranges[range_id];
-                    if (fnum >= column_widths.length)
-                        continue; // Should never happen.
-                    let deficit = column_widths[fnum] - (range.end.character - range.start.character);
-                    if (deficit > 0) {
-                        let hint_label = ' '.repeat(deficit);
-                        inlay_hints.push(new vscode.InlayHint(range.end, hint_label));
+            // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
+            is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
+            if (row_info.record_fields.length != row_info.record_ranges.length) {
+                break; // Should never happen.
+            }
+            for (let fnum = 0; fnum < row_info.record_fields.length; fnum++) {
+                if (fnum >= all_columns_stats.length) {
+                    break; // Should never happen.
+                }
+                let is_last_field = fnum + 1 == row_info.record_fields.length;
+                let field_segments = row_info.record_fields[fnum];
+                let field_segments_ranges = row_info.record_ranges[fnum];
+                if (field_segments.length != field_segments_ranges.length) {
+                    break; // Should never happen.
+                }
+                for (let i = 0; i < field_segments.length; i++) {
+                    let field_segment_range = field_segments_ranges[i];
+                    let is_field_segment = i > 0;
+                    let is_last_in_line = is_last_field || i + 1 < field_segments.length;
+                    let [num_before, num_after] = ll_rainbow_utils().evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], is_field_segment, is_last_in_line);
+                    if (num_after > 0) {
+                        let hint_label = ' '.repeat(num_after);
+                        inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                     }
-                    // FIXME handle situation with prefix alignment for rfc records
+                    if (num_before > 0) {
+                        let hint_label = ' '.repeat(num_before);
+                        // FIXME make sure that you need start not start - 1 and that it works for the first column (position zero)
+                        inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
+                    }
                 }
             }
+            is_first_record = false;
         }
         return inlay_hints;
     }
