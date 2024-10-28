@@ -106,7 +106,7 @@ class ColumnStat {
         this.has_mutiline_fields = true;
     }
     is_numeric() {
-        return this.max_total_length !== null;
+        return this.max_int_length !== null;
     }
 }
 

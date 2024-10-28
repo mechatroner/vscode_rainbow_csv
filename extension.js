@@ -9,17 +9,16 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME add option to enable experimental inlay-alignment.
-// FIXME disable regular alignment when IA is enabled (you only need to show the Shrink button after that or no button at all).
-// FIXME test IA for multi-char separators and rfc
-// FIXME test IA for double-width chars (e.g. Chinese)
-// FIXME fix IA for ints and floats
-// FIXME rewrite whole-file alignment to use range-based logic same as local parsing.
+// FIXME test IA for multi-char separators
 // FIXME add proper IA docs
 // FIXME check how it works with editing, does it re-align well?
 // FIXME cleanup the dynamic config adjustment for IA limit.
-
+// FIXME test alignment with files with different number of fields in different rows i.e. inconsistent num of columns
 // FIXME add warning that unlimited inlay hint length is not set if IA is enabled - this might actually not be needed
+// FIXME make sure that right-click at sticky scroll and disable does actually disable it.
+
+// FIXME (next iteration) apparently virtual alignment doesn't work that well with tab-separated files because tabs get different lenghts. Potential workaround is to adjust tabstop size or ask user to adjust it. Maybe configure it in settings: https://stackoverflow.com/questions/29972396/how-can-i-customize-the-tab-to-space-conversion-factor-in-vs-code or adjust the same setting through the API dynamically.
+
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -2157,6 +2156,7 @@ class InlayHintProvider {
     async provideInlayHints(document, range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
         let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+        let double_width_alignment = get_from_config('double_width_alignment', true);
         if (virtual_alignment_mode == 'disabled' || (virtual_alignment_mode == 'manual' && !aligned_files.has(document.fileName))) {
             return;
         }
@@ -2165,8 +2165,9 @@ class InlayHintProvider {
             return [];
         }
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         all_columns_stats = ll_rainbow_utils().adjust_column_stats(all_columns_stats, delim.length);
+        //console.log("all_columns_stats: " + JSON.stringify(all_columns_stats)); // FIXME <- remove this
         if (all_columns_stats === null) {
             return [];
         }
