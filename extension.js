@@ -9,12 +9,10 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME test IA for multi-char separators
+// FIXME fix unit tests
+// FIXME add IA e2e integration test.
 // FIXME add proper IA docs
-// FIXME check how it works with editing, does it re-align well?
-// FIXME cleanup the dynamic config adjustment for IA limit.
 // FIXME test alignment with files with different number of fields in different rows i.e. inconsistent num of columns
-// FIXME add warning that unlimited inlay hint length is not set if IA is enabled - this might actually not be needed
 // FIXME make sure that right-click at sticky scroll and disable does actually disable it.
 
 // FIXME (next iteration) apparently virtual alignment doesn't work that well with tab-separated files because tabs get different lenghts. Potential workaround is to adjust tabstop size or ask user to adjust it. Maybe configure it in settings: https://stackoverflow.com/questions/29972396/how-can-i-customize-the-tab-to-space-conversion-factor-in-vs-code or adjust the same setting through the API dynamically.
@@ -476,7 +474,7 @@ function reconfigure_sticky_header_provider(force=false) {
 }
 
 
-function enable_inlay_hint_alignment() {
+async function enable_inlay_hint_alignment() {
     let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
     if (virtual_alignment_mode == 'disabled') {
         if (inlay_hint_disposable !== null) {
@@ -490,10 +488,14 @@ function enable_inlay_hint_alignment() {
     }
 
     // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
-    // FIXME figure out how to limit to csv languages only and maybe only limit to the current workspace even.
     // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
-    let config = vscode.workspace.getConfiguration('editor');
-    config.update('inlayHints.maximumLength', 0);
+    for (let language_id in dialect_map) {
+        if (dialect_map.hasOwnProperty(language_id)) {
+            let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
+            // The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
+            await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        }
+    }
 
     let inlay_hints_provider = new InlayHintProvider();
     inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
@@ -607,7 +609,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
-    enable_inlay_hint_alignment();
+    await enable_inlay_hint_alignment();
     enable_rainbow_ui(active_doc);
     await csv_lint(active_doc, false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
@@ -1379,7 +1381,7 @@ async function virtual_align_table() {
     }
     aligned_files.add(active_doc.fileName);
     // Just in case: make sure that inlay hints is enabled, might be useful if the setting was just switched to "manual".
-    enable_inlay_hint_alignment();
+    await enable_inlay_hint_alignment();
     show_align_shrink_button(active_doc.fileName);
 }
 
@@ -2167,7 +2169,6 @@ class InlayHintProvider {
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         all_columns_stats = ll_rainbow_utils().adjust_column_stats(all_columns_stats, delim.length);
-        //console.log("all_columns_stats: " + JSON.stringify(all_columns_stats)); // FIXME <- remove this
         if (all_columns_stats === null) {
             return [];
         }
@@ -2291,7 +2292,7 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
-    enable_inlay_hint_alignment();
+    // Probably doesn't make sense to call enable_inlay_hint_alignment here because it could slow down the extension loading.
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 
