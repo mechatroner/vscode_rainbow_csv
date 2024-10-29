@@ -42,7 +42,7 @@ const preview_window_size = 100;
 const scratch_buf_marker = 'vscode_rbql_scratch';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
-var aligned_files = new Set();
+var aligned_files = new Map();
 var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
@@ -474,13 +474,13 @@ function reconfigure_sticky_header_provider(force=false) {
 }
 
 
-async function enable_inlay_hint_alignment() {
+async function enable_inlay_hint_alignment(is_manual_op) {
+    // We have 3 invocation contexts here:
+    // 1. VA is "disabled" but the function was called via the command palette command directly.
+    // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
+    // 3. VA is "always" and the function was called on file open.
     let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-    if (virtual_alignment_mode == 'disabled') {
-        if (inlay_hint_disposable !== null) {
-            inlay_hint_disposable.dispose();
-            inlay_hint_disposable = null;
-        }
+    if (virtual_alignment_mode == 'disabled' && !is_manual_op) {
         return;
     }
     if (inlay_hint_disposable !== null) {
@@ -492,7 +492,7 @@ async function enable_inlay_hint_alignment() {
     for (let language_id in dialect_map) {
         if (dialect_map.hasOwnProperty(language_id)) {
             let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
-            // The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
+            // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
             await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/false, /*overrideInLanguage=*/true);
         }
     }
@@ -609,9 +609,9 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
-    await enable_inlay_hint_alignment();
     enable_rainbow_ui(active_doc);
-    await csv_lint(active_doc, false);
+    await enable_inlay_hint_alignment(/*is_manual_op=*/false);
+    await csv_lint(active_doc, /*is_manual_op=*/false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
 }
 
@@ -834,7 +834,7 @@ async function csv_lint(active_doc, is_manual_op) {
 
 async function csv_lint_cmd() {
     // TODO re-run on each file save with content change.
-    let lint_report_for_unit_tests = await csv_lint(null, true);
+    let lint_report_for_unit_tests = await csv_lint(null, /*is_manual_op=*/true);
     return lint_report_for_unit_tests;
 }
 
@@ -1374,14 +1374,9 @@ async function virtual_align_table() {
     if (policy === null) {
         return;
     }
-    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-    if (virtual_alignment_mode != 'manual') {
-        vscode.window.showErrorMessage('You must set the virtual alignment mode setting to "manual" to use this command');
-        return;
-    }
-    aligned_files.add(active_doc.fileName);
-    // Just in case: make sure that inlay hints is enabled, might be useful if the setting was just switched to "manual".
-    await enable_inlay_hint_alignment();
+    aligned_files.set(active_doc.fileName, {is_virtual: true});
+    // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
+    await enable_inlay_hint_alignment(/*is_manual_op=*/true);
     show_align_shrink_button(active_doc.fileName);
 }
 
@@ -1418,12 +1413,12 @@ async function align_table() {
         if (align_in_scratch_file && !is_scratch_file) {
             let aligned_doc_cfg = {content: aligned_doc_text, language: active_doc.languageId};
             let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
-            aligned_files.add(scratch_doc.fileName);
+            aligned_files.set(scratch_doc.fileName, {is_virtual: false});
             await vscode.window.showTextDocument(scratch_doc);
             show_align_shrink_button(scratch_doc.fileName); // This is likely redundant but won't hurt.
         } else {
             await replace_doc_content(active_editor, active_doc, aligned_doc_text);
-            aligned_files.add(active_doc.fileName);
+            aligned_files.set(active_doc.fileName, {is_virtual: false});
             show_align_shrink_button(active_doc.fileName);
         }
     });
@@ -2119,53 +2114,18 @@ class CommentTokenProvider {
 class InlayHintProvider {
     constructor() {
     }
-    //async provideInlayHints(document, range, _cancellation_token) {
-    //    // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
-    //    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-    //    if (virtual_alignment_mode == 'disabled' || (virtual_alignment_mode == 'manual' && !aligned_files.has(document.fileName))) {
-    //        return;
-    //    }
-    //    let [delim, policy, comment_prefix] = get_dialect(document);
-    //    let inlay_hints = [];
-    //    if (policy === null) {
-    //        return inlay_hints;
-    //    }
-    //    let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
-    //    let column_widths = ll_rainbow_utils().calc_rudimentary_column_stats_for_ranges(table_ranges);
-    //    for (let row_info of table_ranges) {
-    //        if (row_info.comment_range !== null) {
-    //            continue;
-    //        }
-    //        for (let fnum = 0; fnum < row_info.record_ranges.length; fnum++) {
-    //            // We can't skip the last column because it could be rfc and we need to align its line components.
-    //            let field_ranges = row_info.record_ranges[fnum];
-    //            for (let range_id = 0; range_id < field_ranges.length; range_id++) {
-    //                let range = field_ranges[range_id];
-    //                if (fnum >= column_widths.length)
-    //                    continue; // Should never happen.
-    //                let deficit = column_widths[fnum] - (range.end.character - range.start.character);
-    //                if (deficit > 0) {
-    //                    let hint_label = ' '.repeat(deficit);
-    //                    inlay_hints.push(new vscode.InlayHint(range.end, hint_label));
-    //                }
-    //            }
-    //        }
-    //    }
-    //    return inlay_hints;
-    //}
-
-
     async provideInlayHints(document, range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
         let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-        let double_width_alignment = get_from_config('double_width_alignment', true);
-        if (virtual_alignment_mode == 'disabled' || (virtual_alignment_mode == 'manual' && !aligned_files.has(document.fileName))) {
+        let is_manually_enabled = aligned_files.has(document.fileName) && aligned_files.get(document.fileName).is_virtual;
+        if (virtual_alignment_mode != 'always' && !is_manually_enabled) {
             return;
         }
         let [delim, policy, comment_prefix] = get_dialect(document);
         if (policy === null) {
             return [];
         }
+        let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         all_columns_stats = ll_rainbow_utils().adjust_column_stats(all_columns_stats, delim.length);
