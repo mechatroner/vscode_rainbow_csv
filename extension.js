@@ -12,11 +12,10 @@ const fast_load_utils = require('./fast_load_utils.js');
 // FIXME fix unit tests
 // FIXME add IA e2e integration test.
 // FIXME add proper IA docs
-// FIXME test alignment with files with different number of fields in different rows i.e. inconsistent num of columns
+// FIXME (next iteration) apparently virtual alignment doesn't work that well with tab-separated files because tabs get different lenghts. Potential workaround is to adjust tabstop size or ask user to adjust it. Maybe configure it in settings: https://stackoverflow.com/questions/29972396/how-can-i-customize-the-tab-to-space-conversion-factor-in-vs-code or adjust the same setting through the API dynamically - verified "editor.tabSize": 1 does work 
+
+
 // FIXME make sure that right-click at sticky scroll and disable does actually disable it.
-
-// FIXME (next iteration) apparently virtual alignment doesn't work that well with tab-separated files because tabs get different lenghts. Potential workaround is to adjust tabstop size or ask user to adjust it. Maybe configure it in settings: https://stackoverflow.com/questions/29972396/how-can-i-customize-the-tab-to-space-conversion-factor-in-vs-code or adjust the same setting through the API dynamically.
-
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -474,7 +473,7 @@ function reconfigure_sticky_header_provider(force=false) {
 }
 
 
-async function enable_inlay_hint_alignment(is_manual_op) {
+async function enable_inlay_hint_alignment(is_manual_op, language_id, log_wrapper) {
     // We have 3 invocation contexts here:
     // 1. VA is "disabled" but the function was called via the command palette command directly.
     // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
@@ -483,22 +482,19 @@ async function enable_inlay_hint_alignment(is_manual_op) {
     if (virtual_alignment_mode == 'disabled' && !is_manual_op) {
         return;
     }
-    if (inlay_hint_disposable !== null) {
-        return;
+    let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
+    if (config.get('inlayHints.maximumLength') != 0) {
+        // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
+        // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
+        // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
+        await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        log_wrapper.log_doc_event(`Updated inlayHints.maximumLength = 0 for "${language_id}"`);
     }
 
-    // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
-    // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
-    for (let language_id in dialect_map) {
-        if (dialect_map.hasOwnProperty(language_id)) {
-            let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
-            // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
-            await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        }
+    if (inlay_hint_disposable == null) {
+        let inlay_hints_provider = new InlayHintProvider();
+        inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
     }
-
-    let inlay_hints_provider = new InlayHintProvider();
-    inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
 }
 
 
@@ -610,7 +606,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         enable_dynamic_semantic_tokenization();
     }
     enable_rainbow_ui(active_doc);
-    await enable_inlay_hint_alignment(/*is_manual_op=*/false);
+    await enable_inlay_hint_alignment(/*is_manual_op=*/false, language_id, log_wrapper);
     await csv_lint(active_doc, /*is_manual_op=*/false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
 }
@@ -1367,6 +1363,7 @@ async function shrink_table() {
 
 
 async function virtual_align_table() {
+    let log_wrapper = new StackContextLogWrapper('virtual_align_table');
     let active_doc = get_active_doc();
     if (!is_rainbow_dialect_doc(active_doc))
         return;
@@ -1376,7 +1373,7 @@ async function virtual_align_table() {
     }
     aligned_files.set(active_doc.fileName, {is_virtual: true});
     // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
-    await enable_inlay_hint_alignment(/*is_manual_op=*/true);
+    await enable_inlay_hint_alignment(/*is_manual_op=*/true, active_doc.languageId, log_wrapper);
     show_align_shrink_button(active_doc.fileName);
 }
 
