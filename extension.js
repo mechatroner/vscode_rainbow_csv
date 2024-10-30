@@ -12,8 +12,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // FIXME fix unit tests
 // FIXME add IA e2e integration test.
 // FIXME add proper IA docs
-// FIXME (next iteration) apparently virtual alignment doesn't work that well with tab-separated files because tabs get different lenghts. Potential workaround is to adjust tabstop size or ask user to adjust it. Maybe configure it in settings: https://stackoverflow.com/questions/29972396/how-can-i-customize-the-tab-to-space-conversion-factor-in-vs-code or adjust the same setting through the API dynamically - verified "editor.tabSize": 1 does work 
-
 
 // FIXME make sure that right-click at sticky scroll and disable does actually disable it.
 
@@ -481,6 +479,15 @@ async function enable_inlay_hint_alignment(is_manual_op, language_id, log_wrappe
     let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
     if (virtual_alignment_mode == 'disabled' && !is_manual_op) {
         return;
+    }
+    if (language_id == 'tsv') {
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            if (active_editor.options.tabSize != 1) {
+                active_editor.options.tabSize = 1;
+                log_wrapper.log_doc_event(`Updated editor tab size to single (1) space for this doc`);
+            }
+        }
     }
     let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
     if (config.get('inlayHints.maximumLength') != 0) {
