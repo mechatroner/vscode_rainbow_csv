@@ -95,7 +95,6 @@ class ColumnStat {
         this.max_total_length = 0;
         this.max_int_length = 0;
         this.max_fractional_length = 0;
-        this.has_mutiline_fields = false;
         this.only_ascii = enable_double_width_alignment ? true : null;
         this.has_wide_chars = enable_double_width_alignment ? false : null;
         this.start_offset = null;
@@ -103,7 +102,6 @@ class ColumnStat {
     mark_non_numeric() {
         this.max_int_length = null;
         this.max_fractional_length = null;
-        this.has_mutiline_fields = true;
     }
     is_numeric() {
         return this.max_int_length !== null;
@@ -1286,4 +1284,5 @@ module.exports.is_opening_rfc_line = is_opening_rfc_line; // Only for unit tests
 module.exports.show_lint_status_bar_button = show_lint_status_bar_button;
 module.exports.get_cursor_position_if_unambiguous = get_cursor_position_if_unambiguous;
 module.exports.RecordCommentMerger = RecordCommentMerger;
+module.exports.ColumnStat = ColumnStat;
 module.exports.generate_column_edit_selections = generate_column_edit_selections;
