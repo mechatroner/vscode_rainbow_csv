@@ -89,80 +89,17 @@ let vscode_test_double = {
 };
 
 
-function test_align_stats() {
-    let field = null;
-    let is_first_line = null;
-    let field_components = null;
-
-    // Previous fields are numbers but the current one is not - mark the column as non-numeric.
-    field = 'foobar';
-    is_first_line = 0;
-    field_components = {max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
-
-    // The field is non-numeric but it is at the first line so could be a header - do not mark the column as non-numeric just yet.
-    field = 'foobar';
-    is_first_line = 1;
-    field_components = {max_total_length: 0, max_int_length: 0, max_fractional_length: 0};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 6, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
-
-    // The field is a number but the column is already marked as non-numeric so we just update the max string width.
-    field = '100000';
-    is_first_line = 0;
-    field_components = {max_total_length: 2, max_int_length: -1, max_fractional_length: -1};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
-
-    // Empty field should not mark a potentially numeric column as non-numeric.
-    field = '';
-    is_first_line = 0;
-    field_components = {max_total_length: 5, max_int_length: 2, max_fractional_length: 3};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
-
-    // The field doesn't change stats because all of 3 components are smaller than the current maximums.
-    field = '100.3';
-    is_first_line = 0;
-    field_components = {max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
-
-    // Integer update example.
-    field = '100000';
-    is_first_line = 0;
-    field_components = {max_total_length: 5, max_int_length: 2, max_fractional_length: 3};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 6, max_int_length: 6, max_fractional_length: 3, has_wide_chars: false});
-
-    // Float update example.
-    field = '1000.23';
-    is_first_line = 0;
-    field_components = {max_total_length: 3, max_int_length: 3, max_fractional_length: 0};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
-
-    // Double-width chars and calc_visual_char_width set to "true"
-    field = '编号';
-    is_first_line = 0;
-    field_components = {max_total_length: 1, max_int_length: -1, max_fractional_length: -1};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 4, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
-
-    // Double-width chars and calc_visual_char_width set to "true", has_wide_chars doesn't change i.e. remains 'true' even though field doesn't contain wide chars.
-    field = 'foobar';
-    is_first_line = 0;
-    field_components = {max_total_length: 1, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true};
-    rainbow_utils.update_column_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/true);
-    assert.deepEqual(field_components, {max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
-
-    // Double-width chars and calc_visual_char_width set to "false"
-    field = '编号';
-    is_first_line = 0;
-    field_components = {max_total_length: 1, max_int_length: -1, max_fractional_length: -1};
-    rainbow_utils.update_subcomponent_stats(field, is_first_line, field_components, /*calc_visual_char_width=*/false);
-    assert.deepEqual(field_components, {max_total_length: 2, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
+function raw_column_stats_to_typed(raw_stat) {
+    let typed_stat = new rainbow_utils.ColumnStat(/*enable_double_width_alignment=*/true);
+    typed_stat.max_total_length = raw_stat.max_total_length;
+    typed_stat.max_int_length = raw_stat.max_int_length >= 0 ? raw_stat.max_int_length : null;
+    typed_stat.max_fractional_length = raw_stat.max_fractional_length >= 0 ? raw_stat.max_fractional_length : null;
+    if (raw_stat.hasOwnProperty('has_wide_chars')) {
+        typed_stat.has_wide_chars = raw_stat.has_wide_chars;
+        // FIXME add tests when only_ascii is false and has_wide_chars is true. This implementation is a simplification.
+        typed_stat.only_ascii = !raw_stat.has_wide_chars;
+    }
+    return typed_stat;
 }
 
 
@@ -170,18 +107,108 @@ function test_align_stats() {
 function column_stats_helper(column_stats_raw_objects) {
     let result = [];
     for (let raw_stat of column_stats_raw_objects) {
-        let typed_stat = new rainbow_utils.ColumnStat(/*enable_double_width_alignment=*/true);
-        typed_stat.max_total_length = raw_stat.max_total_length;
-        typed_stat.max_int_length = raw_stat.max_int_length >= 0 ? raw_stat.max_int_length : null;
-        typed_stat.max_fractional_length = raw_stat.max_fractional_length >= 0 ? raw_stat.max_fractional_length : null;
-        if (raw_stat.hasOwnProperty('has_wide_chars')) {
-            typed_stat.has_wide_chars = raw_stat.has_wide_chars;
-            // FIXME add tests when only_ascii is false and has_wide_chars is true. This implementation is a simplification.
-            typed_stat.only_ascii = !raw_stat.has_wide_chars;
-        }
-        result.push(typed_stat);
+        result.push(raw_column_stats_to_typed(raw_stat));
     }
     return result;
+}
+
+
+function test_align_stats() {
+    let field = null;
+    let field_segments = null;
+    let is_first_line = null;
+    let column_stats = null;
+    let expected_column_stats = null;
+
+    // Previous fields are numbers but the current one is not - mark the column as non-numeric.
+    field = 'foobar';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // The field is non-numeric but it is at the first line so could be a header - do not mark the column as non-numeric just yet.
+    field = 'foobar';
+    field_segments = [field];
+    is_first_line = 1;
+    column_stats = raw_column_stats_to_typed({max_total_length: 0, max_int_length: 0, max_fractional_length: 0});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // The field is a number but the column is already marked as non-numeric so we just update the max string width.
+    field = '100000';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 2, max_int_length: -1, max_fractional_length: -1});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Empty field should not mark a potentially numeric column as non-numeric.
+    field = '';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // The field doesn't change stats because all of 3 components are smaller than the current maximums.
+    field = '100.3';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Integer update example.
+    field = '100000';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 6, max_fractional_length: 3, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Float update example.
+    field = '1000.23';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 3, max_int_length: 3, max_fractional_length: 0});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Double-width chars and enable_double_width_alignment set to "true"
+    field = '编号';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 4, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Double-width chars and enable_double_width_alignment set to "true", has_wide_chars doesn't change i.e. remains 'true' even though field doesn't contain wide chars.
+    field = 'foobar';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
+    assert.deepEqual(expected_column_stats, column_stats);
+
+    // Double-width chars and enable_double_width_alignment set to "false"
+    field = '编号';
+    field_segments = [field];
+    is_first_line = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1});
+    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/false);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 2, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
+    assert.deepEqual(expected_column_stats, column_stats);
 }
 
 
