@@ -89,6 +89,7 @@ let vscode_test_double = {
 };
 
 
+// Helper testing function to adjust column stats.
 function raw_column_stats_to_typed(raw_stat) {
     let typed_stat = new rainbow_utils.ColumnStat(/*enable_double_width_alignment=*/true);
     typed_stat.max_total_length = raw_stat.max_total_length;
@@ -99,11 +100,14 @@ function raw_column_stats_to_typed(raw_stat) {
         // FIXME add tests when only_ascii is false and has_wide_chars is true. This implementation is a simplification.
         typed_stat.only_ascii = !raw_stat.has_wide_chars;
     }
+    if (raw_stat.hasOwnProperty('start_offset')) {
+        typed_stat.start_offset = raw_stat.start_offset;
+    }
     return typed_stat;
 }
 
 
-// Helper function to adjust column stats
+// Helper testing function to adjust column stats.
 function column_stats_helper(column_stats_raw_objects) {
     let result = [];
     for (let raw_stat of column_stats_raw_objects) {
@@ -470,35 +474,49 @@ function test_field_align() {
 
 
 function test_adjust_column_stats() {
-    let [adjusted_components, column_stats, adjusted_stats] = [null, null, null];
+    let [adjusted_stats, column_stats, expected_stats] = [null, null, null];
 
     // Not a numeric column, adjustment is NOOP.
     column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    adjusted_components = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    assert.deepEqual({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, adjusted_components);
+    column_stats = column_stats_helper(column_stats)
+    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0});
+    assert.deepEqual(expected_stats, adjusted_stats);
 
     // This is possisble with a single-line file.
     column_stats = [{max_total_length: 10, max_int_length: 0, max_fractional_length: 0}];
-    adjusted_components = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    assert.deepEqual({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, adjusted_components);
+    column_stats = column_stats_helper(column_stats)
+    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0});
+    assert.deepEqual(expected_stats, adjusted_stats);
 
     // Header is smaller than the sum of the numeric components.
     // value
     // 0.12
     // 1234
     column_stats = [{max_total_length: 5, max_int_length: 4, max_fractional_length: 3}];
-    adjusted_components = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    assert.deepEqual({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, start_offset: 0}, adjusted_components);
+    column_stats = column_stats_helper(column_stats)
+    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    expected_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, start_offset: 0});
+    assert.deepEqual(expected_stats, adjusted_stats);
 
     // Header is bigger than the sum of the numeric components.
     column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 3}];
-    adjusted_components = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    assert.deepEqual({max_total_length: 10, max_int_length: 7, max_fractional_length: 3, start_offset: 0}, adjusted_components);
+    column_stats = column_stats_helper(column_stats)
+    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 7, max_fractional_length: 3, start_offset: 0});
+    assert.deepEqual(expected_stats, adjusted_stats);
 
     // Non-zero start offset
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 8, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 8, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = column_stats_helper(column_stats)
     adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    assert.deepEqual([{max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, {max_total_length: 8, max_int_length: -1, max_fractional_length: -1, start_offset: 12}], adjusted_stats);
+    expected_stats = column_stats_helper([
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, 
+        {max_total_length: 8, max_int_length: -1, max_fractional_length: -1, start_offset: 12}]);
+    assert.deepEqual(expected_stats, adjusted_stats);
 }
 
 
@@ -2125,7 +2143,7 @@ function test_all() {
     test_rfc_field_align();
     test_align_columns();
     test_shrink_columns();
-    st_calc_column_stats();
+    test_calc_column_stats();
     test_adjust_column_stats();
     test_parse_document_records();
     test_parse_document_range_rfc();
