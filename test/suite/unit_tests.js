@@ -793,10 +793,11 @@ function convert_ranges_to_triples(table_ranges) {
     let table_comment_ranges = [];
     let table_record_ranges = [];
     for (let row_info of table_ranges) {
-        if (row_info.hasOwnProperty('comment_range')) {
+        if (row_info.comment_range !== null) {
+            assert(row_info.record_ranges === null);
             table_comment_ranges.push(line_range_to_triple(row_info.comment_range));
         } else {
-            assert(row_info.hasOwnProperty('record_ranges'));
+            assert(row_info.record_ranges !== null);
             let row_triple_groups = [];
             for (let field_ranges of row_info.record_ranges) {
                 let field_triples = [];

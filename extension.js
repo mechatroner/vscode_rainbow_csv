@@ -9,7 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME fix unit tests
+// FIXME add some new unit tests
 // FIXME add IA e2e integration test.
 // FIXME add proper IA docs
 
