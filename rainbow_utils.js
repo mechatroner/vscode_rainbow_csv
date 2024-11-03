@@ -109,7 +109,6 @@ class ColumnStat {
 }
 
 
-// FIXME unit test this
 function update_column_stats_from_field(multiline_field_segments, is_first_record, column_stats, enable_double_width_alignment) {
     if (multiline_field_segments.length > 1) {
         // We don't allow multiline fields to be numeric for simplicity.
@@ -200,7 +199,7 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
 
 
 function adjust_column_stats(column_stats, delim_length) {
-    // FIXME fix the signature here - return true on success, false on failure. column_stats are adjusted anyway because the objects in the array are mutable.
+    // TODO fix the signature here - return true on success, false on failure. column_stats are adjusted anyway because the objects in the array are mutable.
     // Ensure that numeric components max widths are consistent with non-numeric (header) width.
     let adjusted_stats = [];
     for (let column_stat of column_stats) {
@@ -271,77 +270,6 @@ function rfc_align_field(field, is_first_record, column_stat, is_field_segment, 
     let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
-
-
-//class AlignedLineLayout {
-//    constructor() {
-//        // Invariant: each of these arrays have equal lengths because they essentially form triplets, this structure is just an optimization (premature?).
-//        this.single_line_field_components = [];
-//        this.space_counts_before = [];
-//        this.space_counts_after = [];
-//    }
-//
-//    add_to_layout(field_component, num_before, num_after) {
-//        this.single_line_field_components.push(field_component);
-//        this.space_counts_before.push(num_before);
-//        this.space_counts_after.push(num_after);
-//    }
-//}
-
-
-//function add_field_to_aligned_layout(field, is_first_record, column_stat, is_field_segment, is_last_in_line, dst_layout) {
-//    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line);
-//    dst_layout.add_to_layout(field, num_before, num_after);
-//}
-
-
-//function align_record(record_fields, all_columns_stats) {
-//    let aligned_record_lines_layouts = [];
-//    let current_layout = new AlignedLineLayout();
-//    for (let fnum = 0; fnum < record_fields.length; fnum++) {
-//        if (all_columns_stats.length <= fnum) {
-//            break; // This could happen due to async doc edit perhaps?
-//        }
-//        let is_last_field = fnum + 1 == record_fields.length;
-//        let field_segments = record_fields[fnum];
-//        for (let i = 0; i < field_segments.length; i++) {
-//            let is_field_segment = i > 0;
-//            if (is_field_segment) {
-//                aligned_record_lines_layouts.push(current_layout);
-//                current_layout = new AlignedLineLayout();
-//            }
-//            let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-//            add_field_to_aligned_layout(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line, current_layout);
-//        }
-//    }
-//    aligned_record_lines_layouts.push(current_layout);
-//    return aligned_record_lines_layouts;
-//}
-
-// FIXME probably don't need this
-//function align_field_infos(record_fields, all_columns_stats) {
-//    let aligned_record_lines_layouts = [];
-//    let current_layout = new AlignedLineLayout();
-//    for (let fnum = 0; fnum < record_fields.length; fnum++) {
-//        if (all_columns_stats.length <= fnum) {
-//            break; // This could happen due to async doc edit perhaps?
-//        }
-//        let is_last_field = fnum + 1 == record_fields.length;
-//        let field_segments = record_fields[fnum];
-//        for (let i = 0; i < field_segments.length; i++) {
-//            let is_field_segment = i > 0;
-//            if (is_field_segment) {
-//                aligned_record_lines_layouts.push(current_layout);
-//                current_layout = new AlignedLineLayout();
-//            }
-//            let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-//            add_field_to_aligned_layout(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line, current_layout);
-//        }
-//    }
-//    aligned_record_lines_layouts.push(current_layout);
-//    return aligned_record_lines_layouts;
-//}
-
 
 
 class RecordCommentMerger {
@@ -420,49 +348,6 @@ function align_columns(records, comments, column_stats, delim) {
     }
     return result_lines.join('\n');
 }
-
-
-//function align_columns(records, comments, column_stats, delim) {
-//    // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
-//    // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
-//    // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
-//    // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
-//    let result_lines = [];
-//    let is_first_record = true;
-//    let merger = new RecordCommentMerger(records, comments);
-//    while (merger.has_entries_left()) {
-//        let [record, comment] = merger.get_next();
-//        assert((comment === null) != (record === null));
-//        if (record === null) {
-//            result_lines.push(comment);
-//            continue;
-//        }
-//        let aligned_fields = [];
-//        for (let fnum = 0; fnum < record.length; fnum++) {
-//            if (fnum >= column_stats.length) // Safeguard against async doc edit, should never happen.
-//                break;
-//            // FIXME simplify `is_field_segment` logic here - we only need to assign it twice, not 3 times.
-//            let is_field_segment = false;
-//            let field = record[fnum];
-//            let field_lines = field.split('\n');
-//            // FIXME extract this whole field_lines alignment logic into a single function?
-//            for (let i = 0; i < field_lines.length; i++) {
-//                if (i > 0) {
-//                    result_lines.push(aligned_fields.join(delim));
-//                    aligned_fields = [];
-//                    is_field_segment = true;
-//                }
-//                let is_last_in_line = fnum + 1 == record.length || (field_lines.length > 1 && i + 1 < field_lines.length);
-//                let aligned_field = rfc_align_field(field_lines[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
-//                is_field_segment = false;
-//                aligned_fields.push(aligned_field);
-//            }
-//        }
-//        is_first_record = false;
-//        result_lines.push(aligned_fields.join(delim));
-//    }
-//    return result_lines.join('\n');
-//}
 
 
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
@@ -948,10 +833,14 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
 }
 
 
-function parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range) {
+// FIXME add unit tests for this func
+function parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range, custom_parsing_margin=null) {
+    if (custom_parsing_margin === null) {
+        custom_parsing_margin = dynamic_csv_highlight_margin;
+    }
     let table_ranges = [];
-    let begin_line = Math.max(0, range.start.line - dynamic_csv_highlight_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + dynamic_csv_highlight_margin);
+    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];
@@ -965,7 +854,8 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
         }
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
         if (warning) {
-            continue; // FIXME unit test this! And integration test / UI - check how it looks like.
+            // Just skip the faulty line. It is OK to do for all existing use cases of this function.
+            continue; // FIXME And integration test / and check how it looks like with a real file, should be no decorations for the faulty line.
         }
         let cpos = 0;
         let next_cpos = 0;
@@ -1277,8 +1167,9 @@ module.exports.get_field_by_line_position = get_field_by_line_position;
 module.exports.get_cursor_position_info = get_cursor_position_info;
 module.exports.format_cursor_position_info = format_cursor_position_info;
 module.exports.parse_document_range = parse_document_range;
-module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
+module.exports.parse_document_range_single_line = parse_document_range_single_line;
 module.exports.parse_document_range_rfc = parse_document_range_rfc; // Only for unit tests.
+module.exports.sample_preview_records_from_context = sample_preview_records_from_context;
 module.exports.sample_first_two_inconsistent_records = rbql.sample_first_two_inconsistent_records;
 module.exports.is_opening_rfc_line = is_opening_rfc_line; // Only for unit tests.
 module.exports.show_lint_status_bar_button = show_lint_status_bar_button;

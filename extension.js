@@ -2168,7 +2168,6 @@ class InlayHintProvider {
                     }
                     if (num_before > 0) {
                         let hint_label = ' '.repeat(num_before);
-                        // FIXME make sure that you need start not start - 1 and that it works for the first column (position zero)
                         inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                     }
                 }
