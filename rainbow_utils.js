@@ -152,7 +152,6 @@ function update_column_stats_from_record(record_fields, is_first_record, all_col
 }
 
 
-// FIXME unit test this
 function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
     let all_columns_stats = [];
     let is_first_record = true;
@@ -306,6 +305,49 @@ class RecordCommentMerger {
     has_entries_left() {
         return this.has_comments_left() || this.has_records_left();
     }
+}
+
+
+function generate_inlay_hints(vscode, table_ranges, all_columns_stats) {
+    let inlay_hints = [];
+    let is_first_record = true;
+    for (let row_info of table_ranges) {
+        if (row_info.comment_range !== null) {
+            continue;
+        }
+        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
+        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
+        if (row_info.record_fields.length != row_info.record_ranges.length) {
+            break; // Should never happen.
+        }
+        for (let fnum = 0; fnum < row_info.record_fields.length; fnum++) {
+            if (fnum >= all_columns_stats.length) {
+                break; // Should never happen.
+            }
+            let is_last_field = fnum + 1 == row_info.record_fields.length;
+            let field_segments = row_info.record_fields[fnum];
+            let field_segments_ranges = row_info.record_ranges[fnum];
+            if (field_segments.length != field_segments_ranges.length) {
+                break; // Should never happen.
+            }
+            for (let i = 0; i < field_segments.length; i++) {
+                let field_segment_range = field_segments_ranges[i];
+                let is_field_segment = i > 0;
+                let is_last_in_line = is_last_field || i + 1 < field_segments.length;
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], is_field_segment, is_last_in_line);
+                if (num_before > 0) {
+                    let hint_label = ' '.repeat(num_before);
+                    inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
+                }
+                if (num_after > 0) {
+                    let hint_label = ' '.repeat(num_after);
+                    inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
+                }
+            }
+        }
+        is_first_record = false;
+    }
+    return inlay_hints;
 }
 
 
@@ -833,7 +875,6 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
 }
 
 
-// FIXME add unit tests for this func
 function parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
@@ -1156,7 +1197,6 @@ module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.calc_column_stats_for_fragment = calc_column_stats_for_fragment;
-//module.exports.calc_rudimentary_column_stats_for_ranges = calc_rudimentary_column_stats_for_ranges;
 module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.update_column_stats_from_field = update_column_stats_from_field;
 module.exports.evaluate_align_field = evaluate_align_field; // Only for unit tests.
@@ -1177,3 +1217,4 @@ module.exports.get_cursor_position_if_unambiguous = get_cursor_position_if_unamb
 module.exports.RecordCommentMerger = RecordCommentMerger;
 module.exports.ColumnStat = ColumnStat;
 module.exports.generate_column_edit_selections = generate_column_edit_selections;
+module.exports.generate_inlay_hints = generate_inlay_hints;

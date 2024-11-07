@@ -2,7 +2,6 @@ const assert = require('assert');
 const rainbow_utils = require('../../rainbow_utils.js');
 const fast_load_utils = require('../../fast_load_utils.js');
 
-// FIXME add unit tests for parse_document_range_single_line.
 
 class VscodePositionTestDouble {
     constructor(line, character) {
@@ -68,6 +67,14 @@ class VscodeStatusBarItemTestDouble {
 }
 
 
+class InlayHintTestDouble {
+    constructor(position, label) {
+        this.position = position;
+        this.label = label;
+    }
+}
+
+
 function create_status_bar_item_test_double(_alignment) {
     return new VscodeStatusBarItemTestDouble();
 }
@@ -85,6 +92,7 @@ let vscode_test_double = {
     StatusBarAlignment: {'Left': null}, 
     languages: {'setTextDocumentLanguage': set_text_document_language_test_double}, 
     Position: VscodePositionTestDouble, 
+    InlayHint: InlayHintTestDouble,
     Selection: VscodeSelectionTestDouble
 };
 
@@ -97,7 +105,7 @@ function raw_column_stats_to_typed(raw_stat) {
     typed_stat.max_fractional_length = raw_stat.max_fractional_length >= 0 ? raw_stat.max_fractional_length : null;
     if (raw_stat.hasOwnProperty('has_wide_chars')) {
         typed_stat.has_wide_chars = raw_stat.has_wide_chars;
-        // FIXME add tests when only_ascii is false and has_wide_chars is true. This implementation is a simplification.
+        // TODO consider adding a test where only_ascii is false and has_wide_chars is true.
         typed_stat.only_ascii = !raw_stat.has_wide_chars;
     }
     if (raw_stat.hasOwnProperty('start_offset')) {
@@ -116,6 +124,101 @@ function column_stats_helper(column_stats_raw_objects) {
     return result;
 }
 
+
+function test_calc_column_stats_for_fragment() {
+    let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
+    let [table_ranges, all_columns_stats] = [null, null];
+
+    // Simple test case with comments.
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#foo,bar',
+        'c1,c2', 
+        'd1,d2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'simple';
+    double_width_alignment = true;
+    range = new vscode_test_double.Range(1, 0, 3, 0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
+    expected_column_stats = column_stats_helper([
+        {max_total_length: 2, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 2, max_int_length: -1, max_fractional_length: -1}]);
+    assert.deepEqual(expected_column_stats, all_columns_stats);
+}
+
+
+function test_generate_inlay_hints() {
+    let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
+    let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
+
+    // Simple test case.
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        'c11,c2', 
+        'd1,d2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'simple';
+    double_width_alignment = true;
+    range = new vscode_test_double.Range(1, 0, 3, 0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    expected_inlay_hints = [
+        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'  '),
+        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/' ')];
+    assert.deepEqual(expected_inlay_hints, inlay_hints);
+
+    // Skip all comments - empty result.
+    doc_lines = [
+        'a1,a2', 
+        '#b1,b2', 
+        '#c11,c2', 
+        'd1,d2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = "#";
+    delim = ',';
+    policy = 'simple';
+    double_width_alignment = true;
+    range = new vscode_test_double.Range(1, 0, 3, 0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    expected_inlay_hints = [];
+    assert.deepEqual(expected_inlay_hints, inlay_hints);
+
+    // Spaces both before and after.
+    doc_lines = [
+        '10,a2', 
+        '5,b2', 
+        '5.12,c2', 
+        '200,d2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'simple';
+    double_width_alignment = true;
+    range = new vscode_test_double.Range(0, 0, 10, 0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    expected_inlay_hints = [
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/'    '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'    '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 5), /*label=*/' '),
+        /*empty allignment before, so we only have after:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 4), /*label=*/'    ')];
+    assert.deepEqual(inlay_hints, expected_inlay_hints);
+}
 
 function test_align_stats() {
     let field = null;
@@ -2270,6 +2373,8 @@ function test_generate_column_edit_selections() {
 
 
 function test_all() {
+    test_generate_inlay_hints();
+    test_calc_column_stats_for_fragment();
     test_align_stats();
     test_field_align();
     test_rfc_field_align();
