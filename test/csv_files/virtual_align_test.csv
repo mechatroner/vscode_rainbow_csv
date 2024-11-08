@@ -1,0 +1,28 @@
+Column 1,Column 2,Column 3,Column 4
+3.8423,Align,12.5,ALIGN
+3.8423,"Test, Virtual, Align!",12.5,VIRTUAL
+12.5,Virtual,2000,ALIGN
+2000,Virtual,12.5,VIRTUAL
+3.8423,Align,10,VIRTUAL
+5,"Test, Virtual, Align!",12.5,ALIGN
+3.8423,Align,2000,VIRTUAL
+2000,Align,10,VIRTUAL
+3.8423,"Test, Virtual, Align!",5,ALIGN
+5,"Test, Virtual, Align!",2000,ALIGN
+2000,"Test, Virtual, Align!",2000,ALIGN
+3.8423,Virtual,5,VIRTUAL
+5,"Test, Virtual, Align!",5,VIRTUAL
+12.5,Virtual,10,VIRTUAL
+10,test virtual align,12.5,VIRTUAL
+5,test virtual align,12.5,VIRTUAL
+5,Virtual,12.5,VIRTUAL
+12.5,"Test, Virtual, Align!",10,VIRTUAL
+12.5,Virtual,3.8423,VIRTUAL
+10,test virtual align,2000,VIRTUAL
+3.8423,test virtual align,12.5,ALIGN
+12.5,Align,3.8423,VIRTUAL
+3.8423,test virtual align,12.5,ALIGN
+12.5,"Test, Virtual, Align!",3.8423,ALIGN
+3.8423,Align,5,ALIGN
+10,Align,5,ALIGN
+5,Align,10,VIRTUAL

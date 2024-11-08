@@ -9,9 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME add IA e2e integration test.
 // FIXME add proper IA docs
-
 // FIXME make sure that right-click at sticky scroll and disable does actually disable it.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');

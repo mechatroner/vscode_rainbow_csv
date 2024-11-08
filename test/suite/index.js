@@ -299,6 +299,15 @@ async function test_double_width_chars_alignment(test_folder_uri) {
     await sleep(500);
 }
 
+async function test_virtual_alignment(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'virtual_align_test.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1500);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    await sleep(5000);
+}
+
 
 async function test_align_shrink_lint(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
@@ -951,6 +960,7 @@ async function run() {
             assert(state_report.lazy_loaded);
         }
 
+        await test_virtual_alignment(test_folder_uri);
         await test_align_shrink_lint(test_folder_uri);
         await test_double_width_chars_alignment(test_folder_uri);
         await test_column_edit(test_folder_uri);
