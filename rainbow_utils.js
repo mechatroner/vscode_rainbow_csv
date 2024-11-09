@@ -10,7 +10,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
-//const non_numeric_sentinel = -1;
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
 // Copypasted from extension.js
@@ -909,7 +908,6 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
             // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
             cpos = next_cpos;
         }
-        //table_ranges.push({record_ranges: record_ranges, record_fields: record_fields});
         table_ranges.push(new RowInfo(record_ranges, record_fields, /*comment_range=*/null));
     }
     return table_ranges;
