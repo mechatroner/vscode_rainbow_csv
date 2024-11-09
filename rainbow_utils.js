@@ -160,7 +160,6 @@ function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment
             continue;
         }
         // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        // FIXME integration-test this with a file with integers/floats and a header to make sure it does align the numbers properly despite the header presence.
         is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
         update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
@@ -896,7 +895,7 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
         if (warning) {
             // Just skip the faulty line. It is OK to do for all existing use cases of this function.
-            continue; // FIXME And integration test / and check how it looks like with a real file, should be no decorations for the faulty line.
+            continue;
         }
         let cpos = 0;
         let next_cpos = 0;

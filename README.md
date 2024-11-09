@@ -6,7 +6,7 @@
 * Optional sticky header line.
 * Provide info about column on hover.
 * Automatic consistency check for csv files (CSVLint).
-* Align columns with spaces and Shrink (trim spaces from fields).
+* Align columns graphically or with extra spaces and Shrink (trim spaces from fields).
 * Multi-cursor column edit.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
@@ -85,8 +85,11 @@ To allow CSVLint, content-based autodetection algorithms, and _Align_, _Shrink_,
 
 
 #### Aligning/Shrinking table
-You can align columns in CSV files by clicking "Align" status-line button or using _Align_ command.  
-To avoid modifying the original file you can configure the extension to align in a temp scratch file instead.  
+There are 2 options to align a file: 
+1. "Virtual Align" which does graphical alignment only without modifying the underlying file.
+2. Whitespace-based "Align" that inserts aligning whitespaces into the file.
+
+You can align columns in CSV files by clicking "Align" status-line button or using the alignment command.  
 To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink" status-line button or use _Shrink_ command  
 
 
@@ -100,8 +103,12 @@ There you can find the list of available options and their description.
 #### Set rainbow separator
 Set the currently selected text (single character or multiline string) as a separator and re-highlight the file.
 
+#### Virtual Align
+Align columns graphically (virtually) using VSCode inlay hints as extra spacing.
+Unlike "Align" command that inserts extra spaces into the underlying file, "Virtual Align" doesn't modify the file itself.
+
 #### Align, Shrink
-Align columns with whitespaces or shrink them (remove leading/trailing whitespaces)
+Align columns by inserting extra whitespaces or shrink the columns (remove leading/trailing whitespaces)
 
 #### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
 Activate multi-cursor column editing for the column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
