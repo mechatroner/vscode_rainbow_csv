@@ -75,6 +75,7 @@
                 "rainbow_csv.virtual_alignment_mode": {
                     "type": "string",
                     "enum": ["disabled", "manual", "always"],
+                    "enumDescriptions": ["Disabled. Align only when \"VirtualAlign\" command is executed", "Align when \"Align\" Status Bar button is clicked", "Automatically align all files"],
                     "order": 5,
                     "default": "disabled",
                     "description": "Virtual alignment based on VSCode inlay hints that doesn't change underlying file content."
@@ -312,7 +313,12 @@
             {
                 "command": "rainbow-csv.Align",
                 "category": "Rainbow CSV",
-                "title": "Align CSV Columns"
+                "title": "Align CSV Columns with whitespaces"
+            },
+            {
+                "command": "rainbow-csv.Shrink",
+                "category": "Rainbow CSV",
+                "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
             },
             {
                 "command": "rainbow-csv.VirtualAlign",
@@ -320,9 +326,9 @@
                 "title": "Virtual Align CSV Columns"
             },
             {
-                "command": "rainbow-csv.Shrink",
+                "command": "rainbow-csv.VirtualShrink",
                 "category": "Rainbow CSV",
-                "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
+                "title": "Undo Virtual Align"
             },
             {
                 "command": "rainbow-csv.CopyBack",

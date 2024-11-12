@@ -9,6 +9,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
+// FIXME add virtual unalignment to the unit tests.
+
 // FIXME make sure that right-click at sticky scroll and disable does actually disable it.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -35,7 +37,14 @@ const preview_window_size = 100;
 const scratch_buf_marker = 'vscode_rbql_scratch';
 const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
-var aligned_files = new Map();
+let whitespace_aligned_files = new Set();
+
+
+// TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
+let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
+const VA_EXPLICITLY_ENABLED = "enabled";
+const VA_EXPLICITLY_DISABLED = "disabled";
+
 var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
@@ -467,15 +476,11 @@ function reconfigure_sticky_header_provider(force=false) {
 }
 
 
-async function enable_inlay_hint_alignment(is_manual_op, language_id, log_wrapper) {
+async function set_up_inlay_hint_alignment(language_id, log_wrapper) {
     // We have 3 invocation contexts here:
     // 1. VA is "disabled" but the function was called via the command palette command directly.
     // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
     // 3. VA is "always" and the function was called on file open.
-    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-    if (virtual_alignment_mode == 'disabled' && !is_manual_op) {
-        return;
-    }
     if (language_id == 'tsv') {
         let active_editor = get_active_editor();
         if (active_editor) {
@@ -609,7 +614,9 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         enable_dynamic_semantic_tokenization();
     }
     enable_rainbow_ui(active_doc);
-    await enable_inlay_hint_alignment(/*is_manual_op=*/false, language_id, log_wrapper);
+    if (get_from_config('virtual_alignment_mode', 'disabled') == 'always') {
+        await set_up_inlay_hint_alignment(language_id, log_wrapper);
+    }
     await csv_lint(active_doc, /*is_manual_op=*/false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
 }
@@ -677,22 +684,48 @@ function is_active_doc(vscode_doc) {
 }
 
 
-function show_align_shrink_button(file_path) {
-    if (!align_shrink_button)
-        align_shrink_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    if (aligned_files.has(file_path)) {
+function virtual_alignment_enabled(virtual_alignment_mode, custom_alignment_mode) {
+    return (custom_alignment_mode == VA_EXPLICITLY_ENABLED) || (virtual_alignment_mode == "always" && custom_alignment_mode != VA_EXPLICITLY_DISABLED);
+}
+
+
+function config_virtual_alignment_button(align_shrink_button, is_aligned) {
+    if (is_aligned) {
         align_shrink_button.text = 'Shrink';
-        align_shrink_button.tooltip = 'Click to shrink table (Then you can click again to align)';
+        align_shrink_button.tooltip = 'Click to remove virtual alignment from this file';
+        align_shrink_button.command = 'rainbow-csv.VirtualShrink';
+    } else {
+        align_shrink_button.text = 'Align';
+        align_shrink_button.tooltip = 'Click to virtually align';
+        align_shrink_button.command = 'rainbow-csv.VirtualAlign';
+    }
+}
+
+
+function config_whitespace_alignment_button(align_shrink_button, is_aligned) {
+    if (is_aligned) {
+        align_shrink_button.text = 'Shrink';
+        align_shrink_button.tooltip = 'Click to shrink table - trim whitespaces from fields';
         align_shrink_button.command = 'rainbow-csv.Shrink';
     } else {
         align_shrink_button.text = 'Align';
-        align_shrink_button.tooltip = 'Click to align table (Then you can click again to shrink)';
-        let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-        if (virtual_alignment_mode == 'manual') {
-            align_shrink_button.command = 'rainbow-csv.VirtualAlign';
-        } else {
-            align_shrink_button.command = 'rainbow-csv.Align';
-        }
+        align_shrink_button.tooltip = 'Click to align table with extra whitespaces';
+        align_shrink_button.command = 'rainbow-csv.Align';
+    }
+}
+
+
+function show_align_shrink_button(file_path) {
+    if (!align_shrink_button)
+        align_shrink_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+    if (virtual_alignment_mode == 'disabled') {
+        let is_aligned = whitespace_aligned_files.has(file_path);
+        config_whitespace_alignment_button(align_shrink_button, is_aligned);
+    } else {
+        let custom_alignment_mode = custom_virtual_alignment_modes.get(file_path);
+        let is_aligned = virtual_alignment_enabled(virtual_alignment_mode, custom_alignment_mode);
+        config_virtual_alignment_button(align_shrink_button, is_aligned);
     }
     align_shrink_button.show();
 }
@@ -1335,7 +1368,14 @@ async function column_edit(edit_mode) {
 }
 
 
-async function shrink_table() {
+async function virtual_shrink_table() {
+    let active_doc = get_active_doc();
+    custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_DISABLED);
+    show_align_shrink_button(active_doc.fileName);
+}
+
+
+async function whitespace_shrink_table() {
     let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
     if (!is_rainbow_dialect_doc(active_doc)) {
@@ -1353,7 +1393,7 @@ async function shrink_table() {
             show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
             return;
         }
-        aligned_files.delete(active_doc.fileName);
+        whitespace_aligned_files.delete(active_doc.fileName);
         show_align_shrink_button(active_doc.fileName);
         if (shrinked_doc_text === null) {
             vscode.window.showWarningMessage('No trailing whitespaces found, skipping');
@@ -1374,14 +1414,14 @@ async function virtual_align_table() {
     if (policy === null) {
         return;
     }
-    aligned_files.set(active_doc.fileName, {is_virtual: true});
+    custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_ENABLED);
     // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
-    await enable_inlay_hint_alignment(/*is_manual_op=*/true, active_doc.languageId, log_wrapper);
+    await set_up_inlay_hint_alignment(active_doc.languageId, log_wrapper);
     show_align_shrink_button(active_doc.fileName);
 }
 
 
-async function align_table() {
+async function whitespace_align_table() {
     let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
     if (!is_rainbow_dialect_doc(active_doc))
@@ -1413,12 +1453,12 @@ async function align_table() {
         if (align_in_scratch_file && !is_scratch_file) {
             let aligned_doc_cfg = {content: aligned_doc_text, language: active_doc.languageId};
             let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
-            aligned_files.set(scratch_doc.fileName, {is_virtual: false});
+            whitespace_aligned_files.add(scratch_doc.fileName);
             await vscode.window.showTextDocument(scratch_doc);
             show_align_shrink_button(scratch_doc.fileName); // This is likely redundant but won't hurt.
         } else {
             await replace_doc_content(active_editor, active_doc, aligned_doc_text);
-            aligned_files.set(active_doc.fileName, {is_virtual: false});
+            whitespace_aligned_files.add(active_doc.fileName);
             show_align_shrink_button(active_doc.fileName);
         }
     });
@@ -2117,8 +2157,8 @@ class InlayHintProvider {
     async provideInlayHints(document, range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
         let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-        let is_manually_enabled = aligned_files.has(document.fileName) && aligned_files.get(document.fileName).is_virtual;
-        if (virtual_alignment_mode != 'always' && !is_manually_enabled) {
+        let custom_alignment_mode = custom_virtual_alignment_modes.get(document.fileName);
+        if (!virtual_alignment_enabled(virtual_alignment_mode, custom_alignment_mode)) {
             return;
         }
         let [delim, policy, comment_prefix] = get_dialect(document);
@@ -2195,9 +2235,10 @@ async function activate(context) {
     var rainbow_on_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOn', reenable_rainbow_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
-    var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', align_table);
+    var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', whitespace_align_table);
     var align_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualAlign', virtual_align_table);
-    var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', shrink_table);
+    var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', whitespace_shrink_table);
+    var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
@@ -2213,7 +2254,7 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
-    // Probably doesn't make sense to call enable_inlay_hint_alignment here because it could slow down the extension loading.
+    // Probably doesn't make sense to call set_up_inlay_hint_alignment here because it could slow down the extension loading.
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 
