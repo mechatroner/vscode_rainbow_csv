@@ -305,6 +305,20 @@ async function test_virtual_alignment(test_folder_uri) {
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1500);
     await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    // Scroll around to force screen refresh.
+    await sleep(500);
+    await vscode.commands.executeCommand("scrollLineDown");
+    await sleep(500);
+    await vscode.commands.executeCommand("scrollLineUp");
+    await sleep(500);
+    await sleep(5000);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
+    // Scroll around to force screen refresh.
+    await sleep(500);
+    await vscode.commands.executeCommand("scrollLineDown");
+    await sleep(500);
+    await vscode.commands.executeCommand("scrollLineUp");
+    await sleep(500);
     await sleep(5000);
 }
 
