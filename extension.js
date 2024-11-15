@@ -11,8 +11,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME add virtual unalignment to the unit tests.
 
-// FIXME make sure that right-click at sticky scroll and disable does actually disable it.
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -455,6 +453,8 @@ function get_all_rainbow_lang_selector() {
 
 
 function reconfigure_sticky_header_provider(force=false) {
+    // Sticky header is enabled in VSCode by default already.
+    // TODO consider overriding the global config option dynamically for the current language id and workspace only, but if you do this make sure that right click -> disable on the header still disables it.
     let enable_sticky_header = get_from_config('enable_sticky_header', false);
     if (!enable_sticky_header) {
         if (sticky_header_disposable !== null) {
