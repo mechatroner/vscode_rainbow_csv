@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.13.0
+* Added "Virtual" Alignment based on VSCode inlay hints that doesn't change the underlying file content.
+* Do not enable sticky header by default since it is already enabled at VSCode level and somewhat incompatible with the extension config.
+
 ## 3.12.0
 * Improved Dynamic CSV separator selection UI which allows more (separator, policy) combinations
 * Minor fixes
