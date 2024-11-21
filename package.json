@@ -414,14 +414,14 @@
         "unit-test-only": "node ./test/suite/run_unit_tests.js"
     },
     "devDependencies": {
-        "@types/vscode": "^1.62.0",
-        "@vscode/test-web": "^0.0.22",
-        "@vscode/test-electron": "^2.3.7",
-        "webpack": "^5.64.0",
-        "webpack-cli": "^4.9.1",
-        "assert": "^2.0.0",
+        "@types/vscode": "^1.95.0",
+        "@vscode/test-web": "^0.0.64",
+        "@vscode/test-electron": "^2.4.1",
+        "webpack": "^5.96.1",
+        "webpack-cli": "^5.1.4",
+        "assert": "^2.1.0",
         "process": "^0.11.10",
-        "eslint": "^7.21.0"
+        "eslint": "^9.15.0"
     },
     "repository": {
         "type": "git",

@@ -38,6 +38,13 @@ The difference between running in win and in WSL is that in WSL it would only ru
 
 NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
 
+If it still doesn't work for some reason e.g. shows a blank page try to update the dependencies (this should update the package.json file content):
+```
+npx npm-check-updates -u
+npm install 
+```
+
+
 ### Running unit tests for the extension OUTSIDE VSCode:
 #### For standard VSCode:
 1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed (otherwise will might get some weird caching/webworker errors or other issues)!
@@ -50,6 +57,12 @@ NOTE: if `npm run test-in-browser` fails with an error it could show a message t
 3. run `npm run test-in-browser` (If you have WSL - run in Windows, don't run in WSL). This will open a new browser windows and run all the unit tests. Make sure that the tests are successful.
 
 NOTE: if `npm run test-in-browser` fails with an error it could show a message telling to install/update playwright - do it (it will also print the command, something like: `npx playwright install`).
+
+If it still doesn't work for some reason e.g. shows a blank page try to update the dependencies (this should update the package.json file content):
+```
+npx npm-check-updates -u
+npm install 
+```
 
 
 ### Running unit tests for the extension INSIDE VSCode:
