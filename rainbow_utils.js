@@ -108,13 +108,31 @@ class ColumnStat {
 }
 
 
+function calculate_screen_width(str) {
+    // Regular expression to match Chinese characters
+    const chinese_regex = /[\u4e00-\u9fa5]/g;
+
+    // Match Chinese characters in the string
+    const chinese_matches = str.match(chinese_regex) || [];
+
+    // Number of Chinese characters
+    const chinese_count = chinese_matches.length;
+
+    // Total length of the string
+    const total_length = str.length;
+
+    // Return the sum of the total length and the number of Chinese characters
+    return total_length + chinese_count;
+}
+
+
 function update_column_stats_from_field(multiline_field_segments, is_first_record, column_stats, enable_double_width_alignment) {
     if (multiline_field_segments.length > 1) {
         // We don't allow multiline fields to be numeric for simplicity.
         column_stats.mark_non_numeric();
     }
     for (let field_segment of multiline_field_segments) {
-        column_stats.max_total_length = Math.max(column_stats.max_total_length, field_segment.length);
+        column_stats.max_total_length = Math.max(column_stats.max_total_length, calculate_screen_width(field_segment));
         if (enable_double_width_alignment) {
             column_stats.only_ascii = column_stats.only_ascii && is_ascii(field_segment);
             let visual_field_length = column_stats.only_ascii ? field_segment.length : wcwidth(field_segment);
