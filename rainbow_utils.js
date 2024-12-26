@@ -10,6 +10,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
+// FIXME Allow the number regex to end with dot e.g. 12. or 1245. without the fractional part. Otherwise as soon as someone start typing a fractional part it immediately renders the whole column as non-number for live CSV editing. 
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
 // Copypasted from extension.js
@@ -38,7 +39,7 @@ function get_default_js_udf_content() {
     // function foo(value) {
     //     return 'foo ' + String(value.length);
     // }
-    // 
+    //
     // Functions defined in this file can be used in RBQL queries e.g.
     // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     //
@@ -55,8 +56,8 @@ function get_default_python_udf_content() {
     #
     # def foo(value):
     #     return 'foo ' + str(len(value))
-    # 
-    # 
+    #
+    #
     # Functions defined in this file can be used in RBQL queries e.g.
     # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     #
@@ -91,53 +92,131 @@ function is_ascii(src_str) {
 
 class ColumnStat {
     constructor(enable_double_width_alignment) {
+        this.enable_double_width_alignment = enable_double_width_alignment;
         this.max_total_length = 0;
         this.max_int_length = 0;
         this.max_fractional_length = 0;
         this.only_ascii = enable_double_width_alignment ? true : null;
         this.has_wide_chars = enable_double_width_alignment ? false : null;
+        // TODO consider getting rid of start_offset in this class.
         this.start_offset = null;
     }
+
     mark_non_numeric() {
         this.max_int_length = null;
         this.max_fractional_length = null;
     }
+
     is_numeric() {
         return this.max_int_length !== null;
     }
-}
 
-
-function update_column_stats_from_field(multiline_field_segments, is_first_record, column_stats, enable_double_width_alignment) {
-    if (multiline_field_segments.length > 1) {
-        // We don't allow multiline fields to be numeric for simplicity.
-        column_stats.mark_non_numeric();
+    reconcile(rhs) {
+        // FIXME add unit tests.
+        this.max_total_length = Math.max(this.max_total_length, rhs.max_total_length);
+        if (this.enable_double_width_alignment) {
+            assert(rhs.enable_double_width_alignment, "Unable to reconcile");
+            this.only_ascii = this.only_ascii && rhs.only_ascii;
+            this.has_wide_chars = this.has_wide_chars && rhs.has_wide_chars;
+        }
+        if (!rhs.is_numeric()) {
+            this.mark_non_numeric();
+        }
+        if (!this.is_numeric()) {
+            return;
+        }
+        this.max_int_length = Math.max(this.max_int_length, rhs.max_int_length);
+        console.log("this.max_fractional_length:" + this.max_fractional_length + ", rhs.max_fractional_length:" + rhs.max_fractional_length); //FOR_DEBUG
+        // FIXME for some reason this doesn't seem to work as expected on countries_with_comments.csv when adding some fractional digits.
+        this.max_fractional_length = Math.max(this.max_fractional_length, rhs.max_fractional_length);
     }
-    for (let field_segment of multiline_field_segments) {
-        column_stats.max_total_length = Math.max(column_stats.max_total_length, field_segment.length);
-        if (enable_double_width_alignment) {
-            column_stats.only_ascii = column_stats.only_ascii && is_ascii(field_segment);
-            let visual_field_length = column_stats.only_ascii ? field_segment.length : wcwidth(field_segment);
-            column_stats.has_wide_chars = column_stats.has_wide_chars || visual_field_length != field_segment.length;
-            column_stats.max_total_length = Math.max(column_stats.max_total_length, visual_field_length);
+
+    finalize() {
+        // It is a bad idea to call this method on every stat update because of the int_length extension logic:
+        // Integer part length could be extended to early to match total_length before we encounter a bigger fractional part which would make it unnecessary.
+        // So better to call it once at the end. Consider switching to getters + on-demand calculation as a workaround.
+        if (this.is_numeric() && this.max_int_length <= 0) {
+            this.mark_non_numeric();
         }
-        if (!column_stats.is_numeric()) {
-            continue;
+        if (!this.is_numeric()) {
+            return;
         }
-        // TODO improve number_regex and subsequent logic to work with numeric fields with leading/trailing spaces for virtual alignment.
-        let match_result = number_regex.exec(field_segment);
-        if (match_result === null) {
-            if (!is_first_record && field_segment.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
-                // We only mark the column as non-numeric if we know that this is not a header line.
-                column_stats.mark_non_numeric();
+        // FIXME instead of udpating these values we need get_max_total_length() and get_max_int_length() methods that would implement this logic on the fly.
+        // The sum of integer and float parts can be bigger than the max width, e.g. here:
+        // value
+        // 0.12
+        // 1234
+        if (this.max_total_length < this.max_int_length + this.max_fractional_length) {
+            this.max_total_length = this.max_int_length + this.max_fractional_length;
+        }
+        // This is needed when the header is wider than numeric components and/or their sum.
+        if (this.max_total_length > this.max_int_length + this.max_fractional_length) {
+            this.max_int_length = this.max_total_length - this.max_fractional_length;
+        }
+        assert(this.max_total_length == this.max_int_length + this.max_fractional_length);
+    }
+
+    calc_offset(preceding_column_stat, delim_length) {
+        // FIXME do we need to actually store this field? Maybe better to calculate it on demand?
+        this.start_offset = preceding_column_stat === null ? 0 : preceding_column_stat.start_offset + preceding_column_stat.max_total_length + alignment_extra_readability_whitespace_length + delim_length;
+    }
+
+    update_from_field(multiline_field_segments, is_first_record) {
+        if (multiline_field_segments.length > 1) {
+            // We don't allow multiline fields to be numeric for simplicity.
+            this.mark_non_numeric();
+        }
+        for (let field_segment of multiline_field_segments) {
+            this.max_total_length = Math.max(this.max_total_length, field_segment.length);
+            if (this.enable_double_width_alignment) {
+                this.only_ascii = this.only_ascii && is_ascii(field_segment);
+                let visual_field_length = this.only_ascii ? field_segment.length : wcwidth(field_segment);
+                this.has_wide_chars = this.has_wide_chars || visual_field_length != field_segment.length;
+                this.max_total_length = Math.max(this.max_total_length, visual_field_length);
             }
-            continue;
+            if (!this.is_numeric()) {
+                continue;
+            }
+            // TODO improve number_regex and subsequent logic to work with numeric fields with leading/trailing spaces for virtual alignment.
+            let match_result = number_regex.exec(field_segment);
+            if (match_result === null) {
+                if (!is_first_record && field_segment.length) { // Checking field_length here allows numeric columns to have some of the fields empty.
+                    // We only mark the column as non-numeric if we know that this is not a header line.
+                    this.mark_non_numeric();
+                }
+                continue;
+            }
+            let cur_integer_part_length = match_result[1].length;
+            this.max_int_length = Math.max(this.max_int_length, cur_integer_part_length);
+            let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
+            this.max_fractional_length = Math.max(this.max_fractional_length, cur_fractional_part_length);
         }
-        let cur_integer_part_length = match_result[1].length;
-        column_stats.max_int_length = Math.max(column_stats.max_int_length, cur_integer_part_length);
-        let cur_fractional_part_length = match_result[2] === undefined ? 0 : match_result[2].length;
-        column_stats.max_fractional_length = Math.max(column_stats.max_fractional_length, cur_fractional_part_length);
     }
+
+    evaluate_align_field(field, is_first_record, is_last_in_line) {
+        // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
+        let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
+        if (!this.is_numeric()) {
+            let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
+            return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
+        }
+        if (is_first_record) {
+            if (number_regex.exec(field) === null) {
+                // The line must be a header - align it using max_width rule.
+                let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
+                return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
+            }
+        }
+        let dot_pos = field.indexOf('.');
+        let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
+        // Here `cur_fractional_part_length` includes the leading dot too.
+        let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
+        let integer_delta_length = Math.max(this.max_int_length - cur_integer_part_length, 0);
+        let fractional_delta_length = Math.max(this.max_fractional_length - cur_fractional_part_length);
+        let trailing_spaces = is_last_in_line ? 0 : fractional_delta_length + alignment_extra_readability_whitespace_length;
+        return [integer_delta_length, trailing_spaces];
+    }
+
 }
 
 
@@ -146,24 +225,8 @@ function update_column_stats_from_record(record_fields, is_first_record, all_col
         if (all_columns_stats.length <= fnum) {
             all_columns_stats.push(new ColumnStat(enable_double_width_alignment));
         }
-        update_column_stats_from_field(record_fields[fnum], is_first_record, all_columns_stats[fnum], enable_double_width_alignment);
+        all_columns_stats[fnum].update_from_field(record_fields[fnum], is_first_record);
     }
-}
-
-
-function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
-    let all_columns_stats = [];
-    let is_first_record = true;
-    for (let row_info of row_infos) {
-        if (row_info.comment_range !== null) {
-            continue;
-        }
-        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
-        update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
-        is_first_record = false;
-    }
-    return all_columns_stats;
 }
 
 
@@ -175,6 +238,15 @@ function get_trimmed_rfc_record_fields_from_record(record) {
         record_fields.push(field_segments);
     }
     return record_fields;
+}
+
+
+function adjust_column_stats(column_stats, delim_length) {
+    for (let i = 0; i < column_stats.length; i++) {
+        column_stats[i].finalize();
+        let previous_stat = i > 0 ? column_stats[i - 1] : null;
+        column_stats[i].calc_offset(previous_stat, delim_length);
+    }
 }
 
 
@@ -191,71 +263,47 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
         update_column_stats_from_record(record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
     }
+    adjust_column_stats(all_columns_stats, delim.length);
     return [all_columns_stats, null, records, comments];
 }
 
 
-function adjust_column_stats(column_stats, delim_length) {
-    // TODO fix the signature here - return true on success, false on failure. column_stats are adjusted anyway because the objects in the array are mutable.
-    // Ensure that numeric components max widths are consistent with non-numeric (header) width.
-    let adjusted_stats = [];
-    for (let column_stat of column_stats) {
-        if (column_stat.is_numeric() && column_stat.max_int_length <= 0) {
-            column_stat.mark_non_numeric();
+function calc_column_stats_for_fragment(row_infos, delim_length, enable_double_width_alignment) {
+    let all_columns_stats = [];
+    let is_first_record = true;
+    for (let row_info of row_infos) {
+        if (row_info.comment_range !== null) {
+            continue;
         }
-        if (column_stat.is_numeric()) {
-            // The sum of integer and float parts can be bigger than the max width, e.g. here:
-            // value
-            // 0.12
-            // 1234
-            if (column_stat.max_int_length + column_stat.max_fractional_length > column_stat.max_total_length) {
-                column_stat.max_total_length = column_stat.max_int_length + column_stat.max_fractional_length;
-            }
-            // This is needed when the header is wider than numeric components and/or their sum.
-            if (column_stat.max_total_length - column_stat.max_fractional_length > column_stat.max_int_length) {
-                column_stat.max_int_length = column_stat.max_total_length - column_stat.max_fractional_length;
-            }
-            // Sanity check.
-            if (column_stat.max_total_length != column_stat.max_int_length + column_stat.max_fractional_length) {
-                // Assertion Error, this can never happen.
-                return null;
-            }
-        }
-        let previous_stat = adjusted_stats.length ? adjusted_stats[adjusted_stats.length - 1] : null;
-        column_stat.start_offset = previous_stat === null ? 0 : previous_stat.start_offset + previous_stat.max_total_length + alignment_extra_readability_whitespace_length + delim_length;
-        adjusted_stats.push(column_stat);
+        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
+        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
+        update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
+        is_first_record = false;
     }
-    return adjusted_stats;
+    adjust_column_stats(all_columns_stats, delim_length);
+    return all_columns_stats;
 }
 
 
-function evaluate_align_field(field, is_first_record, column_stat, is_last_in_line) {
-    // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
-    let visual_field_length = column_stat.has_wide_chars ? wcwidth(field) : field.length;
-    if (!column_stat.is_numeric()) {
-        let delta_length = Math.max(column_stat.max_total_length - visual_field_length, 0);
-        return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
-    }
-    if (is_first_record) {
-        if (number_regex.exec(field) === null) {
-            // The line must be a header - align it using max_width rule.
-            let delta_length = Math.max(column_stat.max_total_length - visual_field_length, 0);
-            return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
+function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, local_column_stats, delim_length) {
+    // FIXME add unit tests for this.
+    let max_num_fields = Math.max(whole_doc_column_stats.length, local_column_stats.length);
+    for (let i = 0; i < max_num_fields; i++) {
+        if (i >= whole_doc_column_stats.length) {
+            break;
         }
+        if (i >= local_column_stats.length) {
+            local_column_stats.push(whole_doc_column_stats[i]);
+            continue;
+        }
+        local_column_stats[i].reconcile(whole_doc_column_stats[i]);
     }
-    let dot_pos = field.indexOf('.');
-    let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
-    // Here `cur_fractional_part_length` includes the leading dot too.
-    let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
-    let integer_delta_length = Math.max(column_stat.max_int_length - cur_integer_part_length, 0);
-    let fractional_delta_length = Math.max(column_stat.max_fractional_length - cur_fractional_part_length);
-    let trailing_spaces = is_last_in_line ? 0 : fractional_delta_length + alignment_extra_readability_whitespace_length;
-    return [integer_delta_length, trailing_spaces];
+    adjust_column_stats(local_column_stats, delim_length);
 }
 
 
 function evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line) {
-    let [num_before, num_after] = evaluate_align_field(field, is_first_record, column_stat, is_last_in_line);
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_last_in_line);
     if (is_field_segment) {
         num_before += column_stat.start_offset;
     }
@@ -1194,9 +1242,8 @@ module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.calc_column_stats_for_fragment = calc_column_stats_for_fragment;
+module.exports.reconcile_whole_doc_and_local_column_stats = reconcile_whole_doc_and_local_column_stats;
 module.exports.adjust_column_stats = adjust_column_stats;
-module.exports.update_column_stats_from_field = update_column_stats_from_field;
-module.exports.evaluate_align_field = evaluate_align_field; // Only for unit tests.
 module.exports.rfc_align_field = rfc_align_field;
 module.exports.evaluate_rfc_align_field = evaluate_rfc_align_field;
 module.exports.assert = assert;

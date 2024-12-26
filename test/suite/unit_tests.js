@@ -231,6 +231,7 @@ function test_align_stats() {
     field = 'foobar';
     field_segments = [field];
     is_first_line = 0;
+    // FIXME fix unit test - `enable_double_width_alignment` is no longer needed in function call.
     column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
     rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
