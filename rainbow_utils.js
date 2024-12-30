@@ -10,7 +10,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
-// FIXME Allow the number regex to end with dot e.g. 12. or 1245. without the fractional part. Otherwise as soon as someone start typing a fractional part it immediately renders the whole column as non-number for live CSV editing. 
+// TODO Allow the number regex to end with dot e.g. 12. or 1245. without the fractional part.
+// Otherwise as soon as someone start typing a fractional part it immediately renders the whole column as non-number for live CSV editing.
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 
 // Copypasted from extension.js
@@ -93,6 +94,7 @@ function is_ascii(src_str) {
 class ColumnStat {
     constructor(enable_double_width_alignment) {
         this.enable_double_width_alignment = enable_double_width_alignment;
+        this.can_be_numeric = true;
         this.max_total_length = 0;
         this.max_int_length = 0;
         this.max_fractional_length = 0;
@@ -103,12 +105,13 @@ class ColumnStat {
     }
 
     mark_non_numeric() {
-        this.max_int_length = null;
-        this.max_fractional_length = null;
+        this.can_be_numeric = false;
+        this.max_int_length = 0;
+        this.max_fractional_length = 0;
     }
 
     is_numeric() {
-        return this.max_int_length !== null;
+        return this.max_int_length > 0;
     }
 
     reconcile(rhs) {
@@ -119,41 +122,27 @@ class ColumnStat {
             this.only_ascii = this.only_ascii && rhs.only_ascii;
             this.has_wide_chars = this.has_wide_chars && rhs.has_wide_chars;
         }
-        if (!rhs.is_numeric()) {
+        if (!rhs.can_be_numeric) {
             this.mark_non_numeric();
         }
-        if (!this.is_numeric()) {
+        if (!this.can_be_numeric) {
             return;
         }
         this.max_int_length = Math.max(this.max_int_length, rhs.max_int_length);
-        console.log("this.max_fractional_length:" + this.max_fractional_length + ", rhs.max_fractional_length:" + rhs.max_fractional_length); //FOR_DEBUG
-        // FIXME for some reason this doesn't seem to work as expected on countries_with_comments.csv when adding some fractional digits.
         this.max_fractional_length = Math.max(this.max_fractional_length, rhs.max_fractional_length);
     }
 
-    finalize() {
-        // It is a bad idea to call this method on every stat update because of the int_length extension logic:
-        // Integer part length could be extended to early to match total_length before we encounter a bigger fractional part which would make it unnecessary.
-        // So better to call it once at the end. Consider switching to getters + on-demand calculation as a workaround.
-        if (this.is_numeric() && this.max_int_length <= 0) {
-            this.mark_non_numeric();
-        }
-        if (!this.is_numeric()) {
-            return;
-        }
-        // FIXME instead of udpating these values we need get_max_total_length() and get_max_int_length() methods that would implement this logic on the fly.
+    get_adjusted_total_length() {
         // The sum of integer and float parts can be bigger than the max width, e.g. here:
         // value
         // 0.12
         // 1234
-        if (this.max_total_length < this.max_int_length + this.max_fractional_length) {
-            this.max_total_length = this.max_int_length + this.max_fractional_length;
-        }
+        return Math.max(this.max_total_length, this.max_int_length + this.max_fractional_length);
+    }
+
+    get_adjusted_int_length() {
         // This is needed when the header is wider than numeric components and/or their sum.
-        if (this.max_total_length > this.max_int_length + this.max_fractional_length) {
-            this.max_int_length = this.max_total_length - this.max_fractional_length;
-        }
-        assert(this.max_total_length == this.max_int_length + this.max_fractional_length);
+        return Math.max(this.max_int_length, this.max_total_length - this.max_fractional_length);
     }
 
     calc_offset(preceding_column_stat, delim_length) {
@@ -174,7 +163,7 @@ class ColumnStat {
                 this.has_wide_chars = this.has_wide_chars || visual_field_length != field_segment.length;
                 this.max_total_length = Math.max(this.max_total_length, visual_field_length);
             }
-            if (!this.is_numeric()) {
+            if (!this.can_be_numeric) {
                 continue;
             }
             // TODO improve number_regex and subsequent logic to work with numeric fields with leading/trailing spaces for virtual alignment.
@@ -203,7 +192,7 @@ class ColumnStat {
         if (is_first_record) {
             if (number_regex.exec(field) === null) {
                 // The line must be a header - align it using max_width rule.
-                let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
+                let delta_length = Math.max(this.get_adjusted_total_length() - visual_field_length, 0);
                 return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
             }
         }
@@ -211,7 +200,7 @@ class ColumnStat {
         let cur_integer_part_length = dot_pos == -1 ? field.length : dot_pos;
         // Here `cur_fractional_part_length` includes the leading dot too.
         let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
-        let integer_delta_length = Math.max(this.max_int_length - cur_integer_part_length, 0);
+        let integer_delta_length = Math.max(this.get_adjusted_int_length() - cur_integer_part_length, 0);
         let fractional_delta_length = Math.max(this.max_fractional_length - cur_fractional_part_length);
         let trailing_spaces = is_last_in_line ? 0 : fractional_delta_length + alignment_extra_readability_whitespace_length;
         return [integer_delta_length, trailing_spaces];
@@ -243,7 +232,6 @@ function get_trimmed_rfc_record_fields_from_record(record) {
 
 function adjust_column_stats(column_stats, delim_length) {
     for (let i = 0; i < column_stats.length; i++) {
-        column_stats[i].finalize();
         let previous_stat = i > 0 ? column_stats[i - 1] : null;
         column_stats[i].calc_offset(previous_stat, delim_length);
     }
