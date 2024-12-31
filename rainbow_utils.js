@@ -100,8 +100,6 @@ class ColumnStat {
         this.max_fractional_length = 0;
         this.only_ascii = enable_double_width_alignment ? true : null;
         this.has_wide_chars = enable_double_width_alignment ? false : null;
-        // TODO consider getting rid of start_offset in this class.
-        this.start_offset = null;
     }
 
     mark_non_numeric() {
@@ -143,11 +141,6 @@ class ColumnStat {
     get_adjusted_int_length() {
         // This is needed when the header is wider than numeric components and/or their sum.
         return Math.max(this.max_int_length, this.max_total_length - this.max_fractional_length);
-    }
-
-    calc_offset(preceding_column_stat, delim_length) {
-        // FIXME do we need to actually store this field? Maybe better to calculate it on demand?
-        this.start_offset = preceding_column_stat === null ? 0 : preceding_column_stat.start_offset + preceding_column_stat.max_total_length + alignment_extra_readability_whitespace_length + delim_length;
     }
 
     update_from_field(multiline_field_segments, is_first_record) {
@@ -230,11 +223,20 @@ function get_trimmed_rfc_record_fields_from_record(record) {
 }
 
 
-function adjust_column_stats(column_stats, delim_length) {
-    for (let i = 0; i < column_stats.length; i++) {
-        let previous_stat = i > 0 ? column_stats[i - 1] : null;
-        column_stats[i].calc_offset(previous_stat, delim_length);
+function calculate_column_offsets(column_stats, delim_length) {
+    // FIXME add unit tests?
+    let result = [];
+    if (!column_stats.length) {
+        return result;
     }
+    result.push(0);
+    for (let i = 1; i < column_stats.length; i++) {
+        let previous_length = column_stats[i - 1].get_adjusted_total_length();
+        let previous_offset = result[i - 1];
+        result.push(previous_offset + previous_length + alignment_extra_readability_whitespace_length + delim_length);
+    }
+    assert(result.length == column_stats.length);
+    return result;
 }
 
 
@@ -251,12 +253,11 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
         update_column_stats_from_record(record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
     }
-    adjust_column_stats(all_columns_stats, delim.length);
     return [all_columns_stats, null, records, comments];
 }
 
 
-function calc_column_stats_for_fragment(row_infos, delim_length, enable_double_width_alignment) {
+function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
     let all_columns_stats = [];
     let is_first_record = true;
     for (let row_info of row_infos) {
@@ -268,12 +269,11 @@ function calc_column_stats_for_fragment(row_infos, delim_length, enable_double_w
         update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
         is_first_record = false;
     }
-    adjust_column_stats(all_columns_stats, delim_length);
     return all_columns_stats;
 }
 
 
-function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, local_column_stats, delim_length) {
+function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, local_column_stats) {
     // FIXME add unit tests for this.
     let max_num_fields = Math.max(whole_doc_column_stats.length, local_column_stats.length);
     for (let i = 0; i < max_num_fields; i++) {
@@ -286,21 +286,20 @@ function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, loca
         }
         local_column_stats[i].reconcile(whole_doc_column_stats[i]);
     }
-    adjust_column_stats(local_column_stats, delim_length);
 }
 
 
-function evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line) {
+function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_last_in_line) {
     let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_last_in_line);
     if (is_field_segment) {
-        num_before += column_stat.start_offset;
+        num_before += column_offset;
     }
     return [num_before, num_after];
 }
 
 
-function rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line) {
-    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, is_field_segment, is_last_in_line);
+function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_last_in_line) {
+    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -342,7 +341,8 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, table_ranges, all_columns_stats) {
+function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length) {
+    let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
     let is_first_record = true;
     for (let row_info of table_ranges) {
@@ -368,7 +368,7 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats) {
                 let field_segment_range = field_segments_ranges[i];
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], is_field_segment, is_last_in_line);
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_last_in_line);
                 if (num_before > 0) {
                     let hint_label = ' '.repeat(num_before);
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
@@ -391,6 +391,7 @@ function align_columns(records, comments, column_stats, delim) {
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
     // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
+    let column_offsets = calculate_column_offsets(column_stats, delim.length);
     let result_lines = [];
     let is_first_record = true;
     let merger = new RecordCommentMerger(records, comments);
@@ -415,7 +416,7 @@ function align_columns(records, comments, column_stats, delim) {
                     aligned_fields = [];
                 }
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], is_field_segment, is_last_in_line);
+                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_last_in_line);
                 aligned_fields.push(aligned_field);
             }
         }
@@ -1231,7 +1232,6 @@ module.exports.shrink_columns = shrink_columns;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.calc_column_stats_for_fragment = calc_column_stats_for_fragment;
 module.exports.reconcile_whole_doc_and_local_column_stats = reconcile_whole_doc_and_local_column_stats;
-module.exports.adjust_column_stats = adjust_column_stats;
 module.exports.rfc_align_field = rfc_align_field;
 module.exports.evaluate_rfc_align_field = evaluate_rfc_align_field;
 module.exports.assert = assert;

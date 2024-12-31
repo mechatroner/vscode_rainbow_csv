@@ -2170,13 +2170,13 @@ class InlayHintProvider {
         }
         let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, delim.length, double_width_alignment);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
-            ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats, delim.length);
+            ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
             // Save updated whole-doc stats.
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
-        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats);
+        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim.length);
     }
 }
 
