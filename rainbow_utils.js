@@ -38,7 +38,7 @@ function get_default_js_udf_content() {
     // function foo(value) {
     //     return 'foo ' + String(value.length);
     // }
-    // 
+    //
     // Functions defined in this file can be used in RBQL queries e.g.
     // SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     //
@@ -55,8 +55,8 @@ function get_default_python_udf_content() {
     #
     # def foo(value):
     #     return 'foo ' + str(len(value))
-    # 
-    # 
+    #
+    #
     # Functions defined in this file can be used in RBQL queries e.g.
     # SELECT foo(a1), a2 WHERE foo(a3) != 'foo 5' LIMIT 10
     #
