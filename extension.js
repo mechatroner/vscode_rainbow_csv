@@ -498,6 +498,26 @@ async function set_up_inlay_hint_alignment(language_id, log_wrapper) {
         log_wrapper.log_doc_event(`Updated inlayHints.maximumLength = 0 for "${language_id}"`);
     }
 
+    if (config.get('inlayHints.fontFamily') != '') {
+        await config.update('inlayHints.fontFamily', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        log_wrapper.log_doc_event(`Updated inlayHints.fontFamily = '' for "${language_id}"`);
+    }
+
+    if (config.get('inlayHints.fontSize') != '') {
+        await config.update('inlayHints.fontSize', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        log_wrapper.log_doc_event(`Updated inlayHints.fontSize = '' for "${language_id}"`);
+    }
+
+    if (config.get('inlayHints.padding') != '') {
+        await config.update('inlayHints.padding', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        log_wrapper.log_doc_event(`Updated inlayHints.padding = '' for "${language_id}"`);
+    }
+
+    if (config.get('wordWrap') != 'off') {
+        await config.update('wordWrap', 'off', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
+        log_wrapper.log_doc_event(`Updated wordWrap = 'off' for "${language_id}"`);
+    }
+
     if (inlay_hint_disposable == null) {
         let inlay_hints_provider = new InlayHintProvider();
         inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
