@@ -334,12 +334,16 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats) {
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], is_field_segment, is_last_in_line);
                 if (num_before > 0) {
-                    let hint_label = ' '.repeat(num_before);
+                    let hint_label = '\u00b7'.repeat(num_before); // Middle dot character
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                 }
-                if (num_after > 0) {
-                    let hint_label = ' '.repeat(num_after);
-                    inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
+                if (num_after > 1) {
+                    let hint_label = '\u00b7'.repeat(num_after - 1); // Middle dot character
+
+                    let pos = field_segment_range.end;
+                    // Exclude comma from inlay, move pos left by one
+                    let inlay_pos = new vscode.Position(pos.line, pos.character - 1);
+                    inlay_hints.push(new vscode.InlayHint(inlay_pos, hint_label));
                 }
             }
         }
