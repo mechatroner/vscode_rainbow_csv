@@ -1,3 +1,9 @@
 // Place your settings in this file to overwrite default and user settings.
 {
+  "[csv]": {
+    "editor.inlayHints.maximumLength": 0,
+    "editor.inlayHints.fontSize": "",
+    "editor.inlayHints.padding": "",
+    "editor.wordWrap": "off"
+  }
 }
