@@ -10,6 +10,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
+// FIXME customizable virtual align char with middle dot by default.
+
 // TODO Allow the number regex to end with dot e.g. 12. or 1245. without the fractional part.
 // Otherwise as soon as someone start typing a fractional part it immediately renders the whole column as non-number for live CSV editing.
 const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
@@ -144,6 +146,7 @@ class ColumnStat {
     }
 
     update_from_field(multiline_field_segments, is_first_record) {
+        // FIXME unit tests
         if (multiline_field_segments.length > 1) {
             // We don't allow multiline fields to be numeric for simplicity.
             this.mark_non_numeric();
@@ -176,6 +179,7 @@ class ColumnStat {
     }
 
     evaluate_align_field(field, is_first_record, is_last_in_line) {
+        // FIXME unit tests
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
         if (!this.is_numeric()) {
@@ -224,7 +228,7 @@ function get_trimmed_rfc_record_fields_from_record(record) {
 
 
 function calculate_column_offsets(column_stats, delim_length) {
-    // FIXME add unit tests?
+    // FIXME add unit tests
     let result = [];
     if (!column_stats.length) {
         return result;
@@ -1229,6 +1233,7 @@ module.exports.get_default_js_udf_content = get_default_js_udf_content;
 module.exports.get_default_python_udf_content = get_default_python_udf_content;
 module.exports.align_columns = align_columns;
 module.exports.shrink_columns = shrink_columns;
+module.exports.calculate_column_offsets = calculate_column_offsets;
 module.exports.calc_column_stats = calc_column_stats;
 module.exports.calc_column_stats_for_fragment = calc_column_stats_for_fragment;
 module.exports.reconcile_whole_doc_and_local_column_stats = reconcile_whole_doc_and_local_column_stats;
