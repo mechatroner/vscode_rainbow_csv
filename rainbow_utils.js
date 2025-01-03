@@ -10,7 +10,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 const wcwidth = require('./contrib/wcwidth/index.js');
 
-const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
+const number_regex = /^-?([0-9]+)(\.[0-9]+)?$/;
 
 // Copypasted from extension.js
 const QUOTED_RFC_POLICY = 'quoted_rfc';
