@@ -115,12 +115,11 @@ class ColumnStat {
     }
 
     reconcile(rhs) {
-        // FIXME add unit tests.
         this.max_total_length = Math.max(this.max_total_length, rhs.max_total_length);
         if (this.enable_double_width_alignment) {
             assert(rhs.enable_double_width_alignment, "Unable to reconcile");
             this.only_ascii = this.only_ascii && rhs.only_ascii;
-            this.has_wide_chars = this.has_wide_chars && rhs.has_wide_chars;
+            this.has_wide_chars = this.has_wide_chars || rhs.has_wide_chars;
         }
         if (!rhs.can_be_numeric) {
             this.mark_non_numeric();
@@ -146,7 +145,6 @@ class ColumnStat {
     }
 
     update_from_field(multiline_field_segments, is_first_record) {
-        // FIXME unit tests
         if (multiline_field_segments.length > 1) {
             // We don't allow multiline fields to be numeric for simplicity.
             this.mark_non_numeric();
@@ -179,7 +177,6 @@ class ColumnStat {
     }
 
     evaluate_align_field(field, is_first_record, is_last_in_line) {
-        // FIXME unit tests
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
         if (!this.is_numeric()) {

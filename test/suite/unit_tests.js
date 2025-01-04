@@ -113,6 +113,9 @@ function raw_column_stats_to_typed(raw_stat) {
         // TODO consider adding a test where only_ascii is false and has_wide_chars is true.
         typed_stat.only_ascii = !raw_stat.has_wide_chars;
     }
+    if (raw_stat.hasOwnProperty('only_ascii')) {
+        typed_stat.only_ascii = raw_stat.only_ascii;
+    }
     return typed_stat;
 }
 
@@ -473,6 +476,41 @@ function align_field(field, is_first_record, column_stat, is_last_in_line) {
 }
 
 
+function test_reconcile_single() {
+    let [column_stats_local, column_stats_global] = [null, null];
+
+    column_stats_local = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4, only_ascii: true, has_wide_chars: false});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6, only_ascii: false, has_wide_chars: true});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6, only_ascii: false, has_wide_chars: true}), column_stats_local);
+}
+
+
+function test_reconcile_multiple() {
+    // FIXME
+}
+
+
 function test_field_align() {
     let field = null;
     let is_first_line = null;
@@ -557,8 +595,6 @@ function test_field_align() {
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('    10.1     ', aligned_field);
 }
-
-// FIXME add a new unit test for calculate_column_offsets only
 
 
 function test_parse_document_records() {
@@ -2306,6 +2342,8 @@ function test_generate_column_edit_selections() {
 
 
 function test_all() {
+    test_reconcile_single();
+    test_reconcile_multiple();
     test_generate_inlay_hints();
     test_calc_column_stats_for_fragment();
     test_align_stats();
