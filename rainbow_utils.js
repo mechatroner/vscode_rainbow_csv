@@ -340,7 +340,9 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length) {
+function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length, alignment_char) {
+    // FIXME add unit test with a different char.
+    assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
     let is_first_record = true;
@@ -369,11 +371,11 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_last_in_line);
                 if (num_before > 0) {
-                    let hint_label = ' '.repeat(num_before);
+                    let hint_label = alignment_char.repeat(num_before);
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                 }
                 if (num_after > 0) {
-                    let hint_label = ' '.repeat(num_after);
+                    let hint_label = alignment_char.repeat(num_after);
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                 }
             }
