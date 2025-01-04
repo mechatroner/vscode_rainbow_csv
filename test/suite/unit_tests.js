@@ -506,8 +506,103 @@ function test_reconcile_single() {
 }
 
 
+function test_offsets_calculation() {
+    let column_stats = null;
+    let offsets = null;
+    let expected_offsets = null;
+
+    column_stats = [];
+    expected_offsets = [];
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    assert.deepEqual(expected_offsets, offsets);
+
+    column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_offsets = [0];
+    column_stats = column_stats_helper(column_stats);
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    assert.deepEqual(expected_offsets, offsets);
+
+    column_stats = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 20, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_offsets = [0, 8, 21];
+    column_stats = column_stats_helper(column_stats);
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/2);
+    assert.deepEqual(expected_offsets, offsets);
+}
+
+
+function test_adjusted_length() {
+    let column_stats = null;
+
+    column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 4});
+    assert.deepEqual(8, column_stats.get_adjusted_total_length());
+    assert.deepEqual(4, column_stats.get_adjusted_int_length());
+
+    column_stats = raw_column_stats_to_typed({max_total_length: 8, max_int_length: 3, max_fractional_length: 4});
+    assert.deepEqual(8, column_stats.get_adjusted_total_length());
+    assert.deepEqual(4, column_stats.get_adjusted_int_length());
+}
+
+
 function test_reconcile_multiple() {
-    // FIXME
+    let [column_stats_local, column_stats_global, expected_reconciled_column_stats] = [null, null, null];
+
+    column_stats_local = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_global = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
+
+    column_stats_local = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_global = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
+
+    column_stats_local = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+    ];
+    column_stats_global = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
 }
 
 
@@ -2342,6 +2437,8 @@ function test_generate_column_edit_selections() {
 
 
 function test_all() {
+    test_offsets_calculation();
+    test_adjusted_length();
     test_reconcile_single();
     test_reconcile_multiple();
     test_generate_inlay_hints();

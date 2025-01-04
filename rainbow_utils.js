@@ -225,7 +225,6 @@ function get_trimmed_rfc_record_fields_from_record(record) {
 
 
 function calculate_column_offsets(column_stats, delim_length) {
-    // FIXME add unit tests
     let result = [];
     if (!column_stats.length) {
         return result;
@@ -275,7 +274,6 @@ function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment
 
 
 function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, local_column_stats) {
-    // FIXME add unit tests for this.
     let max_num_fields = Math.max(whole_doc_column_stats.length, local_column_stats.length);
     for (let i = 0; i < max_num_fields; i++) {
         if (i >= whole_doc_column_stats.length) {
