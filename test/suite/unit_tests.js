@@ -160,6 +160,7 @@ function test_calc_column_stats_for_fragment() {
 function test_generate_inlay_hints() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
     let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
+    let alignment_char = null;
 
     // Simple test case.
     doc_lines = [
@@ -172,14 +173,15 @@ function test_generate_inlay_hints() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
+    alignment_char = '·';
     double_width_alignment = true;
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [
-        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'  '),
-        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/' ')];
+        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'··'),
+        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/'·')];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
     // Skip all comments - empty result.
@@ -193,11 +195,12 @@ function test_generate_inlay_hints() {
     comment_prefix = "#";
     delim = ',';
     policy = 'simple';
+    alignment_char = ' ';
     double_width_alignment = true;
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
@@ -212,11 +215,12 @@ function test_generate_inlay_hints() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
+    alignment_char = ' ';
     double_width_alignment = true;
     range = new vscode_test_double.Range(0, 0, 10, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/'    '),
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'    '),

@@ -341,7 +341,6 @@ class RecordCommentMerger {
 
 
 function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length, alignment_char) {
-    // FIXME add unit test with a different char.
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
