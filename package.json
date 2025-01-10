@@ -80,82 +80,90 @@
                     "default": "disabled",
                     "description": "Virtual alignment based on VSCode inlay hints that doesn't change underlying file content."
                 },
+                "rainbow_csv.virtual_alignment_char": {
+                    "type": "string",
+                    "enum": ["middot", "space"],
+                    "enumDescriptions": ["Middle dot", "Whitespace"],
+                    "order": 6,
+                    "default": "middot",
+                    "description": "Virtual alignment character."
+                },
                 "rainbow_csv.enable_tooltip": {
                     "type": "boolean",
                     "default": true,
-                    "order": 6,
+                    "order": 7,
                     "description": "Enable column-info tooltip on hover."
                 },
                 "rainbow_csv.enable_tooltip_column_names": {
                     "type": "boolean",
                     "default": true,
-                    "order": 7,
+                    "order": 8,
                     "description": "Show column names in tooltip."
                 },
                 "rainbow_csv.enable_cursor_position_info": {
                     "type": "boolean",
                     "default": true,
-                    "order": 8,
+                    "order": 9,
                     "description": "Keyboard input text cursor: show info about the cursor CSV column in the status bar."
                 },
                 "rainbow_csv.double_width_alignment": {
                     "type": "boolean",
                     "default": true,
-                    "order": 9,
+                    "order": 10,
                     "description": "If enabled treat double width unicode chars e.g. Chinese or Japanese chars as double wide when aligning."
                 },
                 "rainbow_csv.enable_auto_csv_lint": {
                     "type": "boolean",
                     "default": true,
-                    "order": 10,
+                    "order": 11,
                     "description": "Automatically run linter for every CSV file."
                 },
                 "rainbow_csv.csv_lint_detect_trailing_spaces": {
                     "type": "boolean",
                     "default": false,
-                    "order": 11,
+                    "order": 12,
                     "description": "CSV Lint: detect leading and trailing whitespaces in fields and show warning."
                 },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
                     "default": "",
-                    "order": 12,
+                    "order": 13,
                     "description": "Comment lines prefix, e.g. \"#\". Set to empty string to disable."
                 },
                 "rainbow_csv.rbql_output_dir": {
                     "type": "string",
                     "default": "TMP",
-                    "order": 13,
+                    "order": 14,
                     "description": "Output directory for RBQL result sets, can be `TMP`, `INPUT` or a custom absolute path. `TMP` - output in system tmp dir(default), `INPUT` - output in the same dir as input file, otherwise use provided path as the output directory e.g. `/path/to/custom/dir`."
                 },
                 "rainbow_csv.rbql_with_headers_by_default": {
                     "type": "boolean",
                     "default": false,
-                    "order": 14,
+                    "order": 15,
                     "description": "RBQL treats the first line as header by default."
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",
                     "default": false,
-                    "order": 15,
+                    "order": 16,
                     "description": "Enable \"Preview CSV head\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.enable_context_menu_tail": {
                     "type": "boolean",
                     "default": false,
-                    "order": 16,
+                    "order": 17,
                     "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.align_in_scratch_file": {
                     "type": "boolean",
                     "default": false,
-                    "order": 17,
+                    "order": 18,
                     "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
                 },
                 "rainbow_csv.enable_debug_logging": {
                     "type": "boolean",
                     "default": false,
-                    "order": 18,
+                    "order": 19,
                     "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }

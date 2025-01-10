@@ -9,6 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
+// FIXME get rid of scratch file alignment in the next iteration.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -41,6 +42,7 @@ let whitespace_aligned_files = new Set();
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
 const VA_EXPLICITLY_ENABLED = "enabled";
 const VA_EXPLICITLY_DISABLED = "disabled";
+let whole_doc_alignment_stats = new Map();
 
 var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
@@ -1429,10 +1431,19 @@ async function virtual_align_table() {
     let active_doc = get_active_doc();
     if (!is_rainbow_dialect_doc(active_doc))
         return;
-    let [_delim, policy, _comment_prefix] = get_dialect(active_doc);
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null) {
         return;
     }
+    let double_width_alignment = get_from_config('double_width_alignment', true);
+    let [whole_doc_column_stats, first_failed_line, _records, _comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
+    if (first_failed_line === null) {
+        log_wrapper.log_doc_event('Whole doc alignment stats were reset', active_doc);
+        whole_doc_alignment_stats.set(active_doc.fileName, whole_doc_column_stats);
+    } else {
+        log_wrapper.log_doc_event('Failed to reset whole doc alignment stats', active_doc);
+    }
+    // If there is a parsing error, just don't set whole-doc stats in that case the aligner would use local stats, still better than nothing.
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_ENABLED);
     // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
     await set_up_inlay_hint_alignment(active_doc.languageId, log_wrapper);
@@ -1456,11 +1467,6 @@ async function whitespace_align_table() {
         let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
         if (first_failed_line) {
             show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
-            return;
-        }
-        column_stats = ll_rainbow_utils().adjust_column_stats(column_stats, delim.length);
-        if (column_stats === null) {
-            show_single_line_error('Unable to allign: Internal Rainbow CSV Error');
             return;
         }
         await report_progress(progress, 'Preparing final alignment');
@@ -2187,11 +2193,13 @@ class InlayHintProvider {
         let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-        all_columns_stats = ll_rainbow_utils().adjust_column_stats(all_columns_stats, delim.length);
-        if (all_columns_stats === null) {
-            return [];
+        if (whole_doc_alignment_stats.has(document.fileName)) {
+            ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
+            // Save updated whole-doc stats.
+            whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
-        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats);
+        let alignment_char = get_from_config('virtual_alignment_char', 'middot') == 'middot' ? '\u00b7' : ' ';
+        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim.length, alignment_char);
     }
 }
 

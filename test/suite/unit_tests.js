@@ -99,17 +99,22 @@ let vscode_test_double = {
 
 // Helper testing function to adjust column stats.
 function raw_column_stats_to_typed(raw_stat) {
-    let typed_stat = new rainbow_utils.ColumnStat(/*enable_double_width_alignment=*/true);
+    let enable_double_width_alignment = raw_stat.hasOwnProperty('enable_double_width_alignment') ? raw_stat.enable_double_width_alignment : true;
+    let typed_stat = new rainbow_utils.ColumnStat(enable_double_width_alignment);
+    if (raw_stat.max_int_length >= 0) {
+        typed_stat.max_int_length = raw_stat.max_int_length;
+        typed_stat.max_fractional_length = raw_stat.max_fractional_length;
+    } else {
+        typed_stat.mark_non_numeric();
+    }
     typed_stat.max_total_length = raw_stat.max_total_length;
-    typed_stat.max_int_length = raw_stat.max_int_length >= 0 ? raw_stat.max_int_length : null;
-    typed_stat.max_fractional_length = raw_stat.max_fractional_length >= 0 ? raw_stat.max_fractional_length : null;
     if (raw_stat.hasOwnProperty('has_wide_chars')) {
         typed_stat.has_wide_chars = raw_stat.has_wide_chars;
         // TODO consider adding a test where only_ascii is false and has_wide_chars is true.
         typed_stat.only_ascii = !raw_stat.has_wide_chars;
     }
-    if (raw_stat.hasOwnProperty('start_offset')) {
-        typed_stat.start_offset = raw_stat.start_offset;
+    if (raw_stat.hasOwnProperty('only_ascii')) {
+        typed_stat.only_ascii = raw_stat.only_ascii;
     }
     return typed_stat;
 }
@@ -155,6 +160,7 @@ function test_calc_column_stats_for_fragment() {
 function test_generate_inlay_hints() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
     let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
+    let alignment_char = null;
 
     // Simple test case.
     doc_lines = [
@@ -167,14 +173,15 @@ function test_generate_inlay_hints() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
+    alignment_char = '·';
     double_width_alignment = true;
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [
-        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'  '),
-        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/' ')];
+        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'··'),
+        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/'·')];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
     // Skip all comments - empty result.
@@ -188,11 +195,12 @@ function test_generate_inlay_hints() {
     comment_prefix = "#";
     delim = ',';
     policy = 'simple';
+    alignment_char = ' ';
     double_width_alignment = true;
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
@@ -207,11 +215,12 @@ function test_generate_inlay_hints() {
     comment_prefix = null;
     delim = ',';
     policy = 'simple';
+    alignment_char = ' ';
     double_width_alignment = true;
     range = new vscode_test_double.Range(0, 0, 10, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
     expected_inlay_hints = [
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/'    '),
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'    '),
@@ -232,7 +241,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -241,7 +250,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 1;
     column_stats = raw_column_stats_to_typed({max_total_length: 0, max_int_length: 0, max_fractional_length: 0});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 0, max_fractional_length: 0, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -250,7 +259,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 2, max_int_length: -1, max_fractional_length: -1});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -259,7 +268,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -268,7 +277,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -277,7 +286,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 5, max_int_length: 2, max_fractional_length: 3});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 6, max_fractional_length: 3, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -286,7 +295,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 3, max_int_length: 3, max_fractional_length: 0});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, has_wide_chars: false});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -295,7 +304,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 4, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -304,7 +313,7 @@ function test_align_stats() {
     field_segments = [field];
     is_first_line = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/true);
+    column_stats.update_from_field(field_segments, is_first_line);
     expected_column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: -1, max_fractional_length: -1, has_wide_chars: true});
     assert.deepEqual(expected_column_stats, column_stats);
 
@@ -312,9 +321,9 @@ function test_align_stats() {
     field = '编号';
     field_segments = [field];
     is_first_line = 0;
-    column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1});
-    rainbow_utils.update_column_stats_from_field(field_segments, is_first_line, column_stats, /*enable_double_width_alignment=*/false);
-    expected_column_stats = raw_column_stats_to_typed({max_total_length: 2, max_int_length: -1, max_fractional_length: -1, has_wide_chars: false});
+    column_stats = raw_column_stats_to_typed({max_total_length: 1, max_int_length: -1, max_fractional_length: -1, enable_double_width_alignment: false});
+    column_stats.update_from_field(field_segments, is_first_line);
+    expected_column_stats = raw_column_stats_to_typed({max_total_length: 2, max_int_length: -1, max_fractional_length: -1, enable_double_width_alignment: false});
     assert.deepEqual(expected_column_stats, column_stats);
 }
 
@@ -420,6 +429,7 @@ function test_calc_column_stats() {
 
 function test_rfc_field_align() {
     let [field, is_first_line, column_stats, aligned_field, is_field_segment] = [null, null, null, null, null, null];
+    let column_offsets = null;
 
     // Align non-field segment in non-numeric non-last column.
     field = 'foobar';
@@ -427,8 +437,8 @@ function test_rfc_field_align() {
     is_field_segment = false;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment, /*is_last_in_line=*/false);
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/false);
     assert.deepEqual('foobar     ', aligned_field);
 
     // Align field segment in non-numeric non-last column.
@@ -437,8 +447,8 @@ function test_rfc_field_align() {
     is_field_segment = true;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment, /*is_last_in_line=*/false);
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/false);
     assert.deepEqual('       foobar     ', aligned_field);
 
     // Align non-field segment in non-numeric last column.
@@ -447,8 +457,8 @@ function test_rfc_field_align() {
     is_field_segment = false;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment, /*is_last_in_line=*/true);
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/true);
     assert.deepEqual('foobar', aligned_field);
 
     // Align field segment in non-numeric last column.
@@ -457,15 +467,146 @@ function test_rfc_field_align() {
     is_field_segment = true;
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], is_field_segment, /*is_last_in_line=*/true);
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/true);
     assert.deepEqual('       foobar', aligned_field);
 }
 
 
 function align_field(field, is_first_record, column_stat, is_last_in_line) {
-    let [num_before, num_after] = rainbow_utils.evaluate_align_field(field, is_first_record, column_stat, is_last_in_line);
+    //console.log(JSON.stringify(column_stat));
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
+}
+
+
+function test_reconcile_single() {
+    let [column_stats_local, column_stats_global] = [null, null];
+
+    column_stats_local = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 5, max_int_length: -1, max_fractional_length: -1});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6}), column_stats_local);
+
+    column_stats_local= raw_column_stats_to_typed({max_total_length: 10, max_int_length: 3, max_fractional_length: 4, only_ascii: true, has_wide_chars: false});
+    column_stats_global = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6, only_ascii: false, has_wide_chars: true});
+    column_stats_local.reconcile(column_stats_global);
+    assert.deepEqual(raw_column_stats_to_typed({max_total_length: 12, max_int_length: 5, max_fractional_length: 6, only_ascii: false, has_wide_chars: true}), column_stats_local);
+}
+
+
+function test_offsets_calculation() {
+    let column_stats = null;
+    let offsets = null;
+    let expected_offsets = null;
+
+    column_stats = [];
+    expected_offsets = [];
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    assert.deepEqual(expected_offsets, offsets);
+
+    column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_offsets = [0];
+    column_stats = column_stats_helper(column_stats);
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    assert.deepEqual(expected_offsets, offsets);
+
+    column_stats = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 20, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_offsets = [0, 8, 21];
+    column_stats = column_stats_helper(column_stats);
+    offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/2);
+    assert.deepEqual(expected_offsets, offsets);
+}
+
+
+function test_adjusted_length() {
+    let column_stats = null;
+
+    column_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 4});
+    assert.deepEqual(8, column_stats.get_adjusted_total_length());
+    assert.deepEqual(4, column_stats.get_adjusted_int_length());
+
+    column_stats = raw_column_stats_to_typed({max_total_length: 8, max_int_length: 3, max_fractional_length: 4});
+    assert.deepEqual(8, column_stats.get_adjusted_total_length());
+    assert.deepEqual(4, column_stats.get_adjusted_int_length());
+}
+
+
+function test_reconcile_multiple() {
+    let [column_stats_local, column_stats_global, expected_reconciled_column_stats] = [null, null, null];
+
+    column_stats_local = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_global = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
+
+    column_stats_local = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_global = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
+
+    column_stats_local = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+    ];
+    column_stats_global = [
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    expected_reconciled_column_stats = [
+        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
+        {max_total_length: 5, max_int_length: -1, max_fractional_length: -1}
+    ];
+    column_stats_local = column_stats_helper(column_stats_local)
+    column_stats_global = column_stats_helper(column_stats_global)
+    expected_reconciled_column_stats = column_stats_helper(expected_reconciled_column_stats);
+    rainbow_utils.reconcile_whole_doc_and_local_column_stats(column_stats_global, column_stats_local);
+    assert.deepEqual(expected_reconciled_column_stats, column_stats_local);
 }
 
 
@@ -478,148 +619,80 @@ function test_field_align() {
     // Align field in non-numeric non-last column.
     field = 'foobar';
     is_first_line = 0;
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    //column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('foobar     ', aligned_field);
 
     // Align field in non-numeric last column.
     field = 'foobar';
     is_first_line = 0;
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/true);
     assert.deepEqual('foobar', aligned_field);
 
     // Align non-numeric first line (potentially header) field in numeric column.
     field = 'foobar';
     is_first_line = 1;
-    column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 6}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('foobar     ', aligned_field);
 
     // Align numeric first line (potentially header) field in numeric column.
     field = '10.1';
     is_first_line = 1;
-    column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 6}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('  10.1     ', aligned_field);
 
     // Align numeric field in non-numeric column (first line).
     field = '10.1';
     is_first_line = 1;
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('10.1       ', aligned_field);
 
     // Align numeric field in non-numeric column (not first line).
     field = '10.1';
     is_first_line = 0;
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('10.1       ', aligned_field);
 
     // Align numeric float in numeric non-last column.
     field = '10.1';
     is_first_line = 0;
-    column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 6}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('  10.1     ', aligned_field);
 
     // Align numeric integer in numeric non-last column.
     field = '1000';
     is_first_line = 0;
-    column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 6}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('1000       ', aligned_field);
 
     // Align numeric integer in numeric (integer) column.
     field = '1000';
     is_first_line = 0;
-    column_stats = [{max_total_length: 4, max_int_length: 4, max_fractional_length: 0}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 4, max_int_length: 4, max_fractional_length: 0});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('1000 ', aligned_field);
 
     // Align numeric integer in numeric (integer) column dominated by header width.
     field = '1000';
     is_first_line = 0;
-    column_stats = [{max_total_length: 6, max_int_length: 4, max_fractional_length: 0}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 4, max_fractional_length: 0});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('  1000 ', aligned_field);
 
     // Align numeric float in numeric column dominated by header width.
     field = '10.1';
     is_first_line = 0;
-    column_stats = [{max_total_length: 12, max_int_length: 4, max_fractional_length: 6}];
-    column_stats = column_stats_helper(column_stats)
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
+    column_stats = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 4, max_fractional_length: 6});
     aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
     assert.deepEqual('    10.1     ', aligned_field);
-}
-
-
-function test_adjust_column_stats() {
-    let [adjusted_stats, column_stats, expected_stats] = [null, null, null];
-
-    // Not a numeric column, adjustment is NOOP.
-    column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0});
-    assert.deepEqual(expected_stats, adjusted_stats);
-
-    // This is possisble with a single-line file.
-    column_stats = [{max_total_length: 10, max_int_length: 0, max_fractional_length: 0}];
-    column_stats = column_stats_helper(column_stats)
-    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0});
-    assert.deepEqual(expected_stats, adjusted_stats);
-
-    // Header is smaller than the sum of the numeric components.
-    // value
-    // 0.12
-    // 1234
-    column_stats = [{max_total_length: 5, max_int_length: 4, max_fractional_length: 3}];
-    column_stats = column_stats_helper(column_stats)
-    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    expected_stats = raw_column_stats_to_typed({max_total_length: 7, max_int_length: 4, max_fractional_length: 3, start_offset: 0});
-    assert.deepEqual(expected_stats, adjusted_stats);
-
-    // Header is bigger than the sum of the numeric components.
-    column_stats = [{max_total_length: 10, max_int_length: 4, max_fractional_length: 3}];
-    column_stats = column_stats_helper(column_stats)
-    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1)[0];
-    expected_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 7, max_fractional_length: 3, start_offset: 0});
-    assert.deepEqual(expected_stats, adjusted_stats);
-
-    // Non-zero start offset
-    column_stats = [
-        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1},
-        {max_total_length: 8, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    adjusted_stats = rainbow_utils.adjust_column_stats(column_stats, /*delim_length=*/1);
-    expected_stats = column_stats_helper([
-        {max_total_length: 10, max_int_length: -1, max_fractional_length: -1, start_offset: 0}, 
-        {max_total_length: 8, max_int_length: -1, max_fractional_length: -1, start_offset: 12}]);
-    assert.deepEqual(expected_stats, adjusted_stats);
 }
 
 
@@ -1829,7 +1902,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
@@ -1850,7 +1922,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
@@ -1871,7 +1942,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
@@ -1896,7 +1966,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
@@ -1926,7 +1995,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    column_stats = rainbow_utils.adjust_column_stats(column_stats, delim.length);
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
@@ -2373,6 +2441,10 @@ function test_generate_column_edit_selections() {
 
 
 function test_all() {
+    test_offsets_calculation();
+    test_adjusted_length();
+    test_reconcile_single();
+    test_reconcile_multiple();
     test_generate_inlay_hints();
     test_calc_column_stats_for_fragment();
     test_align_stats();
@@ -2381,7 +2453,6 @@ function test_all() {
     test_align_columns();
     test_shrink_columns();
     test_calc_column_stats();
-    test_adjust_column_stats();
     test_parse_document_records();
     test_parse_document_range_rfc();
     test_parse_document_range_single_line();
