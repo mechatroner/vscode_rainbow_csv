@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.14.0
+* Fix Virtual Alignment configuration by [@krlmlr](https://github.com/krlmlr)
+* Use whole-doc stats for Virtual Alignment on manual realignment.
+
 ## 3.13.0
 * Added "Virtual" Alignment based on VSCode inlay hints that doesn't change the underlying file content.
 * Do not enable sticky header by default since it is already enabled at VSCode level and somewhat incompatible with the extension config.
