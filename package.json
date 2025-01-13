@@ -168,10 +168,21 @@
                 }
             }
         },
+        "submenus": [
+              {
+                    "id": "rainbow_csv.submenu",
+                    "label": "Rainbow CSV"
+              }
+        ],
         "menus": {
             "editor/context": [
                 {
-                    "when": "editorHasSelection && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
+                    "submenu": "rainbow_csv.submenu"
+                }
+            ],
+            "rainbow_csv.submenu": [
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
                     "group": "rainbow_csv"
                 },

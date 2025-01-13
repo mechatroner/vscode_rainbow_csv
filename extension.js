@@ -11,6 +11,9 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME get rid of scratch file alignment in the next iteration.
 
+// FIXME group rainbow csv context menu tools into a rainbow csv submenu and get rid of the tooltip buttons (except the lint button). https://www.eliostruyf.com/creating-submenu-code-step-step-guide/
+// FIXME also consider moving sample head/tail commands to the Rainbow CSV group
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -1222,6 +1225,7 @@ async function set_comment_prefix() {
         return;
     let selection = active_editor.selection;
     if (!selection) {
+        // FIXME either make sure this error is shown on empty selection or BETTER show a dialog to enter the comment prefix manually.
         show_single_line_error("Selection is empty");
         return;
     }
