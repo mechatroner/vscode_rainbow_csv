@@ -51,9 +51,9 @@ var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
 
-var rbql_status_bar_button = null;
 var align_shrink_button = null;
 var copy_back_button = null;
+// FIXME consider getting rid of column_info_button.
 var column_info_button = null;
 var dynamic_dialect_select_button = null;
 
@@ -393,7 +393,6 @@ function enable_rainbow_ui(active_doc) {
         dynamic_dialect_select_button.hide();
     }
     ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, active_doc.fileName, active_doc.languageId);
-    show_rbql_status_bar_button();
     show_align_shrink_button(active_doc.fileName);
     show_rbql_copy_to_source_button(active_doc.fileName);
     show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
@@ -641,7 +640,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
 
 
 function disable_ui_elements() {
-    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
+    let all_buttons = [extension_context.lint_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -791,16 +790,6 @@ function show_column_info_button() {
     let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
     do_show_column_info_button(full_report, short_report);
     return true;
-}
-
-
-function show_rbql_status_bar_button() {
-    if (!rbql_status_bar_button)
-        rbql_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rbql_status_bar_button.text = 'Query';
-    rbql_status_bar_button.tooltip = 'Click to run SQL-like RBQL query';
-    rbql_status_bar_button.command = 'rainbow-csv.RBQL';
-    rbql_status_bar_button.show();
 }
 
 

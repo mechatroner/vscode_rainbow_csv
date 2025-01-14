@@ -197,6 +197,11 @@
                     "group": "rainbow_csv"
                 },
                 {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.RBQL",
+                    "group": "rainbow_csv"
+                },
+                {
                     "when": "editorTextFocus && editorLangId =~ /plaintext/",
                     "command": "rainbow-csv.RainbowSeparatorOn",
                     "group": "rainbow_csv"
@@ -304,7 +309,7 @@
             {
                 "command": "rainbow-csv.RBQL",
                 "category": "Rainbow CSV",
-                "title": "RBQL"
+                "title": "RBQL Query"
             },
             {
                 "command": "rainbow-csv.SetJoinTableName",
