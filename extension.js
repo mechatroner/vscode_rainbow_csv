@@ -14,6 +14,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // FIXME group rainbow csv context menu tools into a rainbow csv submenu and get rid of the tooltip buttons (except the lint button). https://www.eliostruyf.com/creating-submenu-code-step-step-guide/
 // FIXME also consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME Revert the button removal! Keep them because users probably got used to seeing them. Just duplicate the commands in the context menu still.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
