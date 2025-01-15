@@ -2270,9 +2270,9 @@ async function activate(context) {
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
     var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', whitespace_align_table);
-    var align_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualAlign', virtual_align_table);
+    var virtual_align_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualAlign', virtual_align_table);
     var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', whitespace_shrink_table);
-    var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
+    var virtual_shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
@@ -2311,6 +2311,8 @@ async function activate(context) {
     context.subscriptions.push(set_join_table_name_cmd);
     context.subscriptions.push(align_cmd);
     context.subscriptions.push(shrink_cmd);
+    context.subscriptions.push(virtual_align_cmd);
+    context.subscriptions.push(virtual_shrink_cmd);
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
