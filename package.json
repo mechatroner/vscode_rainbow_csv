@@ -184,32 +184,32 @@
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
-                    "group": "rainbow_csv"
+                    "group": "common@4"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
-                    "group": "rainbow_csv"
+                    "group": "common@6"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetCommentPrefix",
-                    "group": "rainbow_csv"
+                    "group": "common@5"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RBQL",
-                    "group": "rainbow_csv"
+                    "group": "common@3"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /plaintext/",
                     "command": "rainbow-csv.RainbowSeparatorOn",
-                    "group": "rainbow_csv"
+                    "group": "common@2"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparatorOff",
-                    "group": "rainbow_csv"
+                    "group": "common@1"
                 }
             ],
             "explorer/context": [
