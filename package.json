@@ -195,6 +195,21 @@
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetCommentPrefix",
                     "group": "rainbow_csv"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.RBQL",
+                    "group": "rainbow_csv"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /plaintext/",
+                    "command": "rainbow-csv.RainbowSeparatorOn",
+                    "group": "rainbow_csv"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.RainbowSeparatorOff",
+                    "group": "rainbow_csv"
                 }
             ],
             "explorer/context": [
@@ -294,7 +309,7 @@
             {
                 "command": "rainbow-csv.RBQL",
                 "category": "Rainbow CSV",
-                "title": "RBQL"
+                "title": "RBQL Query"
             },
             {
                 "command": "rainbow-csv.SetJoinTableName",
@@ -323,11 +338,11 @@
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
-                "title": "RainbowSeparatorOff"
+                "title": "Disable Rainbow CSV"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOn",
-                "title": "RainbowSeparatorOn"
+                "title": "Re-enable Rainbow CSV"
             },
             {
                 "command": "rainbow-csv.Align",

@@ -11,8 +11,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME get rid of scratch file alignment in the next iteration.
 
-// FIXME group rainbow csv context menu tools into a rainbow csv submenu and get rid of the tooltip buttons (except the lint button). https://www.eliostruyf.com/creating-submenu-code-step-step-guide/
-// FIXME also consider moving sample head/tail commands to the Rainbow CSV group
+// FIXME group rainbow csv context menu tools into a rainbow csv submenu: https://www.eliostruyf.com/creating-submenu-code-step-step-guide/
+// TODO consider moving sample head/tail commands to the Rainbow CSV group
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -51,10 +51,13 @@ var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
 
-var rbql_status_bar_button = null;
-var align_shrink_button = null;
+// FIXME consider getting rid of these 2 buttons:
 var rainbow_off_status_bar_button = null;
 var rainbow_on_status_bar_button = null;
+
+// Although these buttons are now available as context menu actions we keep them because they are part of the extension traditions.
+var rbql_status_bar_button = null;
+var align_shrink_button = null;
 var copy_back_button = null;
 var column_info_button = null;
 var dynamic_dialect_select_button = null;
