@@ -210,6 +210,26 @@
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparatorOff",
                     "group": "common@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.Align",
+                    "group": "regular_align@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.Shrink",
+                    "group": "regular_align@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.VirtualAlign",
+                    "group": "virtual_align@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.VirtualShrink",
+                    "group": "virtual_align@2"
                 }
             ],
             "explorer/context": [
@@ -352,7 +372,7 @@
             {
                 "command": "rainbow-csv.Shrink",
                 "category": "Rainbow CSV",
-                "title": "Shrink CSV table: Remove leading and trailing whitespaces from all fields"
+                "title": "Shrink CSV table - trim whitespaces"
             },
             {
                 "command": "rainbow-csv.VirtualAlign",
