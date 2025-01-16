@@ -11,7 +11,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME get rid of scratch file alignment in the next iteration.
 
-// FIXME group rainbow csv context menu tools into a rainbow csv submenu: https://www.eliostruyf.com/creating-submenu-code-step-step-guide/
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -50,10 +49,6 @@ let whole_doc_alignment_stats = new Map();
 var result_set_parent_map = new Map();
 var cached_table_parse_result = new Map(); // TODO store doc timestamp / size to invalidate the entry when the doc changes.
 var manual_comment_prefix_stoplist = new Set();
-
-// FIXME consider getting rid of these 2 buttons:
-var rainbow_off_status_bar_button = null;
-var rainbow_on_status_bar_button = null;
 
 // Although these buttons are now available as context menu actions we keep them because they are part of the extension traditions.
 var rbql_status_bar_button = null;
@@ -400,7 +395,6 @@ function enable_rainbow_ui(active_doc) {
     ll_rainbow_utils().show_lint_status_bar_button(vscode, extension_context, active_doc.fileName, active_doc.languageId);
     show_rbql_status_bar_button();
     show_align_shrink_button(active_doc.fileName);
-    show_rainbow_off_status_bar_button();
     show_rbql_copy_to_source_button(active_doc.fileName);
     show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
 
@@ -614,9 +608,6 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         log_wrapper.log_simple_event('abort enable-rainbow-features-if-csv: non-rainbow dialect');
         return;
     }
-    if (rainbow_on_status_bar_button) {
-        rainbow_on_status_bar_button.hide();
-    }
     var language_id = active_doc.languageId;
     if (language_id == DYNAMIC_CSV && extension_context.dynamic_dialect_for_next_request != null) {
         await save_dynamic_info(extension_context, active_doc.fileName, extension_context.dynamic_dialect_for_next_request);
@@ -650,7 +641,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
 
 
 function disable_ui_elements() {
-    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, rainbow_off_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button, rainbow_on_status_bar_button];
+    let all_buttons = [extension_context.lint_status_bar_button, rbql_status_bar_button, copy_back_button, align_shrink_button, column_info_button, dynamic_dialect_select_button];
     for (let i = 0; i < all_buttons.length; i++) {
         if (all_buttons[i])
             all_buttons[i].hide();
@@ -665,20 +656,11 @@ function disable_ui_elements() {
 function disable_rainbow_features_if_non_csv(active_doc, log_wrapper) {
     log_wrapper.log_doc_event('start disable-rainbow-features-if-non-csv', active_doc);
     if (is_rainbow_dialect_doc(active_doc)) {
-        if (rainbow_on_status_bar_button) {
-            rainbow_on_status_bar_button.hide();
-        }
         log_wrapper.log_simple_event('abort disable-rainbow-features-if-non-csv: is rainbow dialect');
         return;
     }
     log_wrapper.log_simple_event('perform disable-rainbow-features-if-non-csv');
     disable_ui_elements();
-    if (is_eligible_doc(active_doc) && extension_context.reenable_rainbow_language_infos.has(active_doc.fileName)) {
-        // Show "Rainbow On" button. The button will be hidden again if user clicks away by `disable_rainbow_features_if_non_csv`.
-        // Only show for non-rainbow docs since this mechanism can interfere with manual filetype selection UI.
-        log_wrapper.log_simple_event('show rainbow-on status button');
-        show_rainbow_on_status_bar_button();
-    }
 }
 
 
@@ -809,27 +791,6 @@ function show_column_info_button() {
     let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
     do_show_column_info_button(full_report, short_report);
     return true;
-}
-
-
-function show_rainbow_off_status_bar_button() {
-    if (!rainbow_off_status_bar_button)
-        rainbow_off_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rainbow_off_status_bar_button.text = 'Rainbow OFF';
-    rainbow_off_status_bar_button.tooltip = 'Click to restore original file type and syntax';
-    rainbow_off_status_bar_button.command = 'rainbow-csv.RainbowSeparatorOff';
-    rainbow_off_status_bar_button.show();
-}
-
-
-function show_rainbow_on_status_bar_button() {
-    // TODO consider showing the separator selection dialog on "RainbowOn" button click instead of restoring the previous dialect.
-    if (!rainbow_on_status_bar_button)
-        rainbow_on_status_bar_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    rainbow_on_status_bar_button.text = 'Rainbow ON';
-    rainbow_on_status_bar_button.tooltip = 'Click to reenable Rainbow CSV for this file';
-    rainbow_on_status_bar_button.command = 'rainbow-csv.RainbowSeparatorOn';
-    rainbow_on_status_bar_button.show();
 }
 
 
@@ -1305,12 +1266,7 @@ async function reenable_rainbow_language() {
     }
     // Preserve current (non-rainbow) language id to allow switching between "Rainbow Off"/"Rainbow On".
     preserve_original_language_id_if_needed(file_path, active_doc.languageId, extension_context.original_language_ids);
-    // Delete from the "reenable" map to hide the "Rainbow ON" button on next refresh.
     extension_context.reenable_rainbow_language_infos.delete(file_path);
-    if (rainbow_on_status_bar_button) {
-        // Hide the button explicitly.
-        rainbow_on_status_bar_button.hide();
-    }
     await vscode.languages.setTextDocumentLanguage(active_doc, rainbow_language_info.language_id);
 }
 
