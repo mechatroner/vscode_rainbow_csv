@@ -477,7 +477,17 @@ function reconfigure_sticky_header_provider(force=false) {
 }
 
 
-async function set_up_inlay_hint_alignment(language_id, log_wrapper) {
+function reenable_inlay_hints_provider() {
+    // Dispose previous provider to refresh stale hints, including enabling them when disabled or disabling when enabled.
+    if (inlay_hint_disposable !== null) {
+        inlay_hint_disposable.dispose();
+    }
+    let inlay_hints_provider = new InlayHintProvider();
+    inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
+}
+
+
+async function configure_inlay_hints_alignment(language_id, log_wrapper) {
     // We have 3 invocation contexts here:
     // 1. VA is "disabled" but the function was called via the command palette command directly.
     // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
@@ -518,11 +528,6 @@ async function set_up_inlay_hint_alignment(language_id, log_wrapper) {
     if (config.get('wordWrap') != 'off') {
         await config.update('wordWrap', 'off', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
         log_wrapper.log_doc_event(`Updated wordWrap = 'off' for "${language_id}"`);
-    }
-
-    if (inlay_hint_disposable == null) {
-        let inlay_hints_provider = new InlayHintProvider();
-        inlay_hint_disposable = vscode.languages.registerInlayHintsProvider(get_all_rainbow_lang_selector(), inlay_hints_provider);
     }
 }
 
@@ -633,7 +638,8 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
     }
     enable_rainbow_ui(active_doc);
     if (get_from_config('virtual_alignment_mode', 'disabled') == 'always') {
-        await set_up_inlay_hint_alignment(language_id, log_wrapper);
+        await configure_inlay_hints_alignment(language_id, log_wrapper);
+        reenable_inlay_hints_provider();
     }
     await csv_lint(active_doc, /*is_manual_op=*/false);
     log_wrapper.log_simple_event('finish enable-rainbow-features-if-csv');
@@ -1355,6 +1361,8 @@ async function column_edit(edit_mode) {
 async function virtual_shrink_table() {
     let active_doc = get_active_doc();
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_DISABLED);
+    // Call reenable_inlay_hints_provider to immediately get rid of existing inlay hints.
+    reenable_inlay_hints_provider();
     show_align_shrink_button(active_doc.fileName);
 }
 
@@ -1408,8 +1416,10 @@ async function virtual_align_table() {
     }
     // If there is a parsing error, just don't set whole-doc stats in that case the aligner would use local stats, still better than nothing.
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_ENABLED);
+
     // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
-    await set_up_inlay_hint_alignment(active_doc.languageId, log_wrapper);
+    await configure_inlay_hints_alignment(active_doc.languageId, log_wrapper);
+    reenable_inlay_hints_provider();
     show_align_shrink_button(active_doc.fileName);
 }
 
@@ -2244,7 +2254,6 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
-    // Probably doesn't make sense to call set_up_inlay_hint_alignment here because it could slow down the extension loading.
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 
