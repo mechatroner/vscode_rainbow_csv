@@ -1,7 +1,12 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.15.0
+* Use Virtual Alignment on "Align" button click instead of content-modifying whitespaces by default.
+* Group Rainbow CSV context actions into "Rainbow CSV" submenu.
+
 ## 3.14.0
 * Fix Virtual Alignment configuration by [@krlmlr](https://github.com/krlmlr)
+* Use middle dot instead of whitespace for virtual alignment by default per [@krlmlr](https://github.com/krlmlr)
 * Use whole-doc stats for Virtual Alignment on manual realignment.
 
 ## 3.13.0
