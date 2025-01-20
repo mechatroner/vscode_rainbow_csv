@@ -3,6 +3,7 @@
 ## 3.15.0
 * Use Virtual Alignment on "Align" button click instead of content-modifying whitespaces by default.
 * Group Rainbow CSV context actions into "Rainbow CSV" submenu.
+* Fix a bug in virtual alignment.
 
 ## 3.14.0
 * Fix Virtual Alignment configuration by [@krlmlr](https://github.com/krlmlr)
