@@ -389,6 +389,7 @@ function align_columns(records, comments, column_stats, delim) {
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
     // Because of this in case of executing "Align" command consecutively N times one would have to run undo N times too.
+    // Here records do not contain delim and column_stats were calculated without taking the delim length into account.
     let column_offsets = calculate_column_offsets(column_stats, delim.length);
     let result_lines = [];
     let is_first_record = true;
@@ -803,7 +804,7 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 }
 
 
-function make_multiline_row_info(vscode, delim_length, newline_marker, fields, start_line, expected_end_line_for_control) {
+function make_multiline_row_info(vscode, delim_length, include_delim_length_in_ranges, newline_marker, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
     let record_fields = [];
@@ -827,11 +828,16 @@ function make_multiline_row_info(vscode, delim_length, newline_marker, fields, s
             pos_in_multiline_field = newline_marker_pos + newline_marker.length;
         }
         next_pos_in_editor_line += fields[i].length - pos_in_multiline_field;
+        let current_range_end = next_pos_in_editor_line;
         if (i + 1 < fields.length) {
             next_pos_in_editor_line += delim_length;
+            if (include_delim_length_in_ranges) {
+                current_range_end = next_pos_in_editor_line;
+            }
         }
+        // Note that `multiline_field_singleline_components` NEVER include the delim, while `multiline_field_singleline_ranges` COULD include the delim.
         multiline_field_singleline_components.push(fields[i].substring(pos_in_multiline_field));
-        multiline_field_singleline_ranges.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, next_pos_in_editor_line));
+        multiline_field_singleline_ranges.push(new vscode.Range(lnum_current, pos_in_editor_line, lnum_current, current_range_end));
         record_fields.push(multiline_field_singleline_components);
         record_ranges.push(multiline_field_singleline_ranges);
         // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
@@ -862,7 +868,8 @@ class RowInfo {
 }
 
 
-function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, custom_parsing_margin=null) {
+// FIXME update unit tests with the new param
+function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
     }
@@ -896,7 +903,7 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
             if (!warning) {
-                let row_info = make_multiline_row_info(vscode, delim.length, newline_marker, fields, start_line, /*expected_end_line_for_control=*/lnum);
+                let row_info = make_multiline_row_info(vscode, delim.length, include_delim_length_in_ranges, newline_marker, fields, start_line, /*expected_end_line_for_control=*/lnum);
                 if (row_info !== null) {
                     // If row_info is null it means that `expected_end_line_for_control` doesn't match and something went very wrong with the newline_marker join workaround.
                     table_ranges.push(row_info);
@@ -908,7 +915,8 @@ function parse_document_range_rfc(vscode, doc, delim, comment_prefix, range, cus
 }
 
 
-function parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range, custom_parsing_margin=null) {
+// FIXME update unit tests with the new param
+function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
     }
@@ -935,11 +943,16 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
         let next_cpos = 0;
         for (let i = 0; i < fields.length; i++) {
             next_cpos += fields[i].length;
+            let current_range_end = next_cpos;
             if (i + 1 < fields.length) {
                 next_cpos += delim.length;
+                if (include_delim_length_in_ranges) {
+                    current_range_end = next_cpos;
+                }
             }
+            // Note that `record_fields` NEVER include the delim, while `record_ranges` COULD include the delim.
             record_fields.push([fields[i]]);
-            record_ranges.push([new vscode.Range(lnum, cpos, lnum, next_cpos)]);
+            record_ranges.push([new vscode.Range(lnum, cpos, lnum, current_range_end)]);
             // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
             cpos = next_cpos;
         }
@@ -949,7 +962,7 @@ function parse_document_range_single_line(vscode, doc, delim, policy, comment_pr
 }
 
 
-function parse_document_range(vscode, doc, delim, policy, comment_prefix, range) {
+function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
     // [
@@ -959,9 +972,9 @@ function parse_document_range(vscode, doc, delim, policy, comment_prefix, range)
     // ]
     // There is no warning returned because on parsing failure it would just return a partial range.
     if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(vscode, doc, delim, comment_prefix, range);
+        return parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range);
     } else {
-        return parse_document_range_single_line(vscode, doc, delim, policy, comment_prefix, range);
+        return parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range);
     }
 }
 
@@ -982,7 +995,7 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
     const hover_parse_margin = 20;
     let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
-    let table_ranges = parse_document_range_rfc(vscode, document, delim, comment_prefix, range);
+    let table_ranges = parse_document_range_rfc(vscode, document, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {

@@ -11,6 +11,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME get rid of scratch file alignment in the next iteration.
 
+// TODO consider switching some of the integration tests from content-based to virtual alignment.
+
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -1423,7 +1425,7 @@ async function virtual_align_table() {
 }
 
 
-async function whitespace_align_table() {
+async function content_modifying_align_table() {
     let active_editor = get_active_editor();
     let active_doc = get_active_doc(active_editor);
     if (!is_rainbow_dialect_doc(active_doc))
@@ -2094,7 +2096,7 @@ class RainbowTokenProvider {
         if (!policy || document.languageId != DYNAMIC_CSV) {
             return null;
         }
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
+        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of table_ranges) {
@@ -2163,7 +2165,7 @@ class InlayHintProvider {
             return [];
         }
         let double_width_alignment = get_from_config('double_width_alignment', true);
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, policy, comment_prefix, range);
+        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
@@ -2234,7 +2236,7 @@ async function activate(context) {
     var rainbow_on_cmd = vscode.commands.registerCommand('rainbow-csv.RainbowSeparatorOn', reenable_rainbow_language);
     var sample_head_cmd = vscode.commands.registerCommand('rainbow-csv.SampleHead', async function(uri) { await make_preview(uri, 'head'); }); // WEB_DISABLED
     var sample_tail_cmd = vscode.commands.registerCommand('rainbow-csv.SampleTail', async function(uri) { await make_preview(uri, 'tail'); }); // WEB_DISABLED
-    var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', whitespace_align_table);
+    var align_cmd = vscode.commands.registerCommand('rainbow-csv.Align', content_modifying_align_table);
     var virtual_align_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualAlign', virtual_align_table);
     var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', whitespace_shrink_table);
     var virtual_shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
