@@ -11,7 +11,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // FIXME get rid of scratch file alignment in the next iteration.
 
-// TODO consider switching some of the integration tests from content-based to virtual alignment.
+// FIXME switch some of the integration tests from content-based to virtual alignment or add some new ones.
 
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 

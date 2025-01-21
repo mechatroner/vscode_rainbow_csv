@@ -868,7 +868,6 @@ class RowInfo {
 }
 
 
-// FIXME add some unit tests where include_delim_length_in_ranges is false
 function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
@@ -915,7 +914,6 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
 }
 
 
-// FIXME add some unit tests where include_delim_length_in_ranges is false
 function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
     if (custom_parsing_margin === null) {
         custom_parsing_margin = dynamic_csv_highlight_margin;
