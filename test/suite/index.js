@@ -296,7 +296,13 @@ async function test_double_width_chars_alignment(test_folder_uri) {
     log_message(`Shrinked length: ${length_shrinked}`);
     // This is to ensure that after original -> align -> shrink sequence we get back to original doc.
     assert.equal(length_original, length_shrinked);
-    await sleep(500);
+    await sleep(1000);
+
+    // Now do virtual Alignment.
+    await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    await sleep(2000);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
+    await sleep(1000);
 }
 
 async function test_virtual_alignment(test_folder_uri) {
@@ -330,7 +336,12 @@ async function test_align_shrink_lint(test_folder_uri) {
     let length_original = active_doc.getText().length;
     log_message(`Original length: ${length_original}`);
     assert.equal(12538, length_original);
-    await sleep(2000);
+    await sleep(1000);
+
+    await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
+    await sleep(1000);
 
     await vscode.commands.executeCommand('rainbow-csv.Align');
     let length_aligned = active_doc.getText().length;
@@ -476,6 +487,12 @@ async function test_dynamic_csv(test_folder_uri) {
         expected_num_lines += 1; // Standard non-web CSV writer adds a newline at the end.
     }
     assert.equal(expected_num_lines, length_after_query);
+
+    await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    await sleep(2000);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
+    await sleep(1000);
+
 }
 
 async function test_huge_file(test_folder_uri) {
