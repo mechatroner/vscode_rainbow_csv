@@ -326,6 +326,15 @@ async function test_virtual_alignment(test_folder_uri) {
     await vscode.commands.executeCommand("scrollLineUp");
     await sleep(500);
     await sleep(5000);
+
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'synthetic_rfc_newline_data.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1500);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
+    await sleep(5000);
+    await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
+    await sleep(1500);
 }
 
 
