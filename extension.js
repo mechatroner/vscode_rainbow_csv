@@ -13,6 +13,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME Add an option to highlight separators with constant background color when aligned (dark for bright themes, light for dark themes)
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
