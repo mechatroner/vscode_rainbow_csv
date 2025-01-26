@@ -41,6 +41,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let whitespace_aligned_files = new Set();
 
+let vertical_grid_decoration_type = null;
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -2165,7 +2166,19 @@ class InlayHintProvider {
             return [];
         }
         let double_width_alignment = get_from_config('double_width_alignment', true);
+        // FIXME we just need separate ranges for delims so that they can be highlighted differently, we wouldn't even need that awkwar boolean flag.
+        // Looks like extensions can contribute custom colors, see https://code.visualstudio.com/api/extension-guides/color-theme#adding-a-new-color-id
+        // FIXME if you decide to use decoration way - define color in the config so that users can configure it. Also you can make it theme-dependent.
+        // FIXME use something like https://github.com/kstost/aicodehelper/blob/1c200a1684c0f275926fd7cd7b133e60bc9a8c0e/extension.js#L60 - i.e. setDecorations + createTextEditorDecorationType.
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            let delim_ranges = [];
+            for (let table_range of table_ranges) {
+                delim_ranges = delim_ranges.concat(table_range.delim_ranges);
+            }
+            active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
+        }
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
@@ -2289,6 +2302,9 @@ async function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
 
+    // FIXME use custom color - Rainbow CSV can contribute a custom color which then would be configurable.
+    // FIXME adjust opacity if needed.
+    vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('editor.selectionBackground')});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
