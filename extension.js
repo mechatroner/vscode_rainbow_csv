@@ -2173,11 +2173,13 @@ class InlayHintProvider {
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
         let active_editor = get_active_editor();
         if (active_editor) {
+            // FIXME need to check that the active_editor corresponds to the document argument.
             let delim_ranges = [];
             for (let table_range of table_ranges) {
                 delim_ranges = delim_ranges.concat(table_range.delim_ranges);
             }
             active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
+            // FIXME use setDecorations with an empty range to remove all decorations of this type.
         }
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
@@ -2304,7 +2306,12 @@ async function activate(context) {
 
     // FIXME use custom color - Rainbow CSV can contribute a custom color which then would be configurable.
     // FIXME adjust opacity if needed.
-    vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('editor.selectionBackground')});
+    //vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('editor.selectionBackground')});
+    //vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('rainbowgrid')});
+    // FIXME consider using border decoration instead of text to get a thin vertical line.
+    //vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('statusBar.background')});
+    //vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({borderColor: new vscode.ThemeColor('statusBar.background'), borderStyle: 'solid', borderWidth: '0px 2px 0px 0px'});
+    vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({borderColor: new vscode.ThemeColor('menu.border'), borderStyle: 'solid', borderWidth: '0px 1px 0px 0px'});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.

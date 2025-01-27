@@ -35,6 +35,18 @@
     "main": "./extension",
     "browser": "./dist/web/extension.js",
     "contributes": {
+        "colors": [
+          {
+            "id": "rainbowgrid",
+            "description": "Color for rainbow CSV grid",
+            "defaults": {
+              "dark": "tab.inactiveBackground",
+              "light": "tab.inactiveBackground",
+              "highContrast": "tab.inactiveBackground",
+              "highContrastLight": "tab.inactiveBackground"
+            }
+          }
+        ],
         "configuration": {
             "type": "object",
             "title": "Rainbow CSV",
