@@ -77,7 +77,7 @@
                     "enum": ["disabled", "manual", "always"],
                     "enumDescriptions": ["Disabled. Align only when \"VirtualAlign\" command is executed", "Align when \"Align\" Status Bar button is clicked", "Automatically align all files"],
                     "order": 5,
-                    "default": "manual",
+                    "default": "disabled",
                     "description": "Virtual alignment based on VSCode inlay hints that doesn't change underlying file content."
                 },
                 "rainbow_csv.virtual_alignment_char": {
