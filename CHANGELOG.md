@@ -1,7 +1,7 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
 ## 3.15.1
-* Temporarily revert default on-lick alignment to content-modifying whitespace-based version.
+* Temporarily revert default on-click alignment to content-modifying whitespace-based version.
 
 ## 3.15.0
 * Use Virtual Alignment on "Align" button click instead of content-modifying whitespaces by default.
