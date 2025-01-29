@@ -417,6 +417,10 @@
         ],
         "configurationDefaults": {
           "[dynamic csv][csv][tsv][csv (semicolon)][csv (pipe)][csv (whitespace)]": {
+            "editor.inlayHints.maximumLength": 0,
+            "editor.inlayHints.fontFamily": "",
+            "editor.inlayHints.fontSize": 0,
+            "editor.inlayHints.padding": false,
             "editor.semanticHighlighting.enabled": true
           }
         },

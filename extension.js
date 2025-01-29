@@ -13,6 +13,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME add option for past-10 decorations with unique combinations of highlightings and decorations
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -501,34 +503,12 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
             }
         }
     }
-    let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
-    if (config.get('inlayHints.maximumLength') != 0) {
-        // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
-        // For some reason setting this setting as `configurationDefaults` in package.json doesn't have any affect, so we set it here dynamically.
-        // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
-        await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        log_wrapper.log_doc_event(`Updated inlayHints.maximumLength = 0 for "${language_id}"`);
-    }
+    // A previous implementation contained manual config modification here (inlayHints.maximumLength and others),
+    // But it turns out customizing these settings as `configurationDefaults` in package.json also work, although sometimes you need to click back and forth for the first alignment.
+    // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
 
-    if (config.get('inlayHints.fontFamily') != '') {
-        await config.update('inlayHints.fontFamily', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        log_wrapper.log_doc_event(`Updated inlayHints.fontFamily = '' for "${language_id}"`);
-    }
-
-    if (config.get('inlayHints.fontSize') != '') {
-        await config.update('inlayHints.fontSize', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        log_wrapper.log_doc_event(`Updated inlayHints.fontSize = '' for "${language_id}"`);
-    }
-
-    if (config.get('inlayHints.padding') != '') {
-        await config.update('inlayHints.padding', '', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        log_wrapper.log_doc_event(`Updated inlayHints.padding = '' for "${language_id}"`);
-    }
-
-    if (config.get('wordWrap') != 'off') {
-        await config.update('wordWrap', 'off', /*configurationTarget=*/false, /*overrideInLanguage=*/true);
-        log_wrapper.log_doc_event(`Updated wordWrap = 'off' for "${language_id}"`);
-    }
+    // It would be nice to disable word wrap for the current editor only if aligned (because tables don't wrap) and then enable word wrap again, but there is no way to do this currently.
+    // Permanent disabling of wordWrap for csvs is a bad idea because in non-aligned mode it actually becomes an advantage for Rainbow non-alignment high info density paradigm.
 }
 
 
