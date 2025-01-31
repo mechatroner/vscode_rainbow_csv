@@ -1913,7 +1913,13 @@ function do_handle_cursor_movement() {
 }
 
 
-function handle_cursor_movement(_unused_cursor_event) {
+function handle_cursor_movement(cursor_event) {
+    if (cursor_event) {
+        let text_editor = cursor_event.textEditor;
+        if (text_editor.visibleRanges && text_editor.visibleRanges.length) {
+            provide_row_background_decorations(text_editor, text_editor.visibleRanges[0]);
+        }
+    }
     if (cursor_timeout_handle !== null) {
         clearTimeout(cursor_timeout_handle);
     }
@@ -2077,30 +2083,52 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
+function provide_row_background_decorations(active_editor, range) {
+    let document = active_editor.document;
+    if (!document) {
+        return;
+    }
+    let selection_start_line = -1
+    let selection_end_line = -1
+    let selection = active_editor.selection;
+    if (selection && !selection.isEmpty) {
+        selection_start_line = selection.start.line
+        selection_end_line = selection.end.line
+    }
+    // FIXME use setDecorations with an empty range to remove all decorations of this type.
+    let decorations_margin = 10;
+    let begin_line = Math.max(0, range.start.line - decorations_margin);
+    let end_line = Math.min(document.lineCount, range.end.line + decorations_margin);
+    let alternating_row_ranges = [];
+    for (let lnum = begin_line; lnum < end_line; lnum++) {
+        if (lnum >= selection_start_line && lnum <= selection_end_line) {
+            // FIXME this is just for test, make more fine-grained
+            continue;
+        }
+        if (lnum % 2 == 1) {
+            let line_text = document.lineAt(lnum).text;
+            alternating_row_ranges.push(new vscode.Range(lnum, 0, lnum, line_text.length));
+        }
+    }
+    active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
+}
+
+
 class DecorationsProvider {
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(document, range, _token) {
+        // FIXME Consider using `onDidChangeTextEditorVisibleRanges: Event<TextEditorVisibleRangesChangeEvent>` event instead
         // This is a "fake" semantic tokens provider which actually provides decorations instead of semantic tokens.
         if (!is_rainbow_dialect_doc(document)) {
             // Just in case
             return null;
         }
+        // FIXME when user selects a block of text with cursor, the selection becomes invisible if it is behind the selection
         let active_editor = get_active_editor();
         if (active_editor) {
             // FIXME need to check that the active_editor corresponds to the document argument.
-            // FIXME use setDecorations with an empty range to remove all decorations of this type.
-            let decorations_margin = 10;
-            let begin_line = Math.max(0, range.start.line - decorations_margin);
-            let end_line = Math.min(document.lineCount, range.end.line + decorations_margin);
-            let alternating_row_ranges = [];
-            for (let lnum = begin_line; lnum < end_line; lnum++) {
-                if (lnum % 2 == 1) {
-                    let line_text = document.lineAt(lnum).text;
-                    alternating_row_ranges.push(new vscode.Range(lnum, 0, lnum, line_text.length));
-                }
-            }
-            active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
+            provide_row_background_decorations(active_editor, range);
         }
         return null;
     }
@@ -2313,7 +2341,7 @@ async function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
 
-    alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('statusBar.background'), isWholeLine: true});
+    alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
