@@ -87,6 +87,7 @@ let cursor_timeout_handle = null;
 
 let rainbow_token_event = null;
 let comment_token_event = null;
+let decorations_event = null;
 let sticky_header_disposable = null;
 let inlay_hint_disposable = null;
 
@@ -523,6 +524,16 @@ function enable_dynamic_semantic_tokenization() {
     }
     let document_selector = { language: DYNAMIC_CSV }; // Use '*' to select all languages if needed.
     rainbow_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, tokens_legend);
+}
+
+
+function register_decorations_provider() {
+    let decorations_provider = new DecorationsProvider();
+    if (decorations_event !== null) {
+        decorations_event.dispose();
+    }
+    // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
+    decorations_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
 }
 
 
@@ -2066,6 +2077,36 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
+class DecorationsProvider {
+    constructor() {
+    }
+    async provideDocumentRangeSemanticTokens(document, range, _token) {
+        // This is a "fake" semantic tokens provider which actually provides decorations instead of semantic tokens.
+        if (!is_rainbow_dialect_doc(document)) {
+            // Just in case
+            return null;
+        }
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            // FIXME need to check that the active_editor corresponds to the document argument.
+            // FIXME use setDecorations with an empty range to remove all decorations of this type.
+            let decorations_margin = 10;
+            let begin_line = Math.max(0, range.start.line - decorations_margin);
+            let end_line = Math.min(document.lineCount, range.end.line + decorations_margin);
+            let alternating_row_ranges = [];
+            for (let lnum = begin_line; lnum < end_line; lnum++) {
+                if (lnum % 2 == 1) {
+                    let line_text = document.lineAt(lnum).text;
+                    alternating_row_ranges.push(new vscode.Range(lnum, 0, lnum, line_text.length));
+                }
+            }
+            active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
+        }
+        return null;
+    }
+}
+
+
 class RainbowTokenProvider {
     // We don't utilize typescript `implement` interface keyword, because TS doesn't seem to be exporting interfaces to JS (unlike classes).
     constructor() {
@@ -2074,24 +2115,6 @@ class RainbowTokenProvider {
         let [delim, policy, comment_prefix] = get_dialect(document);
         if (!policy || document.languageId != DYNAMIC_CSV) {
             return null;
-        }
-
-        // FIXME put this logic into a different event handle - it should be applied for non-dynamic highlighting too..
-        let active_editor = get_active_editor();
-        if (active_editor) {
-            let custom_parsing_margin = 10;
-            let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-            let end_line = Math.min(document.lineCount, range.end.line + custom_parsing_margin);
-            let alternating_row_ranges = [];
-            for (let lnum = begin_line; lnum < end_line; lnum++) {
-                if (lnum % 2 == 0) {
-                    let line_text = document.lineAt(lnum).text;
-                    alternating_row_ranges.push(new vscode.Range(lnum, 0, lnum, line_text.length));
-                }
-            }
-            active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
-            // FIXME need to check that the active_editor corresponds to the document argument.
-            // FIXME use setDecorations with an empty range to remove all decorations of this type.
         }
 
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
@@ -2259,6 +2282,9 @@ async function activate(context) {
     if (get_from_config('comment_prefix', null)) {
         register_comment_tokenization_handler();
     }
+
+    // FIXME Only register it if any of the decorations types is enabled by default.
+    register_decorations_provider();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
