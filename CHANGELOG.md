@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.16.0
+* Fix Virtual Align configuration by moving it into package.json.
+
 ## 3.15.1
 * Temporarily revert default on-click alignment to content-modifying whitespace-based version.
 
