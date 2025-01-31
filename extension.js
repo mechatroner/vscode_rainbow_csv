@@ -41,6 +41,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let whitespace_aligned_files = new Set();
 
+let alternate_row_background_decoration_type = null;
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -2074,6 +2075,25 @@ class RainbowTokenProvider {
         if (!policy || document.languageId != DYNAMIC_CSV) {
             return null;
         }
+
+        // FIXME put this logic into a different event handle - it should be applied for non-dynamic highlighting too..
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            let custom_parsing_margin = 10;
+            let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
+            let end_line = Math.min(document.lineCount, range.end.line + custom_parsing_margin);
+            let alternating_row_ranges = [];
+            for (let lnum = begin_line; lnum < end_line; lnum++) {
+                if (lnum % 2 == 0) {
+                    let line_text = document.lineAt(lnum).text;
+                    alternating_row_ranges.push(new vscode.Range(lnum, 0, lnum, line_text.length));
+                }
+            }
+            active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
+            // FIXME need to check that the active_editor corresponds to the document argument.
+            // FIXME use setDecorations with an empty range to remove all decorations of this type.
+        }
+
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
@@ -2267,6 +2287,7 @@ async function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
 
+    alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('statusBar.background'), isWholeLine: true});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
