@@ -505,6 +505,8 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
             }
         }
     }
+    // FIXME manually configure globally inlayHints.maximumLength only.
+
     // A previous implementation contained manual config modification here (inlayHints.maximumLength and others),
     // But it turns out customizing these settings as `configurationDefaults` in package.json also work, although sometimes you need to click back and forth for the first alignment.
     // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
@@ -2100,6 +2102,7 @@ function provide_row_background_decorations(active_editor, range) {
     let begin_line = Math.max(0, range.start.line - decorations_margin);
     let end_line = Math.min(document.lineCount, range.end.line + decorations_margin);
     let alternating_row_ranges = [];
+    // FIXME this logic can't handle multiline records.
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         if (lnum >= selection_start_line && lnum <= selection_end_line) {
             // FIXME this is just for test, make more fine-grained
