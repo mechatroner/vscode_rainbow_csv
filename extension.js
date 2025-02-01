@@ -2155,12 +2155,11 @@ function provide_row_background_decorations(active_editor, range) {
 class DecorationsProvider {
     constructor() {
     }
-    async provideDocumentRangeSemanticTokens(document, range, _token) {
+    async provideDocumentRangeSemanticTokens(_document, range, _token) {
         // This is a "fake" semantic tokens provider which actually provides decorations instead of semantic tokens.
         // TODO Consider using onDidChangeTextEditorVisibleRanges event instead when its behavior is fixed, see: https://github.com/microsoft/vscode/issues/154977
         let active_editor = get_active_editor();
         if (active_editor) {
-            // FIXME need to check that the active_editor corresponds to the document argument.
             provide_row_background_decorations(active_editor, range);
         }
         return null;
