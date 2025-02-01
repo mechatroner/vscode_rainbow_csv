@@ -505,8 +505,6 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
             }
         }
     }
-    // FIXME manually configure globally inlayHints.maximumLength only.
-
     // A previous implementation contained manual config modification here (inlayHints.maximumLength and others),
     // But it turns out customizing these settings as `configurationDefaults` in package.json also work, although sometimes you need to click back and forth for the first alignment.
     // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
@@ -2087,7 +2085,7 @@ function register_csv_hover_info_provider(language_id, context) {
 
 function provide_row_background_decorations(active_editor, range) {
     let document = active_editor.document;
-    if (!document) {
+    if (!document || !is_rainbow_dialect_doc(document)) {
         return;
     }
     let selection_start_line = -1
@@ -2117,17 +2115,19 @@ function provide_row_background_decorations(active_editor, range) {
 }
 
 
+//function handle_visible_ranges_change(ranges_change_event) {
+//    let active_editor = ranges_change_event.textEditor;
+//    if (text_editor.visibleRanges && text_editor.visibleRanges.length) {
+//        provide_row_background_decorations(text_editor, text_editor.visibleRanges[0]);
+//    }
+//}
+
 class DecorationsProvider {
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(document, range, _token) {
-        // FIXME Consider using `onDidChangeTextEditorVisibleRanges: Event<TextEditorVisibleRangesChangeEvent>` event instead
         // This is a "fake" semantic tokens provider which actually provides decorations instead of semantic tokens.
-        if (!is_rainbow_dialect_doc(document)) {
-            // Just in case
-            return null;
-        }
-        // FIXME when user selects a block of text with cursor, the selection becomes invisible if it is behind the selection
+        // TODO Consider using onDidChangeTextEditorVisibleRanges event instead when its behavior is fixed, see: https://github.com/microsoft/vscode/issues/154977
         let active_editor = get_active_editor();
         if (active_editor) {
             // FIXME need to check that the active_editor corresponds to the document argument.
@@ -2300,6 +2300,7 @@ async function activate(context) {
     var doc_close_event = vscode.workspace.onDidCloseTextDocument(handle_doc_close);
     var config_change_event = vscode.workspace.onDidChangeConfiguration(handle_config_change);
 
+    //var visible_ranges_change_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_ranges_change);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
     try {
         debug_log_output_channel = vscode.window.createOutputChannel('rainbow_csv_debug_channel', {log: true});
@@ -2343,7 +2344,9 @@ async function activate(context) {
     context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
+    //context.subscriptions.push(visible_ranges_change_event);
 
+    // FIXME make the color customizable in settings, use "color" contribution point to achieve this.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
