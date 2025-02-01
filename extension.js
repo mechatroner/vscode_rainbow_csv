@@ -2376,7 +2376,7 @@ async function activate(context) {
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
 
-    // FIXME make the color customizable in settings, use "color" contribution point to achieve this.
+    // TODO consider making the background color customizable in settings, use "color" contribution point to achieve this, although there seem to be no way to actually conveniently customize it.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
