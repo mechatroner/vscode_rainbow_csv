@@ -106,6 +106,7 @@ let extension_context = {
     dynamic_document_dialects: new Map(),
     custom_comment_prefixes: new Map(), // TODO consider making custom comment prefixes records persistent.
     original_language_ids: new Map(),
+    toggle_enabled_rows_backgrounds: new Map(),
     reenable_rainbow_language_infos: new Map(), // This only needed for "Rainbow On" functionality that reverts "Rainbow Off" effect.
     autodetection_stoplist: new Set(),
     autodetection_temporarily_disabled_for_rbql: false,
@@ -524,6 +525,36 @@ function enable_dynamic_semantic_tokenization() {
     }
     let document_selector = { language: DYNAMIC_CSV }; // Use '*' to select all languages if needed.
     rainbow_token_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(document_selector, token_provider, tokens_legend);
+}
+
+
+function row_background_enabled(fileName) {
+    let default_enabled = get_from_config('highlight_rows', false);
+    return extension_context.toggle_enabled_rows_backgrounds.has(fileName) ? extension_context.toggle_enabled_rows_backgrounds.get(fileName) : default_enabled;
+}
+
+
+function toggle_row_background() {
+    // Always re-register the provider just in case, even when we actually disable the background since it shouldn't hurt.
+    register_decorations_provider();
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+    let log_wrapper = new StackContextLogWrapper('toggle_row_background');
+    log_wrapper.log_doc_event('starting', active_doc);
+    let enabled_before = row_background_enabled(active_doc.fileName);
+    let highlighting_enabled = !enabled_before;
+    extension_context.toggle_enabled_rows_backgrounds.set(active_doc.fileName, highlighting_enabled);
+    if (highlighting_enabled) {
+        log_wrapper.log_doc_event('enabled', active_doc);
+    } else {
+        log_wrapper.log_doc_event('disabled', active_doc);
+        // Use empty range array to reset the decorations.
+        active_editor.setDecorations(alternate_row_background_decoration_type, []);
+    }
 }
 
 
@@ -2088,22 +2119,28 @@ function provide_row_background_decorations(active_editor, range) {
     if (!document || !is_rainbow_dialect_doc(document)) {
         return;
     }
-    let selection_start_line = -1
-    let selection_end_line = -1
+    let [_delim, policy, _comment_prefix] = get_dialect(document);
+    if (policy == QUOTED_RFC_POLICY) {
+        // FIXME use correct parsing logic to be able to handle multiline records and correctly highlight them
+        return;
+    }
+    if (!row_background_enabled(document.fileName)) {
+        return;
+    }
+
+    let selection_start_line = -1;
+    let selection_end_line = -1;
     let selection = active_editor.selection;
     if (selection && !selection.isEmpty) {
-        selection_start_line = selection.start.line
-        selection_end_line = selection.end.line
+        selection_start_line = selection.start.line;
+        selection_end_line = selection.end.line;
     }
-    // FIXME use setDecorations with an empty range to remove all decorations of this type.
     let decorations_margin = 10;
     let begin_line = Math.max(0, range.start.line - decorations_margin);
     let end_line = Math.min(document.lineCount, range.end.line + decorations_margin);
     let alternating_row_ranges = [];
-    // FIXME this logic can't handle multiline records.
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         if (lnum >= selection_start_line && lnum <= selection_end_line) {
-            // FIXME this is just for test, make more fine-grained
             continue;
         }
         if (lnum % 2 == 1) {
@@ -2114,13 +2151,6 @@ function provide_row_background_decorations(active_editor, range) {
     active_editor.setDecorations(alternate_row_background_decoration_type, alternating_row_ranges);
 }
 
-
-//function handle_visible_ranges_change(ranges_change_event) {
-//    let active_editor = ranges_change_event.textEditor;
-//    if (text_editor.visibleRanges && text_editor.visibleRanges.length) {
-//        provide_row_background_decorations(text_editor, text_editor.visibleRanges[0]);
-//    }
-//}
 
 class DecorationsProvider {
     constructor() {
@@ -2293,6 +2323,7 @@ async function activate(context) {
     var shrink_cmd = vscode.commands.registerCommand('rainbow-csv.Shrink', whitespace_shrink_table);
     var virtual_shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
+    var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
@@ -2300,7 +2331,6 @@ async function activate(context) {
     var doc_close_event = vscode.workspace.onDidCloseTextDocument(handle_doc_close);
     var config_change_event = vscode.workspace.onDidChangeConfiguration(handle_config_change);
 
-    //var visible_ranges_change_event = vscode.window.onDidChangeTextEditorVisibleRanges(handle_visible_ranges_change);
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
     try {
         debug_log_output_channel = vscode.window.createOutputChannel('rainbow_csv_debug_channel', {log: true});
@@ -2315,8 +2345,9 @@ async function activate(context) {
         register_comment_tokenization_handler();
     }
 
-    // FIXME Only register it if any of the decorations types is enabled by default.
-    register_decorations_provider();
+    if (get_from_config('highlight_rows', false)) {
+        register_decorations_provider();
+    }
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -2338,13 +2369,13 @@ async function activate(context) {
     context.subscriptions.push(copy_back_cmd);
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
+    context.subscriptions.push(toggle_row_background_cmd);
     context.subscriptions.push(internal_test_cmd);
 
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
-    //context.subscriptions.push(visible_ranges_change_event);
 
     // FIXME make the color customizable in settings, use "color" contribution point to achieve this.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
