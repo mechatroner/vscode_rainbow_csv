@@ -42,6 +42,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 let whitespace_aligned_files = new Set();
 
 let alternate_row_background_decoration_type = null;
+let extra_field_decoration_types = [];
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -2172,6 +2173,7 @@ class RainbowTokenProvider {
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(document, range, _token) {
+        // FIXME apply decorations here just for POC
         let [delim, policy, comment_prefix] = get_dialect(document);
         if (!policy || document.languageId != DYNAMIC_CSV) {
             return null;
@@ -2180,11 +2182,18 @@ class RainbowTokenProvider {
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
+        let decoration_ranges = [];
         for (let row_info of table_ranges) {
             if (row_info.comment_range !== null) {
                 builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
                 for (let col_num = 0; col_num < row_info.record_ranges.length; col_num++) {
+                    if (decoration_ranges.length <= col_num) {
+                        decoration_ranges.push(new Array());
+                    }
+                    for (let record_range of row_info.record_ranges[col_num]) {
+                        decoration_ranges[col_num].push(record_range);
+                    }
                     let token_id = col_num % rainbow_token_types.length;
                     if (token_id == 0) {
                         // Do not highlight the first `rainbow1` group altogether, since it has the default color anyway.
@@ -2196,6 +2205,20 @@ class RainbowTokenProvider {
                         // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
                         builder.push(record_range, rainbow_token_types[token_id]);
                     }
+                }
+            }
+        }
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            for (let col_num = 0; col_num < decoration_ranges.length; col_num++) {
+                if (col_num % 2 == 0) {
+                    continue; // FIXME just to check how it would look like.
+                }
+                // Recycling extra_field_decoration_types via extra_field_decoration_types.length % col_num is not an option here because it would erase previous decorations of this type.
+                if (col_num < extra_field_decoration_types.length) {
+                    let column_decoration_type = extra_field_decoration_types[col_num];
+                    let column_decoration_ranges = decoration_ranges[col_num];
+                    active_editor.setDecorations(column_decoration_type, column_decoration_ranges);
                 }
             }
         }
@@ -2275,6 +2298,19 @@ async function load_resource_file_universal(resource_path) {
     return fs.readFileSync(absolute_path_map[resource_path], "utf8");
 }
 
+
+function generate_extra_field_decorations() {
+    // TODO add more variations, up to 50 at least.
+    let result = [];
+    // FIXME uncomment, this is just for test
+    //for (let i = 0; i < rainbow_token_types.length; i++) {
+    //    result.push(null);
+    //}
+    for (let i = 0; i < rainbow_token_types.length; i++) {
+        result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderRadius: '2px', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
+    }
+    return result;
+}
 
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
@@ -2378,6 +2414,8 @@ async function activate(context) {
 
     // TODO consider making the background color customizable in settings, use "color" contribution point to achieve this, although there seem to be no way to actually conveniently customize it.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
+    extra_field_decoration_types = generate_extra_field_decorations();
+
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
