@@ -489,7 +489,7 @@ function reenable_inlay_hints_provider() {
 }
 
 
-async function configure_inlay_hints_alignment(language_id, log_wrapper) {
+async function configure_virtual_inlay_hints_alignment(language_id, log_wrapper) {
     // We have 3 invocation contexts here:
     // 1. VA is "disabled" but the function was called via the command palette command directly.
     // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
@@ -503,12 +503,25 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
             }
         }
     }
-    // A previous implementation contained manual config modification here (inlayHints.maximumLength and others),
-    // But it turns out customizing these settings as `configurationDefaults` in package.json also work, although sometimes you need to click back and forth for the first alignment.
-    // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
 
+    try {
+        let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
+        if (config.get('inlayHints.maximumLength') != 0) {
+            // FIXME test that this actually works.
+
+            // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
+            // For some reason setting this setting as `configurationDefaults` in package.json sometimes doesn't have immediate affect, so we set it here dynamically.
+            // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
+            // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
+            await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/true, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.maximumLength = 0 for "${language_id}"`);
+        }
+    } catch (error) {
+        log_wrapper.log_doc_event(`Unable to update inlayHints.maximumLength = 0 for "${language_id}"`);
+        return;
+    }
     // It would be nice to disable word wrap for the current editor only if aligned (because tables don't wrap) and then enable word wrap again, but there is no way to do this currently.
-    // Permanent disabling of wordWrap for csvs is a bad idea because in non-aligned mode it actually becomes an advantage for Rainbow non-alignment high info density paradigm.
+    // Permanent disabling of wordWrap for CSVs is a bad idea because in non-aligned mode it actually becomes an advantage for Rainbow non-alignment high info density paradigm.
 }
 
 
@@ -618,7 +631,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
     }
     enable_rainbow_ui(active_doc);
     if (get_from_config('virtual_alignment_mode', 'disabled') == 'always') {
-        await configure_inlay_hints_alignment(language_id, log_wrapper);
+        await configure_virtual_inlay_hints_alignment(language_id, log_wrapper);
         reenable_inlay_hints_provider();
     }
     await csv_lint(active_doc, /*is_manual_op=*/false);
@@ -1397,7 +1410,7 @@ async function virtual_align_table() {
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_ENABLED);
 
     // Make sure the alignment is enabled - this is needed if it is disabled but was just called manually from the command palette.
-    await configure_inlay_hints_alignment(active_doc.languageId, log_wrapper);
+    await configure_virtual_inlay_hints_alignment(active_doc.languageId, log_wrapper);
     reenable_inlay_hints_provider();
     show_align_shrink_button(active_doc.fileName);
 }
