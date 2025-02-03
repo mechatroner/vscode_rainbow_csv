@@ -42,6 +42,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 let whitespace_aligned_files = new Set();
 
 let alternate_row_background_decoration_type = null;
+let tracked_field_decoration_types = [];
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -87,7 +88,8 @@ let cursor_timeout_handle = null;
 
 let rainbow_token_event = null;
 let comment_token_event = null;
-let decorations_event = null;
+let row_background_decoration_event = null;
+let column_tracking_decoration_event = null;
 let sticky_header_disposable = null;
 let inlay_hint_disposable = null;
 
@@ -107,6 +109,7 @@ let extension_context = {
     custom_comment_prefixes: new Map(), // TODO consider making custom comment prefixes records persistent.
     original_language_ids: new Map(),
     toggle_enabled_rows_backgrounds: new Map(),
+    tracked_columns: new Map(),
     reenable_rainbow_language_infos: new Map(), // This only needed for "Rainbow On" functionality that reverts "Rainbow Off" effect.
     autodetection_stoplist: new Set(),
     autodetection_temporarily_disabled_for_rbql: false,
@@ -299,6 +302,54 @@ function get_from_config(param_name, default_value, config=null) {
     return config ? config.get(param_name) : default_value;
 }
 
+class TrackedColumns {
+    // FIXME move to rainbow_utils.js and add unit tests
+    constructor() {
+        this.column_to_decoration_id = new Map();
+    }
+
+    is_tracked(column_num) {
+        return this.column_to_decoration_id.has(column_num);
+    }
+
+    get_tracked_columns() {
+        return Array.from(this.column_to_decoration_id.keys());
+    }
+
+    toggle_tracking(column_num) {
+        if (this.column_to_decoration_id.has(column_num)) {
+            this.column_to_decoration_id.delete(column_num);
+        } else {
+            if (this.num_tracked() >= tracked_field_decoration_types.length) {
+                return false;
+            }
+            let existing_decoration_ids = Array.from(this.column_to_decoration_id.values());
+            let new_id = 0;
+            while (existing_decoration_ids.includes(new_id)) {
+                new_id += 1;
+            }
+            this.column_to_decoration_id.set(column_num, new_id);
+        }
+        return true;
+    }
+
+    get_decoration_type(column_num) {
+        if (!this.column_to_decoration_id.has(column_num)) {
+            return null;
+        }
+        return tracked_field_decoration_types[this.column_to_decoration_id.get(column_num)];
+
+    }
+
+    num_tracked() {
+        return this.column_to_decoration_id.size;
+    }
+
+    empty() {
+        return this.column_to_decoration_id.size == 0;
+    }
+
+}
 
 class StackContextLogWrapper {
     // Use class instead of pure function to avoid passing context name and checking if logging is enabled in the config in each call.
@@ -536,7 +587,7 @@ function row_background_enabled(fileName) {
 
 function toggle_row_background() {
     // Always re-register the provider just in case, even when we actually disable the background since it shouldn't hurt.
-    register_decorations_provider();
+    register_row_background_decorations_provider();
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -558,13 +609,65 @@ function toggle_row_background() {
 }
 
 
-function register_decorations_provider() {
-    let decorations_provider = new DecorationsProvider();
-    if (decorations_event !== null) {
-        decorations_event.dispose();
+function toggle_column_tracking() {
+    // Always re-register the provider just in case, even when we actually disable the background since it shouldn't hurt.
+    register_row_background_decorations_provider();
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc || !is_rainbow_dialect_doc(active_doc))
+        return;
+    let log_wrapper = new StackContextLogWrapper('toggle_column_tracking');
+    log_wrapper.log_doc_event('starting', active_doc);
+    let position = ll_rainbow_utils().get_cursor_position_if_unambiguous(active_editor);
+    if (!position) {
+        return;
+    }
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    let cursor_position_info = ll_rainbow_utils().get_cursor_position_info(vscode, active_doc, delim, policy, comment_prefix, position);
+    if (!cursor_position_info)
+        return;
+    if (cursor_position_info.is_comment) {
+        vscode.window.showErrorMessage('Unable to track comments');
+        return;
+    }
+
+    let fileName = active_doc.fileName;
+    let trackings = extension_context.tracked_columns.has(fileName) ? extension_context.tracked_columns.get(fileName) : new TrackedColumns();
+    if (trackings.is_tracked(cursor_position_info.column_number)) {
+        let decoration_type = trackings.get_decoration_type(cursor_position_info.column_number);
+        // Use empty range array to reset the decorations.
+        active_editor.setDecorations(decoration_type, []);
+    }
+    // FIXME find a csv with wide rows to demo word wrap approach benefits.
+    // FIXME consider also immediatelly enabling the decoration to avoid up/down scrolling to see them.
+    if (!trackings.toggle_tracking(cursor_position_info.column_number)) {
+        // FIXME test this
+        vscode.window.showErrorMessage(`Unable to track more than ${trackings.num_tracked()} columns`);
+        return;
+    }
+    extension_context.tracked_columns.set(fileName, trackings);
+}
+
+
+function register_row_background_decorations_provider() {
+    let decorations_provider = new RowBackgroundDecorationsProvider();
+    if (row_background_decoration_event !== null) {
+        row_background_decoration_event.dispose();
     }
     // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
-    decorations_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
+    row_background_decoration_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
+}
+
+
+function register_column_tracking_decorations_provider() {
+    let decorations_provider = new ColumnTrackingDecorationsProvider();
+    if (column_tracking_decoration_event !== null) {
+        column_tracking_decoration_event.dispose();
+    }
+    // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
+    column_tracking_decoration_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
 }
 
 
@@ -2114,6 +2217,49 @@ function register_csv_hover_info_provider(language_id, context) {
 }
 
 
+function provide_tracked_column_decorations(active_editor, range) {
+    let document = active_editor.document;
+    if (!document) {
+        return;
+    }
+    let [delim, policy, comment_prefix] = get_dialect(document);
+    if (!policy) {
+        return;
+    }
+    if (!extension_context.tracked_columns.has(document.fileName)) {
+        return;
+    }
+    let tracked_columns = extension_context.tracked_columns.get(document.fileName);
+    if (tracked_columns.empty()) {
+        return;
+    }
+    let tracked_column_ranges = new Map();
+    for (let column_num of tracked_columns.get_tracked_columns()) {
+        tracked_column_ranges.set(column_num, new Array());
+    }
+
+    let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+    for (let row_info of table_ranges) {
+        if (row_info.comment_range !== null) {
+            continue;
+        } else {
+            for (let column_num of tracked_columns.get_tracked_columns()) {
+                for (let record_range of row_info.record_ranges[column_num]) {
+                    // One logical field can map to multiple tokens if it spans multiple lines because VSCode doesn't support multiline tokens.
+                    tracked_column_ranges.get(column_num).push(record_range);
+                }
+            }
+        }
+    }
+
+    for (let column_num of tracked_columns.get_tracked_columns()) {
+        let current_column_ranges = tracked_column_ranges.get(column_num);
+        let tracked_decoration_type = tracked_columns.get_decoration_type(column_num);
+        active_editor.setDecorations(tracked_decoration_type, current_column_ranges);
+    }
+}
+
+
 function provide_row_background_decorations(active_editor, range) {
     let document = active_editor.document;
     if (!document || !is_rainbow_dialect_doc(document)) {
@@ -2152,7 +2298,7 @@ function provide_row_background_decorations(active_editor, range) {
 }
 
 
-class DecorationsProvider {
+class RowBackgroundDecorationsProvider {
     constructor() {
     }
     async provideDocumentRangeSemanticTokens(_document, range, _token) {
@@ -2161,6 +2307,21 @@ class DecorationsProvider {
         let active_editor = get_active_editor();
         if (active_editor) {
             provide_row_background_decorations(active_editor, range);
+        }
+        return null;
+    }
+}
+
+
+class ColumnTrackingDecorationsProvider {
+    constructor() {
+    }
+    async provideDocumentRangeSemanticTokens(_document, range, _token) {
+        // This is a "fake" semantic tokens provider which actually provides decorations instead of semantic tokens.
+        // TODO Consider using onDidChangeTextEditorVisibleRanges event instead when its behavior is fixed, see: https://github.com/microsoft/vscode/issues/154977
+        let active_editor = get_active_editor();
+        if (active_editor) {
+            provide_tracked_column_decorations(active_editor, range);
         }
         return null;
     }
@@ -2276,6 +2437,15 @@ async function load_resource_file_universal(resource_path) {
 }
 
 
+function generate_tracked_field_decorations() {
+    let result = [];
+    // FIXME make them of different colors
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
+    return result;
+}
+
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
@@ -2323,6 +2493,7 @@ async function activate(context) {
     var virtual_shrink_cmd = vscode.commands.registerCommand('rainbow-csv.VirtualShrink', virtual_shrink_table);
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
+    var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
@@ -2345,8 +2516,10 @@ async function activate(context) {
     }
 
     if (get_from_config('highlight_rows', false)) {
-        register_decorations_provider();
+        register_row_background_decorations_provider();
     }
+    // FIXME register only on first toggle!
+    register_column_tracking_decorations_provider();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
@@ -2369,6 +2542,7 @@ async function activate(context) {
     context.subscriptions.push(set_header_line_cmd);
     context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(toggle_row_background_cmd);
+    context.subscriptions.push(toggle_column_tracking_cmd);
     context.subscriptions.push(internal_test_cmd);
 
     context.subscriptions.push(doc_open_event);
@@ -2378,6 +2552,7 @@ async function activate(context) {
 
     // TODO consider making the background color customizable in settings, use "color" contribution point to achieve this, although there seem to be no way to actually conveniently customize it.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
+    tracked_field_decoration_types = generate_tracked_field_decorations();
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.

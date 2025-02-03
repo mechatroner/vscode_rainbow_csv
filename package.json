@@ -190,21 +190,26 @@
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
-                    "group": "common@7"
+                    "group": "common@8"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetCommentPrefix",
-                    "group": "common@6"
+                    "group": "common@7"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
-                    "group": "common@5"
+                    "group": "common@6"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RBQL",
+                    "group": "common@5"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ToggleColumnTracking",
                     "group": "common@4"
                 },
                 {
@@ -366,6 +371,11 @@
                 "command": "rainbow-csv.RainbowSeparator",
                 "category": "Rainbow CSV",
                 "title": "Set rainbow separator"
+            },
+            {
+                "command": "rainbow-csv.ToggleColumnTracking",
+                "category": "Rainbow CSV",
+                "title": "Toggle Column Tracking"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
