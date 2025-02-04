@@ -592,12 +592,20 @@ function toggle_row_background() {
     var active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
+    let [_delim, policy, _comment_prefix] = get_dialect(active_doc);
+    if (policy == QUOTED_RFC_POLICY) {
+        // FIXME use correct parsing logic to be able to handle multiline records and correctly highlight them
+        show_single_line_error("Alternating row background highlighting is currently unavailable for CSVs with multiline records")
+        return;
+    }
+    // FIXME get dialect and show error if rfc
     let log_wrapper = new StackContextLogWrapper('toggle_row_background');
     log_wrapper.log_doc_event('starting', active_doc);
     let enabled_before = row_background_enabled(active_doc.fileName);
     let highlighting_enabled = !enabled_before;
     extension_context.toggle_enabled_rows_backgrounds.set(active_doc.fileName, highlighting_enabled);
     if (highlighting_enabled) {
+        // FIXME make sure that this does immediatelly enable the decorations without scrolling back-and-forth for refresh.
         log_wrapper.log_doc_event('enabled', active_doc);
     } else {
         log_wrapper.log_doc_event('disabled', active_doc);
@@ -2269,15 +2277,9 @@ function provide_row_background_decorations(active_editor, range) {
     if (!document || !is_rainbow_dialect_doc(document)) {
         return;
     }
-    let [_delim, policy, _comment_prefix] = get_dialect(document);
-    if (policy == QUOTED_RFC_POLICY) {
-        // FIXME use correct parsing logic to be able to handle multiline records and correctly highlight them
-        return;
-    }
     if (!row_background_enabled(document.fileName)) {
         return;
     }
-
     let selection_start_line = -1;
     let selection_end_line = -1;
     let selection = active_editor.selection;
