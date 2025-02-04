@@ -584,8 +584,6 @@ function row_background_enabled(fileName) {
 
 
 function toggle_row_background() {
-    // Always re-register the provider just in case, even when we actually disable the background since it shouldn't hurt.
-    register_row_background_decorations_provider();
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -604,13 +602,14 @@ function toggle_row_background() {
     let highlighting_enabled = !enabled_before;
     extension_context.toggle_enabled_rows_backgrounds.set(active_doc.fileName, highlighting_enabled);
     if (highlighting_enabled) {
-        // FIXME make sure that this does immediatelly enable the decorations without scrolling back-and-forth for refresh.
         log_wrapper.log_doc_event('enabled', active_doc);
     } else {
         log_wrapper.log_doc_event('disabled', active_doc);
         // Use empty range array to reset the decorations.
         active_editor.setDecorations(alternate_row_background_decoration_type, []);
     }
+    // Always re-register the provider to force decorations update on toggle.
+    register_row_background_decorations_provider();
 }
 
 
