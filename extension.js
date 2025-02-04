@@ -598,7 +598,6 @@ function toggle_row_background() {
         show_single_line_error("Alternating row background highlighting is currently unavailable for CSVs with multiline records")
         return;
     }
-    // FIXME get dialect and show error if rfc
     let log_wrapper = new StackContextLogWrapper('toggle_row_background');
     log_wrapper.log_doc_event('starting', active_doc);
     let enabled_before = row_background_enabled(active_doc.fileName);
@@ -635,11 +634,6 @@ function toggle_column_tracking() {
     let log_wrapper = new StackContextLogWrapper('toggle_column_tracking');
     log_wrapper.log_doc_event('starting', active_doc);
 
-    if (column_tracking_decoration_event == null) {
-        log_wrapper.log_simple_event('registering column tracking decorations');
-        register_column_tracking_decorations_provider();
-    }
-
     let position = ll_rainbow_utils().get_cursor_position_if_unambiguous(active_editor);
     if (!position) {
         return;
@@ -661,7 +655,6 @@ function toggle_column_tracking() {
         active_editor.setDecorations(decoration_type, []);
         log_wrapper.log_doc_event('disabling column tracking', active_doc);
     } else {
-        // FIXME find a way to refresh the decorations so that "enable" effect is immediately visible
         log_wrapper.log_doc_event('enabling column tracking', active_doc);
     }
     // FIXME find a csv with wide rows to demo word wrap approach benefits.
@@ -670,6 +663,8 @@ function toggle_column_tracking() {
         return;
     }
     extension_context.tracked_columns.set(fileName, trackings);
+    // Always re-register the column tracking decorations provider to refresh the decorations so that toggle effect is immediately visible
+    register_column_tracking_decorations_provider();
 }
 
 
