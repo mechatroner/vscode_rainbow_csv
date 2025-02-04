@@ -35,6 +35,38 @@
     "main": "./extension",
     "browser": "./dist/web/extension.js",
     "contributes": {
+        "colors": [
+            {
+                "id": "rainbowtrack1",
+                "description": "Color for column tracking one.",
+                "defaults": {
+                    "dark": "#ff0000",
+                    "light": "#ff0000",
+                    "highContrast": "#ff0000",
+                    "highContrastLight": "#ff0000"
+                }
+            },
+            {
+                "id": "rainbowtrack2",
+                "description": "Color for column tracking two.",
+                "defaults": {
+                    "dark": "#00ff00",
+                    "light": "#00ff00",
+                    "highContrast": "#00ff00",
+                    "highContrastLight": "#00ff00"
+                }
+            },
+            {
+                "id": "rainbowtrack3",
+                "description": "Color for column tracking three.",
+                "defaults": {
+                    "dark": "#0000ff",
+                    "light": "#0000ff",
+                    "highContrast": "#0000ff",
+                    "highContrastLight": "#0000ff"
+                }
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "Rainbow CSV",

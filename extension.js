@@ -13,8 +13,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
-// FIXME add option for past-10 decorations with unique combinations of highlightings and decorations
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -640,10 +638,9 @@ function toggle_column_tracking() {
         // Use empty range array to reset the decorations.
         active_editor.setDecorations(decoration_type, []);
     }
+    // It seems there is no need to explicitly do re-decoration for the "enable" case - it happens immediately anyway, no need to scroll around to see the effect.
     // FIXME find a csv with wide rows to demo word wrap approach benefits.
-    // FIXME consider also immediatelly enabling the decoration to avoid up/down scrolling to see them.
     if (!trackings.toggle_tracking(cursor_position_info.column_number)) {
-        // FIXME test this
         vscode.window.showErrorMessage(`Unable to track more than ${trackings.num_tracked()} columns`);
         return;
     }
@@ -2439,10 +2436,9 @@ async function load_resource_file_universal(resource_path) {
 
 function generate_tracked_field_decorations() {
     let result = [];
-    // FIXME make them of different colors
-    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
-    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
-    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('statusBar.background')}));
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack1')}));
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack2')}));
+    result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack3')}));
     return result;
 }
 
