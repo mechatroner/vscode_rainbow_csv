@@ -222,26 +222,21 @@
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
-                    "group": "common@8"
+                    "group": "common@7"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetCommentPrefix",
-                    "group": "common@7"
+                    "group": "common@6"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparator",
-                    "group": "common@6"
-                },
-                {
-                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
-                    "command": "rainbow-csv.RBQL",
                     "group": "common@5"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
-                    "command": "rainbow-csv.ToggleColumnTracking",
+                    "command": "rainbow-csv.RBQL",
                     "group": "common@4"
                 },
                 {
@@ -250,13 +245,13 @@
                     "group": "common@3"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /plaintext/",
-                    "command": "rainbow-csv.RainbowSeparatorOn",
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ToggleColumnTracking",
                     "group": "common@2"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
-                    "command": "rainbow-csv.RainbowSeparatorOff",
+                    "when": "editorTextFocus && editorLangId =~ /plaintext/",
+                    "command": "rainbow-csv.RainbowSeparatorOn",
                     "group": "common@1"
                 },
                 {
@@ -278,6 +273,11 @@
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.VirtualShrink",
                     "group": "virtual_align@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.RainbowSeparatorOff",
+                    "group": "xyzexit@1"
                 }
             ],
             "explorer/context": [

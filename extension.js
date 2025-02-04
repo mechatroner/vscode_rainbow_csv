@@ -607,9 +607,17 @@ function toggle_row_background() {
 }
 
 
+function register_column_tracking_decorations_provider() {
+    let decorations_provider = new ColumnTrackingDecorationsProvider();
+    if (column_tracking_decoration_event !== null) {
+        column_tracking_decoration_event.dispose();
+    }
+    // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
+    column_tracking_decoration_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
+}
+
+
 function toggle_column_tracking() {
-    // Always re-register the provider just in case, even when we actually disable the background since it shouldn't hurt.
-    register_row_background_decorations_provider();
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -618,6 +626,12 @@ function toggle_column_tracking() {
         return;
     let log_wrapper = new StackContextLogWrapper('toggle_column_tracking');
     log_wrapper.log_doc_event('starting', active_doc);
+
+    if (column_tracking_decoration_event == null) {
+        log_wrapper.log_simple_event('registering column tracking decorations');
+        register_column_tracking_decorations_provider();
+    }
+
     let position = ll_rainbow_utils().get_cursor_position_if_unambiguous(active_editor);
     if (!position) {
         return;
@@ -637,8 +651,11 @@ function toggle_column_tracking() {
         let decoration_type = trackings.get_decoration_type(cursor_position_info.column_number);
         // Use empty range array to reset the decorations.
         active_editor.setDecorations(decoration_type, []);
+        log_wrapper.log_doc_event('disabling column tracking', active_doc);
+    } else {
+        // FIXME find a way to refresh the decorations so that "enable" effect is immediately visible
+        log_wrapper.log_doc_event('enabling column tracking', active_doc);
     }
-    // It seems there is no need to explicitly do re-decoration for the "enable" case - it happens immediately anyway, no need to scroll around to see the effect.
     // FIXME find a csv with wide rows to demo word wrap approach benefits.
     if (!trackings.toggle_tracking(cursor_position_info.column_number)) {
         vscode.window.showErrorMessage(`Unable to track more than ${trackings.num_tracked()} columns`);
@@ -655,16 +672,6 @@ function register_row_background_decorations_provider() {
     }
     // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
     row_background_decoration_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
-}
-
-
-function register_column_tracking_decorations_provider() {
-    let decorations_provider = new ColumnTrackingDecorationsProvider();
-    if (column_tracking_decoration_event !== null) {
-        column_tracking_decoration_event.dispose();
-    }
-    // There is no way to register ranged decorations provider so we register a fake ranged semantic token provider that doesn't provide any tokens.
-    column_tracking_decoration_event = vscode.languages.registerDocumentRangeSemanticTokensProvider(get_all_rainbow_lang_selector(), decorations_provider, tokens_legend);
 }
 
 
@@ -2514,8 +2521,6 @@ async function activate(context) {
     if (get_from_config('highlight_rows', false)) {
         register_row_background_decorations_provider();
     }
-    // FIXME register only on first toggle!
-    register_column_tracking_decorations_provider();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
