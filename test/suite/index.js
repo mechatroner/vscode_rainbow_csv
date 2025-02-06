@@ -311,20 +311,8 @@ async function test_virtual_alignment(test_folder_uri) {
     let editor = await vscode.window.showTextDocument(active_doc);
     await sleep(1500);
     await vscode.commands.executeCommand('rainbow-csv.VirtualAlign');
-    // Scroll around to force screen refresh.
-    await sleep(500);
-    await vscode.commands.executeCommand("scrollLineDown");
-    await sleep(500);
-    await vscode.commands.executeCommand("scrollLineUp");
-    await sleep(500);
     await sleep(5000);
     await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
-    // Scroll around to force screen refresh.
-    await sleep(500);
-    await vscode.commands.executeCommand("scrollLineDown");
-    await sleep(500);
-    await vscode.commands.executeCommand("scrollLineUp");
-    await sleep(500);
     await sleep(5000);
 
     uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'synthetic_rfc_newline_data.csv');
@@ -335,6 +323,25 @@ async function test_virtual_alignment(test_folder_uri) {
     await sleep(5000);
     await vscode.commands.executeCommand('rainbow-csv.VirtualShrink');
     await sleep(1500);
+}
+
+
+async function test_column_tracking(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'column_tracking_test.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(2000);
+    for (let i = 0; i < 14; i++) {
+        await vscode.commands.executeCommand("cursorRight");
+    }
+    await sleep(500);
+    await vscode.commands.executeCommand('rainbow-csv.ToggleColumnTracking');
+    await sleep(2000);
+    for (let i = 0; i < 50; i++) {
+        await vscode.commands.executeCommand("cursorDown");
+        await sleep(10);
+    }
+    await sleep(2000);
 }
 
 
@@ -1001,6 +1008,8 @@ async function run() {
         }
 
         await test_virtual_alignment(test_folder_uri);
+        await test_column_tracking(test_folder_uri);
+        // FIXME add alternate background test.
         await test_align_shrink_lint(test_folder_uri);
         await test_double_width_chars_alignment(test_folder_uri);
         await test_column_edit(test_folder_uri);

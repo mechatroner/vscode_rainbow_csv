@@ -1,5 +1,9 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.17.0
+* New feature: Alternate row background highlighting.
+* New feature: Auxiliary column tracking.
+
 ## 3.16.0
 * Fix Virtual Align configuration by moving it into package.json.
 
