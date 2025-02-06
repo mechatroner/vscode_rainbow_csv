@@ -656,7 +656,6 @@ function toggle_column_tracking() {
     } else {
         log_wrapper.log_doc_event('enabling column tracking', active_doc);
     }
-    // FIXME find a csv with wide rows to demo word wrap approach benefits.
     if (!trackings.toggle_tracking(cursor_position_info.column_number)) {
         vscode.window.showErrorMessage(`Unable to track more than ${trackings.num_tracked()} columns`);
         return;
@@ -2141,6 +2140,9 @@ async function handle_config_change(_config_change_event) {
         log_wrapper.log_simple_event('logging enabled');
     }
     reconfigure_sticky_header_provider();
+    if (get_from_config('highlight_rows', false)) {
+        register_row_background_decorations_provider();
+    }
 }
 
 
@@ -2272,6 +2274,12 @@ function provide_row_background_decorations(active_editor, range) {
         return;
     }
     if (!row_background_enabled(document.fileName)) {
+        return;
+    }
+    let [_delim, policy, _comment_prefix] = get_dialect(document);
+    if (policy == QUOTED_RFC_POLICY) {
+        // FIXME handle rfc records here, do actuall parsing
+        // Currently this early return is needed here too because this provider can trigger for rfc dialects when background decorations are enabled by default.
         return;
     }
     let selection_start_line = -1;
