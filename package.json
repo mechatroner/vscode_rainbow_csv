@@ -357,6 +357,7 @@
         "commands": [
             {
                 "command": "rainbow-csv.CSVLint",
+                "category": "Rainbow CSV",
                 "title": "CSV Lint"
             },
             {
@@ -411,14 +412,17 @@
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
+                "category": "Rainbow CSV",
                 "title": "Disable Rainbow CSV"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOn",
+                "category": "Rainbow CSV",
                 "title": "Re-enable Rainbow CSV"
             },
             {
                 "command": "rainbow-csv.ToggleRowBackground",
+                "category": "Rainbow CSV",
                 "title": "Toggle Alternating Row Backgound"
             },
             {
@@ -443,6 +447,7 @@
             },
             {
                 "command": "rainbow-csv.CopyBack",
+                "category": "Rainbow CSV",
                 "title": "CopyBack"
             },
             {

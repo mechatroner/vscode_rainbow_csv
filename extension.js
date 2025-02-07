@@ -450,9 +450,11 @@ function enable_rainbow_ui(active_doc) {
     show_rbql_status_bar_button();
     show_align_shrink_button(active_doc.fileName);
     show_rbql_copy_to_source_button(active_doc.fileName);
-    show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
-
-    if (get_from_config('enable_cursor_position_info', false)) {
+    let cursor_position_info_enabled = get_from_config('enable_cursor_position_info', false);
+    if (cursor_position_info_enabled) {
+        show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
+    }
+    if (cursor_position_info_enabled || row_background_enabled(active_doc.fileName)) {
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
     }
 }
@@ -608,8 +610,12 @@ function toggle_row_background() {
         // Use empty range array to reset the decorations.
         active_editor.setDecorations(alternate_row_background_decoration_type, []);
     }
+
     // Always re-register the provider to force decorations update on toggle.
     register_row_background_decorations_provider();
+    if (keyboard_cursor_subscription == null) {
+        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    }
 }
 
 
@@ -2046,8 +2052,10 @@ async function handle_editor_switch(editor) {
 
 
 function do_handle_cursor_movement() {
-    if (!show_column_info_button() && column_info_button) {
-        column_info_button.hide();
+    if (get_from_config('enable_cursor_position_info', false)) {
+        if (!show_column_info_button() && column_info_button) {
+            column_info_button.hide();
+        }
     }
 }
 
