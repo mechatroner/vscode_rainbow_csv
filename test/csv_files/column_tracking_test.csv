@@ -1,0 +1,82 @@
+foo 1,foo 2,foo 3,foo 4
+3.8423,Tracking,12.5,TRACKING
+3.8423,"Test, Column, Tracking!",12.5,COLUMN
+12.5,Column,2000,TRACKING
+2000,Column,12.5,COLUMN
+3.8423,Tracking,10,COLUMN
+5,"Test, Column, Tracking!",12.5,TRACKING
+3.8423,Tracking,2000,COLUMN
+2000,Tracking,10,COLUMN
+3.8423,"Test, Column, Tracking!",5,TRACKING
+5,"Test, Column, Tracking!",2000,TRACKING
+2000,"Test, Column, Tracking!",2000,TRACKING
+3.8423,Column,5,COLUMN
+5,"Test, Column, Tracking!",5,COLUMN
+12.5,Column,10,COLUMN
+10,test column tracking,12.5,COLUMN
+5,test column tracking,12.5,COLUMN
+5,Column,12.5,COLUMN
+12.5,"Test, Column, Tracking!",10,COLUMN
+12.5,Column,3.8423,COLUMN
+10,test column tracking,2000,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,Tracking,3.8423,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,"Test, Column, Tracking!",3.8423,TRACKING
+3.8423,Tracking,5,TRACKING
+10,Tracking,5,TRACKING
+5,Tracking,10,COLUMN
+3.8423,Tracking,12.5,TRACKING
+3.8423,"Test, Column, Tracking!",12.5,COLUMN
+12.5,Column,2000,TRACKING
+2000,Column,12.5,COLUMN
+3.8423,Tracking,10,COLUMN
+5,"Test, Column, Tracking!",12.5,TRACKING
+3.8423,Tracking,2000,COLUMN
+2000,Tracking,10,COLUMN
+3.8423,"Test, Column, Tracking!",5,TRACKING
+5,"Test, Column, Tracking!",2000,TRACKING
+2000,"Test, Column, Tracking!",2000,TRACKING
+3.8423,Column,5,COLUMN
+5,"Test, Column, Tracking!",5,COLUMN
+12.5,Column,10,COLUMN
+10,test column tracking,12.5,COLUMN
+5,test column tracking,12.5,COLUMN
+5,Column,12.5,COLUMN
+12.5,"Test, Column, Tracking!",10,COLUMN
+12.5,Column,3.8423,COLUMN
+10,test column tracking,2000,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,Tracking,3.8423,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,"Test, Column, Tracking!",3.8423,TRACKING
+3.8423,Tracking,5,TRACKING
+10,Tracking,5,TRACKING
+5,Tracking,10,COLUMN
+3.8423,Tracking,12.5,TRACKING
+3.8423,"Test, Column, Tracking!",12.5,COLUMN
+12.5,Column,2000,TRACKING
+2000,Column,12.5,COLUMN
+3.8423,Tracking,10,COLUMN
+5,"Test, Column, Tracking!",12.5,TRACKING
+3.8423,Tracking,2000,COLUMN
+2000,Tracking,10,COLUMN
+3.8423,"Test, Column, Tracking!",5,TRACKING
+5,"Test, Column, Tracking!",2000,TRACKING
+2000,"Test, Column, Tracking!",2000,TRACKING
+3.8423,Column,5,COLUMN
+5,"Test, Column, Tracking!",5,COLUMN
+12.5,Column,10,COLUMN
+10,test column tracking,12.5,COLUMN
+5,test column tracking,12.5,COLUMN
+5,Column,12.5,COLUMN
+12.5,"Test, Column, Tracking!",10,COLUMN
+12.5,Column,3.8423,COLUMN
+10,test column tracking,2000,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,Tracking,3.8423,COLUMN
+3.8423,test column tracking,12.5,TRACKING
+12.5,"Test, Column, Tracking!",3.8423,TRACKING
+3.8423,Tracking,5,TRACKING
+10,Tracking,5,TRACKING
+5,Tracking,10,COLUMN
