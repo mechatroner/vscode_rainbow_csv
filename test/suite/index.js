@@ -345,6 +345,21 @@ async function test_column_tracking(test_folder_uri) {
 }
 
 
+async function test_alternate_row_background(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'alternate_row_background_test.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
+    await vscode.commands.executeCommand('rainbow-csv.ToggleRowBackground');
+    await sleep(2000);
+    for (let i = 0; i < 50; i++) {
+        await vscode.commands.executeCommand("cursorDown");
+        await sleep(10);
+    }
+    await sleep(6000);
+}
+
+
 async function test_align_shrink_lint(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -1009,7 +1024,7 @@ async function run() {
 
         await test_virtual_alignment(test_folder_uri);
         await test_column_tracking(test_folder_uri);
-        // FIXME add alternate background test.
+        await test_alternate_row_background(test_folder_uri);
         await test_align_shrink_lint(test_folder_uri);
         await test_double_width_chars_alignment(test_folder_uri);
         await test_column_edit(test_folder_uri);
