@@ -276,8 +276,23 @@
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditSelect",
+                    "group": "wgroup@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditBefore",
+                    "group": "wgroup@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditAfter",
+                    "group": "wgroup@3"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RainbowSeparatorOff",
-                    "group": "xyzexit@1"
+                    "group": "xgroup@1"
                 }
             ],
             "explorer/context": [
@@ -388,17 +403,17 @@
             {
                 "command": "rainbow-csv.ColumnEditBefore",
                 "category": "Rainbow CSV",
-                "title": "Column edit before"
+                "title": "Column edit - Before"
             },
             {
                 "command": "rainbow-csv.ColumnEditAfter",
                 "category": "Rainbow CSV",
-                "title": "Column edit after"
+                "title": "Column edit - After"
             },
             {
                 "command": "rainbow-csv.ColumnEditSelect",
                 "category": "Rainbow CSV",
-                "title": "Column edit select"
+                "title": "Column edit - Selection"
             },
             {
                 "command": "rainbow-csv.RainbowSeparator",
