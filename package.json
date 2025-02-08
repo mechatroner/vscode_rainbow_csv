@@ -35,6 +35,38 @@
     "main": "./extension",
     "browser": "./dist/web/extension.js",
     "contributes": {
+        "colors": [
+            {
+                "id": "rainbowtrack1",
+                "description": "Color for column tracking one.",
+                "defaults": {
+                    "dark": "#ff0000",
+                    "light": "#ff0000",
+                    "highContrast": "#ff0000",
+                    "highContrastLight": "#ff0000"
+                }
+            },
+            {
+                "id": "rainbowtrack2",
+                "description": "Color for column tracking two.",
+                "defaults": {
+                    "dark": "#00ff00",
+                    "light": "#00ff00",
+                    "highContrast": "#00ff00",
+                    "highContrastLight": "#00ff00"
+                }
+            },
+            {
+                "id": "rainbowtrack3",
+                "description": "Color for column tracking three.",
+                "defaults": {
+                    "dark": "#0000ff",
+                    "light": "#0000ff",
+                    "highContrast": "#0000ff",
+                    "highContrastLight": "#0000ff"
+                }
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "Rainbow CSV",
@@ -72,11 +104,17 @@
                     "order": 4,
                     "description": "Minimum number of non-comment lines in file for content-based autodetection."
                 },
+                "rainbow_csv.highlight_rows": {
+                    "type": "boolean",
+                    "default": false,
+                    "order": 5,
+                    "description": "Highlight rows with alternate background colors by default."
+                },
                 "rainbow_csv.virtual_alignment_mode": {
                     "type": "string",
                     "enum": ["disabled", "manual", "always"],
                     "enumDescriptions": ["Disabled. Align only when \"VirtualAlign\" command is executed", "Align when \"Align\" Status Bar button is clicked", "Automatically align all files"],
-                    "order": 5,
+                    "order": 6,
                     "default": "disabled",
                     "description": "Virtual alignment based on VSCode inlay hints that doesn't change underlying file content."
                 },
@@ -84,86 +122,86 @@
                     "type": "string",
                     "enum": ["middot", "space"],
                     "enumDescriptions": ["Middle dot", "Whitespace"],
-                    "order": 6,
+                    "order": 7,
                     "default": "middot",
                     "description": "Virtual alignment character."
                 },
                 "rainbow_csv.enable_tooltip": {
                     "type": "boolean",
                     "default": true,
-                    "order": 7,
+                    "order": 8,
                     "description": "Enable column-info tooltip on hover."
                 },
                 "rainbow_csv.enable_tooltip_column_names": {
                     "type": "boolean",
                     "default": true,
-                    "order": 8,
+                    "order": 9,
                     "description": "Show column names in tooltip."
                 },
                 "rainbow_csv.enable_cursor_position_info": {
                     "type": "boolean",
                     "default": true,
-                    "order": 9,
+                    "order": 10,
                     "description": "Keyboard input text cursor: show info about the cursor CSV column in the status bar."
                 },
                 "rainbow_csv.double_width_alignment": {
                     "type": "boolean",
                     "default": true,
-                    "order": 10,
+                    "order": 11,
                     "description": "If enabled treat double width unicode chars e.g. Chinese or Japanese chars as double wide when aligning."
                 },
                 "rainbow_csv.enable_auto_csv_lint": {
                     "type": "boolean",
                     "default": true,
-                    "order": 11,
+                    "order": 12,
                     "description": "Automatically run linter for every CSV file."
                 },
                 "rainbow_csv.csv_lint_detect_trailing_spaces": {
                     "type": "boolean",
                     "default": false,
-                    "order": 12,
+                    "order": 13,
                     "description": "CSV Lint: detect leading and trailing whitespaces in fields and show warning."
                 },
                 "rainbow_csv.comment_prefix": {
                     "type": "string",
                     "default": "",
-                    "order": 13,
+                    "order": 14,
                     "description": "Comment lines prefix, e.g. \"#\". Set to empty string to disable."
                 },
                 "rainbow_csv.rbql_output_dir": {
                     "type": "string",
                     "default": "TMP",
-                    "order": 14,
+                    "order": 15,
                     "description": "Output directory for RBQL result sets, can be `TMP`, `INPUT` or a custom absolute path. `TMP` - output in system tmp dir(default), `INPUT` - output in the same dir as input file, otherwise use provided path as the output directory e.g. `/path/to/custom/dir`."
                 },
                 "rainbow_csv.rbql_with_headers_by_default": {
                     "type": "boolean",
                     "default": false,
-                    "order": 15,
+                    "order": 16,
                     "description": "RBQL treats the first line as header by default."
                 },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",
                     "default": false,
-                    "order": 16,
+                    "order": 17,
                     "description": "Enable \"Preview CSV head\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.enable_context_menu_tail": {
                     "type": "boolean",
                     "default": false,
-                    "order": 17,
+                    "order": 18,
                     "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.align_in_scratch_file": {
                     "type": "boolean",
                     "default": false,
-                    "order": 18,
+                    "order": 19,
                     "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
                 },
                 "rainbow_csv.enable_debug_logging": {
                     "type": "boolean",
                     "default": false,
-                    "order": 19,
+                    "order": 20,
                     "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }
@@ -182,33 +220,38 @@
             ],
             "rainbow_csv.submenu": [
                 {
-                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
-                    "command": "rainbow-csv.RainbowSeparator",
-                    "group": "common@4"
-                },
-                {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
-                    "group": "common@6"
+                    "group": "common@7"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetCommentPrefix",
+                    "group": "common@6"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|plaintext|^[ct]sv/",
+                    "command": "rainbow-csv.RainbowSeparator",
                     "group": "common@5"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.RBQL",
+                    "group": "common@4"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ToggleRowBackground",
                     "group": "common@3"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ToggleColumnTracking",
+                    "group": "common@2"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /plaintext/",
                     "command": "rainbow-csv.RainbowSeparatorOn",
-                    "group": "common@2"
-                },
-                {
-                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
-                    "command": "rainbow-csv.RainbowSeparatorOff",
                     "group": "common@1"
                 },
                 {
@@ -230,6 +273,26 @@
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.VirtualShrink",
                     "group": "virtual_align@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditSelect",
+                    "group": "wgroup@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditBefore",
+                    "group": "wgroup@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ColumnEditAfter",
+                    "group": "wgroup@3"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.RainbowSeparatorOff",
+                    "group": "xgroup@1"
                 }
             ],
             "explorer/context": [
@@ -309,6 +372,7 @@
         "commands": [
             {
                 "command": "rainbow-csv.CSVLint",
+                "category": "Rainbow CSV",
                 "title": "CSV Lint"
             },
             {
@@ -339,17 +403,17 @@
             {
                 "command": "rainbow-csv.ColumnEditBefore",
                 "category": "Rainbow CSV",
-                "title": "Column edit before"
+                "title": "Column edit - Before"
             },
             {
                 "command": "rainbow-csv.ColumnEditAfter",
                 "category": "Rainbow CSV",
-                "title": "Column edit after"
+                "title": "Column edit - After"
             },
             {
                 "command": "rainbow-csv.ColumnEditSelect",
                 "category": "Rainbow CSV",
-                "title": "Column edit select"
+                "title": "Column edit - Selection"
             },
             {
                 "command": "rainbow-csv.RainbowSeparator",
@@ -357,12 +421,24 @@
                 "title": "Set rainbow separator"
             },
             {
+                "command": "rainbow-csv.ToggleColumnTracking",
+                "category": "Rainbow CSV",
+                "title": "Toggle Column Tracking"
+            },
+            {
                 "command": "rainbow-csv.RainbowSeparatorOff",
+                "category": "Rainbow CSV",
                 "title": "Disable Rainbow CSV"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOn",
+                "category": "Rainbow CSV",
                 "title": "Re-enable Rainbow CSV"
+            },
+            {
+                "command": "rainbow-csv.ToggleRowBackground",
+                "category": "Rainbow CSV",
+                "title": "Toggle Alternating Row Backgound"
             },
             {
                 "command": "rainbow-csv.Align",
@@ -386,6 +462,7 @@
             },
             {
                 "command": "rainbow-csv.CopyBack",
+                "category": "Rainbow CSV",
                 "title": "CopyBack"
             },
             {

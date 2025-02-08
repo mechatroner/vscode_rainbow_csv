@@ -3,10 +3,12 @@
 ## Main Features
 * Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
 * Transform and filter tables using built-in SQL-like query language.
+* Optional alternate highlighting for odd-even row background.
+* Augmented tracking of up to 3 columns of interest with auxiliary decorations.
+* Align columns graphically or with extra spaces and Shrink (trim spaces from fields).
 * Optional sticky header line.
 * Provide info about column on hover.
 * Automatic consistency check for csv files (CSVLint).
-* Align columns graphically or with extra spaces and Shrink (trim spaces from fields).
 * Multi-cursor column edit.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
@@ -93,6 +95,20 @@ You can align columns in CSV files by clicking "Align" status-line button or usi
 To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink" status-line button or use _Shrink_ command  
 
 
+#### Column Tracking
+You can track up to 3 columns of interest with auxiliary decorations to make them even more noticeable compared to color-only rainbow indication.  
+This is especially helpful for tables with multiple columns and/or when viewing the table in Row-Wrap i.e. word wrap mode.  
+Column Tracking is available via the editor context menu (Right click -> Rainbow CSV ...) or via the "ToggleColumnTracking" command.  
+
+#### Alternate Row Background Highlighting
+You can enable highlighting of odd and even rows with alternating background colors.  
+This is especially helpful for tables with multiple columns and/or when viewing the table in Row-Wrap i.e. word wrap mode.  
+
+Screenshot of Row-Wrap & Column Tracking & Alternating Row Background:
+![rowwrap](https://i.imgur.com/uTCT9Ft.png)
+
+
+
 ### Settings
 You can customize Rainbow CSV in the extension settings section of VSCode settings.  
 There you can find the list of available options and their description.  
@@ -154,15 +170,16 @@ Screenshot of RBQL Console:
 
 * WYSIWYG  
 * Familiar editing environment of your favorite text editor  
-* Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
 * High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.  
+* Ability to see the table in "Row Wrapped" display mode (via WordWrap editor setting) thus avoiding horizontal scrolling that prevents looking at all columns simultaneously. "Row Wrapped" display mode can be further augmented with targeted tracking of the columns of interest.  
+* Reduced-cost abstraction: Syntax highlighting can be local and therefore cheaper to compute compared to graphical column alignment that requires whole-doc statistic.
 * Color -> column association allows locating the column of interest more quickly when looking back and forth between the data and other objects on the screen (with column alignment one has to locate the header or count the columns to find the right one)
 * Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
 
 #### Disadvantages:
 
-* Rainbow CSV may be less effective for CSV files with many (> 10) columns and for files with multiline fields, although textual alignment can significantly improve the situation.  
-* Rainbow CSV may be less usable with light mode because font colors become less distinguishable when compared to a dark mode (this phenomenon is also described [here](https://eclecticlight.co/2018/10/11/beyond-mere-appearance-dark-mode-the-semantics-of-colour-and-text-without-print/)). This problem could be somewhat mitigated by using customized high-contrast rainbow colors (see color customization section).  
+* Rainbow CSV could be less effective for CSV files with many (> 10) columns and for files with multiline fields. This problem can be alleviated with textual or virtual alignment or auxiliary column tracking that provides targeted highlighting for the columns of interest. "Row Wrap" mode can even make Rainbow CSV more efficient for wide row tables than traditional graphical alignment in certain cases.
+* Rainbow CSV could be less usable with light mode because font colors become less distinguishable when compared to a dark mode (this phenomenon is also described [here](https://eclecticlight.co/2018/10/11/beyond-mere-appearance-dark-mode-the-semantics-of-colour-and-text-without-print/)). This problem could be somewhat mitigated by using customized high-contrast rainbow colors (see color customization section).  
 
 
 ### References
