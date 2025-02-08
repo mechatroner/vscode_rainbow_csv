@@ -595,7 +595,7 @@ function toggle_row_background() {
     let [_delim, policy, _comment_prefix] = get_dialect(active_doc);
     if (policy == QUOTED_RFC_POLICY) {
         // FIXME use correct parsing logic to be able to handle multiline records and correctly highlight them
-        show_single_line_error("Alternating row background highlighting is currently unavailable for CSVs with multiline records")
+        show_single_line_error("Alternating row background highlighting is currently unavailable for CSVs with multiline records");
         return;
     }
     let log_wrapper = new StackContextLogWrapper('toggle_row_background');
@@ -2057,16 +2057,14 @@ function do_handle_cursor_movement() {
             column_info_button.hide();
         }
     }
+    let active_editor = get_active_editor();
+    if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
+        provide_row_background_decorations(active_editor, active_editor.visibleRanges[0]);
+    }
 }
 
 
-function handle_cursor_movement(cursor_event) {
-    if (cursor_event) {
-        let text_editor = cursor_event.textEditor;
-        if (text_editor.visibleRanges && text_editor.visibleRanges.length) {
-            provide_row_background_decorations(text_editor, text_editor.visibleRanges[0]);
-        }
-    }
+function handle_cursor_movement(_cursor_event) {
     if (cursor_timeout_handle !== null) {
         clearTimeout(cursor_timeout_handle);
     }
