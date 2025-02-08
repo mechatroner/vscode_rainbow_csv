@@ -31,6 +31,7 @@ function ll_rainbow_utils() {
     return rainbow_utils;
 }
 
+// TODO consider checking `vscode.env.appHost == 'desktop'` instead.
 const is_web_ext = (os.homedir === undefined); // Runs as web extension in browser.
 var web_extension_uri = null;
 const preview_window_size = 100;
@@ -75,14 +76,16 @@ var rbql_preview_panel = null;
 var dialect_panel = null;
 
 var doc_first_edit_subscription = null;
-var keyboard_cursor_subscription = null;
+var column_info_cursor_subscription = null;
+var alt_background_cursor_subscription = null;
 
 var last_closed_rainbow_doc_info = null;
 
 var _unit_test_last_rbql_report = null; // For unit tests only.
 var _unit_test_last_warnings = null; // For unit tests only.
 
-let cursor_timeout_handle = null;
+let cursor_timeout_handle_for_column_info = null;
+let cursor_timeout_handle_for_alt_row_background = null;
 
 let rainbow_token_event = null;
 let comment_token_event = null;
@@ -453,10 +456,10 @@ function enable_rainbow_ui(active_doc) {
     let cursor_position_info_enabled = get_from_config('enable_cursor_position_info', false);
     if (cursor_position_info_enabled) {
         show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
+        column_info_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement_for_column_info);
     }
-    if (cursor_position_info_enabled || row_background_enabled(active_doc.fileName)) {
-        // TODO consider splitting this single subscription into two separate subscriptions: for column info and for row background.
-        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    if (row_background_enabled(active_doc.fileName)) {
+        alt_background_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement_for_alt_row_background);
     }
 }
 
@@ -614,8 +617,8 @@ function toggle_row_background() {
 
     // Always re-register the provider to force decorations update on toggle.
     register_row_background_decorations_provider();
-    if (keyboard_cursor_subscription == null) {
-        keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
+    if (alt_background_cursor_subscription == null) {
+        alt_background_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement_for_alt_row_background);
     }
 }
 
@@ -790,9 +793,13 @@ function disable_ui_elements() {
         if (all_buttons[i])
             all_buttons[i].hide();
     }
-    if (keyboard_cursor_subscription) {
-        keyboard_cursor_subscription.dispose();
-        keyboard_cursor_subscription = null;
+    if (column_info_cursor_subscription) {
+        column_info_cursor_subscription.dispose();
+        column_info_cursor_subscription = null;
+    }
+    if (alt_background_cursor_subscription) {
+        alt_background_cursor_subscription.dispose();
+        alt_background_cursor_subscription = null;
     }
 }
 
@@ -1215,8 +1222,8 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
                 await send_report_to_webview(webview, null, null);
                 await handle_rbql_result_file_web(result_doc, warnings);
-                extension_context.dynamic_dialect_for_next_request = null;
-                extension_context.autodetection_temporarily_disabled_for_rbql = false;
+                extension_context.dynamic_dialect_for_next_request = null; // FIXME put in the finally block otherwise might never be reset, same issue below
+                extension_context.autodetection_temporarily_disabled_for_rbql = false; // FIXME put in the finally block otherwise might never be reset, same issue below
                 log_wrapper.log_simple_event('finished OK');
             } else {
                 log_wrapper.log_simple_event('using electron mode');
@@ -2052,12 +2059,23 @@ async function handle_editor_switch(editor) {
 }
 
 
-function do_handle_cursor_movement() {
-    if (get_from_config('enable_cursor_position_info', false)) {
-        if (!show_column_info_button() && column_info_button) {
-            column_info_button.hide();
-        }
+function do_handle_cursor_movement_for_column_info() {
+    if (!show_column_info_button() && column_info_button) {
+        column_info_button.hide();
     }
+}
+
+
+function handle_cursor_movement_for_column_info(_cursor_event) {
+    if (cursor_timeout_handle_for_column_info !== null) {
+        clearTimeout(cursor_timeout_handle_for_column_info);
+    }
+    // We need timeout delay here to deduplicate/debounce events from multiple consecutive movements, see https://stackoverflow.com/a/49050990/2898283.
+    cursor_timeout_handle_for_column_info = setTimeout(() => do_handle_cursor_movement_for_column_info(), 10);
+}
+
+
+function do_handle_cursor_movement_for_row_background() {
     let active_editor = get_active_editor();
     if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
         provide_row_background_decorations(active_editor, active_editor.visibleRanges[0]);
@@ -2065,12 +2083,12 @@ function do_handle_cursor_movement() {
 }
 
 
-function handle_cursor_movement(_cursor_event) {
-    if (cursor_timeout_handle !== null) {
-        clearTimeout(cursor_timeout_handle);
+function handle_cursor_movement_for_alt_row_background(_cursor_event) {
+    if (cursor_timeout_handle_for_alt_row_background !== null) {
+        clearTimeout(cursor_timeout_handle_for_alt_row_background);
     }
     // We need timeout delay here to deduplicate/debounce events from multiple consecutive movements, see https://stackoverflow.com/a/49050990/2898283.
-    cursor_timeout_handle = setTimeout(() => do_handle_cursor_movement(), 10);
+    cursor_timeout_handle_for_alt_row_background = setTimeout(() => do_handle_cursor_movement_for_row_background(), 10);
 }
 
 
