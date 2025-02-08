@@ -455,6 +455,7 @@ function enable_rainbow_ui(active_doc) {
         show_column_info_button(); // This function finds active_doc internally, but the possible inconsistency is harmless.
     }
     if (cursor_position_info_enabled || row_background_enabled(active_doc.fileName)) {
+        // TODO consider splitting this single subscription into two separate subscriptions: for column info and for row background.
         keyboard_cursor_subscription = vscode.window.onDidChangeTextEditorSelection(handle_cursor_movement);
     }
 }
