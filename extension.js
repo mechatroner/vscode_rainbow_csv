@@ -13,6 +13,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME add an integration test with vertical grid
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -42,6 +44,8 @@ let whitespace_aligned_files = new Set();
 
 let alternate_row_background_decoration_type = null;
 let tracked_field_decoration_types = [];
+
+let vertical_grid_decoration_type = null;
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -1503,7 +1507,14 @@ async function column_edit(edit_mode) {
 
 
 async function virtual_shrink_table() {
-    let active_doc = get_active_doc();
+    let active_editor = get_active_editor();
+    let active_doc = get_active_doc(active_editor);
+    if (!active_doc) {
+        return;
+    }
+    if (vertical_grid_decoration_type) {
+        active_editor.setDecorations(vertical_grid_decoration_type, []);
+    }
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_DISABLED);
     // Call reenable_inlay_hints_provider to immediately get rid of existing inlay hints.
     reenable_inlay_hints_provider();
@@ -2156,6 +2167,7 @@ async function handle_doc_close(doc_to_close) {
     log_wrapper.log_simple_event('finalizing');
 }
 
+
 async function handle_config_change(_config_change_event) {
     // Here `_config_change_event` allows to check if a specific configuration was affected but another way to do this is just to compare before and after values.
     let logging_enabled_before = extension_context.logging_enabled;
@@ -2168,8 +2180,8 @@ async function handle_config_change(_config_change_event) {
     if (get_from_config('highlight_rows', false)) {
         register_row_background_decorations_provider();
     }
+    reset_vertical_grid_decorations();
 }
-
 
 
 function quote_field(field, delim) {
@@ -2441,6 +2453,24 @@ class InlayHintProvider {
         }
         let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
+
+        // We can't have a separate vertical grid decorations provider because vertical grid doesn't quite work without guaranteed virtual alignment.
+        // So vertical grid logic piggybacks on the inlay hints decorations.
+        if (vertical_grid_decoration_type) {
+            // This wouldn't work that great with some double-width characters that can't be properly aligned.
+            let active_editor = get_active_editor();
+            if (active_editor && active_editor.document && active_editor.document.fileName == document.fileName) {
+                let delim_ranges = [];
+                for (let row_info of table_ranges) {
+                    if (row_info.comment_range !== null) {
+                        continue;
+                    } 
+                    delim_ranges = delim_ranges.concat(row_info.delim_ranges);
+                }
+                active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
+            }
+        }
+
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
@@ -2470,13 +2500,23 @@ async function load_resource_file_universal(resource_path) {
 }
 
 
-function generate_tracked_field_decorations() {
+function generate_tracked_field_decoration_types() {
     let result = [];
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack1')}));
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack2')}));
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack3')}));
     return result;
 }
+
+
+function reset_vertical_grid_decorations() {
+    if (get_from_config('enable_virtual_alignment_grid', false)) {
+        vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({borderColor: new vscode.ThemeColor('rainbowtrack1'), borderStyle: 'solid', borderWidth: '0px 1px 0px 0px'});
+    } else {
+        vertical_grid_decoration_type = null;
+    }
+}
+
 
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
@@ -2540,6 +2580,7 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
+    reset_vertical_grid_decorations();
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 
@@ -2579,10 +2620,11 @@ async function activate(context) {
     context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
+    // FIXME make virtual align settings dynamic again, it just doesn't work reliably when static
 
     // TODO consider making the background color customizable in settings, use "color" contribution point to achieve this, although there seem to be no way to actually conveniently customize it.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
-    tracked_field_decoration_types = generate_tracked_field_decorations();
+    tracked_field_decoration_types = generate_tracked_field_decoration_types();
 
     // Need this because "onDidOpenTextDocument()" doesn't get called for the first open document.
     // Another issue is when dev debug logging mode is enabled, the first document would be "Log" because it is printing something and gets VSCode focus.
