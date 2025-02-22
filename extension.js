@@ -9,8 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME get rid of scratch file alignment in the next iteration.
-
+// TODO get rid of scratch file alignment in the next iteration.
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
 // FIXME add an integration test with vertical grid
@@ -565,12 +564,35 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
             }
         }
     }
-    // A previous implementation contained manual config modification here (inlayHints.maximumLength and others),
-    // But it turns out customizing these settings as `configurationDefaults` in package.json also work, although sometimes you need to click back and forth for the first alignment.
-    // Another option to ensure that `configurationDefaults` in package.json is to set inlayHints.maximumLength to a small value e.g. `3` and verify that it shows 3 dots max.
 
-    // It would be nice to disable word wrap for the current editor only if aligned (because tables don't wrap) and then enable word wrap again, but there is no way to do this currently.
-    // Permanent disabling of wordWrap for csvs is a bad idea because in non-aligned mode it actually becomes an advantage for Rainbow non-alignment high info density paradigm.
+    try {
+        let config = vscode.workspace.getConfiguration('editor', {languageId: language_id});
+        // Adjusting these settings as `configurationDefaults` in package.json doesn't work reliably, so we set it here dynamically.
+        // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
+        // Adjusting these settings on the workspace level doesn't quite work because VSCode doesn't always have an active workspace, e.g. you can click [Close Workspace] from the main [File] menu to reproduce the problem. So we adjust the settings on global level instead which should always work.
+        let update_global_settings = true;
+        if (config.get('inlayHints.maximumLength') != 0) {
+            // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
+            await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.maximumLength = 0 for "${language_id}"`);
+        }
+        if (config.get('inlayHints.fontFamily') != '') {
+            await config.update('inlayHints.fontFamily', '', /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.fontFamily = '' for "${language_id}"`);
+        }
+        if (config.get('inlayHints.fontSize') != '') {
+            await config.update('inlayHints.fontSize', '', /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.fontSize = '' for "${language_id}"`);
+        }
+        if (config.get('inlayHints.padding') != '') {
+            await config.update('inlayHints.padding', '', /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.padding = '' for "${language_id}"`);
+        }
+        // It would be nice to disable word wrap for the current editor only if aligned (because tables don't wrap) and then enable word wrap again, but there is no way to do this currently.
+        // Permanent disabling of wordWrap for csvs is a bad idea because in non-aligned mode it actually becomes an advantage for Rainbow non-alignment high info density paradigm.
+    } catch (e) {
+        log_wrapper.log_doc_event("Failed to update inlay hints user settings: " + e);
+    }
 }
 
 
@@ -2320,7 +2342,7 @@ function provide_row_background_decorations(active_editor, range) {
     }
     let [_delim, policy, _comment_prefix] = get_dialect(document);
     if (policy == QUOTED_RFC_POLICY) {
-        // FIXME handle rfc records here, do actuall parsing
+        // TODO handle rfc records here, do actuall parsing
         // Currently this early return is needed here too because this provider can trigger for rfc dialects when background decorations are enabled by default.
         return;
     }
@@ -2627,7 +2649,6 @@ async function activate(context) {
     context.subscriptions.push(doc_close_event);
     context.subscriptions.push(switch_event);
     context.subscriptions.push(config_change_event);
-    // FIXME make virtual align settings dynamic again, it just doesn't work reliably when static
 
     // TODO consider making the background color customizable in settings, use "color" contribution point to achieve this, although there seem to be no way to actually conveniently customize it.
     alternate_row_background_decoration_type = vscode.window.createTextEditorDecorationType({backgroundColor: new vscode.ThemeColor('tab.inactiveBackground'), isWholeLine: true});
