@@ -308,7 +308,7 @@ function get_from_config(param_name, default_value, config=null) {
 }
 
 class TrackedColumns {
-    // FIXME move to rainbow_utils.js and add unit tests
+    // TODO move to rainbow_utils.js and add unit tests
     constructor() {
         this.column_to_decoration_id = new Map();
     }
@@ -1226,8 +1226,8 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 result_doc = await vscode.workspace.openTextDocument(output_doc_cfg);
                 await send_report_to_webview(webview, null, null);
                 await handle_rbql_result_file_web(result_doc, warnings);
-                extension_context.dynamic_dialect_for_next_request = null; // FIXME put in the finally block otherwise might never be reset, same issue below
-                extension_context.autodetection_temporarily_disabled_for_rbql = false; // FIXME put in the finally block otherwise might never be reset, same issue below
+                extension_context.dynamic_dialect_for_next_request = null;
+                extension_context.autodetection_temporarily_disabled_for_rbql = false;
                 log_wrapper.log_simple_event('finished OK');
             } else {
                 log_wrapper.log_simple_event('using electron mode');
@@ -1246,6 +1246,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 log_wrapper.log_simple_event('finished OK');
             }
         } catch (e) {
+            extension_context.autodetection_temporarily_disabled_for_rbql = false;
             let [error_type, error_msg] = ll_rbql_csv().exception_to_error_info(e);
             log_wrapper.log_simple_event('finished with error');
             await send_report_to_webview(webview, error_type, error_msg);
@@ -1275,10 +1276,14 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
         extension_context.autodetection_stoplist.add(output_path);
         result_set_parent_map.set(safe_lower(output_path), input_path);
         extension_context.autodetection_temporarily_disabled_for_rbql = true;
-        let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
-        let output_doc = await vscode.workspace.openTextDocument(output_path);
-        extension_context.autodetection_temporarily_disabled_for_rbql = false;
+        let output_doc = null;
+        try {
+            output_doc = await vscode.workspace.openTextDocument(output_path);
+        } finally {
+            extension_context.autodetection_temporarily_disabled_for_rbql = false;
+        }
         // We need dynamic_dialect_for_next_request here because we can't open the output_doc with DYNAMIC_CSV, it will be switched on doc-ropen.
+        let target_language_id = map_dialect_to_language_id(output_delim, output_policy);
         if (target_language_id == DYNAMIC_CSV) {
             extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
         }
@@ -2465,7 +2470,7 @@ class InlayHintProvider {
                 for (let row_info of table_ranges) {
                     if (row_info.comment_range !== null) {
                         continue;
-                    } 
+                    }
                     delim_ranges = delim_ranges.concat(row_info.delim_ranges);
                 }
                 active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
