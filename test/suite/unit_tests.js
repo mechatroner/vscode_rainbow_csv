@@ -968,6 +968,7 @@ function line_range_to_triple(vscode_range) {
 function convert_ranges_to_triples(table_ranges) {
     let table_comment_ranges = [];
     let table_record_ranges = [];
+    let table_delim_ranges = [];
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
             assert(row_info.record_ranges === null);
@@ -983,9 +984,10 @@ function convert_ranges_to_triples(table_ranges) {
                 row_triple_groups.push(field_triples);
             }
             table_record_ranges.push(row_triple_groups);
+            table_delim_ranges.push(row_info.delim_ranges.map(v => line_range_to_triple(v)))
         }
     }
-    return [table_comment_ranges, table_record_ranges];
+    return [table_comment_ranges, table_record_ranges, table_delim_ranges];
 }
 
 function vr(l1, c1, l2, c2) {
@@ -1000,7 +1002,7 @@ function fvr(l, c1, c2) {
 
 function test_parse_document_range_single_line() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range] = [null, null, null, null, null, null];
-    let [table_ranges, table_comment_ranges, table_record_ranges] = [null, null, null];
+    let [table_ranges, table_comment_ranges, table_record_ranges, table_delim_ranges] = [null, null, null, null];
     let [record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3] = [null, null, null, null];
 
     // Simple test case.
@@ -1016,11 +1018,12 @@ function test_parse_document_range_single_line() {
     policy = 'simple';
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
+    assert.deepEqual([[fvr(1, 2, 3)], [fvr(2, 2, 3)]], table_delim_ranges)
 
     // Simple test case without delim inclusion.
     doc_lines = [
@@ -1035,7 +1038,7 @@ function test_parse_document_range_single_line() {
     policy = 'simple';
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 2)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 2)], [fvr(2, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
@@ -1054,7 +1057,7 @@ function test_parse_document_range_single_line() {
     policy = 'simple';
     range = new vscode_test_double.Range(1, 0, 4, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
     record_ranges_3 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
@@ -1074,7 +1077,7 @@ function test_parse_document_range_single_line() {
     policy = 'quoted';
     range = new vscode_test_double.Range(1, 0, 4, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_3 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_3], table_record_ranges);
@@ -1094,7 +1097,7 @@ function test_parse_document_range_single_line() {
     policy = 'simple';
     range = new vscode_test_double.Range(1, 0, 10, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
     record_ranges_3 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
@@ -1115,7 +1118,7 @@ function test_parse_document_range_single_line() {
     policy = 'simple';
     range = new vscode_test_double.Range(0, 0, 5, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/100);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
@@ -1138,7 +1141,7 @@ function test_parse_document_range_single_line() {
     // The range covers only one line, but the default margin=50 should extend it to cover everything.
     range = new vscode_test_double.Range(2, 0, 2, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
@@ -1150,7 +1153,7 @@ function test_parse_document_range_single_line() {
 
 function test_parse_document_range_rfc() {
     let [doc_lines, active_doc, comment_prefix, delim, range] = [null, null, null, null, null];
-    let [table_ranges, table_comment_ranges, table_record_ranges] = [null, null, null];
+    let [table_ranges, table_comment_ranges, table_record_ranges, table_delim_ranges] = [null, null, null, null];
     let [record_ranges_0, record_ranges_1, record_ranges_2, record_ranges_3] = [null, null, null, null];
 
     // Simple test case.
@@ -1165,7 +1168,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
@@ -1183,7 +1186,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 3, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 2)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 2)], [fvr(2, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);
@@ -1201,7 +1204,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 4, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
     record_ranges_3 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
@@ -1221,7 +1224,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 5, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/100);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
@@ -1243,7 +1246,7 @@ function test_parse_document_range_rfc() {
     // The range covers only one line, but the default margin=50 should extend it to cover everything.
     range = new vscode_test_double.Range(2, 0, 2, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 5)]];
@@ -1264,7 +1267,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 4, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/100);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 5), fvr(3, 0, 4)], [fvr(3, 4, 6)]];
     assert.deepEqual([record_ranges_0], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
@@ -1280,10 +1283,11 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 4, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/100);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6)], [fvr(0, 6, 9), fvr(1, 0, 5)], [fvr(1, 5, 15)], [fvr(1, 15, 18)], [fvr(1, 18, 21), fvr(2, 0, 6)]];
     assert.deepEqual([record_ranges_0], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
+    assert.deepEqual([[fvr(0, 2, 3), fvr(0, 5, 6), fvr(1, 4, 5), fvr(1, 14, 15), fvr(1, 17, 18)]], table_delim_ranges);
 
     // Discard some parsed lines which belongs to a record starting outside the parsing range
     doc_lines = [
@@ -1298,7 +1302,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 20, 0); // doesn't include first line with the openning double quote.
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
     assert.deepEqual([record_ranges_0], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
@@ -1316,7 +1320,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 20, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 5), fvr(3, 0, 6)]];
     record_ranges_1 = [[fvr(4, 0, 3)], [fvr(4, 3, 5)]];
     assert.deepEqual([record_ranges_0, record_ranges_1], table_record_ranges);
@@ -1336,7 +1340,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 5, 0); // doesn't include the last line with the closing double quote.
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     assert.deepEqual([record_ranges_0, record_ranges_1], table_record_ranges);
@@ -1356,7 +1360,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 6, 0); // doesn't include the last line with the closing double quote.
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 5)]];
     record_ranges_1 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     record_ranges_2 = [[fvr(2, 0, 3)], [fvr(2, 3, 6), fvr(3, 0, 5), fvr(4, 0, 5), fvr(5, 0, 6)]];
@@ -1381,7 +1385,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 6, 0); // doesn't include the last line with the closing double quote.
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     assert.deepEqual([], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
 
@@ -1400,7 +1404,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 6, 0); // doesn't include the last line with the closing double quote.
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(1, 0, 3)], [fvr(1, 3, 5)]];
     // Note that the third line `c1","c2` is not parsed because since parser assumes it to be an independent record it contains syntax errors.
     record_ranges_1 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
@@ -1424,7 +1428,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(1, 0, 7, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     assert.deepEqual([], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
 
@@ -1444,7 +1448,7 @@ function test_parse_document_range_rfc() {
     delim = ',';
     range = new vscode_test_double.Range(0, 0, 7, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_0 = [[fvr(0, 0, 3)], [fvr(0, 3, 6), fvr(1, 0, 5), fvr(2, 0, 4)], [fvr(2, 4, 7), fvr(3, 0, 5), fvr(4, 0, 12), fvr(5, 0, 5), fvr(6, 0, 4)], [fvr(6, 4, 6)]];
     assert.deepEqual([record_ranges_0], table_record_ranges);
     assert.deepEqual([], table_comment_ranges);
@@ -1471,7 +1475,7 @@ function test_parse_document_range_rfc() {
     delim = ';';
     range = new vscode_test_double.Range(1, 0, 8, 0);
     table_ranges = rainbow_utils.parse_document_range_rfc(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range, /*custom_parsing_margin=*/0);
-    [table_comment_ranges, table_record_ranges] = convert_ranges_to_triples(table_ranges);
+    [table_comment_ranges, table_record_ranges, table_delim_ranges] = convert_ranges_to_triples(table_ranges);
     record_ranges_1 = [[fvr(3, 0, 3)], [fvr(3, 3, 5)]];
     record_ranges_2 = [[fvr(5, 0, 3)], [fvr(5, 3, 5)]];
     assert.deepEqual([record_ranges_1, record_ranges_2], table_record_ranges);

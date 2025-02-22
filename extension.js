@@ -2458,6 +2458,7 @@ class InlayHintProvider {
         // So vertical grid logic piggybacks on the inlay hints decorations.
         if (vertical_grid_decoration_type) {
             // This wouldn't work that great with some double-width characters that can't be properly aligned.
+            // TODO we should also try to fix this for multiline (rfc) records and prevent missing decorations over virtual whitespace chars. Perhaps also rename delim_ranges -> border_ranges?
             let active_editor = get_active_editor();
             if (active_editor && active_editor.document && active_editor.document.fileName == document.fileName) {
                 let delim_ranges = [];
@@ -2511,6 +2512,7 @@ function generate_tracked_field_decoration_types() {
 
 function reset_vertical_grid_decorations() {
     if (get_from_config('enable_virtual_alignment_grid', false)) {
+        // TODO Experiment with setting thicker border width, e.g. 2 or 3 px. For this to work nicely we need to add extra aligning whitespace at the start of a word to prevent the border from overlaping with the first character in a cell. This would allow to switch to a more neutral border color.
         vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({borderColor: new vscode.ThemeColor('rainbowtrack1'), borderStyle: 'solid', borderWidth: '0px 1px 0px 0px'});
     } else {
         vertical_grid_decoration_type = null;

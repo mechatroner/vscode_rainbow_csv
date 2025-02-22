@@ -864,7 +864,6 @@ class RowInfo {
     // TODO consider adding parsing_error_range.
     constructor(record_ranges, delim_ranges, record_fields, comment_range) {
         this.record_ranges = record_ranges;
-        // FIXME unit tests to reflect delim_ranges changes?
         this.delim_ranges = delim_ranges;
         this.record_fields = record_fields;
         this.comment_range = comment_range;
