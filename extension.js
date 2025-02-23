@@ -12,8 +12,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
-// FIXME add an integration test with vertical grid
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
