@@ -40,6 +40,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let whitespace_aligned_files = new Set();
 
+let alternate_row_background_decoration_type = null;
 let tracked_field_decoration_types = [];
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
@@ -1530,8 +1531,7 @@ async function column_edit(edit_mode) {
 
 
 async function virtual_shrink_table() {
-    let active_editor = get_active_editor();
-    let active_doc = get_active_doc(active_editor);
+    let active_doc = get_active_doc();
     if (!active_doc) {
         return;
     }
