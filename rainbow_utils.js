@@ -372,7 +372,8 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                 }
                 if (num_after > 0) {
-                    let hint_label = alignment_char.repeat(num_after);
+                    let hint_label = alignment_char.repeat(num_after - 1);
+                    hint_label += '\u2588';
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                 }
             }

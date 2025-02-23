@@ -11,6 +11,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
+// FIXME improve readme and add a new screenshot
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -2481,21 +2482,21 @@ class InlayHintProvider {
 
         // We can't have a separate vertical grid decorations provider because vertical grid doesn't quite work without guaranteed virtual alignment.
         // So vertical grid logic piggybacks on the inlay hints decorations.
-        if (vertical_grid_decoration_type) {
-            // This wouldn't work that great with some double-width characters that can't be properly aligned.
-            // TODO we should also try to fix this for multiline (rfc) records and prevent missing decorations over virtual whitespace chars. Perhaps also rename delim_ranges -> border_ranges?
-            let active_editor = get_active_editor();
-            if (active_editor && active_editor.document && active_editor.document.fileName == document.fileName) {
-                let delim_ranges = [];
-                for (let row_info of table_ranges) {
-                    if (row_info.comment_range !== null) {
-                        continue;
-                    }
-                    delim_ranges = delim_ranges.concat(row_info.delim_ranges);
-                }
-                active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
-            }
-        }
+        //if (vertical_grid_decoration_type) {
+        //    // This wouldn't work that great with some double-width characters that can't be properly aligned.
+        //    // TODO we should also try to fix this for multiline (rfc) records and prevent missing decorations over virtual whitespace chars. Perhaps also rename delim_ranges -> border_ranges?
+        //    let active_editor = get_active_editor();
+        //    if (active_editor && active_editor.document && active_editor.document.fileName == document.fileName) {
+        //        let delim_ranges = [];
+        //        for (let row_info of table_ranges) {
+        //            if (row_info.comment_range !== null) {
+        //                continue;
+        //            }
+        //            delim_ranges = delim_ranges.concat(row_info.delim_ranges);
+        //        }
+        //        active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
+        //    }
+        //}
 
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
