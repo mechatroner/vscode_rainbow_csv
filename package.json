@@ -126,12 +126,6 @@
                     "default": "middot",
                     "description": "Virtual alignment character."
                 },
-                "rainbow_csv.enable_virtual_alignment_grid": {
-                    "type": "boolean",
-                    "order": 8,
-                    "default": false,
-                    "description": "Show vertical grid when virtual alignment is active."
-                },
                 "rainbow_csv.enable_tooltip": {
                     "type": "boolean",
                     "default": true,

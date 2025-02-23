@@ -40,10 +40,7 @@ const dynamic_csv_highlight_margin = 50; // TODO make configurable
 
 let whitespace_aligned_files = new Set();
 
-let alternate_row_background_decoration_type = null;
 let tracked_field_decoration_types = [];
-
-let vertical_grid_decoration_type = null;
 
 // TODO consider wrapping this into a class with enable()/disable() methods. The class could also access the global virtual alignment mode.
 let custom_virtual_alignment_modes = new Map(); // file_name -> VA_EXPLICITLY_ENABLED|VA_EXPLICITLY_DISABLED
@@ -1538,9 +1535,6 @@ async function virtual_shrink_table() {
     if (!active_doc) {
         return;
     }
-    if (vertical_grid_decoration_type) {
-        active_editor.setDecorations(vertical_grid_decoration_type, []);
-    }
     custom_virtual_alignment_modes.set(active_doc.fileName, VA_EXPLICITLY_DISABLED);
     // Call reenable_inlay_hints_provider to immediately get rid of existing inlay hints.
     reenable_inlay_hints_provider();
@@ -2206,7 +2200,6 @@ async function handle_config_change(_config_change_event) {
     if (get_from_config('highlight_rows', false)) {
         register_row_background_decorations_provider();
     }
-    reset_vertical_grid_decorations();
 }
 
 
@@ -2480,24 +2473,6 @@ class InlayHintProvider {
         let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
 
-        // We can't have a separate vertical grid decorations provider because vertical grid doesn't quite work without guaranteed virtual alignment.
-        // So vertical grid logic piggybacks on the inlay hints decorations.
-        //if (vertical_grid_decoration_type) {
-        //    // This wouldn't work that great with some double-width characters that can't be properly aligned.
-        //    // TODO we should also try to fix this for multiline (rfc) records and prevent missing decorations over virtual whitespace chars. Perhaps also rename delim_ranges -> border_ranges?
-        //    let active_editor = get_active_editor();
-        //    if (active_editor && active_editor.document && active_editor.document.fileName == document.fileName) {
-        //        let delim_ranges = [];
-        //        for (let row_info of table_ranges) {
-        //            if (row_info.comment_range !== null) {
-        //                continue;
-        //            }
-        //            delim_ranges = delim_ranges.concat(row_info.delim_ranges);
-        //        }
-        //        active_editor.setDecorations(vertical_grid_decoration_type, delim_ranges);
-        //    }
-        //}
-
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
@@ -2533,16 +2508,6 @@ function generate_tracked_field_decoration_types() {
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack2')}));
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack3')}));
     return result;
-}
-
-
-function reset_vertical_grid_decorations() {
-    if (get_from_config('enable_virtual_alignment_grid', false)) {
-        // TODO Experiment with setting thicker border width, e.g. 2 or 3 px. For this to work nicely we need to add extra aligning whitespace at the start of a word to prevent the border from overlaping with the first character in a cell. This would allow to switch to a more neutral border color.
-        vertical_grid_decoration_type = vscode.window.createTextEditorDecorationType({borderColor: new vscode.ThemeColor('rainbowtrack1'), borderStyle: 'solid', borderWidth: '0px 1px 0px 0px'});
-    } else {
-        vertical_grid_decoration_type = null;
-    }
 }
 
 
@@ -2608,7 +2573,6 @@ async function activate(context) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
-    reset_vertical_grid_decorations();
     enable_dynamic_semantic_tokenization();
     reconfigure_sticky_header_provider();
 

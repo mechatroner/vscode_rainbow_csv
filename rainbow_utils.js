@@ -808,7 +808,6 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
 function make_multiline_row_info(vscode, delim_length, include_delim_length_in_ranges, newline_marker, fields, start_line, expected_end_line_for_control) {
     // Semantic ranges in VSCode can't span multiple lines, so we use this workaround.
     let record_ranges = [];
-    let delim_ranges = [];
     let record_fields = [];
     let lnum_current = start_line;
     let pos_in_editor_line = 0;
@@ -832,7 +831,6 @@ function make_multiline_row_info(vscode, delim_length, include_delim_length_in_r
         next_pos_in_editor_line += fields[i].length - pos_in_multiline_field;
         let current_range_end = next_pos_in_editor_line;
         if (i + 1 < fields.length) {
-            delim_ranges.push(new vscode.Range(lnum_current, next_pos_in_editor_line, lnum_current, next_pos_in_editor_line + delim_length));
             next_pos_in_editor_line += delim_length;
             if (include_delim_length_in_ranges) {
                 current_range_end = next_pos_in_editor_line;
@@ -849,7 +847,7 @@ function make_multiline_row_info(vscode, delim_length, include_delim_length_in_r
     if (lnum_current != expected_end_line_for_control) {
         return null;
     }
-    return new RowInfo(record_ranges, delim_ranges, record_fields, /*comment_prefix=*/null);
+    return new RowInfo(record_ranges, record_fields, /*comment_prefix=*/null);
 }
 
 
@@ -863,9 +861,8 @@ function is_opening_rfc_line(line_text, delim) {
 
 class RowInfo {
     // TODO consider adding parsing_error_range.
-    constructor(record_ranges, delim_ranges, record_fields, comment_range) {
+    constructor(record_ranges, record_fields, comment_range) {
         this.record_ranges = record_ranges;
-        this.delim_ranges = delim_ranges;
         this.record_fields = record_fields;
         this.comment_range = comment_range;
     }
@@ -898,7 +895,7 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
         }
         if (line_aggregator.has_comment_line) {
             let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length);
-            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*delim_ranges=*/null, /*record_fields=*/null, comment_range));
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range));
             line_aggregator.reset();
         } else if (line_aggregator.has_full_record) {
             const newline_marker = '\r\n'; // Use '\r\n' here to guarantee that this sequence is not present anywhere in the lines themselves. We also compare expected_end_line_for_control at the end.
@@ -928,13 +925,12 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];
-        let delim_ranges = [];
         let line_text = doc.lineAt(lnum).text;
         if (lnum + 1 == doc.lineCount && !line_text)
             break;
         if (comment_prefix && line_text.startsWith(comment_prefix)) {
             let comment_range = new vscode.Range(lnum, 0, lnum, line_text.length);
-            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*delim_ranges=*/null, /*record_fields=*/null, comment_range));
+            table_ranges.push(new RowInfo(/*record_ranges=*/null, /*record_fields=*/null, comment_range));
             continue;
         }
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
@@ -948,7 +944,6 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
             next_cpos += fields[i].length;
             let current_range_end = next_cpos;
             if (i + 1 < fields.length) {
-                delim_ranges.push(new vscode.Range(lnum, next_cpos, lnum, next_cpos + delim.length));
                 next_cpos += delim.length;
                 if (include_delim_length_in_ranges) {
                     current_range_end = next_cpos;
@@ -960,7 +955,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
             // From semantic tokenization perspective the end of token doesn't include the last character of vscode.Range i.e. it treats the range as [) interval, unlike the Range.contains() function which treats ranges as [] intervals.
             cpos = next_cpos;
         }
-        table_ranges.push(new RowInfo(record_ranges, delim_ranges, record_fields, /*comment_range=*/null));
+        table_ranges.push(new RowInfo(record_ranges, record_fields, /*comment_range=*/null));
     }
     return table_ranges;
 }
