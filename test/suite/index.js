@@ -969,19 +969,10 @@ async function test_try_autoenable_rainbow_csv() {
 
 
 async function run() {
-    let vertical_grid_enabled_before = true;
-    let config = null;
     try {
         log_message('Starting tests');
 
         assert.equal(-1, [1, 2, 3].indexOf(0));
-
-        config = vscode.workspace.getConfiguration('rainbow_csv');
-        vertical_grid_enabled_before = config.get('enable_virtual_alignment_grid')
-        log_message('Vertical grid enabled before ' + vertical_grid_enabled_before);
-        if (!vertical_grid_enabled_before) {
-            await config.update('enable_virtual_alignment_grid', true, false);
-        }
 
         let use_script_based_root = false; // This is a workaround for running unit tests from inside VSCode UI instead of command line, but we probably don't need this since we are passing the workspace file explicitly.
         let workspace_folder_uri = null;
@@ -1038,24 +1029,11 @@ async function run() {
         await test_double_width_chars_alignment(test_folder_uri);
         await test_column_edit(test_folder_uri);
 
-        if (!vertical_grid_enabled_before) {
-            log_message('Disabling vertical grid as it was before the test');
-            await config.update('enable_virtual_alignment_grid', false, false);
-        }
         log_message('Finishing tests');
     } catch (e) {
-        if (!vertical_grid_enabled_before) {
-            log_message('Disabling vertical grid as it was before the test');
-            await config.update('enable_virtual_alignment_grid', false, false);
-        }
         log_message('Error: tests have failed. Exception:');
         log_message(String(e));
         log_message(String(e.stack));
-    } finally {
-        if (!vertical_grid_enabled_before) {
-            log_message('Disabling vertical grid as it was before the test');
-            await config.update('enable_virtual_alignment_grid', false, false);
-        }
     }
 }
 
