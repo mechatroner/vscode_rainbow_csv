@@ -174,18 +174,22 @@ class ColumnStat {
         }
     }
 
-    evaluate_align_field(field, is_first_record, is_last_in_line) {
+    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
+        // FIXME add unit tests
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
+        let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length; 
         if (!this.is_numeric()) {
             let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
-            return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
+            let trailing_length = is_last_in_line ? 0 : delta_length;
+            return [readability_gap, trailing_length]
         }
         if (is_first_record) {
             if (number_regex.exec(field) === null) {
                 // The line must be a header - align it using max_width rule.
                 let delta_length = Math.max(this.get_adjusted_total_length() - visual_field_length, 0);
-                return is_last_in_line ? [0, 0] : [0, delta_length + alignment_extra_readability_whitespace_length];
+                let trailing_length = is_last_in_line ? 0 : delta_length;
+                return [readability_gap, trailing_length];
             }
         }
         let dot_pos = field.indexOf('.');
@@ -194,8 +198,8 @@ class ColumnStat {
         let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
         let integer_delta_length = Math.max(this.get_adjusted_int_length() - cur_integer_part_length, 0);
         let fractional_delta_length = Math.max(this.max_fractional_length - cur_fractional_part_length);
-        let trailing_spaces = is_last_in_line ? 0 : fractional_delta_length + alignment_extra_readability_whitespace_length;
-        return [integer_delta_length, trailing_spaces];
+        let trailing_length = is_last_in_line ? 0 : fractional_delta_length;
+        return [integer_delta_length + readability_gap, trailing_length];
     }
 
 }
@@ -231,7 +235,7 @@ function calculate_column_offsets(column_stats, delim_length) {
     for (let i = 1; i < column_stats.length; i++) {
         let previous_length = column_stats[i - 1].get_adjusted_total_length();
         let previous_offset = result[i - 1];
-        result.push(previous_offset + previous_length + alignment_extra_readability_whitespace_length + delim_length);
+        result.push(previous_offset + previous_length + delim_length + alignment_extra_readability_whitespace_length);
     }
     assert(result.length == column_stats.length);
     return result;
@@ -286,8 +290,8 @@ function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, loca
 }
 
 
-function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_last_in_line);
+function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
     if (is_field_segment) {
         num_before += column_offset;
     }
@@ -295,8 +299,8 @@ function evaluate_rfc_align_field(field, is_first_record, column_stat, column_of
 }
 
 
-function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_last_in_line) {
-    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_last_in_line);
+function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
+    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -366,14 +370,20 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                 let field_segment_range = field_segments_ranges[i];
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_last_in_line);
+                let is_first_in_line = (fnum == 0) || is_field_segment;
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
                 if (num_before > 0) {
-                    let hint_label = alignment_char.repeat(num_before);
+                    let hint_label = ''
+                    if (is_field_segment) {
+                        hint_label += alignment_char.repeat(num_before);
+                    } else {
+                        hint_label = '\u2588';
+                        hint_label += alignment_char.repeat(num_before - 1);
+                    }
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                 }
                 if (num_after > 0) {
-                    let hint_label = alignment_char.repeat(num_after - 1);
-                    hint_label += '\u2588';
+                    let hint_label = alignment_char.repeat(num_after);
                     inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                 }
             }
@@ -416,7 +426,8 @@ function align_columns(records, comments, column_stats, delim) {
                     aligned_fields = [];
                 }
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
-                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_last_in_line);
+                let is_first_in_line = (fnum == 0) || is_field_segment;
+                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
                 aligned_fields.push(aligned_field);
             }
         }
