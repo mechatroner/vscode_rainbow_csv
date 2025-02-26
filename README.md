@@ -1,14 +1,14 @@
 # Rainbow CSV
 
 ## Main Features
-* Highlight columns in comma (.csv), tab (.tsv), semicolon and pipe - separated files in different colors.
-* Transform and filter tables using built-in SQL-like query language.
-* Optional alternate highlighting for odd-even row background.
+* Highlights columns in CSV, TSV, semicolon, and pipe-separated files with distinct colors.
+* Query, transform, and filter data using a built-in SQL-like language (RBQL).
 * Augmented tracking of up to 3 columns of interest with auxiliary decorations.
 * Align columns graphically or with extra spaces and Shrink (trim spaces from fields).
 * Optional sticky header line.
 * Provide info about column on hover.
-* Automatic consistency check for csv files (CSVLint).
+* Automatic CSV consistency checks (CSVLint).
+* Optional alternating row background colors for improved readability.
 * Multi-cursor column edit.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
@@ -16,8 +16,8 @@
 
 ## Usage
 
-Rainbow CSV looks better and is much more usable in general with dark mode.  
-You can manually enable highlighting by executing `Set rainbow separator` command or by clicking on the current language button in the bottom right corner and choosing one of the built-in CSV dialects from the table below.
+Rainbow CSV looks better and is more usable in general with dark mode.  
+Manually enable highlighting by running the `Set rainbow separator` command or by clicking on the current language button in the bottom right corner and choosing one of the built-in CSV dialects from the table below.
 
 #### Supported separators
 
@@ -32,14 +32,12 @@ You can manually enable highlighting by executing `Set rainbow separator` comman
 
 
 #### Content-based separator autodetection
-Rainbow CSV runs a table autodetection algorithm for all "Plain Text" and "*.csv" files. In most cases, this is a very cheap operation because autodetection usually stops after checking only 1 or 2 topmost lines.  
+Rainbow CSV automatically detects separators for "Plain Text" and "*.csv" files. This is usually a fast operation, typically analyzing only the first few lines. 
 Autodetection can be adjusted or disabled in the extension settings.  
 
 
 #### Customizing file extension - separator association
-If you often work with csv files with one specific extension (e.g. ".dat") and you don't want to rely on the autodetection algorithm, you can associate that extension with one of the supported separators.  
-For example to associate ".dat" extension with pipe-separated files and ".csv" with semicolon-separated files add the following lines to your VS Code json config:  
-
+To avoid relying on autodetection for specific file extensions (e.g., ".dat"), you can manually associate them with a supported separator in VSCode config:  
 ```
 "files.associations": {
     "*.dat": "csv (pipe)",
@@ -52,23 +50,22 @@ List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", 
 
 #### Working with arbitrary separators
 
-Rainbow CSV allows using an arbitrary character or string as a separator.
+Rainbow CSV supports using any character or string as a separator.
 You can add the separator to the list of autodetected separators in the VSCode settings or if you just want to use it once you can either:
-* Select `Dynamic CSV` filetype (bottom right corner) and then enter the separator text in the popup dialog.
+* Select `Dynamic CSV` filetype (bottom-right corner) and then enter the separator in the prompt.
 * Select the separator text with the cursor and run `Rainbow CSV: Set rainbow separator` command.
 
-`Dynamic CSV` filetype also supports multiline CSV fields escaped in double quotes as described in RFC-4180.
+`Dynamic CSV` filetype also supports multiline CSV fields escaped in double quotes (RFC-4180 compliant).
 
 Note: In rare cases `Dynamic CSV` highlighting might not work at all due to compatibility issues with some other third-party extensions.
 
 #### CSVLint consistency check
 
 The linter checks the following:  
-* Consistency of double quotes usage in CSV rows.  
-* Consistency of number of fields per CSV row.  
+* Ensures consistent use of double quotes within rows.  
+* Verifies that each row has the same number of fields.  
 
-To recheck a csv file click on "CSVLint" button.
-
+To recheck a CSV file, click the "CSVLint" button in the status bar.
 
 #### Working with large files
 To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.  
@@ -87,9 +84,9 @@ To allow CSVLint, content-based autodetection algorithms, and _Align_, _Shrink_,
 
 
 #### Aligning/Shrinking table
-There are 2 options to align a file: 
-1. "Virtual Align" which does graphical alignment only without modifying the underlying file.
-2. Whitespace-based "Align" that inserts aligning whitespaces into the file.
+Rainbow CSV provides two alignment modes: 
+1. **Virtual Align:** Provides visual alignment without modifying the file content.
+2. **Whitespace Align:** Inserts spaces to align columns, modifying the file content.
 
 You can align columns in CSV files by clicking "Align" status-line button or using the alignment command.  
 To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink" status-line button or use _Shrink_ command  
@@ -115,7 +112,7 @@ Screenshot of Row-Wrap & Column Tracking & Alternating Row Background:
 
 
 #### Settings
-You can customize Rainbow CSV in the extension settings section of VSCode settings.  
+Customize Rainbow CSV's behavior in the extension settings section of VS Code.  
 There you can find the list of available options and their description.  
 
 
@@ -151,7 +148,7 @@ Screenshot of RBQL Console:
 * Familiar editing environment of your favorite text editor  
 * High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.  
 * Ability to see the table in "Row Wrapped" display mode (via WordWrap editor setting) thus avoiding horizontal scrolling that prevents looking at all columns simultaneously. "Row Wrapped" display mode can be further augmented with targeted tracking of the columns of interest.  
-* Reduced-cost abstraction: Syntax highlighting can be local and therefore cheaper to compute compared to graphical column alignment that requires whole-doc statistic.
+* Reduced-cost abstraction: Syntax highlighting can be local and therefore less resource-intensive compared to graphical column alignment that requires whole-doc statistic.
 * Color -> column association allows locating the column of interest more quickly when looking back and forth between the data and other objects on the screen (with column alignment one has to locate the header or count the columns to find the right one)
 * Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
 
