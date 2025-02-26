@@ -45,7 +45,7 @@ To avoid relying on autodetection for specific file extensions (e.g., ".dat"), y
 },
 ```
 
-Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.  
+Important: language identifiers in the config must be specified in **lower case**! E.g. use `csv (semicolon)`, not `CSV (semicolon)`.
 List of supported language ids: `"csv", "tsv", "csv (semicolon)", "csv (pipe)", "csv (whitespace)", "dynamic csv"`.  
 
 #### Working with arbitrary separators
@@ -68,9 +68,9 @@ The linter checks the following:
 To recheck a CSV file, click the "CSVLint" button in the status bar.
 
 #### Working with large files
-To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.  
-You can preview huge files by clicking "Preview... " option in VS Code File Explorer context menu.  
-All Rainbow CSV features would be disabled by VSCode if the file is bigger than 50MB.  
+To enable Rainbow CSV for very big files (more than 300K lines or 20MB) disable "Editor:Large File Optimizations" option in VS Code settings.
+You can preview huge files by clicking "Preview... " option in VS Code File Explorer context menu.
+All Rainbow CSV features would be disabled by VSCode if the file is bigger than 50MB.
 
 
 #### Colors customization 
