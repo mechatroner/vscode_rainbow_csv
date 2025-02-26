@@ -377,6 +377,7 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                     if (is_field_segment) {
                         hint_label += alignment_char.repeat(num_before);
                     } else {
+                        // FIXME make this optional - only if "vertical grid" is enabled in the settings.
                         hint_label = '\u2588';
                         hint_label += alignment_char.repeat(num_before - 1);
                     }

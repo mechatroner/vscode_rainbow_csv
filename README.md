@@ -28,7 +28,7 @@ You can manually enable highlighting by executing `Set rainbow separator` comman
 |csv (semicolon)  | ; (semicolon)        |           | Ignored inside double-quoted fields |
 |csv (whitespace) | whitespace           |           | Consecutive whitespaces are merged  |
 |csv (pipe)       | &#124; (pipe)        |           |                                     |
-|dynamic csv      | any char or string   |           |                                     |
+|dynamic csv      | any char or string   |           | Customizable                        |
 
 
 #### Content-based separator autodetection
@@ -96,9 +96,15 @@ To shrink the table, i.e. remove leading and trailing whitespaces, click "Shrink
 
 
 #### Column Tracking
-You can track up to 3 columns of interest with auxiliary decorations to make them even more noticeable compared to color-only rainbow indication.  
+You can track up to 3 columns of interest with auxiliary decorations to make them even more noticeable compared to color-only rainbow indication.
 This is especially helpful for tables with multiple columns and/or when viewing the table in Row-Wrap i.e. word wrap mode.  
-Column Tracking is available via the editor context menu (Right click -> Rainbow CSV ...) or via the "ToggleColumnTracking" command.  
+Column Tracking is available via the editor context menu (Right click -> Rainbow CSV ...) or via the "ToggleColumnTracking" command.
+If you find yourself often using this command you can also set a keyboard shortcut to toggle column tracking.
+To do this run `Open Keyboard Shortcuts (JSON)` command that will open VSCode `keybindings.json` file and add the following line to the list:  
+```
+    {"key": "ctrl+t", "command": "rainbow-csv.ToggleColumnTracking", "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/"},
+```
+
 
 #### Alternate Row Background Highlighting
 You can enable highlighting of odd and even rows with alternating background colors.  
@@ -108,41 +114,14 @@ Screenshot of Row-Wrap & Column Tracking & Alternating Row Background:
 ![rowwrap](https://i.imgur.com/uTCT9Ft.png)
 
 
-
-### Settings
+#### Settings
 You can customize Rainbow CSV in the extension settings section of VSCode settings.  
 There you can find the list of available options and their description.  
 
 
-### Commands:
+#### Commands
 
-#### Set rainbow separator
-Set the currently selected text (single character or multiline string) as a separator and re-highlight the file.
-
-#### Virtual Align
-Align columns graphically (virtually) using VSCode inlay hints as extra spacing.
-Unlike "Align" command that inserts extra spaces into the underlying file, "Virtual Align" doesn't modify the file itself.
-
-#### Align, Shrink
-Align columns by inserting extra whitespaces or shrink the columns (remove leading/trailing whitespaces)
-
-#### ColumnEditBefore, ColumnEditAfter, ColumnEditSelect
-Activate multi-cursor column editing for the column under the cursor. Works only for files with less than 10000 lines. For larger files you can use an RBQL query.  
-**WARNING**: This is a dangerous mode. It is possible to accidentally corrupt table structure by incorrectly using "Backspace" or entering separator or double quote characters. Use RBQL if you are not sure.  
-
-#### SetVirtualHeader 
-Input a comma-separated string with column names to adjust column names displayed in hover tooltips. The actual header line and file content won't be affected.
-"Virtual" header is persistent and will be associated with the parent file across VSCode sessions.
-
-#### SetHeaderLine 
-Uses the current line to adjust column names displayed in hover tooltips. The actual header line and file content won't be affected.
-This is a "Virtual" header and will be persistent and will be associated with the parent file across VSCode sessions.
-
-#### RBQL
-Enter RBQL - SQL-like language query editing mode.
-
-#### SetJoinTableName
-Set a custom name for the current file so you can use it instead of the file path in RBQL JOIN queries
+Most of the Rainbow CSV commands are available through the editor context menu `[Right click]` -> `[Rainbow CSV]` -> `<Command>`
 
 ## SQL-like "RBQL" query language
 
@@ -163,7 +142,7 @@ Screenshot of RBQL Console:
 ![VSCode RBQL Console](https://i.imgur.com/dHqD53E.png)  
 
 
-## Other
+## Addendum
 ### Comparison of Rainbow CSV technology with traditional graphical column alignment
 
 #### Advantages:
