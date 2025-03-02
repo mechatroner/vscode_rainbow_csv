@@ -342,7 +342,7 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length, alignment_char) {
+function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
@@ -374,11 +374,10 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                 let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
                 if (num_before > 0) {
                     let hint_label = ''
-                    if (is_field_segment) {
+                    if (!enable_vertical_grid || is_field_segment) {
                         hint_label += alignment_char.repeat(num_before);
                     } else {
                         // FIXME find a way to "draw" vertical grid by extending hints for multiline rfc fields. Add a screenshot to README when implemented.
-                        // FIXME make this optional - only if "vertical grid" is enabled in the settings.
                         hint_label = '\u2588';
                         hint_label += alignment_char.repeat(num_before - 1);
                     }

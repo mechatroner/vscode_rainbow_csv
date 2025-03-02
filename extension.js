@@ -2479,7 +2479,8 @@ class InlayHintProvider {
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = get_from_config('virtual_alignment_char', 'middot') == 'middot' ? '\u00b7' : ' ';
-        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim.length, alignment_char);
+        let vertical_grid_enabled = get_from_config('virtual_alignment_vertical_grid', false);
+        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim.length, alignment_char, vertical_grid_enabled);
     }
 }
 
