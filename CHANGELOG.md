@@ -1,5 +1,10 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.18.0
+* Alignment: Add extra readability whitespace at the beginning of each field instead of having them at the end of each field.
+* Move Virtual Align configuration back into js code and make it global - it doesn't work reliably in package.json for some reason.
+* Add optional virtual vertical grid in the virtual alignment mode that resembles vertical grid in graphical tables.
+
 ## 3.17.0
 * New feature: Alternate row background highlighting.
 * New feature: Auxiliary column tracking.
