@@ -161,6 +161,7 @@ function test_generate_inlay_hints() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
     let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
     let alignment_char = null;
+    let enable_vertical_grid = false; // FIXME add a test with true
 
     // Simple test case.
     doc_lines = [
@@ -175,12 +176,14 @@ function test_generate_inlay_hints() {
     policy = 'simple';
     alignment_char = '·';
     double_width_alignment = true;
+    enable_vertical_grid = false;
     range = new vscode_test_double.Range(1, 0, 3, 0);
-    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
-        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'··'),
+        new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'·'),
+        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'·'),
         new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/'·')];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
@@ -197,10 +200,11 @@ function test_generate_inlay_hints() {
     policy = 'simple';
     alignment_char = ' ';
     double_width_alignment = true;
+    enable_vertical_grid = false;
     range = new vscode_test_double.Range(1, 0, 3, 0);
-    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
@@ -217,15 +221,16 @@ function test_generate_inlay_hints() {
     policy = 'simple';
     alignment_char = ' ';
     double_width_alignment = true;
+    enable_vertical_grid = false;
     range = new vscode_test_double.Range(0, 0, 10, 0);
-    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/'    '),
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'    '),
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 5), /*label=*/' '),
-        /*empty allignment before, so we only have after:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 4), /*label=*/'    ')];
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 2), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/' '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 1), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/' '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 5), /*label=*/' '),
+        /*empty allignment before, so we only have after:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 3), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 4), /*label=*/' ')];
     assert.deepEqual(inlay_hints, expected_inlay_hints);
 }
 
@@ -438,8 +443,9 @@ function test_rfc_field_align() {
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
     column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/false);
-    assert.deepEqual('foobar     ', aligned_field);
+    // FIXME add test(s) with is_first_in_line =  true
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' foobar    ', aligned_field);
 
     // Align field segment in non-numeric non-last column.
     field = 'foobar';
@@ -448,8 +454,8 @@ function test_rfc_field_align() {
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
     column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/false);
-    assert.deepEqual('       foobar     ', aligned_field);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual('        foobar    ', aligned_field);
 
     // Align non-field segment in non-numeric last column.
     field = 'foobar';
@@ -458,8 +464,8 @@ function test_rfc_field_align() {
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
     column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/true);
-    assert.deepEqual('foobar', aligned_field);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/true);
+    assert.deepEqual(' foobar', aligned_field);
 
     // Align field segment in non-numeric last column.
     field = 'foobar';
@@ -468,14 +474,14 @@ function test_rfc_field_align() {
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
     column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_last_in_line=*/true);
-    assert.deepEqual('       foobar', aligned_field);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/true);
+    assert.deepEqual('        foobar', aligned_field);
 }
 
 
-function align_field(field, is_first_record, column_stat, is_last_in_line) {
+function align_field(field, is_first_record, column_stat, is_first_in_line, is_last_in_line) {
     //console.log(JSON.stringify(column_stat));
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_last_in_line);
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -612,87 +618,88 @@ function test_reconcile_multiple() {
 
 function test_field_align() {
     let field = null;
-    let is_first_line = null;
+    let is_first_record = null;
     let column_stats = null;
     let aligned_field = null;
 
     // Align field in non-numeric non-last column.
     field = 'foobar';
-    is_first_line = 0;
+    is_first_record = 0;
     //column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('foobar     ', aligned_field);
+    // FIXME add test(s) with is_first_in_line =  true
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' foobar    ', aligned_field);
 
     // Align field in non-numeric last column.
     field = 'foobar';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/true);
-    assert.deepEqual('foobar', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/true);
+    assert.deepEqual(' foobar', aligned_field);
 
     // Align non-numeric first line (potentially header) field in numeric column.
     field = 'foobar';
-    is_first_line = 1;
+    is_first_record = 1;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('foobar     ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' foobar    ', aligned_field);
 
     // Align numeric first line (potentially header) field in numeric column.
     field = '10.1';
-    is_first_line = 1;
+    is_first_record = 1;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('  10.1     ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual('   10.1    ', aligned_field);
 
     // Align numeric field in non-numeric column (first line).
     field = '10.1';
-    is_first_line = 1;
+    is_first_record = 1;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('10.1       ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' 10.1      ', aligned_field);
 
     // Align numeric field in non-numeric column (not first line).
     field = '10.1';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('10.1       ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' 10.1      ', aligned_field);
 
     // Align numeric float in numeric non-last column.
     field = '10.1';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('  10.1     ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual('   10.1    ', aligned_field);
 
     // Align numeric integer in numeric non-last column.
     field = '1000';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: 4, max_fractional_length: 6});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('1000       ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' 1000      ', aligned_field);
 
     // Align numeric integer in numeric (integer) column.
     field = '1000';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 4, max_int_length: 4, max_fractional_length: 0});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('1000 ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual(' 1000', aligned_field);
 
     // Align numeric integer in numeric (integer) column dominated by header width.
     field = '1000';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 6, max_int_length: 4, max_fractional_length: 0});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('  1000 ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual('   1000', aligned_field);
 
     // Align numeric float in numeric column dominated by header width.
     field = '10.1';
-    is_first_line = 0;
+    is_first_record = 0;
     column_stats = raw_column_stats_to_typed({max_total_length: 12, max_int_length: 4, max_fractional_length: 6});
-    aligned_field = align_field(field, is_first_line, column_stats, /*is_last_in_line=*/false);
-    assert.deepEqual('    10.1     ', aligned_field);
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
+    assert.deepEqual('     10.1    ', aligned_field);
 }
 
 
@@ -1943,9 +1950,9 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,weight',
-        'car  ,   100',
-        'ship , 20000'
+        'type, weight',
+        'car ,    100',
+        'ship,  20000'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
@@ -1963,9 +1970,9 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,color',
-        'car  ,red',
-        'ship ,orange'
+        'type, color',
+        'car , red',
+        'ship, orange'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
@@ -1983,9 +1990,9 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,wght    ,color',
-        'car  ,  1.008 ,red',
-        'ship ,200.5   ,yellow'
+        'type, wght   , color',
+        'car ,   1.008, red',
+        'ship, 200.5  , yellow'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
@@ -2008,11 +2015,11 @@ function test_align_columns() {
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
         '#info',
-        'type ,weight',
+        'type, weight',
         '#foo,foo',
         '#m',
-        'car  ,   100',
-        'ship , 20000',
+        'car ,    100',
+        'ship,  20000',
         '#bar',
         '#bar',
         ''
@@ -2036,12 +2043,12 @@ function test_align_columns() {
     aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
     aligned_doc_lines = aligned_doc_text.split('\n');
     expected_doc_lines = [
-        'type ,info                                       ,max_speed',
-        'car  ,"A nice red car.',
+        'type, info                                      , max_speed',
+        'car , "A nice red car.',
         '      Can get you ""anywhere"" you want.',
-        '      GPS included"                              ,      100',
-        'ship ,"Big heavy superfreighter ""Yamaha-2000"".',
-        '      Comes with a crew of 10"                   ,       25'
+        '      GPS included"                             ,       100',
+        'ship, "Big heavy superfreighter ""Yamaha-2000"".',
+        '      Comes with a crew of 10"                  ,        25'
     ];
     assert.deepEqual(expected_doc_lines, aligned_doc_lines);
 
