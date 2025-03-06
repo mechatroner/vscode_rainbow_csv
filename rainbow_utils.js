@@ -175,7 +175,6 @@ class ColumnStat {
     }
 
     evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
-        // FIXME add unit tests
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
         let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length; 

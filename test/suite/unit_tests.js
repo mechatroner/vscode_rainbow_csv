@@ -161,7 +161,7 @@ function test_generate_inlay_hints() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
     let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
     let alignment_char = null;
-    let enable_vertical_grid = false; // FIXME add a test with true
+    let enable_vertical_grid = false; // TODO add a test with true
 
     // Simple test case.
     doc_lines = [
@@ -443,9 +443,17 @@ function test_rfc_field_align() {
     column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = column_stats_helper(column_stats)
     column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    // FIXME add test(s) with is_first_in_line =  true
     aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
     assert.deepEqual(' foobar    ', aligned_field);
+
+    field = 'foobar';
+    is_first_line = 0;
+    is_field_segment = false;
+    column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = column_stats_helper(column_stats)
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/true, /*is_last_in_line=*/false);
+    assert.deepEqual('foobar    ', aligned_field);
 
     // Align field segment in non-numeric non-last column.
     field = 'foobar';
@@ -480,7 +488,6 @@ function test_rfc_field_align() {
 
 
 function align_field(field, is_first_record, column_stat, is_first_in_line, is_last_in_line) {
-    //console.log(JSON.stringify(column_stat));
     let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
@@ -625,11 +632,15 @@ function test_field_align() {
     // Align field in non-numeric non-last column.
     field = 'foobar';
     is_first_record = 0;
-    //column_stats = [{max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
     column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
-    // FIXME add test(s) with is_first_in_line =  true
     aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
     assert.deepEqual(' foobar    ', aligned_field);
+
+    field = 'foobar';
+    is_first_record = 0;
+    column_stats = raw_column_stats_to_typed({max_total_length: 10, max_int_length: -1, max_fractional_length: -1});
+    aligned_field = align_field(field, is_first_record, column_stats, /*is_first_in_line=*/true, /*is_last_in_line=*/false);
+    assert.deepEqual('foobar    ', aligned_field);
 
     // Align field in non-numeric last column.
     field = 'foobar';
