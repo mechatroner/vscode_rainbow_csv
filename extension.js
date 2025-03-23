@@ -12,6 +12,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME virtual align adds trailing virtual char for some reason e.g. in failing_virtual_align aka example.csv file
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -2480,7 +2482,14 @@ class InlayHintProvider {
         }
         let alignment_char = get_from_config('virtual_alignment_char', 'middot') == 'middot' ? '\u00b7' : ' ';
         let vertical_grid_enabled = get_from_config('virtual_alignment_vertical_grid', false);
-        return ll_rainbow_utils().generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim.length, alignment_char, vertical_grid_enabled);
+        let active_editor = get_active_editor();
+        if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
+            // For some reason the `range` method variable can contain much bigger range than the actual visible range (probably a bug).
+            // This bug coupled with an apparently existing undocumented limit on total length of inlay hints across multiple lines prevents some of the bottom visible lines from being aligned.
+            // Some additional background: https://github.com/mechatroner/vscode_rainbow_csv/issues/205.
+            let visible_range = active_editor.visibleRanges[0];
+            return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, vertical_grid_enabled);
+        }
     }
 }
 

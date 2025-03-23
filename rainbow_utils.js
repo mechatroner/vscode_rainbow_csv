@@ -341,11 +341,14 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
     let is_first_record = true;
+    let hint_display_margin = 15; // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
+    let hint_display_start_line = visible_range.start.line - hint_display_margin;
+    let hint_display_end_line = visible_range.end.line + hint_display_margin;
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
             continue;
@@ -380,11 +383,17 @@ function generate_inlay_hints(vscode, table_ranges, all_columns_stats, delim_len
                         hint_label = '\u2588';
                         hint_label += alignment_char.repeat(num_before - 1);
                     }
-                    inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
+                    let hint_line = field_segment_range.start.line;
+                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                        inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
+                    }
                 }
                 if (num_after > 0) {
                     let hint_label = alignment_char.repeat(num_after);
-                    inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
+                    let hint_line = field_segment_range.end.line;
+                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                        inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
+                    }
                 }
             }
         }
