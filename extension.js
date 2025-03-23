@@ -118,6 +118,10 @@ let extension_context = {
     dynamic_dialect_for_next_request: null,
     logging_enabled: false,
     logging_next_context_id: 1,
+    virtual_alignment_mode: 'disabled',
+    double_width_alignment: true,
+    virtual_alignment_char: 'middot',
+    virtual_alignment_vertical_grid: false,
 };
 
 const dialect_map = {
@@ -802,7 +806,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         enable_dynamic_semantic_tokenization();
     }
     enable_rainbow_ui(active_doc);
-    if (get_from_config('virtual_alignment_mode', 'disabled') == 'always') {
+    if (extension_context.virtual_alignment_mode == 'always') {
         await configure_inlay_hints_alignment(language_id, log_wrapper);
         reenable_inlay_hints_provider();
     }
@@ -902,13 +906,12 @@ function config_whitespace_alignment_button(align_shrink_button, is_aligned) {
 function show_align_shrink_button(file_path) {
     if (!align_shrink_button)
         align_shrink_button = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
-    if (virtual_alignment_mode == 'disabled') {
+    if (extension_context.virtual_alignment_mode == 'disabled') {
         let is_aligned = whitespace_aligned_files.has(file_path);
         config_whitespace_alignment_button(align_shrink_button, is_aligned);
     } else {
         let custom_alignment_mode = custom_virtual_alignment_modes.get(file_path);
-        let is_aligned = virtual_alignment_enabled(virtual_alignment_mode, custom_alignment_mode);
+        let is_aligned = virtual_alignment_enabled(extension_context.virtual_alignment_mode, custom_alignment_mode);
         config_virtual_alignment_button(align_shrink_button, is_aligned);
     }
     align_shrink_button.show();
@@ -1582,8 +1585,7 @@ async function virtual_align_table() {
     if (policy === null) {
         return;
     }
-    let double_width_alignment = get_from_config('double_width_alignment', true);
-    let [whole_doc_column_stats, first_failed_line, _records, _comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
+    let [whole_doc_column_stats, first_failed_line, _records, _comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, extension_context.double_width_alignment);
     if (first_failed_line === null) {
         log_wrapper.log_doc_event('Whole doc alignment stats were reset', active_doc);
         whole_doc_alignment_stats.set(active_doc.fileName, whole_doc_column_stats);
@@ -1612,8 +1614,7 @@ async function content_modifying_align_table() {
     let progress_options = {location: vscode.ProgressLocation.Window, title: 'Rainbow CSV'};
     await vscode.window.withProgress(progress_options, async (progress) => {
         await report_progress(progress, 'Calculating column statistics');
-        let double_width_alignment = get_from_config('double_width_alignment', true);
-        let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, double_width_alignment);
+        let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, extension_context.double_width_alignment);
         if (first_failed_line) {
             show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
             return;
@@ -2189,7 +2190,7 @@ async function handle_doc_close(doc_to_close) {
 }
 
 
-async function handle_config_change(_config_change_event) {
+async function restart_extension_config(_config_change_event) {
     // Here `_config_change_event` allows to check if a specific configuration was affected but another way to do this is just to compare before and after values.
     let logging_enabled_before = extension_context.logging_enabled;
     extension_context.logging_enabled = get_from_config('enable_debug_logging', false);
@@ -2201,6 +2202,10 @@ async function handle_config_change(_config_change_event) {
     if (get_from_config('highlight_rows', false)) {
         register_row_background_decorations_provider();
     }
+    extension_context.virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
+    extension_context.double_width_alignment = get_from_config('double_width_alignment', true);
+    extension_context.virtual_alignment_char = get_from_config('virtual_alignment_char', 'middot');
+    extension_context.virtual_alignment_vertical_grid = get_from_config('virtual_alignment_vertical_grid', false);
 }
 
 
@@ -2462,33 +2467,30 @@ class InlayHintProvider {
     }
     async provideInlayHints(document, range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
-        let virtual_alignment_mode = get_from_config('virtual_alignment_mode', 'disabled');
         let custom_alignment_mode = custom_virtual_alignment_modes.get(document.fileName);
-        if (!virtual_alignment_enabled(virtual_alignment_mode, custom_alignment_mode)) {
+        if (!virtual_alignment_enabled(extension_context.virtual_alignment_mode, custom_alignment_mode)) {
             return;
         }
         let [delim, policy, comment_prefix] = get_dialect(document);
         if (policy === null) {
             return [];
         }
-        let double_width_alignment = get_from_config('double_width_alignment', true);
         let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
 
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, double_width_alignment);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
             // Save updated whole-doc stats.
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
-        let alignment_char = get_from_config('virtual_alignment_char', 'middot') == 'middot' ? '\u00b7' : ' ';
-        let vertical_grid_enabled = get_from_config('virtual_alignment_vertical_grid', false);
+        let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
         let active_editor = get_active_editor();
         if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
             // For some reason the `range` method variable can contain much bigger range than the actual visible range (probably a bug).
             // This bug coupled with an apparently existing undocumented limit on total length of inlay hints across multiple lines prevents some of the bottom visible lines from being aligned.
             // Some additional background: https://github.com/mechatroner/vscode_rainbow_csv/issues/205.
             let visible_range = active_editor.visibleRanges[0];
-            return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, vertical_grid_enabled);
+            return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
         }
     }
 }
@@ -2545,7 +2547,6 @@ async function activate(context) {
             }
         }
     }
-    extension_context.logging_enabled = get_from_config('enable_debug_logging', false);
 
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
@@ -2573,7 +2574,7 @@ async function activate(context) {
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
     var doc_close_event = vscode.workspace.onDidCloseTextDocument(handle_doc_close);
-    var config_change_event = vscode.workspace.onDidChangeConfiguration(handle_config_change);
+    var config_change_event = vscode.workspace.onDidChangeConfiguration(restart_extension_config);
 
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
     try {
@@ -2583,15 +2584,11 @@ async function activate(context) {
     }
 
     enable_dynamic_semantic_tokenization();
-    reconfigure_sticky_header_provider();
 
     if (get_from_config('comment_prefix', null)) {
         register_comment_tokenization_handler();
     }
-
-    if (get_from_config('highlight_rows', false)) {
-        register_row_background_decorations_provider();
-    }
+    restart_extension_config();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);
