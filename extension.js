@@ -122,6 +122,7 @@ let extension_context = {
     double_width_alignment: true,
     virtual_alignment_char: 'middot',
     virtual_alignment_vertical_grid: false,
+    comment_prefix: '',
 };
 
 const dialect_map = {
@@ -382,7 +383,7 @@ class StackContextLogWrapper {
             }
             // Use "info" level because logging is flag-guarded by the extension-level setting.
             debug_log_output_channel.info(full_event);
-        } catch (error) {
+        } catch (_error) {
             console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
             return;
         }
@@ -394,7 +395,7 @@ class StackContextLogWrapper {
         try {
             let full_event = `CID:${this.context_id}, ${this.context_name}:${event_name}`;
             debug_log_output_channel.info(full_event);
-        } catch (error) {
+        } catch (_error) {
             console.error(`Rainbow CSV: Unexpected log failure. ${this.context_name}:${this.event_name}`);
             return;
         }
@@ -432,7 +433,7 @@ function get_dialect(document) {
     if (extension_context.custom_comment_prefixes.has(document.fileName)) {
         comment_prefix = extension_context.custom_comment_prefixes.get(document.fileName);
     } else {
-        comment_prefix = get_from_config('comment_prefix', '');
+        comment_prefix = extension_context.comment_prefix;
     }
     if (language_id != DYNAMIC_CSV && dialect_map.hasOwnProperty(language_id)) {
         [delim, policy] = dialect_map[language_id];
@@ -1071,7 +1072,7 @@ async function show_warnings(warnings) {
 async function handle_rbql_result_file_node(text_doc, delim, policy, warnings) {
     try {
         await vscode.window.showTextDocument(text_doc);
-    } catch (error) {
+    } catch (_error) {
         show_single_line_error('Unable to open RBQL result document');
         return;
     }
@@ -1087,7 +1088,7 @@ async function handle_rbql_result_file_node(text_doc, delim, policy, warnings) {
 async function handle_rbql_result_file_web(text_doc, warnings) {
     try {
         await vscode.window.showTextDocument(text_doc);
-    } catch (error) {
+    } catch (_error) {
         show_single_line_error('Unable to open RBQL result document');
         return;
     }
@@ -1168,7 +1169,7 @@ async function run_command_and_parse_output(cmd, args) {
     }
     try {
         return JSON.parse(json_report);
-    } catch (e) {
+    } catch (_e) {
         return {error_type: 'Integration', error_msg: 'Unable to parse JSON report'};
     }
 }
@@ -2030,7 +2031,7 @@ async function try_autodetect_and_set_rainbow_filetype(vscode, config, extension
         return [active_doc, false];
     }
 
-    let comment_prefix_for_autodetection = get_from_config('comment_prefix', '', config) || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
+    let comment_prefix_for_autodetection = extension_context.comment_prefix || '#'; // Assume '#' as a comment prefix for autodetection purposes only.
     log_wrapper.log_simple_event('starting standard dialect autodetection...');
     let [rainbow_csv_language_id, delim, policy, first_trailing_space_line] = autodetect_dialect(config, active_doc, candidate_separators, comment_prefix_for_autodetection);
     if (rainbow_csv_language_id) {
@@ -2206,6 +2207,7 @@ async function restart_extension_config(_config_change_event) {
     extension_context.double_width_alignment = get_from_config('double_width_alignment', true);
     extension_context.virtual_alignment_char = get_from_config('virtual_alignment_char', 'middot');
     extension_context.virtual_alignment_vertical_grid = get_from_config('virtual_alignment_vertical_grid', false);
+    extension_context.comment_prefix = get_from_config('comment_prefix', '');
 }
 
 
@@ -2465,8 +2467,18 @@ class CommentTokenProvider {
 class InlayHintProvider {
     constructor() {
     }
-    async provideInlayHints(document, range, _cancellation_token) {
+    async provideInlayHints(document, _range, _cancellation_token) {
         // Inlay hints should work really fast and in sync mode so we don't need to handle `_cancellation_token`.
+        let visible_range = null;
+        let active_editor = get_active_editor();
+        if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
+            // For some reason the `range` method variable can contain much bigger range than the actual visible range (probably a bug).
+            // This bug coupled with an apparently existing undocumented limit on total length of inlay hints across multiple lines prevents some of the bottom visible lines from being aligned.
+            // Some additional background: https://github.com/mechatroner/vscode_rainbow_csv/issues/205.
+            visible_range = active_editor.visibleRanges[0];
+        } else {
+            return;
+        }
         let custom_alignment_mode = custom_virtual_alignment_modes.get(document.fileName);
         if (!virtual_alignment_enabled(extension_context.virtual_alignment_mode, custom_alignment_mode)) {
             return;
@@ -2475,7 +2487,7 @@ class InlayHintProvider {
         if (policy === null) {
             return [];
         }
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
+        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
 
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
@@ -2484,14 +2496,7 @@ class InlayHintProvider {
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
-        let active_editor = get_active_editor();
-        if (active_editor && active_editor.visibleRanges && active_editor.visibleRanges.length) {
-            // For some reason the `range` method variable can contain much bigger range than the actual visible range (probably a bug).
-            // This bug coupled with an apparently existing undocumented limit on total length of inlay hints across multiple lines prevents some of the bottom visible lines from being aligned.
-            // Some additional background: https://github.com/mechatroner/vscode_rainbow_csv/issues/205.
-            let visible_range = active_editor.visibleRanges[0];
-            return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
-        }
+        return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
     }
 }
 
@@ -2540,14 +2545,6 @@ async function activate(context) {
         }
     }
 
-    if (get_from_config('enable_tooltip', false)) {
-        for (let language_id in dialect_map) {
-            if (dialect_map.hasOwnProperty(language_id)) {
-                register_csv_hover_info_provider(language_id, context);
-            }
-        }
-    }
-
     var lint_cmd = vscode.commands.registerCommand('rainbow-csv.CSVLint', csv_lint_cmd);
     var rbql_cmd = vscode.commands.registerCommand('rainbow-csv.RBQL', edit_rbql);
     var set_header_line_cmd = vscode.commands.registerCommand('rainbow-csv.SetHeaderLine', set_header_line);
@@ -2579,16 +2576,24 @@ async function activate(context) {
     var switch_event = vscode.window.onDidChangeActiveTextEditor(handle_editor_switch);
     try {
         debug_log_output_channel = vscode.window.createOutputChannel('rainbow_csv_debug_channel', {log: true});
-    } catch (error) {
+    } catch (_error) {
         console.error('Rainbow CSV: Failed to create output log channel');
     }
 
-    enable_dynamic_semantic_tokenization();
+    restart_extension_config();
 
-    if (get_from_config('comment_prefix', null)) {
+    if (get_from_config('enable_tooltip', false)) {
+        for (let language_id in dialect_map) {
+            if (dialect_map.hasOwnProperty(language_id)) {
+                register_csv_hover_info_provider(language_id, context);
+            }
+        }
+    }
+
+    enable_dynamic_semantic_tokenization();
+    if (extension_context.comment_prefix) {
         register_comment_tokenization_handler();
     }
-    restart_extension_config();
 
     // The only purpose to add the entries to context.subscriptions is to guarantee their disposal during extension deactivation
     context.subscriptions.push(lint_cmd);

@@ -346,9 +346,11 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
     let is_first_record = true;
-    let hint_display_margin = 15; // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
-    let hint_display_start_line = visible_range.start.line - hint_display_margin;
-    let hint_display_end_line = visible_range.end.line + hint_display_margin;
+    // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
+    // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
+    // Plust the more typical scroll direction is from top to bottom.
+    let hint_display_start_line = visible_range.start.line - 10;
+    let hint_display_end_line = visible_range.end.line + 50;
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
             continue;
