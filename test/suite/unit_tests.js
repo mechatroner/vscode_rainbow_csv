@@ -178,9 +178,10 @@ function test_generate_inlay_hints() {
     double_width_alignment = true;
     enable_vertical_grid = false;
     range = new vscode_test_double.Range(1, 0, 3, 0);
+    visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
         new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'·'),
         new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'·'),
@@ -202,9 +203,10 @@ function test_generate_inlay_hints() {
     double_width_alignment = true;
     enable_vertical_grid = false;
     range = new vscode_test_double.Range(1, 0, 3, 0);
+    visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
@@ -223,9 +225,10 @@ function test_generate_inlay_hints() {
     double_width_alignment = true;
     enable_vertical_grid = false;
     range = new vscode_test_double.Range(0, 0, 10, 0);
+    visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range, /*custom_parsing_margin=*/0);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 2), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/' '),
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 1), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/' '),
