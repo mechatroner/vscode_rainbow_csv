@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.19.0
+* Fix virtual alignment range issue, see [#205](https://github.com/mechatroner/vscode_rainbow_csv/issues/205).
+
 ## 3.18.0
 * Alignment: Add extra readability whitespace at the beginning of each field instead of having them at the end of each field.
 * Move Virtual Align configuration back into js code and make it global - it doesn't work reliably in package.json for some reason.
