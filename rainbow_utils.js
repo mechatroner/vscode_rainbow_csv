@@ -571,7 +571,7 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
 class RbqlIOHandlingError extends Error {}
 
 class VSCodeRecordIterator extends rbql.RBQLInputIterator {
-    constructor(document, delim, policy, has_header=false, comment_prefix=null, table_name='input', variable_prefix='a') {
+    constructor(document, delim, policy, has_header=false, comment_prefix=null, table_name='input', variable_prefix='a', trim_whitespaces=false) {
         // We could have done a hack here actually: convert the document to stream/buffer and then use the standard reader.
         super();
         this.has_header = has_header;
@@ -581,7 +581,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
         let [_num_records_parsed, _comments] = [null, null];
-        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning);
+        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning, trim_whitespaces);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -745,10 +745,10 @@ class VSCodeTableRegistry {
     };
 }
 
-async function rbql_query_web(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null) {
+async function rbql_query_web(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null, trim_whitespaces=false) {
     let user_init_code = ''; // TODO find a way to have init code.
     let join_tables_registry = new VSCodeTableRegistry(); // TODO find a way to have join registry.
-    let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix);
+    let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix, trim_whitespaces);
     let output_writer = new VSCodeWriter(output_delim, output_policy);
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
     return output_writer.output_lines;
@@ -795,10 +795,10 @@ class VSCodeFileSystemCSVRegistry extends rbql.RBQLTableRegistry {
 }
 
 
-async function rbql_query_node(vscode_global_state, query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, with_headers=false, comment_prefix=null, user_init_code='', options=null) {
+async function rbql_query_node(vscode_global_state, query_text, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, output_warnings, with_headers, comment_prefix, user_init_code, options) {
     let input_stream = null;
     let bulk_input_path = null;
-    if (options && options['bulk_read'] && input_path) {
+    if (options['bulk_read'] && input_path) {
         bulk_input_path = input_path;
     } else {
         input_stream = input_path === null ? process.stdin : fs.createReadStream(input_path);
@@ -819,7 +819,7 @@ async function rbql_query_node(vscode_global_state, query_text, input_path, inpu
     }
     let input_file_dir = input_path ? path.dirname(input_path) : null;
     let join_tables_registry = new VSCodeFileSystemCSVRegistry(vscode_global_state, input_file_dir, input_delim, input_policy, csv_encoding, with_headers, comment_prefix, options);
-    let input_iterator = new rbql_csv.CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy, with_headers, comment_prefix);
+    let input_iterator = new rbql_csv.CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy, with_headers, comment_prefix, 'input', 'a', options['trim_whitespaces']);
     let output_writer = new rbql_csv.CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
 
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);

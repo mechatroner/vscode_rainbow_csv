@@ -758,6 +758,25 @@ function test_parse_document_records() {
     // The first trailing space line is line 3 (0-based) because the comment line also counts for a document line.
     assert.equal(first_trailing_space_line, 3);
 
+    // Test whitespace trimming.
+    doc_lines = [
+        'a1,a2', 
+        'b1,b2', 
+        '#comment', 
+        'c1 ,c2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = '#';
+    delim = ',';
+    policy = 'simple';
+    [records, num_records_parsed, fields_info, first_defective_line, first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false, /*detect_trailing_spaces=*/true, /*min_num_fields_for_autodetection=*/-1, /*trim_whitespaces=*/true);
+    assert.deepEqual([['a1', 'a2'], ['b1', 'b2'], ['c1', 'c2']], records);
+    assert.deepEqual([[2, 0]], Array.from(fields_info.entries()));
+    assert.deepEqual([{record_num: 2, comment_text: '#comment'}], comments);
+    assert.equal(first_defective_line, null);
+    // The first trailing space line is line 3 (0-based) because the comment line also counts for a document line.
+    assert.equal(first_trailing_space_line, 3);
+
     // Simple test with inconsistent records and trailing space.
     doc_lines = [
         'a1,a2 ', 

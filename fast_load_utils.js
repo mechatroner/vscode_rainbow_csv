@@ -16,7 +16,7 @@ function assert(condition, message=null) {
 
 class RecordTextConsumer {
     // The only purpose of this class is to avoid code duplication when dealing with leftover lines in line_aggregator (the second `consume` call).
-    constructor(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection) {
+    constructor(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection, trim_whitespaces) {
         this.delim = delim;
         this.policy = policy;
         this.stop_on_warning = stop_on_warning;
@@ -29,6 +29,8 @@ class RecordTextConsumer {
         this.detect_trailing_spaces = detect_trailing_spaces;
         this.preserve_quotes_and_whitespaces = preserve_quotes_and_whitespaces;
         this.min_num_fields_for_autodetection = min_num_fields_for_autodetection;
+        // FIXME add unit tests with and without trim_whitespaces in unit_tests.js
+        this.trim_whitespaces = trim_whitespaces;
     }
 
     consume(record_text, record_start_line) {
@@ -39,6 +41,9 @@ class RecordTextConsumer {
             }
             if (this.stop_on_warning)
                 return /*can_continue=*/false;
+        }
+        if (this.trim_whitespaces) {
+            record = record.map((v) => v.trim());
         }
         if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
             for (let field of record) {
@@ -66,12 +71,12 @@ class RecordTextConsumer {
 }
 
 
-function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, preserve_quotes_and_whitespaces=false, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1) {
+function parse_document_records(document, delim, policy, comment_prefix=null, stop_on_warning=false, max_records_to_parse=-1, collect_records=true, preserve_quotes_and_whitespaces=false, detect_trailing_spaces=false, min_num_fields_for_autodetection=-1, trim_whitespaces=false) {
     // TODO consider switching to a single row_info array format that would have (comment, record_ranges and the record itself) - this would make it more compatible with the incremental parsing functions.
     let num_lines = document.lineCount;
     let record_start_line = 0;
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
-    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection);
+    let consumer = new RecordTextConsumer(delim, policy, stop_on_warning, collect_records, preserve_quotes_and_whitespaces, detect_trailing_spaces, min_num_fields_for_autodetection, trim_whitespaces);
     let comments = []; // An ordered list of {record_no, comment_text} tuples which can be merged with the records later.
 
     for (let lnum = 0; lnum < num_lines; ++lnum) {

@@ -186,28 +186,34 @@
                     "order": 17,
                     "description": "RBQL treats the first line as header by default."
                 },
+                "rainbow_csv.rbql_strip_spaces": {
+                    "type": "boolean",
+                    "default": true,
+                    "order": 18,
+                    "description": "RBQL strips (trims) leading and trailing spaces from each field as a preprocessig step."
+                },
                 "rainbow_csv.enable_context_menu_head": {
                     "type": "boolean",
                     "default": false,
-                    "order": 18,
+                    "order": 19,
                     "description": "Enable \"Preview CSV head\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.enable_context_menu_tail": {
                     "type": "boolean",
                     "default": false,
-                    "order": 19,
+                    "order": 20,
                     "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files."
                 },
                 "rainbow_csv.align_in_scratch_file": {
                     "type": "boolean",
                     "default": false,
-                    "order": 20,
+                    "order": 21,
                     "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
                 },
                 "rainbow_csv.enable_debug_logging": {
                     "type": "boolean",
                     "default": false,
-                    "order": 21,
+                    "order": 22,
                     "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }

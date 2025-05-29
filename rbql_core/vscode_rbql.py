@@ -27,6 +27,7 @@ def main():
     parser.add_argument('comment_prefix', help='Comment prefix')
     parser.add_argument('encoding', help='encoding')
     parser.add_argument('--with_headers', action='store_true', help='use headers')
+    parser.add_argument('--strip_spaces', action='store_true', help='strip spaces')
     args = parser.parse_args()
 
     delim = args.delim
@@ -39,10 +40,11 @@ def main():
     csv_encoding = args.encoding
     output_path = args.output_table_path
     with_headers = args.with_headers
+    strip_spaces = args.strip_spaces
     
     try:
         warnings = []
-        rbql.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix)
+        rbql.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, user_init_code='', colorize_output=False, strip_whitespaces=strip_spaces)
         sys.stdout.write(json.dumps({'warnings': warnings}))
     except Exception as e:
         error_type, error_msg = rbql.exception_to_error_info(e)

@@ -1217,6 +1217,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
     rbql_context.output_policy = output_policy;
 
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
+    let strip_spaces_from_fields = get_from_config('rbql_strip_spaces', true);
 
     if (rbql_query.startsWith(test_marker)) {
         log_wrapper.log_simple_event('test mode');
@@ -1239,7 +1240,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
         try {
             if (is_web_ext) {
                 log_wrapper.log_simple_event('using web mode');
-                let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix);
+                let result_lines = await ll_rainbow_utils().rbql_query_web(rbql_query, rbql_context.input_document, input_delim, input_policy, output_delim, output_policy, warnings, with_headers, comment_prefix, strip_spaces_from_fields);
                 let output_doc_cfg = {content: result_lines.join('\n'), language: target_language_id};
                 if (target_language_id == DYNAMIC_CSV) {
                     extension_context.dynamic_dialect_for_next_request = make_dialect_info(output_delim, output_policy);
@@ -1253,7 +1254,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
                 log_wrapper.log_simple_event('finished OK');
             } else {
                 log_wrapper.log_simple_event('using electron mode');
-                let csv_options = {'bulk_read': true};
+                let csv_options = {'bulk_read': true, 'trim_whitespaces': strip_spaces_from_fields};
                 await ll_rainbow_utils().rbql_query_node(global_state, rbql_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, warnings, with_headers, comment_prefix, /*user_init_code=*/'', csv_options);
                 result_set_parent_map.set(safe_lower(output_path), input_path);
                 if (target_language_id == DYNAMIC_CSV) {
@@ -1287,6 +1288,8 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
         let args = [absolute_path_map['rbql_core/vscode_rbql.py'], cmd_safe_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, comment_prefix, csv_encoding];
         if (with_headers)
             args.push('--with_headers');
+        if (strip_spaces_from_fields)
+            args.push('--strip_spaces');
         let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
         if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
             log_wrapper.log_simple_event('finished with error');
