@@ -29,7 +29,6 @@ class RecordTextConsumer {
         this.detect_trailing_spaces = detect_trailing_spaces;
         this.preserve_quotes_and_whitespaces = preserve_quotes_and_whitespaces;
         this.min_num_fields_for_autodetection = min_num_fields_for_autodetection;
-        // FIXME add unit tests with and without trim_whitespaces in unit_tests.js
         this.trim_whitespaces = trim_whitespaces;
     }
 
@@ -42,15 +41,15 @@ class RecordTextConsumer {
             if (this.stop_on_warning)
                 return /*can_continue=*/false;
         }
-        if (this.trim_whitespaces) {
-            record = record.map((v) => v.trim());
-        }
         if (this.detect_trailing_spaces && this.first_trailing_space_line === null) {
             for (let field of record) {
                 if (field.length && (field.charAt(0) == ' ' || field.charAt(field.length - 1) == ' ')) {
                     this.first_trailing_space_line = record_start_line;
                 }
             }
+        }
+        if (this.trim_whitespaces) {
+            record = record.map((v) => v.trim());
         }
         if (!this.fields_info.has(record.length)) {
             this.fields_info.set(record.length, this.num_records_parsed);
