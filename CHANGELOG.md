@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.20.0
+* RBQL: remove trailing spaces from fields by default.
+
 ## 3.19.0
 * Fix virtual alignment range issue, see [#205](https://github.com/mechatroner/vscode_rainbow_csv/issues/205).
 

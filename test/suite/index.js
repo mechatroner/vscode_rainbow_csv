@@ -160,7 +160,7 @@ async function test_rbql_node(test_folder_uri) {
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
     log_message(`Length after js multiline-record query: ${length_after_query}`);
-    assert.equal(645, length_after_query);
+    assert.equal(639, length_after_query);
 
     // Test RBQL JOIN query.
     uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
@@ -268,8 +268,8 @@ async function test_rbql_web(test_folder_uri) {
     active_doc = vscode.window.activeTextEditor.document;
     length_after_query = active_doc.getText().length;
     log_message(`Length after js multiline-record query: ${length_after_query}`);
-    // 644 instead of 645 because no trailing '\n' at the end of file.
-    assert.equal(644, length_after_query);
+    // 638 instead of 639 because no trailing '\n' at the end of file.
+    assert.equal(638, length_after_query);
 }
 
 
