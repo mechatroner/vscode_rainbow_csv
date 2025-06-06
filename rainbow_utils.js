@@ -581,7 +581,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         this.NL = 0; // Line number (NL != NR when the CSV file has comments or multiline fields).
         let fail_on_warning = policy == 'quoted_rfc';
         let [_num_records_parsed, _comments] = [null, null];
-        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning, trim_whitespaces);
+        [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false, /*detect_trailing_spaces=*/false, /*min_num_fields_for_autodetection=*/-1, trim_whitespaces);
         if (fail_on_warning && this.first_defective_line !== null) {
             throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
         }
@@ -748,7 +748,7 @@ class VSCodeTableRegistry {
 async function rbql_query_web(query_text, input_document, input_delim, input_policy, output_delim, output_policy, output_warnings, with_headers, comment_prefix=null, trim_whitespaces=false) {
     let user_init_code = ''; // TODO find a way to have init code.
     let join_tables_registry = new VSCodeTableRegistry(); // TODO find a way to have join registry.
-    let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix, trim_whitespaces);
+    let input_iterator = new VSCodeRecordIterator(input_document, input_delim, input_policy, with_headers, comment_prefix, /*table_name=*/'input', /*variable_prefix=*/'a', trim_whitespaces);
     let output_writer = new VSCodeWriter(output_delim, output_policy);
     await rbql.query(query_text, input_iterator, output_writer, output_warnings, join_tables_registry, user_init_code);
     return output_writer.output_lines;
