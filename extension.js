@@ -2528,6 +2528,22 @@ function generate_tracked_field_decoration_types() {
 }
 
 
+async function excel_copy() {
+    let log_wrapper = new StackContextLogWrapper('excel_copy');
+    let active_editor = get_active_editor();
+    if (!active_editor)
+        return;
+    var active_doc = get_active_doc(active_editor);
+    if (!active_doc)
+        return;
+    log_wrapper.log_doc_event('starting excel_copy', active_doc);
+    let orig_text = active_doc.lineAt(0).text; // FIXME this is just for test
+    clipboard = vscode.env.clipboard;
+    await clipboard.writeText("Excel starts >>> \n" + orig_text + "\n <<< Excel ends");
+    log_wrapper.log_doc_event('finishing excel_copy', active_doc);
+}
+
+
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
@@ -2567,6 +2583,7 @@ async function activate(context) {
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
+    var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', excel_copy);
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
@@ -2618,6 +2635,7 @@ async function activate(context) {
     context.subscriptions.push(set_comment_prefix_cmd);
     context.subscriptions.push(toggle_row_background_cmd);
     context.subscriptions.push(toggle_column_tracking_cmd);
+    context.subscriptions.push(excel_copy_cmd);
     context.subscriptions.push(internal_test_cmd);
 
     context.subscriptions.push(doc_open_event);
