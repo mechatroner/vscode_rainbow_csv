@@ -2536,11 +2536,35 @@ async function excel_copy() {
     var active_doc = get_active_doc(active_editor);
     if (!active_doc)
         return;
+    if (!is_rainbow_dialect_doc(active_doc)) {
+        return null;
+    }
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (policy === null)
+        return null;
     log_wrapper.log_doc_event('starting excel_copy', active_doc);
-    let orig_text = active_doc.lineAt(0).text; // FIXME this is just for test
-    clipboard = vscode.env.clipboard;
-    await clipboard.writeText("Excel starts >>> \n" + orig_text + "\n <<< Excel ends");
+    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
+    if (first_defective_line !== null) {
+        // TODO Consider not stopping on warning.
+        // FIXME show error message
+        return;
+    }
+    if (comments.length != 0) {
+        // FIXME show a warning that comments were not copied.
+    }
+    let tsv_lines = [];
+    for (let r = 0; r < records.length; r++) {
+        // FIXME consider checking there is no tabs in the source fields.
+        let cur_record = records[r];
+        tsv_lines.push(cur_record.join('\t'));
+    }
+    let tsv_content = tsv_lines.join('\n');
+
+    //let orig_text = active_doc.lineAt(0).text; // FIXME this is just for test
+    //let tsv_content = "Excel starts >>> \n" + orig_text + "\n <<< Excel ends";
+    await vscode.env.clipboard.writeText(tsv_content);
     log_wrapper.log_doc_event('finishing excel_copy', active_doc);
+    // FIXME show an info message: "Success: You can now Paste (Ctrl+V) from the Clipboard"
 }
 
 

@@ -445,7 +445,7 @@
             {
                 "command": "rainbow-csv.ExcelCopy",
                 "category": "Rainbow CSV",
-                "title": "Excel and Google Sheets export copy"
+                "title": "Copy for Excel / Sheets export"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
