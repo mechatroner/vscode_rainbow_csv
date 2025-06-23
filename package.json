@@ -262,14 +262,14 @@
                     "group": "common@2"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
-                    "command": "rainbow-csv.ExcelCopy",
-                    "group": "common@8"
-                },
-                {
                     "when": "editorTextFocus && editorLangId =~ /plaintext/",
                     "command": "rainbow-csv.RainbowSeparatorOn",
                     "group": "common@1"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.ExcelCopy",
+                    "group": "datacopy@1"
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",

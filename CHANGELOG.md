@@ -1,6 +1,7 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
 ## 3.20.0
+* Add `Copy for Excel / Sheets export` command.
 * RBQL: remove trailing spaces from fields by default.
 
 ## 3.19.0

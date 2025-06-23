@@ -12,6 +12,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO consider moving sample head/tail commands to the Rainbow CSV group
 
+// FIXME add excel copy integration test.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -2528,8 +2530,7 @@ function generate_tracked_field_decoration_types() {
 }
 
 
-async function excel_copy() {
-    let log_wrapper = new StackContextLogWrapper('excel_copy');
+async function do_excel_copy(log_wrapper) {
     let active_editor = get_active_editor();
     if (!active_editor)
         return;
@@ -2542,16 +2543,18 @@ async function excel_copy() {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null)
         return null;
-    log_wrapper.log_doc_event('starting excel_copy', active_doc);
+    log_wrapper.log_doc_event('sampling lines', active_doc)
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
     if (first_defective_line !== null) {
         // TODO Consider not stopping on warning.
-        // FIXME show error message
+        show_single_line_error(`Unable to copy - found formatting error at line ${first_defective_line}.`);
         return;
     }
     if (comments.length != 0) {
-        // FIXME show a warning that comments were not copied.
+        // FIXME this need to be adjusted because the last empty line is also treated as a "comment" and therefore shows misleading warning messages
+        vscode.window.showWarningMessage('Found CSV comments - They will not be copied.');
     }
+    log_wrapper.log_doc_event('converting to tsv', active_doc);
     let tsv_lines = [];
     for (let r = 0; r < records.length; r++) {
         // FIXME consider checking there is no tabs in the source fields.
@@ -2559,12 +2562,22 @@ async function excel_copy() {
         tsv_lines.push(cur_record.join('\t'));
     }
     let tsv_content = tsv_lines.join('\n');
-
-    //let orig_text = active_doc.lineAt(0).text; // FIXME this is just for test
-    //let tsv_content = "Excel starts >>> \n" + orig_text + "\n <<< Excel ends";
+    log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(tsv_content);
     log_wrapper.log_doc_event('finishing excel_copy', active_doc);
-    // FIXME show an info message: "Success: You can now Paste (Ctrl+V) from the Clipboard"
+    vscode.window.showInformationMessage('Success: You can now Paste (Ctrl+V) into Sheets'); // FIXME test this. FIXME consider adding filename if bad copy glitch is not completely resolved
+}
+
+
+async function excel_copy() {
+    let log_wrapper = new StackContextLogWrapper('excel_copy');
+    log_wrapper.log_doc_event('starting excel_copy');
+    try {
+        await do_excel_copy(log_wrapper);
+    } catch (error) {
+        log_wrapper.log_doc_event(`Something went wrong: ${error}`);
+        show_single_line_error('Unable to copy: Something went wrong');
+    }
 }
 
 
@@ -2607,7 +2620,7 @@ async function activate(context) {
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
-    var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', excel_copy);
+    var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy() });
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
