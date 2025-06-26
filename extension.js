@@ -10,7 +10,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 // See DEV_README.md file for additional info.
 
 // TODO get rid of scratch file alignment in the next iteration.
-// TODO consider moving sample head/tail commands to the Rainbow CSV group
+// TODO advertise copy to excel as one of the main feature if no bugs reported.
 
 // FIXME add excel copy integration test.
 
@@ -2530,6 +2530,18 @@ function generate_tracked_field_decoration_types() {
 }
 
 
+function are_actual_comments(comments) {
+    if (comments.length == 0) {
+        return false;
+    }
+    if (comments.length == 1 && comments[0].comment_text == "") {
+        // There is a "hack" to add last empty line to the comments array and this is a hacky workaround.
+        return false;
+    }
+    return true;
+}
+
+
 async function do_excel_copy(log_wrapper) {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -2550,14 +2562,13 @@ async function do_excel_copy(log_wrapper) {
         show_single_line_error(`Unable to copy - found formatting error at line ${first_defective_line}.`);
         return;
     }
-    if (comments.length != 0) {
-        // FIXME this need to be adjusted because the last empty line is also treated as a "comment" and therefore shows misleading warning messages
+    if (are_actual_comments(comments)) {
         vscode.window.showWarningMessage('Found CSV comments - They will not be copied.');
     }
     log_wrapper.log_doc_event('converting to tsv', active_doc);
     let tsv_lines = [];
     for (let r = 0; r < records.length; r++) {
-        // FIXME consider checking there is no tabs in the source fields.
+        // TODO Consider checking there is no tabs in the source fields.
         let cur_record = records[r];
         tsv_lines.push(cur_record.join('\t'));
     }
@@ -2565,7 +2576,7 @@ async function do_excel_copy(log_wrapper) {
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(tsv_content);
     log_wrapper.log_doc_event('finishing excel_copy', active_doc);
-    vscode.window.showInformationMessage('Success: You can now Paste (Ctrl+V) into Sheets'); // FIXME test this. FIXME consider adding filename if bad copy glitch is not completely resolved
+    vscode.window.showInformationMessage('Success: You can now Paste (Ctrl+V) into Sheets');
 }
 
 
