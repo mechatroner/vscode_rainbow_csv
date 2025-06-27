@@ -455,6 +455,23 @@ async function test_no_autodetection(test_folder_uri) {
 }
 
 
+async function test_excel_copy(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(2000);
+    log_message('Testing Excel Copy');
+    await vscode.commands.executeCommand('rainbow-csv.ExcelCopy');
+    await sleep(500);
+    let export_text = await vscode.env.clipboard.readText();
+    let export_lines = export_text.split('\n');
+    assert.equal(export_lines.length, 226);
+    // I guess testing just one "random" line is good enough.
+    assert.equal(export_lines[2], "Albania\tEASTERN EUROPE\t3581655\t28748\t4500");
+    log_message('Finished Excel Copy Test');
+}
+
+
 async function test_dynamic_csv(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies_multichar_separator.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -1004,6 +1021,8 @@ async function run() {
 
         await test_autodetection(test_folder_uri);
         await test_manual_enable_disable(test_folder_uri);
+
+        await test_excel_copy(test_folder_uri);
 
         await test_huge_file(test_folder_uri);
 

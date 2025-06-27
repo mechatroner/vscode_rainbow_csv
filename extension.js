@@ -12,8 +12,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO advertise copy to excel as one of the main feature if no bugs reported.
 
-// FIXME add excel copy integration test.
-
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
@@ -627,7 +625,7 @@ function toggle_row_background() {
         return;
     let [_delim, policy, _comment_prefix] = get_dialect(active_doc);
     if (policy == QUOTED_RFC_POLICY) {
-        // FIXME use correct parsing logic to be able to handle multiline records and correctly highlight them
+        // TODO use correct parsing logic to be able to handle multiline records and correctly highlight them
         show_single_line_error("Alternating row background highlighting is currently unavailable for CSVs with multiline records");
         return;
     }
