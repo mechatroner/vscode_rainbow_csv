@@ -177,11 +177,11 @@ class ColumnStat {
     evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
-        let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length; 
+        let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length;
         if (!this.is_numeric()) {
             let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
             let trailing_length = is_last_in_line ? 0 : delta_length;
-            return [readability_gap, trailing_length]
+            return [readability_gap, trailing_length];
         }
         if (is_first_record) {
             if (number_regex.exec(field) === null) {
@@ -377,7 +377,7 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
                 let is_first_in_line = (fnum == 0) || is_field_segment;
                 let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
                 if (num_before > 0) {
-                    let hint_label = ''
+                    let hint_label = '';
                     if (!enable_vertical_grid || is_field_segment) {
                         hint_label += alignment_char.repeat(num_before);
                     } else {

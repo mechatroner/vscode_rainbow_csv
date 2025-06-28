@@ -2553,7 +2553,7 @@ async function do_excel_copy(log_wrapper) {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null)
         return null;
-    log_wrapper.log_doc_event('sampling lines', active_doc)
+    log_wrapper.log_doc_event('sampling lines', active_doc);
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
     if (first_defective_line !== null) {
         // TODO Consider not stopping on warning.
@@ -2629,7 +2629,7 @@ async function activate(context) {
     var copy_back_cmd = vscode.commands.registerCommand('rainbow-csv.CopyBack', copy_back); // WEB_DISABLED
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
-    var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy() });
+    var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy(); });
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
