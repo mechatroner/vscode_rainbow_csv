@@ -2311,8 +2311,8 @@ function provide_tracked_column_decorations(active_editor, range) {
         tracked_column_ranges.set(column_num, new Array());
     }
 
-    let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
-    for (let row_info of table_ranges) {
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+    for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
         } else {
@@ -2411,10 +2411,10 @@ class RainbowTokenProvider {
             return null;
         }
 
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
-        for (let row_info of table_ranges) {
+        for (let row_info of row_infos) {
             if (row_info.comment_range !== null) {
                 builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
@@ -2488,16 +2488,16 @@ class InlayHintProvider {
         if (policy === null) {
             return [];
         }
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
 
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, extension_context.double_width_alignment);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
             // Save updated whole-doc stats.
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
-        return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
     }
 }
 
@@ -2589,6 +2589,48 @@ async function excel_copy() {
     }
 }
 
+async function markdown_copy() {
+    let log_wrapper = new StackContextLogWrapper('markdown_copy');
+    log_wrapper.log_doc_event('starting markdown_copy');
+    let active_editor = get_active_editor();
+    let active_doc = get_active_doc(active_editor);
+    if (!is_rainbow_dialect_doc(active_doc))
+        return;
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
+
+    let selection_start_line = 0;
+    let selection_end_line = active_doc.lineCount;
+    let selection = active_editor.selection;
+    if (selection && !selection.isEmpty) {
+        selection_start_line = selection.start.line;
+        selection_end_line = selection.end.line;
+    }
+    let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
+    // FIXME check for newlines in the parsed fields and report an error - apparently there is no universal way to handle newlines in md tables, some dialects allow <br> FWIW.
+    log_wrapper.log_doc_event('parsing');
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    // Here row_infos also includes the fields themselves so all good so far.
+    log_wrapper.log_doc_event('calcing column stats');
+    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
+    let records = [];
+    for (let row_info of row_infos) {
+        let multiline_fields = [];
+        for (let field_segments of row_info.record_fields) {
+            // FIXME instead of join just return error if more than one sub-field. Going forward can be optionally joined with `<br>` or something.
+            multiline_fields.push(field_segments.join('\n'));
+        }
+        records.push(multiline_fields);
+    }
+    // FIXME also need leading and trailing pipes.
+    log_wrapper.log_doc_event('aligning columns');
+    let aligned_doc_text = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|');
+    log_wrapper.log_doc_event('writing to the clipboard', active_doc);
+    await vscode.env.clipboard.writeText(aligned_doc_text);
+}
+
 
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
@@ -2630,6 +2672,7 @@ async function activate(context) {
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
     var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy(); });
+    var markdown_copy_cmd = vscode.commands.registerCommand('rainbow-csv.MarkdownCopy', async function() { await markdown_copy(); });
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
@@ -2682,6 +2725,7 @@ async function activate(context) {
     context.subscriptions.push(toggle_row_background_cmd);
     context.subscriptions.push(toggle_column_tracking_cmd);
     context.subscriptions.push(excel_copy_cmd);
+    context.subscriptions.push(markdown_copy_cmd);
     context.subscriptions.push(internal_test_cmd);
 
     context.subscriptions.push(doc_open_event);

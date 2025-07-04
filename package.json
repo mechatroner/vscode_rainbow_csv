@@ -273,6 +273,11 @@
                 },
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.MarkdownCopy",
+                    "group": "datacopy@2"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.Align",
                     "group": "regular_align@1"
                 },
@@ -446,6 +451,11 @@
                 "command": "rainbow-csv.ExcelCopy",
                 "category": "Rainbow CSV",
                 "title": "Copy for Excel / Sheets export"
+            },
+            {
+                "command": "rainbow-csv.MarkdownCopy",
+                "category": "Rainbow CSV",
+                "title": "Copy in Markdown table format"
             },
             {
                 "command": "rainbow-csv.RainbowSeparatorOff",
