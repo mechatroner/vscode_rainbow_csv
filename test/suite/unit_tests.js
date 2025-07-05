@@ -1967,7 +1967,9 @@ function test_get_cursor_position_info() {
 function test_align_columns() {
     let [unaligned_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
-    let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
+    let [aligned_doc_lines, expected_doc_lines] = [null, null]
+    // FIXME get rid of commented-out lines
+    //let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
 
     // Basic test with numeric column.
     unaligned_doc_lines = [
@@ -1980,8 +1982,9 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    aligned_doc_lines = aligned_doc_text.split('\n');
+    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    //aligned_doc_lines = aligned_doc_text.split('\n');
+    aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, weight',
         'car ,    100',
@@ -2000,8 +2003,9 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    aligned_doc_lines = aligned_doc_text.split('\n');
+    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    //aligned_doc_lines = aligned_doc_text.split('\n');
+    aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, color',
         'car , red',
@@ -2020,8 +2024,9 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    aligned_doc_lines = aligned_doc_text.split('\n');
+    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    //aligned_doc_lines = aligned_doc_text.split('\n');
+    aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, wght   , color',
         'car ,   1.008, red',
@@ -2044,8 +2049,9 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    aligned_doc_lines = aligned_doc_text.split('\n');
+    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    //aligned_doc_lines = aligned_doc_text.split('\n');
+    aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         '#info',
         'type, weight',
@@ -2073,8 +2079,9 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    aligned_doc_lines = aligned_doc_text.split('\n');
+    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
+    //aligned_doc_lines = aligned_doc_text.split('\n');
+    aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, info                                      , max_speed',
         'car , "A nice red car.',

@@ -174,20 +174,20 @@ class ColumnStat {
         }
     }
 
-    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
+    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, trailing_whitespace_length) {
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
         let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length;
         if (!this.is_numeric()) {
             let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
-            let trailing_length = is_last_in_line ? 0 : delta_length;
+            let trailing_length = is_last_in_line ? 0 : delta_length + trailing_whitespace_length;
             return [readability_gap, trailing_length];
         }
         if (is_first_record) {
             if (number_regex.exec(field) === null) {
                 // The line must be a header - align it using max_width rule.
                 let delta_length = Math.max(this.get_adjusted_total_length() - visual_field_length, 0);
-                let trailing_length = is_last_in_line ? 0 : delta_length;
+                let trailing_length = is_last_in_line ? 0 : delta_length + trailing_whitespace_length;
                 return [readability_gap, trailing_length];
             }
         }
@@ -197,7 +197,7 @@ class ColumnStat {
         let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
         let integer_delta_length = Math.max(this.get_adjusted_int_length() - cur_integer_part_length, 0);
         let fractional_delta_length = Math.max(this.max_fractional_length - cur_fractional_part_length);
-        let trailing_length = is_last_in_line ? 0 : fractional_delta_length;
+        let trailing_length = is_last_in_line ? 0 : fractional_delta_length + trailing_whitespace_length;
         return [integer_delta_length + readability_gap, trailing_length];
     }
 
@@ -289,8 +289,8 @@ function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, loca
 }
 
 
-function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
+function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length) {
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, trailing_whitespace_length);
     if (is_field_segment) {
         num_before += column_offset;
     }
@@ -298,8 +298,9 @@ function evaluate_rfc_align_field(field, is_first_record, column_stat, column_of
 }
 
 
-function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line);
+// FIXME add a unit test with non-zero trailing_whitespace_length.
+function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length=0) {
+    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -375,7 +376,7 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, /*trailing_whitespace_length=*/0);
                 if (num_before > 0) {
                     let hint_label = '';
                     if (!enable_vertical_grid || is_field_segment) {
@@ -405,8 +406,7 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
 }
 
 
-
-function align_columns(records, comments, column_stats, delim) {
+function align_columns(records, comments, column_stats, delim, trailing_whitespace_length=0) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
@@ -438,14 +438,16 @@ function align_columns(records, comments, column_stats, delim) {
                 }
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
+                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length);
                 aligned_fields.push(aligned_field);
             }
         }
         is_first_record = false;
         result_lines.push(aligned_fields.join(delim));
     }
-    return result_lines.join('\n');
+    return result_lines;
+    // FIXME remove commented
+    //return result_lines.join('\n');
 }
 
 
@@ -983,7 +985,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
 }
 
 
-function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
+function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
     // [
@@ -993,9 +995,9 @@ function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges
     // ]
     // There is no warning returned because on parsing failure it would just return a partial range.
     if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range);
+        return parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin);
     } else {
-        return parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range);
+        return parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin);
     }
 }
 

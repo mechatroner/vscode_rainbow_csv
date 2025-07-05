@@ -1622,7 +1622,8 @@ async function content_modifying_align_table() {
             return;
         }
         await report_progress(progress, 'Preparing final alignment');
-        let aligned_doc_text = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
+        let aligned_lines = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
+        let aligned_doc_text = aligned_lines.join('\n');
 
         await report_progress(progress, 'Aligning columns');
         let align_in_scratch_file = get_from_config('align_in_scratch_file', false);
@@ -2608,25 +2609,55 @@ async function markdown_copy() {
         selection_start_line = selection.start.line;
         selection_end_line = selection.end.line;
     }
+    // FIXME for some reason this skips the last selected line. Fix this!
     let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
-    // FIXME check for newlines in the parsed fields and report an error - apparently there is no universal way to handle newlines in md tables, some dialects allow <br> FWIW.
     log_wrapper.log_doc_event('parsing');
-    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range, /*custom_parsing_margin=*/0);
     // Here row_infos also includes the fields themselves so all good so far.
     log_wrapper.log_doc_event('calcing column stats');
     let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
     let records = [];
+    let num_columns = null;
     for (let row_info of row_infos) {
-        let multiline_fields = [];
+        let fields = [];
         for (let field_segments of row_info.record_fields) {
-            // FIXME instead of join just return error if more than one sub-field. Going forward can be optionally joined with `<br>` or something.
-            multiline_fields.push(field_segments.join('\n'));
+            if (field_segments.length != 1) {
+                // TODO Consider optionally joining multiline fragments with `<br>` or another established separator.
+                show_single_line_error('Unable to copy fragment with multiline fields');
+                return;
+            }
+            fields.push(field_segments[0]);
         }
-        records.push(multiline_fields);
+        records.push(fields);
+        if (num_columns === null) {
+            num_columns = fields.length;
+        }
+        if (num_columns != fields.length) {
+            show_single_line_error('Unable to copy fragment with variable number of fields in records');
+            return;
+        }
     }
-    // FIXME also need leading and trailing pipes.
+    if (records.length < 2) {
+        show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
+        return;
+    }
+    // Header and header separator are required because otherwise makdown viwers wouldn't treat it as a table.
+    // One option to add a header separator is to create a "fake" row filled with dashes intead of entries and pass it to the aligning function e.g. ['-', '-', '-', '-'].
+    // The problem with that approach is that alignment function is a bit too 'smart' especially when handling numeric columns.
+    log_wrapper.log_doc_event('adding the header');
     log_wrapper.log_doc_event('aligning columns');
-    let aligned_doc_text = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|');
+    let aligned_lines = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|', /*trailing_whitespace_length=*/1);
+    aligned_lines = aligned_lines.map(l => `|${l} |`);
+    if (aligned_lines.length < 2) {
+        show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
+        return;
+    }
+    log_wrapper.log_doc_event('adding the header separator');
+    // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes. Simple and Elegant.
+    let separator_line = aligned_lines[0].replace(/[^|]/g, '-');
+    aligned_lines.splice(1, 0, separator_line);
+    // FIXME also need a header if not included in the fragment.
+    let aligned_doc_text = aligned_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(aligned_doc_text);
 }
