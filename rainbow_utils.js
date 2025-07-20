@@ -898,7 +898,7 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
         custom_parsing_margin = dynamic_csv_highlight_margin;
     }
     let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1 + custom_parsing_margin);
     let table_ranges = [];
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
@@ -945,7 +945,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
     }
     let table_ranges = [];
     let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1 + custom_parsing_margin);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];

@@ -2641,10 +2641,11 @@ async function markdown_copy() {
         show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
         return;
     }
-    // Header and header separator are required because otherwise makdown viwers wouldn't treat it as a table.
+    // TODO consider explicitly including the first (header) record if not part of the selected fragment.
+    // One issue with this is what if the header has different num of fields than the selected fragment? In that case the inclusion logic would prevent markdown export altogether or we would have include the header conditionally which would be very confusing.
+    // Header separator is required because otherwise makdown viwers wouldn't treat it as a table.
     // One option to add a header separator is to create a "fake" row filled with dashes intead of entries and pass it to the aligning function e.g. ['-', '-', '-', '-'].
     // The problem with that approach is that alignment function is a bit too 'smart' especially when handling numeric columns.
-    log_wrapper.log_doc_event('adding the header');
     log_wrapper.log_doc_event('aligning columns');
     let aligned_lines = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|', /*trailing_whitespace_length=*/1);
     aligned_lines = aligned_lines.map(l => `|${l} |`);
@@ -2656,7 +2657,6 @@ async function markdown_copy() {
     // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes. Simple and Elegant.
     let separator_line = aligned_lines[0].replace(/[^|]/g, '-');
     aligned_lines.splice(1, 0, separator_line);
-    // FIXME also need a header if not included in the fragment.
     let aligned_doc_text = aligned_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(aligned_doc_text);
