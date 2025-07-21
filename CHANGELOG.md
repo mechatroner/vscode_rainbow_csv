@@ -2,6 +2,7 @@
 
 ## 3.21.0
 * Use Virtual alignment by default for the Align button - 2nd rollout attempt.
+* Disable sticky header by default.
 * Add `Copy for Markdown export` command.
 
 ## 3.20.0
