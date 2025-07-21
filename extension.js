@@ -12,6 +12,8 @@ const fast_load_utils = require('./fast_load_utils.js');
 // TODO get rid of scratch file alignment in the next iteration.
 // TODO advertise copy to excel as one of the main feature if no bugs reported.
 
+// FIXME in virtual alignment mode, the header gets dis-aligned when you scroll down and out-of-sync with the remaining lines.
+
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 var rbql_csv = null; // Using lazy load to improve startup performance.
