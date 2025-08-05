@@ -404,11 +404,11 @@ class StackContextLogWrapper {
 
 
 function get_header_from_document(document, delim, policy, comment_prefix) {
-    let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
-    if (!header_line) {
-        return null;
+    let [header_lnum, header_text] = ll_rainbow_utils().get_header_line(document, comment_prefix);
+    if (!header_text) {
+        return [null, null];
     }
-    return csv_utils.smart_split(header_line, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0];
+    return [header_lnum, csv_utils.smart_split(header_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0]];
 }
 
 
@@ -417,7 +417,7 @@ function get_header(document, delim, policy, comment_prefix) {
     if (file_path) {
         let header_info = get_from_global_state(make_header_key(file_path), null);
         if (header_info !== null && header_info.header !== null) {
-            return header_info.header;
+            return [header_info.header_line_num, header_info.header];
         }
     }
     return get_header_from_document(document, delim, policy, comment_prefix);
@@ -476,23 +476,12 @@ class StickyHeaderProvider {
     }
     async provideDocumentSymbols(document) {
         // This can trigger multiple times for the same doc because otherwise this won't work in case of e.g. header edit.
-        let [_delim, policy, comment_prefix] = get_dialect(document);
+        let [delim, policy, comment_prefix] = get_dialect(document);
         if (!policy) {
             return null;
         }
-        let header_lnum = null;
-        var file_path = document.fileName;
-        if (file_path) {
-            let header_info = get_from_global_state(make_header_key(file_path), null);
-            if (header_info !== null && header_info.header_line_num !== null) {
-                header_lnum = header_info.header_line_num;
-            }
-        }
-
-        if (header_lnum === null) {
-            header_lnum = ll_rainbow_utils().get_header_line(document, comment_prefix)[0];
-        }
-        if (header_lnum === null || header_lnum >= document.lineCount - 1) {
+        let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
+        if (header_lnum === null /* - this can happen for user-provided "virtual" header */ || header_lnum >= document.lineCount - 1) {
             return null;
         }
         let full_range = new vscode.Range(header_lnum, 0, document.lineCount - 1, 65535);
@@ -937,7 +926,7 @@ function make_hover(document, language_id, position, cancellation_token) {
     if (!cursor_position_info || cancellation_token.isCancellationRequested)
         return null;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let header = get_header(document, delim, policy, comment_prefix);
+    let header = get_header(document, delim, policy, comment_prefix)[1];
     if (!header) {
         return null;
     }
@@ -964,7 +953,7 @@ function show_column_info_button() {
     if (!cursor_position_info)
         return false;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let header = get_header(active_doc, delim, policy, comment_prefix);
+    let header = get_header(active_doc, delim, policy, comment_prefix)[1];
     if (!header)
         return false;
     let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
@@ -1491,7 +1480,7 @@ async function set_virtual_header() {
         show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
-    var old_header = get_header(active_doc, delim, policy, comment_prefix);
+    var old_header = get_header(active_doc, delim, policy, comment_prefix)[1];
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = old_header ? quoted_join(old_header, delim) : '';
     var input_box_props = {"prompt": title, "value": old_header_str};
@@ -1906,7 +1895,8 @@ async function edit_rbql(integration_test_options=null) {
     }
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
-    let header_for_ui = get_header_from_document(active_doc, delim, policy, comment_prefix);
+    // TODO Find a way to use `get_header()` instead.
+    let header_for_ui = get_header_from_document(active_doc, delim, policy, comment_prefix)[1];
     rbql_context = {
         "input_document": active_doc,
         "input_document_path": input_path,
@@ -2493,6 +2483,18 @@ class InlayHintProvider {
         }
         let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
 
+        let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
+        // It is possible for `header_lnum` to be null if the header is virtual.
+        if (header_lnum !== null) {
+            // FIXME we should probably skip adding the header ranges if it is already contained in the extended range because in that case we would generate inlay hints twice and it is not clear how vscode API would react to that - it is probably undocumented.
+            // FIXME perhaps check what happens if header is at the bottom?
+            console.log("header_lnum:" + header_lnum); //FOR_DEBUG
+            let header_range = new vscode.Range(header_lnum, 0, header_lnum, 1);
+            // We don't need to check if visible range contains the header line - even if it does going over the same row infos twice when calculating statistics shouldn't break anything.
+            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range, /*custom_parsing_margin=*/0);
+            row_infos = row_infos.concat(header_row_infos);
+        }
+
         let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
@@ -2500,7 +2502,8 @@ class InlayHintProvider {
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
-        return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        let visible_range_hints = ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, header_lnum, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        return visible_range_hints;
     }
 }
 
@@ -2611,7 +2614,6 @@ async function markdown_copy() {
         selection_start_line = selection.start.line;
         selection_end_line = selection.end.line;
     }
-    // FIXME for some reason this skips the last selected line. Fix this!
     let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
     log_wrapper.log_doc_event('parsing');
     let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range, /*custom_parsing_margin=*/0);

@@ -342,11 +342,10 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
-    let is_first_record = true;
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
     // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
     // Plust the more typical scroll direction is from top to bottom.
@@ -356,8 +355,7 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
         if (row_info.comment_range !== null) {
             continue;
         }
-        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
+        let is_assumed_header_record = row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line === header_lnum;
         if (row_info.record_fields.length != row_info.record_ranges.length) {
             break; // Should never happen.
         }
@@ -376,7 +374,7 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, /*trailing_whitespace_length=*/0);
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_assumed_header_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, /*trailing_whitespace_length=*/0);
                 if (num_before > 0) {
                     let hint_label = '';
                     if (!enable_vertical_grid || is_field_segment) {
@@ -387,20 +385,19 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
                         hint_label += alignment_char.repeat(num_before - 1);
                     }
                     let hint_line = field_segment_range.start.line;
-                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                    if ((hint_line === header_lnum) || (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line)) {
                         inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                     }
                 }
                 if (num_after > 0) {
                     let hint_label = alignment_char.repeat(num_after);
                     let hint_line = field_segment_range.end.line;
-                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                    if ((hint_line === header_lnum) || (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line)) {
                         inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                     }
                 }
             }
         }
-        is_first_record = false;
     }
     return inlay_hints;
 }
@@ -985,6 +982,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
 }
 
 
+// FIXME get rid of `custom_parsing_margin` arg and instead extend the range with margin prior to passing it into this function.
 function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
