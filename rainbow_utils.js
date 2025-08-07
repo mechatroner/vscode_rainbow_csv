@@ -17,7 +17,6 @@ const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 // Copypasted from extension.js
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
-const dynamic_csv_highlight_margin = 50; // TODO make configurable.
 const max_preview_field_length = 250;
 const alignment_extra_readability_whitespace_length = 1;
 
@@ -258,17 +257,15 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
 }
 
 
-function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
+function calc_column_stats_for_fragment(row_infos, header_lnum, enable_double_width_alignment) {
+    // Note: `row_infos` can contain non-consecutive fragments of the document e.g. header and view range below.
     let all_columns_stats = [];
-    let is_first_record = true;
     for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
         }
-        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
-        update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
-        is_first_record = false;
+        let is_assumed_header_record = row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == header_lnum;
+        update_column_stats_from_record(row_info.record_fields, is_assumed_header_record, all_columns_stats, enable_double_width_alignment);
     }
     return all_columns_stats;
 }
@@ -343,12 +340,14 @@ class RecordCommentMerger {
 
 
 function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+    // NOTE: `table_ranges` can contain non-consecutive fragments of the document e.g. header and view range below.
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
     // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
     // Plust the more typical scroll direction is from top to bottom.
+    // FIXME add more margin to the top or bottom depending on the scroll direction - you can guess it comparing the current range with the previous one.
     let hint_display_start_line = visible_range.start.line - 10;
     let hint_display_end_line = visible_range.end.line + 50;
     for (let row_info of table_ranges) {
@@ -380,7 +379,7 @@ function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, 
                     if (!enable_vertical_grid || is_field_segment) {
                         hint_label += alignment_char.repeat(num_before);
                     } else {
-                        // FIXME find a way to "draw" vertical grid by extending hints for multiline rfc fields. Add a screenshot to README when implemented.
+                        // TODO find a way to "draw" vertical grid by extending hints for multiline rfc fields. Add a screenshot to README when implemented.
                         hint_label = '\u2588';
                         hint_label += alignment_char.repeat(num_before - 1);
                     }
@@ -443,8 +442,6 @@ function align_columns(records, comments, column_stats, delim, trailing_whitespa
         result_lines.push(aligned_fields.join(delim));
     }
     return result_lines;
-    // FIXME remove commented
-    //return result_lines.join('\n');
 }
 
 
@@ -890,12 +887,16 @@ class RowInfo {
 }
 
 
-function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin=null) {
-    if (custom_parsing_margin === null) {
-        custom_parsing_margin = dynamic_csv_highlight_margin;
-    }
-    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + 1 + custom_parsing_margin);
+function extend_range_by_margin(vscode, doc, range, margin) {
+    let begin_line = Math.max(0, range.start.line - margin);
+    let end_line_inclusive = Math.min(doc.lineCount - 1, range.end.line + margin);
+    return new vscode.Range(begin_line, range.start.character, end_line_inclusive, range.end.character);
+}
+
+
+function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range) {
+    let begin_line = Math.max(0, range.start.line);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1);
     let table_ranges = [];
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
@@ -936,13 +937,10 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
 }
 
 
-function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
-    if (custom_parsing_margin === null) {
-        custom_parsing_margin = dynamic_csv_highlight_margin;
-    }
+function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
     let table_ranges = [];
-    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + 1 + custom_parsing_margin);
+    let begin_line = Math.max(0, range.start.line);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];
@@ -983,7 +981,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
 
 
 // FIXME get rid of `custom_parsing_margin` arg and instead extend the range with margin prior to passing it into this function.
-function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
+function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:
     // [
@@ -993,9 +991,9 @@ function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges
     // ]
     // There is no warning returned because on parsing failure it would just return a partial range.
     if (policy == QUOTED_RFC_POLICY) {
-        return parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin);
+        return parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range);
     } else {
-        return parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin);
+        return parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range);
     }
 }
 
@@ -1014,8 +1012,8 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
-    const hover_parse_margin = 20;
-    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
+    let range = new vscode.Range(position.line, 0, position.line, 0);
+    range = extend_range_by_margin(vscode, document, range, 20);
     let table_ranges = parse_document_range_rfc(vscode, document, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
@@ -1283,3 +1281,4 @@ module.exports.RecordCommentMerger = RecordCommentMerger;
 module.exports.ColumnStat = ColumnStat;
 module.exports.generate_column_edit_selections = generate_column_edit_selections;
 module.exports.generate_inlay_hints = generate_inlay_hints;
+module.exports.extend_range_by_margin = extend_range_by_margin;

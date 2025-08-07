@@ -1,9 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
 ## 3.21.0
-* Use Virtual alignment by default for the Align button - 2nd rollout attempt.
-* Disable sticky header by default.
 * Add `Copy for Markdown export` command.
+* Fix sticky header alignment in virtual alignment mode.
 
 ## 3.20.0
 * Add `Copy for Excel / Sheets export` command.

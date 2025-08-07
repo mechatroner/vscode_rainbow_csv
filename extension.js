@@ -9,7 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// TODO get rid of scratch file alignment in the next iteration.
+// FIXME get rid of scratch file alignment.
 // TODO advertise copy to excel as one of the main feature if no bugs reported.
 
 // FIXME in virtual alignment mode, the header gets dis-aligned when you scroll down and out-of-sync with the remaining lines.
@@ -2304,7 +2304,8 @@ function provide_tracked_column_decorations(active_editor, range) {
         tracked_column_ranges.set(column_num, new Array());
     }
 
-    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+    let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
     for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
@@ -2404,7 +2405,8 @@ class RainbowTokenProvider {
             return null;
         }
 
-        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+        let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of row_infos) {
@@ -2481,21 +2483,17 @@ class InlayHintProvider {
         if (policy === null) {
             return [];
         }
-        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
-
+        let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, visible_range, 50);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, parsing_range);
         let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
         // It is possible for `header_lnum` to be null if the header is virtual.
-        if (header_lnum !== null) {
-            // FIXME we should probably skip adding the header ranges if it is already contained in the extended range because in that case we would generate inlay hints twice and it is not clear how vscode API would react to that - it is probably undocumented.
-            // FIXME perhaps check what happens if header is at the bottom?
-            console.log("header_lnum:" + header_lnum); //FOR_DEBUG
+        if (header_lnum !== null && header_lnum < parsing_range.start.line) { // We don't check if header is after the range because it is a very weird corner case which doesn't matter for the purpose of virtual alignment anyway and requires additional testing.
             let header_range = new vscode.Range(header_lnum, 0, header_lnum, 1);
-            // We don't need to check if visible range contains the header line - even if it does going over the same row infos twice when calculating statistics shouldn't break anything.
-            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range, /*custom_parsing_margin=*/0);
-            row_infos = row_infos.concat(header_row_infos);
+            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range);
+            row_infos = header_row_infos.concat(row_infos);
         }
 
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
             // Save updated whole-doc stats.
@@ -2616,10 +2614,11 @@ async function markdown_copy() {
     }
     let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
     log_wrapper.log_doc_event('parsing');
-    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range, /*custom_parsing_margin=*/0);
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
     // Here row_infos also includes the fields themselves so all good so far.
-    log_wrapper.log_doc_event('calcing column stats');
-    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, extension_context.double_width_alignment);
+    log_wrapper.log_doc_event('calculating column stats');
+    let header_lnum = get_header(active_doc, delim, policy, comment_prefix)[0];
+    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
     let records = [];
     let num_columns = null;
     for (let row_info of row_infos) {

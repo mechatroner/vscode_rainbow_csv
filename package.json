@@ -73,7 +73,7 @@
             "properties": {
                 "rainbow_csv.enable_sticky_header": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "order": 1,
                     "description": "Enable sticky header line at the top."
                 },
@@ -115,7 +115,7 @@
                     "enum": ["disabled", "manual", "always"],
                     "enumDescriptions": ["Disabled. Align only when \"VirtualAlign\" command is executed", "Align when \"Align\" Status Bar button is clicked", "Automatically align all files"],
                     "order": 6,
-                    "default": "manual",
+                    "default": "disabled",
                     "description": "Virtual alignment based on VSCode inlay hints that doesn't change underlying file content."
                 },
                 "rainbow_csv.virtual_alignment_char": {
