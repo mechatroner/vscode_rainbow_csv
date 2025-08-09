@@ -204,16 +204,10 @@
                     "order": 20,
                     "description": "Enable \"Preview CSV tail\" option in File Explorer context menu for all files."
                 },
-                "rainbow_csv.align_in_scratch_file": {
-                    "type": "boolean",
-                    "default": false,
-                    "order": 21,
-                    "description": "If enabled, aligned content is copied to a new scratch file to keep the original file without modifications (unless the original is itself an untitled scratch document)."
-                },
                 "rainbow_csv.enable_debug_logging": {
                     "type": "boolean",
                     "default": false,
-                    "order": 22,
+                    "order": 21,
                     "description": "Dev Mode: Enable Debug Logging. Run command [Developer: Show Logs...] -> [rainbow_csv_debug_channel] to see the output."
                 }
             }

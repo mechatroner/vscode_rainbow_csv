@@ -980,7 +980,6 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
 }
 
 
-// FIXME get rid of `custom_parsing_margin` arg and instead extend the range with margin prior to passing it into this function.
 function parse_document_range(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
     // A single field can contain multiple ranges if it spans multiple lines.
     // A generic example for an rfc file:

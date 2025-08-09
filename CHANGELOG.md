@@ -3,6 +3,7 @@
 ## 3.21.0
 * Add `Copy for Markdown export` command.
 * Fix sticky header alignment in virtual alignment mode.
+* Remove obsolete scratch file alignment feature (it was superseded by virtual alignment).
 
 ## 3.20.0
 * Add `Copy for Excel / Sheets export` command.

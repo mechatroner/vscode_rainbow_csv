@@ -9,10 +9,7 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// FIXME get rid of scratch file alignment.
 // TODO advertise copy to excel as one of the main feature if no bugs reported.
-
-// FIXME in virtual alignment mode, the header gets dis-aligned when you scroll down and out-of-sync with the remaining lines.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
@@ -1617,19 +1614,9 @@ async function content_modifying_align_table() {
         let aligned_doc_text = aligned_lines.join('\n');
 
         await report_progress(progress, 'Aligning columns');
-        let align_in_scratch_file = get_from_config('align_in_scratch_file', false);
-        let is_scratch_file = active_doc.uri && active_doc.uri.scheme == 'untitled';
-        if (align_in_scratch_file && !is_scratch_file) {
-            let aligned_doc_cfg = {content: aligned_doc_text, language: active_doc.languageId};
-            let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
-            whitespace_aligned_files.add(scratch_doc.fileName);
-            await vscode.window.showTextDocument(scratch_doc);
-            show_align_shrink_button(scratch_doc.fileName); // This is likely redundant but won't hurt.
-        } else {
-            await replace_doc_content(active_editor, active_doc, aligned_doc_text);
-            whitespace_aligned_files.add(active_doc.fileName);
-            show_align_shrink_button(active_doc.fileName);
-        }
+        await replace_doc_content(active_editor, active_doc, aligned_doc_text);
+        whitespace_aligned_files.add(active_doc.fileName);
+        show_align_shrink_button(active_doc.fileName);
     });
 }
 
