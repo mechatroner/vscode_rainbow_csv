@@ -346,8 +346,7 @@ function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, 
     let inlay_hints = [];
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
     // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
-    // Plust the more typical scroll direction is from top to bottom.
-    // FIXME add more margin to the top or bottom depending on the scroll direction - you can guess it comparing the current range with the previous one.
+    // Plus the more typical scroll direction is from top to bottom.
     let hint_display_start_line = visible_range.start.line - 10;
     let hint_display_end_line = visible_range.end.line + 50;
     for (let row_info of table_ranges) {
@@ -887,6 +886,7 @@ class RowInfo {
 }
 
 
+// FIXME add a unit tests for this.
 function extend_range_by_margin(vscode, doc, range, margin) {
     let begin_line = Math.max(0, range.start.line - margin);
     let end_line_inclusive = Math.min(doc.lineCount - 1, range.end.line + margin);
