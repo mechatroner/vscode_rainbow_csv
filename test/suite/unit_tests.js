@@ -1206,6 +1206,32 @@ function test_parse_document_range_single_line() {
 }
 
 
+function test_extend_range_by_margin() {
+    let [range, extended_range, doc_lines, active_doc] = [null, null, null, null]
+
+    // Simple test case.
+    doc_lines = Array(10).fill('foobar');
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    range = new vscode_test_double.Range(3, 0, 5, 0);
+    extended_range = rainbow_utils.extend_range_by_margin(vscode_test_double, active_doc, range, 2);
+    assert.deepEqual(extended_range, vr(1, 0, 7, 0));
+
+    // Bounded by start.
+    doc_lines = Array(100).fill('foobar');
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    range = new vscode_test_double.Range(3, 0, 5, 0);
+    extended_range = rainbow_utils.extend_range_by_margin(vscode_test_double, active_doc, range, 10);
+    assert.deepEqual(extended_range, vr(0, 0, 15, 0));
+
+    // Bounded by end.
+    doc_lines = Array(100).fill('foobar');
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    range = new vscode_test_double.Range(93, 0, 95, 0);
+    extended_range = rainbow_utils.extend_range_by_margin(vscode_test_double, active_doc, range, 10);
+    assert.deepEqual(extended_range, vr(83, 0, 99, 0));
+}
+
+
 function test_parse_document_range_rfc() {
     let [doc_lines, active_doc, comment_prefix, delim, range] = [null, null, null, null, null];
     let [table_ranges, table_comment_ranges, table_record_ranges] = [null, null, null];
@@ -2554,6 +2580,7 @@ function test_all() {
     test_generate_inlay_hints();
     test_calc_column_stats_for_fragment();
     test_align_stats();
+    test_extend_range_by_margin();
     test_field_align();
     test_rfc_field_align();
     test_align_columns();

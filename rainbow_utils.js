@@ -885,7 +885,6 @@ class RowInfo {
 }
 
 
-// FIXME add a unit tests for this.
 function extend_range_by_margin(vscode, doc, range, margin) {
     let begin_line = Math.max(0, range.start.line - margin);
     let end_line_inclusive = Math.min(doc.lineCount - 1, range.end.line + margin);
