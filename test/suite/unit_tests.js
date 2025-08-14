@@ -456,6 +456,16 @@ function test_rfc_field_align() {
     aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
     assert.deepEqual(' foobar    ', aligned_field);
 
+    // Align non-field segment in non-numeric non-last column with non-zero trailing whitespaces.
+    field = 'foobar';
+    is_first_line = 0;
+    is_field_segment = false;
+    column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
+    column_stats = column_stats_helper(column_stats)
+    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
+    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false, /*trailing_whitespace_length=*/1);
+    assert.deepEqual(' foobar     ', aligned_field);
+
     field = 'foobar';
     is_first_line = 0;
     is_field_segment = false;

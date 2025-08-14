@@ -295,7 +295,6 @@ function evaluate_rfc_align_field(field, is_first_record, column_stat, column_of
 }
 
 
-// FIXME add a unit test with non-zero trailing_whitespace_length.
 function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length=0) {
     let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
