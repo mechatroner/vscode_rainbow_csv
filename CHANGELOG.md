@@ -168,7 +168,7 @@
 * Updated RBQL to version 0.9.0
 * Restricted usage of Align/Shrink commands in files with unbalanced double quotes
 * Fixed incorrect dialect name: "tilda" -> "tilde", see [#40](https://github.com/mechatroner/vscode_rainbow_csv/issues/40)
-* Added an eror message when RBQL console is used with unsaved file [#41](https://github.com/mechatroner/vscode_rainbow_csv/issues/41)
+* Added an error message when RBQL console is used with unsaved file [#41](https://github.com/mechatroner/vscode_rainbow_csv/issues/41)
 
 
 ## 1.2.0
@@ -184,7 +184,7 @@
 * RBQL encoding customization by [@mandel59](https://github.com/mandel59)
 * Implemented Whitespace-separated dialect
 * Linter: detect trailing whitespaces in fields [#15](https://github.com/mechatroner/vscode_rainbow_csv/issues/15)
-* Added commands: remove trailing whitespaces from all fields and allign columns with trailing whitespaces
+* Added commands: remove trailing whitespaces from all fields and align columns with trailing whitespaces
 * Implemented RBQL result set copy-back command
 * Improved RBQL console UI
 * Customizable "Preview big CSV: head/tail" context menu options [#32](https://github.com/mechatroner/vscode_rainbow_csv/issues/32)
@@ -201,5 +201,5 @@
 
 
 ## 0.7.1
-* Fix: Added safety check to RBQL that would prevent accidental usage of assignment operator "=" instead of comparison "==" or "===" in JS (In Python this was not possible before the fix due to Python's own syntatic checker).  
+* Fix: Added safety check to RBQL that would prevent accidental usage of assignment operator "=" instead of comparison "==" or "===" in JS (In Python this was not possible before the fix due to Python's own syntactic checker).  
 * Added "Rainbow CSV" category to all extension commands by [@yozlet](https://github.com/yozlet) request, see [#22](https://github.com/mechatroner/vscode_rainbow_csv/issues/22)  
