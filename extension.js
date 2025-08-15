@@ -2581,7 +2581,6 @@ async function excel_copy() {
 }
 
 
-// FIXME add unit tests
 async function markdown_copy() {
     let log_wrapper = new StackContextLogWrapper('markdown_copy');
     log_wrapper.log_doc_event('starting markdown_copy');
