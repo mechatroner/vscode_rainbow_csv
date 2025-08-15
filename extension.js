@@ -554,7 +554,7 @@ function reenable_inlay_hints_provider() {
 async function configure_inlay_hints_alignment(language_id, log_wrapper) {
     // We have 3 invocation contexts here:
     // 1. VA is "disabled" but the function was called via the command palette command directly.
-    // 2. VA is "manual" and the function was called either by the command pallete or the "Align" button (essentially the same).
+    // 2. VA is "manual" and the function was called either by the command palette or the "Align" button (essentially the same).
     // 3. VA is "always" and the function was called on file open.
     if (language_id == 'tsv') {
         let active_editor = get_active_editor();
@@ -801,7 +801,7 @@ async function enable_rainbow_features_if_csv(active_doc, log_wrapper) {
         vscode.languages.setLanguageConfiguration(language_id, { comments: { lineComment: comment_prefix } });
     }
     if (language_id == DYNAMIC_CSV) {
-        // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
+        // Re-enable tokenization to explicitly trigger the highlighting. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     }
     enable_rainbow_ui(active_doc);
@@ -1388,10 +1388,10 @@ async function set_comment_prefix() {
         vscode.languages.setLanguageConfiguration(active_doc.languageId, { comments: { lineComment: comment_prefix } });
     }
     if (active_doc.languageId == DYNAMIC_CSV) {
-        // Re-enable tokenization to explicitly trigger the highligthing. Sometimes this doesn't happen automatically.
+        // Re-enable tokenization to explicitly trigger the highlighting. Sometimes this doesn't happen automatically.
         enable_dynamic_semantic_tokenization();
     } else {
-        // Re-enable comment tokenization to explicitly adjust the comment highligthing (sometimes to disable it if comment prefix is set to an empty string).
+        // Re-enable comment tokenization to explicitly adjust the comment highlighting (sometimes to disable it if comment prefix is set to an empty string).
         register_comment_tokenization_handler();
     }
 }
@@ -1427,7 +1427,7 @@ async function restore_original_language() {
     active_doc = await vscode.languages.setTextDocumentLanguage(active_doc, original_language_id);
     // There is no onDidChangeActiveTextEditor even for language change so we need to explicitly disable rainbow features.
     disable_rainbow_features_if_non_csv(active_doc, log_wrapper);
-    // The only reason why we might want to clean up dynamic dialect info here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype swith at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
+    // The only reason why we might want to clean up dynamic dialect info here is to facilitate triggering dynamic_document_dialect selection UI after manual filetype switch at the later point so that the user could choose a different dynamic dialect without manual selection by cursor / commands.
     remove_dynamic_info(file_path);
 }
 
@@ -2132,7 +2132,7 @@ async function handle_doc_open(new_doc) {
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument
     // Document "B" opens in tab1 -> triggers onDidOpenTextDocument  (this could happen if user clicks on document "B" in the left file browser panel)
     // Document "A" opens in tab1 -> triggers onDidOpenTextDocument again! The previous languageId is reset.
-    // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the curent document closing and opening of a new doc.
+    // In other words if user opens a different document in the same tab (single click VS double click in the file browser panel) it may trigger the current document closing and opening of a new doc.
     // This behavior is called Preview Mode, see https://vscode.one/new-tab-vscode/ and https://code.visualstudio.com/docs/getstarted/userinterface#_preview-mode
 
     let log_wrapper = new StackContextLogWrapper('handle_doc_open');
@@ -2343,7 +2343,7 @@ function provide_row_background_decorations(active_editor, range) {
     }
     let [_delim, policy, _comment_prefix] = get_dialect(document);
     if (policy == QUOTED_RFC_POLICY) {
-        // TODO handle rfc records here, do actuall parsing
+        // TODO handle rfc records here, do actual parsing
         // Currently this early return is needed here too because this provider can trigger for rfc dialects when background decorations are enabled by default.
         return;
     }

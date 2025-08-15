@@ -460,7 +460,7 @@
             {
                 "command": "rainbow-csv.ToggleRowBackground",
                 "category": "Rainbow CSV",
-                "title": "Toggle Alternating Row Backgound"
+                "title": "Toggle Alternating Row Background"
             },
             {
                 "command": "rainbow-csv.Align",

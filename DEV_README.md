@@ -76,7 +76,7 @@ https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-test-
 
 
 
-#### Debuging
+#### Debugging
 Looks like it is possible to directly run scripts from package.json with `npx` like this:
 ```
 npx vscode-test-web --help
@@ -106,9 +106,9 @@ The npx command `npx serve --cors -l 5000` failed in WSL with `cb.apply is not a
 The same command worked as expected from Windows cmd.
 Steps:
 1. Run `npx serve --cors -l 5000` - this may not work in WSL, in this case run in windows cmd. This local server uses `http` instead of `https` and because of that VSCode will not work with it directly, although the docs say otherwise (https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev) - it will just produce some cors/wss content security policy related errors in the log. So you need to do step 2.
-2. In another cmd tab run another commmand: `npx localtunnel -p 5000` - this will create a "tunnel" server pointing to the server from the first command - this will produce a link like `https://rotten-snake-42.loca.lt/`
+2. In another cmd tab run another command: `npx localtunnel -p 5000` - this will create a "tunnel" server pointing to the server from the first command - this will produce a link like `https://rotten-snake-42.loca.lt/`
 3. Follow the `https://rotten-snake-42.loca.lt/` link and press the button - this will show the content of your extension folder - https server is working.
-4. Go to vscode.dev -> Ctrl+Shift+P -> run Developer: Install Web Extension... -> Copy the `https://rotten-snake-42.loca.lt/` link. In my experience this will work only with https urls. If you use http, the extension will be sort of "installed" - it will be listed in the installed extension pannel but the main extension.js won't be loaded so all the logic will be missing from it.
+4. Go to vscode.dev -> Ctrl+Shift+P -> run Developer: Install Web Extension... -> Copy the `https://rotten-snake-42.loca.lt/` link. In my experience this will work only with https urls. If you use http, the extension will be sort of "installed" - it will be listed in the installed extension panel but the main extension.js won't be loaded so all the logic will be missing from it.
 
 
 ### Publishing
@@ -130,7 +130,7 @@ See more docs here: https://github.com/eclipse/openvsx/wiki/Publishing-Extension
 1. Install code on the remote machine. Note: In my case "snap" installation didn't work, but the deb package worked without issues.
 2. Run `code tunnel`, see more here: https://code.visualstudio.com/docs/remote/tunnels#_using-the-code-cli
 3. Access the link from the browser or through the desktop VSCode app using `Remote - Tunnels` extension https://code.visualstudio.com/blogs/2022/12/07/remote-even-better
-   Enter `Remote - Tunnels: Connect to Tunnel` command in the pallete.
+   Enter `Remote - Tunnels: Connect to Tunnel` command in the palette.
 
 
 ### Generating documentation with showdown
