@@ -17,7 +17,6 @@ const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 // Copypasted from extension.js
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
-const dynamic_csv_highlight_margin = 50; // TODO make configurable.
 const max_preview_field_length = 250;
 const alignment_extra_readability_whitespace_length = 1;
 
@@ -174,20 +173,20 @@ class ColumnStat {
         }
     }
 
-    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
+    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, trailing_whitespace_length) {
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
         let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length;
         if (!this.is_numeric()) {
             let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
-            let trailing_length = is_last_in_line ? 0 : delta_length;
+            let trailing_length = is_last_in_line ? 0 : delta_length + trailing_whitespace_length;
             return [readability_gap, trailing_length];
         }
         if (is_first_record) {
             if (number_regex.exec(field) === null) {
                 // The line must be a header - align it using max_width rule.
                 let delta_length = Math.max(this.get_adjusted_total_length() - visual_field_length, 0);
-                let trailing_length = is_last_in_line ? 0 : delta_length;
+                let trailing_length = is_last_in_line ? 0 : delta_length + trailing_whitespace_length;
                 return [readability_gap, trailing_length];
             }
         }
@@ -197,7 +196,7 @@ class ColumnStat {
         let cur_fractional_part_length = dot_pos == -1 ? 0 : field.length - dot_pos;
         let integer_delta_length = Math.max(this.get_adjusted_int_length() - cur_integer_part_length, 0);
         let fractional_delta_length = Math.max(this.max_fractional_length - cur_fractional_part_length);
-        let trailing_length = is_last_in_line ? 0 : fractional_delta_length;
+        let trailing_length = is_last_in_line ? 0 : fractional_delta_length + trailing_whitespace_length;
         return [integer_delta_length + readability_gap, trailing_length];
     }
 
@@ -258,17 +257,15 @@ function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_dou
 }
 
 
-function calc_column_stats_for_fragment(row_infos, enable_double_width_alignment) {
+function calc_column_stats_for_fragment(row_infos, header_lnum, enable_double_width_alignment) {
+    // Note: `row_infos` can contain non-consecutive fragments of the document e.g. header and view range below.
     let all_columns_stats = [];
-    let is_first_record = true;
     for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
         }
-        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
-        update_column_stats_from_record(row_info.record_fields, is_first_record, all_columns_stats, enable_double_width_alignment);
-        is_first_record = false;
+        let is_assumed_header_record = row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == header_lnum;
+        update_column_stats_from_record(row_info.record_fields, is_assumed_header_record, all_columns_stats, enable_double_width_alignment);
     }
     return all_columns_stats;
 }
@@ -289,8 +286,8 @@ function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, loca
 }
 
 
-function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
+function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length) {
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, trailing_whitespace_length);
     if (is_field_segment) {
         num_before += column_offset;
     }
@@ -298,8 +295,8 @@ function evaluate_rfc_align_field(field, is_first_record, column_stat, column_of
 }
 
 
-function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line);
+function rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length=0) {
+    let [num_before, num_after] = evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset,  is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -341,22 +338,21 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+    // NOTE: `table_ranges` can contain non-consecutive fragments of the document e.g. header and view range below.
     assert(alignment_char.length == 1);
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
     let inlay_hints = [];
-    let is_first_record = true;
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
     // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
-    // Plust the more typical scroll direction is from top to bottom.
+    // Plus the more typical scroll direction is from top to bottom.
     let hint_display_start_line = visible_range.start.line - 10;
     let hint_display_end_line = visible_range.end.line + 50;
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
             continue;
         }
-        // The is_first_record check below is flawed because header might be preceeded by some comment lines, but failure here is not a big deal since this is a local alignment anyway.
-        is_first_record = is_first_record && row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line == 0;
+        let is_assumed_header_record = row_info.record_ranges.length && row_info.record_ranges[0].length && row_info.record_ranges[0][0].start.line === header_lnum;
         if (row_info.record_fields.length != row_info.record_ranges.length) {
             break; // Should never happen.
         }
@@ -375,38 +371,36 @@ function generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_s
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_first_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_assumed_header_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, /*trailing_whitespace_length=*/0);
                 if (num_before > 0) {
                     let hint_label = '';
                     if (!enable_vertical_grid || is_field_segment) {
                         hint_label += alignment_char.repeat(num_before);
                     } else {
-                        // FIXME find a way to "draw" vertical grid by extending hints for multiline rfc fields. Add a screenshot to README when implemented.
+                        // TODO find a way to "draw" vertical grid by extending hints for multiline rfc fields. Add a screenshot to README when implemented.
                         hint_label = '\u2588';
                         hint_label += alignment_char.repeat(num_before - 1);
                     }
                     let hint_line = field_segment_range.start.line;
-                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                    if ((hint_line === header_lnum) || (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line)) {
                         inlay_hints.push(new vscode.InlayHint(field_segment_range.start, hint_label));
                     }
                 }
                 if (num_after > 0) {
                     let hint_label = alignment_char.repeat(num_after);
                     let hint_line = field_segment_range.end.line;
-                    if (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line) {
+                    if ((hint_line === header_lnum) || (hint_line >= hint_display_start_line && hint_line <= hint_display_end_line)) {
                         inlay_hints.push(new vscode.InlayHint(field_segment_range.end, hint_label));
                     }
                 }
             }
         }
-        is_first_record = false;
     }
     return inlay_hints;
 }
 
 
-
-function align_columns(records, comments, column_stats, delim) {
+function align_columns(records, comments, column_stats, delim, trailing_whitespace_length=0) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
     // 2: The alignment procedure is opinionated and "Already aligned" report has little value.
@@ -438,14 +432,14 @@ function align_columns(records, comments, column_stats, delim) {
                 }
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
+                let aligned_field = rfc_align_field(field_segments[i], is_first_record, column_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, trailing_whitespace_length);
                 aligned_fields.push(aligned_field);
             }
         }
         is_first_record = false;
         result_lines.push(aligned_fields.join(delim));
     }
-    return result_lines.join('\n');
+    return result_lines;
 }
 
 
@@ -891,12 +885,16 @@ class RowInfo {
 }
 
 
-function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range, custom_parsing_margin=null) {
-    if (custom_parsing_margin === null) {
-        custom_parsing_margin = dynamic_csv_highlight_margin;
-    }
-    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
+function extend_range_by_margin(vscode, doc, range, margin) {
+    let begin_line = Math.max(0, range.start.line - margin);
+    let end_line_inclusive = Math.min(doc.lineCount - 1, range.end.line + margin);
+    return new vscode.Range(begin_line, range.start.character, end_line_inclusive, range.end.character);
+}
+
+
+function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ranges, comment_prefix, range) {
+    let begin_line = Math.max(0, range.start.line);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1);
     let table_ranges = [];
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
@@ -937,13 +935,10 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
 }
 
 
-function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range, custom_parsing_margin=null) {
-    if (custom_parsing_margin === null) {
-        custom_parsing_margin = dynamic_csv_highlight_margin;
-    }
+function parse_document_range_single_line(vscode, doc, delim, include_delim_length_in_ranges, policy, comment_prefix, range) {
     let table_ranges = [];
-    let begin_line = Math.max(0, range.start.line - custom_parsing_margin);
-    let end_line = Math.min(doc.lineCount, range.end.line + custom_parsing_margin);
+    let begin_line = Math.max(0, range.start.line);
+    let end_line = Math.min(doc.lineCount, range.end.line + 1);
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];
@@ -1014,8 +1009,8 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 
 
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
-    const hover_parse_margin = 20;
-    let range = new vscode.Range(Math.max(position.line - hover_parse_margin, 0), 0, position.line + hover_parse_margin, 0);
+    let range = new vscode.Range(position.line, 0, position.line, 0);
+    range = extend_range_by_margin(vscode, document, range, 20);
     let table_ranges = parse_document_range_rfc(vscode, document, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range);
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
@@ -1283,3 +1278,4 @@ module.exports.RecordCommentMerger = RecordCommentMerger;
 module.exports.ColumnStat = ColumnStat;
 module.exports.generate_column_edit_selections = generate_column_edit_selections;
 module.exports.generate_inlay_hints = generate_inlay_hints;
+module.exports.extend_range_by_margin = extend_range_by_margin;

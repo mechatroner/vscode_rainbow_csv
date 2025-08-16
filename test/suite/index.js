@@ -455,6 +455,24 @@ async function test_no_autodetection(test_folder_uri) {
 }
 
 
+async function test_markdown_copy(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(2000);
+    log_message('Testing Markdown Copy');
+    await vscode.commands.executeCommand('rainbow-csv.MarkdownCopy');
+    await sleep(500);
+    let export_text = await vscode.env.clipboard.readText();
+    let export_lines = export_text.split('\n');
+    assert.equal(export_lines.length, 226 + /*header separator*/1);
+    assert.equal(export_lines[0], "|Country                          | Region               | Population | Area square miles | GDP per capita |");
+    assert.equal(export_lines[1], "|---------------------------------|----------------------|------------|-------------------|----------------|");
+    assert.equal(export_lines[3], "|Albania                          | EASTERN EUROPE       |    3581655 |             28748 |           4500 |");
+    log_message('Finished Markdown Copy Test');
+}
+
+
 async function test_excel_copy(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries.csv');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -1022,6 +1040,7 @@ async function run() {
         await test_autodetection(test_folder_uri);
         await test_manual_enable_disable(test_folder_uri);
 
+        await test_markdown_copy(test_folder_uri);
         await test_excel_copy(test_folder_uri);
 
         await test_huge_file(test_folder_uri);

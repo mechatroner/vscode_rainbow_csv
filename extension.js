@@ -9,7 +9,6 @@ const fast_load_utils = require('./fast_load_utils.js');
 
 // See DEV_README.md file for additional info.
 
-// TODO get rid of scratch file alignment in the next iteration.
 // TODO advertise copy to excel as one of the main feature if no bugs reported.
 
 const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
@@ -402,11 +401,11 @@ class StackContextLogWrapper {
 
 
 function get_header_from_document(document, delim, policy, comment_prefix) {
-    let [_header_lnum, header_line] = ll_rainbow_utils().get_header_line(document, comment_prefix);
-    if (!header_line) {
-        return null;
+    let [header_lnum, header_text] = ll_rainbow_utils().get_header_line(document, comment_prefix);
+    if (!header_text) {
+        return [null, null];
     }
-    return csv_utils.smart_split(header_line, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0];
+    return [header_lnum, csv_utils.smart_split(header_text, delim, policy, /*preserve_quotes_and_whitespaces=*/false)[0]];
 }
 
 
@@ -415,7 +414,7 @@ function get_header(document, delim, policy, comment_prefix) {
     if (file_path) {
         let header_info = get_from_global_state(make_header_key(file_path), null);
         if (header_info !== null && header_info.header !== null) {
-            return header_info.header;
+            return [header_info.header_line_num, header_info.header];
         }
     }
     return get_header_from_document(document, delim, policy, comment_prefix);
@@ -474,23 +473,12 @@ class StickyHeaderProvider {
     }
     async provideDocumentSymbols(document) {
         // This can trigger multiple times for the same doc because otherwise this won't work in case of e.g. header edit.
-        let [_delim, policy, comment_prefix] = get_dialect(document);
+        let [delim, policy, comment_prefix] = get_dialect(document);
         if (!policy) {
             return null;
         }
-        let header_lnum = null;
-        var file_path = document.fileName;
-        if (file_path) {
-            let header_info = get_from_global_state(make_header_key(file_path), null);
-            if (header_info !== null && header_info.header_line_num !== null) {
-                header_lnum = header_info.header_line_num;
-            }
-        }
-
-        if (header_lnum === null) {
-            header_lnum = ll_rainbow_utils().get_header_line(document, comment_prefix)[0];
-        }
-        if (header_lnum === null || header_lnum >= document.lineCount - 1) {
+        let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
+        if (header_lnum === null /* - this can happen for user-provided "virtual" header */ || header_lnum >= document.lineCount - 1) {
             return null;
         }
         let full_range = new vscode.Range(header_lnum, 0, document.lineCount - 1, 65535);
@@ -935,7 +923,7 @@ function make_hover(document, language_id, position, cancellation_token) {
     if (!cursor_position_info || cancellation_token.isCancellationRequested)
         return null;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let header = get_header(document, delim, policy, comment_prefix);
+    let header = get_header(document, delim, policy, comment_prefix)[1];
     if (!header) {
         return null;
     }
@@ -962,7 +950,7 @@ function show_column_info_button() {
     if (!cursor_position_info)
         return false;
     let enable_tooltip_column_names = get_from_config('enable_tooltip_column_names', false);
-    let header = get_header(active_doc, delim, policy, comment_prefix);
+    let header = get_header(active_doc, delim, policy, comment_prefix)[1];
     if (!header)
         return false;
     let [full_report, short_report] = ll_rainbow_utils().format_cursor_position_info(cursor_position_info, header, enable_tooltip_column_names, /*show_comments=*/false, /*max_label_length=*/25);
@@ -1489,7 +1477,7 @@ async function set_virtual_header() {
         show_single_line_error('Unable to edit column names for non-file documents');
         return;
     }
-    var old_header = get_header(active_doc, delim, policy, comment_prefix);
+    var old_header = get_header(active_doc, delim, policy, comment_prefix)[1];
     var title = "Adjust column names displayed in hover tooltips. Actual header line and file content won't be affected.";
     var old_header_str = old_header ? quoted_join(old_header, delim) : '';
     var input_box_props = {"prompt": title, "value": old_header_str};
@@ -1622,22 +1610,13 @@ async function content_modifying_align_table() {
             return;
         }
         await report_progress(progress, 'Preparing final alignment');
-        let aligned_doc_text = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
+        let aligned_lines = ll_rainbow_utils().align_columns(records, comments, column_stats, delim);
+        let aligned_doc_text = aligned_lines.join('\n');
 
         await report_progress(progress, 'Aligning columns');
-        let align_in_scratch_file = get_from_config('align_in_scratch_file', false);
-        let is_scratch_file = active_doc.uri && active_doc.uri.scheme == 'untitled';
-        if (align_in_scratch_file && !is_scratch_file) {
-            let aligned_doc_cfg = {content: aligned_doc_text, language: active_doc.languageId};
-            let scratch_doc = await vscode.workspace.openTextDocument(aligned_doc_cfg);
-            whitespace_aligned_files.add(scratch_doc.fileName);
-            await vscode.window.showTextDocument(scratch_doc);
-            show_align_shrink_button(scratch_doc.fileName); // This is likely redundant but won't hurt.
-        } else {
-            await replace_doc_content(active_editor, active_doc, aligned_doc_text);
-            whitespace_aligned_files.add(active_doc.fileName);
-            show_align_shrink_button(active_doc.fileName);
-        }
+        await replace_doc_content(active_editor, active_doc, aligned_doc_text);
+        whitespace_aligned_files.add(active_doc.fileName);
+        show_align_shrink_button(active_doc.fileName);
     });
 }
 
@@ -1903,7 +1882,8 @@ async function edit_rbql(integration_test_options=null) {
     }
     let with_headers_by_default = get_from_config('rbql_with_headers_by_default', false);
     let with_headers = get_from_global_state(make_with_headers_key(input_path), with_headers_by_default);
-    let header_for_ui = get_header_from_document(active_doc, delim, policy, comment_prefix);
+    // TODO Find a way to use `get_header()` instead.
+    let header_for_ui = get_header_from_document(active_doc, delim, policy, comment_prefix)[1];
     rbql_context = {
         "input_document": active_doc,
         "input_document_path": input_path,
@@ -2311,8 +2291,9 @@ function provide_tracked_column_decorations(active_editor, range) {
         tracked_column_ranges.set(column_num, new Array());
     }
 
-    let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
-    for (let row_info of table_ranges) {
+    let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
+    for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
         } else {
@@ -2411,10 +2392,11 @@ class RainbowTokenProvider {
             return null;
         }
 
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, range);
+        let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
-        for (let row_info of table_ranges) {
+        for (let row_info of row_infos) {
             if (row_info.comment_range !== null) {
                 builder.push(row_info.comment_range, COMMENT_TOKEN);
             } else {
@@ -2488,16 +2470,25 @@ class InlayHintProvider {
         if (policy === null) {
             return [];
         }
-        let table_ranges = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, visible_range);
+        let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, visible_range, 50);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, parsing_range);
+        let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
+        // It is possible for `header_lnum` to be null if the header is virtual.
+        if (header_lnum !== null && header_lnum < parsing_range.start.line) { // We don't check if header is after the range because it is a very weird corner case which doesn't matter for the purpose of virtual alignment anyway and requires additional testing.
+            let header_range = new vscode.Range(header_lnum, 0, header_lnum, 1);
+            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range);
+            row_infos = header_row_infos.concat(row_infos);
+        }
 
-        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(table_ranges, extension_context.double_width_alignment);
+        let all_columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
         if (whole_doc_alignment_stats.has(document.fileName)) {
             ll_rainbow_utils().reconcile_whole_doc_and_local_column_stats(whole_doc_alignment_stats.get(document.fileName), all_columns_stats);
             // Save updated whole-doc stats.
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
-        return ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, table_ranges, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        let visible_range_hints = ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, header_lnum, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        return visible_range_hints;
     }
 }
 
@@ -2590,6 +2581,79 @@ async function excel_copy() {
 }
 
 
+async function markdown_copy() {
+    let log_wrapper = new StackContextLogWrapper('markdown_copy');
+    log_wrapper.log_doc_event('starting markdown_copy');
+    let active_editor = get_active_editor();
+    let active_doc = get_active_doc(active_editor);
+    if (!is_rainbow_dialect_doc(active_doc))
+        return;
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (policy === null) {
+        return;
+    }
+
+    let selection_start_line = 0;
+    let selection_end_line = active_doc.lineCount;
+    let selection = active_editor.selection;
+    if (selection && !selection.isEmpty) {
+        selection_start_line = selection.start.line;
+        selection_end_line = selection.end.line;
+    }
+    let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
+    log_wrapper.log_doc_event('parsing');
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    // Here row_infos also includes the fields themselves so all good so far.
+    log_wrapper.log_doc_event('calculating column stats');
+    let header_lnum = get_header(active_doc, delim, policy, comment_prefix)[0];
+    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
+    let records = [];
+    let num_columns = null;
+    for (let row_info of row_infos) {
+        let fields = [];
+        for (let field_segments of row_info.record_fields) {
+            if (field_segments.length != 1) {
+                // TODO Consider optionally joining multiline fragments with `<br>` or another established separator.
+                show_single_line_error('Unable to copy fragment with multiline fields');
+                return;
+            }
+            fields.push(field_segments[0]);
+        }
+        records.push(fields);
+        if (num_columns === null) {
+            num_columns = fields.length;
+        }
+        if (num_columns != fields.length) {
+            show_single_line_error('Unable to copy fragment with variable number of fields in records');
+            return;
+        }
+    }
+    if (records.length < 2) {
+        show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
+        return;
+    }
+    // TODO consider explicitly including the first (header) record if not part of the selected fragment.
+    // One issue with this is what if the header has different num of fields than the selected fragment? In that case the inclusion logic would prevent markdown export altogether or we would have include the header conditionally which would be very confusing.
+    // Header separator is required because otherwise makdown viwers wouldn't treat it as a table.
+    // One option to add a header separator is to create a "fake" row filled with dashes intead of entries and pass it to the aligning function e.g. ['-', '-', '-', '-'].
+    // The problem with that approach is that alignment function is a bit too 'smart' especially when handling numeric columns.
+    log_wrapper.log_doc_event('aligning columns');
+    let aligned_lines = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|', /*trailing_whitespace_length=*/1);
+    aligned_lines = aligned_lines.map(l => `|${l} |`);
+    if (aligned_lines.length < 2) {
+        show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
+        return;
+    }
+    log_wrapper.log_doc_event('adding the header separator');
+    // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes. Simple and Elegant.
+    let separator_line = aligned_lines[0].replace(/[^|]/g, '-');
+    aligned_lines.splice(1, 0, separator_line);
+    let aligned_doc_text = aligned_lines.join('\n');
+    log_wrapper.log_doc_event('writing to the clipboard', active_doc);
+    await vscode.env.clipboard.writeText(aligned_doc_text);
+}
+
+
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
@@ -2630,6 +2694,7 @@ async function activate(context) {
     var toggle_row_background_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleRowBackground', toggle_row_background);
     var toggle_column_tracking_cmd = vscode.commands.registerCommand('rainbow-csv.ToggleColumnTracking', toggle_column_tracking);
     var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy(); });
+    var markdown_copy_cmd = vscode.commands.registerCommand('rainbow-csv.MarkdownCopy', async function() { await markdown_copy(); });
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
@@ -2682,6 +2747,7 @@ async function activate(context) {
     context.subscriptions.push(toggle_row_background_cmd);
     context.subscriptions.push(toggle_column_tracking_cmd);
     context.subscriptions.push(excel_copy_cmd);
+    context.subscriptions.push(markdown_copy_cmd);
     context.subscriptions.push(internal_test_cmd);
 
     context.subscriptions.push(doc_open_event);
