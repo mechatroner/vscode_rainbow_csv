@@ -158,8 +158,6 @@ function test_calc_column_stats_for_fragment() {
 }
 
 
-
-// FIXME add generate_inlay_hints test case with an actual header line that would affect the logic!
 function test_generate_inlay_hints() {
     let [doc_lines, active_doc, comment_prefix, delim, policy, range, double_width_alignment] = [null, null, null, null, null, null, null];
     let [table_ranges, all_columns_stats, inlay_hints, expected_inlay_hints] = [null, null, null, null];
@@ -216,8 +214,36 @@ function test_generate_inlay_hints() {
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
-    // Spaces both before and after.
+    // Spaces both before and after and `null` header_lnum
     doc_lines = [
+        '10,a2', 
+        '5,b2', 
+        '5.12,c2', 
+        '200,d2'
+    ];
+    active_doc = new VscodeDocumentTestDouble(doc_lines);
+    comment_prefix = null;
+    delim = ',';
+    policy = 'simple';
+    alignment_char = ' ';
+    double_width_alignment = true;
+    enable_vertical_grid = false;
+    header_lnum = null;
+    range = new vscode_test_double.Range(0, 0, 10, 0);
+    visible_range = new vscode_test_double.Range(0, 0, 100, 0);
+    table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
+    all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
+    expected_inlay_hints = [
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 2), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/' '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 1), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/' '),
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 5), /*label=*/' '),
+        /*empty allignment before, so we only have after:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 3), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 4), /*label=*/' ')];
+    assert.deepEqual(inlay_hints, expected_inlay_hints);
+
+    // Spaces both before and after and an actual header line.
+    doc_lines = [
+        'int,st', 
         '10,a2', 
         '5,b2', 
         '5.12,c2', 
@@ -237,10 +263,28 @@ function test_generate_inlay_hints() {
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
     inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 2), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/' '),
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/'  '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 1), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/' '),
-        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 5), /*label=*/' '),
-        /*empty allignment before, so we only have after:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 3), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 4), /*label=*/' ')];
+        // Line 0 (header)
+        /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/'   '),
+        /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 4), /*label=*/' '),
+
+        // Line 1
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 0), /*label=*/' '),
+        /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'   '),
+        /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/' '),
+
+        // Line 2
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 0), /*label=*/'  '),
+        /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 1), /*label=*/'   '),
+        /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(2, 2), /*label=*/' '),
+
+        // Line 3
+        /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 0), /*label=*/'  '),
+        /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(3, 5), /*label=*/' '),
+
+        // Line 4
+        /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(4, 3), /*label=*/'   '),
+        /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(4, 4), /*label=*/' ')
+    ];
     assert.deepEqual(inlay_hints, expected_inlay_hints);
 }
 
@@ -2015,8 +2059,6 @@ function test_align_columns() {
     let [unaligned_doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [column_stats, first_failed_line, records, comments] = [null, null, null, null];
     let [aligned_doc_lines, expected_doc_lines] = [null, null]
-    // FIXME get rid of commented-out lines
-    //let [aligned_doc_text, aligned_doc_lines, expected_doc_lines] = [null, null]
 
     // Basic test with numeric column.
     unaligned_doc_lines = [
@@ -2029,8 +2071,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    //aligned_doc_lines = aligned_doc_text.split('\n');
     aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, weight',
@@ -2050,8 +2090,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    //aligned_doc_lines = aligned_doc_text.split('\n');
     aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, color',
@@ -2071,8 +2109,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    //aligned_doc_lines = aligned_doc_text.split('\n');
     aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, wght   , color',
@@ -2096,8 +2132,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    //aligned_doc_lines = aligned_doc_text.split('\n');
     aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         '#info',
@@ -2126,8 +2160,6 @@ function test_align_columns() {
     delim = ',';
     policy = 'quoted_rfc';
     [column_stats, first_failed_line, records, comments] = rainbow_utils.calc_column_stats(active_doc, delim, policy, comment_prefix, /*enable_double_width_alignment=*/true);
-    //aligned_doc_text = rainbow_utils.align_columns(records, comments, column_stats, delim);
-    //aligned_doc_lines = aligned_doc_text.split('\n');
     aligned_doc_lines = rainbow_utils.align_columns(records, comments, column_stats, delim);
     expected_doc_lines = [
         'type, info                                      , max_speed',
