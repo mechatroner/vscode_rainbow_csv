@@ -2582,6 +2582,8 @@ async function excel_copy() {
 
 
 async function markdown_copy() {
+    // FIXME we need to escape the pipe `|` characters first - use movies.tsv as an example of file with pipe chars.
+    // FIXME add a unit test with markdown copy alignment with `|` chars?
     let log_wrapper = new StackContextLogWrapper('markdown_copy');
     log_wrapper.log_doc_event('starting markdown_copy');
     let active_editor = get_active_editor();
@@ -2606,7 +2608,6 @@ async function markdown_copy() {
     // Here row_infos also includes the fields themselves so all good so far.
     log_wrapper.log_doc_event('calculating column stats');
     let header_lnum = get_header(active_doc, delim, policy, comment_prefix)[0];
-    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
     let records = [];
     let num_columns = null;
     for (let row_info of row_infos) {
@@ -2617,6 +2618,8 @@ async function markdown_copy() {
                 show_single_line_error('Unable to copy fragment with multiline fields');
                 return;
             }
+            // Escape pipe char.
+            field_segments[0] = field_segments[0].replaceAll('|', '\\|');
             fields.push(field_segments[0]);
         }
         records.push(fields);
@@ -2638,6 +2641,12 @@ async function markdown_copy() {
     // One option to add a header separator is to create a "fake" row filled with dashes intead of entries and pass it to the aligning function e.g. ['-', '-', '-', '-'].
     // The problem with that approach is that alignment function is a bit too 'smart' especially when handling numeric columns.
     log_wrapper.log_doc_event('aligning columns');
+    // Here we are using the standard stats + align logic instead of an ad-hoc alignment algorithm (which is actually quite straightforward and can be vibecoded) for a few reasons:
+    // * Unification of code paths
+    // * Better handling of double-width chars
+    // * Better numbers alignment - this could actually be a downside if some md parsers meaningfully handle combination of leading and trailing spaces.
+    // FIXME just use an adhoc stats + align algorithm I guess. this would also allow to get rid of `trailing_whitespace_length` argument.
+    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
     let aligned_lines = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|', /*trailing_whitespace_length=*/1);
     aligned_lines = aligned_lines.map(l => `|${l} |`);
     if (aligned_lines.length < 2) {
@@ -2645,12 +2654,16 @@ async function markdown_copy() {
         return;
     }
     log_wrapper.log_doc_event('adding the header separator');
-    // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes. Simple and Elegant.
+    // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes.
+    // This solution seem like a cool trick but it has an issue - it doesn't work well with double-width char tables.
+    // FIXME this trick has a problem - it doesn't correctly handle escaped pipes.
     let separator_line = aligned_lines[0].replace(/[^|]/g, '-');
     aligned_lines.splice(1, 0, separator_line);
     let aligned_doc_text = aligned_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(aligned_doc_text);
+    log_wrapper.log_doc_event('finishing makdown_copy', active_doc);
+    vscode.window.showInformationMessage('Success: You can now Paste the fragment (Ctrl+V) in makdown format');
 }
 
 
