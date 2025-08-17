@@ -301,6 +301,37 @@ function rfc_align_field(field, is_first_record, column_stat, column_offset, is_
 }
 
 
+// FIXME add unit tests.
+function calc_max_column_widths(records) {
+    if (!records.length) {
+        return [];
+    }
+    let column_widths = Array(records[0].length).fill(0);
+    for (let row = 0; row < records.length; row++) {
+        for (let col = 0; col < records[row].length; col++) {
+            column_widths[col] = Math.max(column_widths[col], records[row][col].length);
+        }
+    }
+    return column_widths;
+}
+
+// FIXME add unit tests.
+function generate_markdown_table_cells(records, max_column_widths) {
+    let markdown_table_cells = [];
+    for (let row = 0; row < records.length; row++) {
+        let markdown_row_cells = [];
+        for (let col = 0; col < records[row].length; col++) {
+            // Here we ensure that `delta_length` is positive just in case: the substraction can't become negative anyway. But in the worst case we would have a misalignment but the markdown table should be OK anyway.
+            let delta_length = Math.max(0, max_column_widths[col] - records[row][col].length);
+            let aligned_cell = records[row][col] + ' '.repeat(delta_length);
+            markdown_row_cells.push(aligned_cell);
+        }
+        markdown_table_cells.push(markdown_row_cells);
+    }
+    return markdown_table_cells;
+}
+
+
 class RecordCommentMerger {
     constructor(records, comments) {
         this.records = records;
@@ -400,6 +431,7 @@ function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, 
 }
 
 
+// FIXME get rid of `trailing_whitespace_length` arg, should always be 0
 function align_columns(records, comments, column_stats, delim, trailing_whitespace_length=0) {
     // Unlike shrink_columns, here we don't compute `has_edit` flag because it is
     // 1: Algorithmically complicated (especially for multiline fields) and we also can't just compare fields lengths like in shrink.
@@ -1279,3 +1311,5 @@ module.exports.ColumnStat = ColumnStat;
 module.exports.generate_column_edit_selections = generate_column_edit_selections;
 module.exports.generate_inlay_hints = generate_inlay_hints;
 module.exports.extend_range_by_margin = extend_range_by_margin;
+module.exports.calc_max_column_widths = calc_max_column_widths;
+module.exports.generate_markdown_table_cells = generate_markdown_table_cells;

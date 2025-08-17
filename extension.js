@@ -2606,8 +2606,6 @@ async function markdown_copy() {
     log_wrapper.log_doc_event('parsing');
     let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
     // Here row_infos also includes the fields themselves so all good so far.
-    log_wrapper.log_doc_event('calculating column stats');
-    let header_lnum = get_header(active_doc, delim, policy, comment_prefix)[0];
     let records = [];
     let num_columns = null;
     for (let row_info of row_infos) {
@@ -2635,31 +2633,18 @@ async function markdown_copy() {
         show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
         return;
     }
-    // TODO consider explicitly including the first (header) record if not part of the selected fragment.
-    // One issue with this is what if the header has different num of fields than the selected fragment? In that case the inclusion logic would prevent markdown export altogether or we would have include the header conditionally which would be very confusing.
-    // Header separator is required because otherwise makdown viwers wouldn't treat it as a table.
-    // One option to add a header separator is to create a "fake" row filled with dashes intead of entries and pass it to the aligning function e.g. ['-', '-', '-', '-'].
-    // The problem with that approach is that alignment function is a bit too 'smart' especially when handling numeric columns.
+    // It might seem cool to explicitly include the first (header) record if it is not part of the selected fragment, but
+    // one issue with this that in case if the header has different num of fields than the selected fragment it would prevent markdown export and including the header conditionally would be very confusing.
+    // Use and adhoc alignment algorithm, because the one that we use for CSV alignment can't create an aligned header separator withouth a hack.
+    // Another reason is that double_width and numeric alignment features are excessive and could even potentially confuse some markdown parsers.
+    log_wrapper.log_doc_event('calculating column stats');
+    let column_widths = ll_rainbow_utils().calc_max_column_widths(records);
     log_wrapper.log_doc_event('aligning columns');
-    // Here we are using the standard stats + align logic instead of an ad-hoc alignment algorithm (which is actually quite straightforward and can be vibecoded) for a few reasons:
-    // * Unification of code paths
-    // * Better handling of double-width chars
-    // * Better numbers alignment - this could actually be a downside if some md parsers meaningfully handle combination of leading and trailing spaces.
-    // FIXME just use an adhoc stats + align algorithm I guess. this would also allow to get rid of `trailing_whitespace_length` argument.
-    let columns_stats = ll_rainbow_utils().calc_column_stats_for_fragment(row_infos, header_lnum, extension_context.double_width_alignment);
-    let aligned_lines = ll_rainbow_utils().align_columns(records, /*comments=*/[], columns_stats, '|', /*trailing_whitespace_length=*/1);
-    aligned_lines = aligned_lines.map(l => `|${l} |`);
-    if (aligned_lines.length < 2) {
-        show_single_line_error('Unable to copy fragment as a markdown table - must have at least 2 records: header and a data row');
-        return;
-    }
-    log_wrapper.log_doc_event('adding the header separator');
-    // To add a header separator we will just take an aligned row line and replace everything except pipe ('|') characters with dashes.
-    // This solution seem like a cool trick but it has an issue - it doesn't work well with double-width char tables.
-    // FIXME this trick has a problem - it doesn't correctly handle escaped pipes.
-    let separator_line = aligned_lines[0].replace(/[^|]/g, '-');
-    aligned_lines.splice(1, 0, separator_line);
-    let aligned_doc_text = aligned_lines.join('\n');
+    let markdown_table_cells = ll_rainbow_utils().generate_markdown_table_cells(records, column_widths);
+    let markdown_lines = markdown_table_cells.map(v => '| ' + v.join(' | ') + ' |');
+    let header_separator_line = '| ' + (column_widths.map(v => '-'.repeat(v))).join(' | ') + ' |';
+    markdown_lines.splice(1, 0, header_separator_line);
+    let aligned_doc_text = markdown_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(aligned_doc_text);
     log_wrapper.log_doc_event('finishing makdown_copy', active_doc);
