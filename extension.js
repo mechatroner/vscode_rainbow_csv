@@ -2582,7 +2582,6 @@ async function excel_copy() {
 
 
 async function markdown_copy() {
-    // FIXME we need to escape the pipe `|` characters first - use movies.tsv as an example of file with pipe chars.
     // FIXME add a unit test with markdown copy alignment with `|` chars?
     let log_wrapper = new StackContextLogWrapper('markdown_copy');
     log_wrapper.log_doc_event('starting markdown_copy');
@@ -2637,13 +2636,9 @@ async function markdown_copy() {
     // one issue with this that in case if the header has different num of fields than the selected fragment it would prevent markdown export and including the header conditionally would be very confusing.
     // Use and adhoc alignment algorithm, because the one that we use for CSV alignment can't create an aligned header separator withouth a hack.
     // Another reason is that double_width and numeric alignment features are excessive and could even potentially confuse some markdown parsers.
-    log_wrapper.log_doc_event('calculating column stats');
-    let column_widths = ll_rainbow_utils().calc_max_column_widths(records);
     log_wrapper.log_doc_event('aligning columns');
-    let markdown_table_cells = ll_rainbow_utils().generate_markdown_table_cells(records, column_widths);
-    let markdown_lines = markdown_table_cells.map(v => '| ' + v.join(' | ') + ' |');
-    let header_separator_line = '| ' + (column_widths.map(v => '-'.repeat(v))).join(' | ') + ' |';
-    markdown_lines.splice(1, 0, header_separator_line);
+    // FIXME make sure it actually work by doing an adhoc live test.
+    let markdown_lines = ll_rainbow_utils().generate_markdown_lines(records);
     let aligned_doc_text = markdown_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
     await vscode.env.clipboard.writeText(aligned_doc_text);

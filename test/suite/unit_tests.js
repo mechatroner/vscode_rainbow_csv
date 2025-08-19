@@ -387,6 +387,49 @@ function test_align_stats() {
 }
 
 
+function test_generate_markdown_lines() {
+    let [records, expected_markdown_lines, markdown_lines] = [null, null, null];
+
+    // Simple test case.
+    records = [['a', 'b1'], ['a2', 'b']];
+    markdown_lines = rainbow_utils.generate_markdown_lines(records);
+    expected_markdown_lines = [
+        '| a  | b1 |',
+        '| -- | -- |',
+        '| a2 | b  |'
+    ];
+    assert.deepEqual(expected_markdown_lines, markdown_lines);
+}
+
+
+function test_calc_max_column_widths() {
+    let [records, expected_column_widths, column_widths] = [null, null, null];
+    // Simple test case.
+    records = [];
+    column_widths = rainbow_utils.calc_max_column_widths(records);
+    expected_column_widths = [];
+    assert.deepEqual(expected_column_widths, column_widths);
+
+    // Single record.
+    records = [['a1', 'foo']];
+    column_widths = rainbow_utils.calc_max_column_widths(records);
+    expected_column_widths = [2, 3];
+    assert.deepEqual(expected_column_widths, column_widths);
+
+    // Multiple records.
+    records = [['a', 'foo'], ['b2', 'bar'], ['c', 'bazzz']];
+    column_widths = rainbow_utils.calc_max_column_widths(records);
+    expected_column_widths = [2, 5];
+    assert.deepEqual(expected_column_widths, column_widths);
+
+    // Inconsistent number of fields.
+    records = [['a', 'foooo'], ['b2'], ['c', 'ba', 'quux']];
+    column_widths = rainbow_utils.calc_max_column_widths(records);
+    expected_column_widths = [2, 5, 4];
+    assert.deepEqual(expected_column_widths, column_widths);
+}
+
+
 function test_calc_column_stats() {
     let [doc_lines, active_doc, delim, policy, comment_prefix] = [null, null, null, null, null];
     let [column_stats, expected_column_stats, first_failed_line, records, comments] = [null, null, null, null, null];
@@ -500,16 +543,6 @@ function test_rfc_field_align() {
     aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false);
     assert.deepEqual(' foobar    ', aligned_field);
 
-    // Align non-field segment in non-numeric non-last column with non-zero trailing whitespaces.
-    field = 'foobar';
-    is_first_line = 0;
-    is_field_segment = false;
-    column_stats = [{max_total_length: 5, max_int_length: -1, max_fractional_length: -1}, {max_total_length: 10, max_int_length: -1, max_fractional_length: -1}];
-    column_stats = column_stats_helper(column_stats)
-    column_offsets = rainbow_utils.calculate_column_offsets(column_stats, /*delim_length=*/1);
-    aligned_field = rainbow_utils.rfc_align_field(field, is_first_line, column_stats[1], column_offsets[1], is_field_segment, /*is_first_in_line=*/false, /*is_last_in_line=*/false, /*trailing_whitespace_length=*/1);
-    assert.deepEqual(' foobar     ', aligned_field);
-
     field = 'foobar';
     is_first_line = 0;
     is_field_segment = false;
@@ -552,7 +585,7 @@ function test_rfc_field_align() {
 
 
 function align_field(field, is_first_record, column_stat, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, 0);
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
@@ -2618,6 +2651,8 @@ function test_all() {
     test_align_columns();
     test_shrink_columns();
     test_calc_column_stats();
+    test_calc_max_column_widths();
+    test_generate_markdown_lines();
     test_parse_document_records();
     test_parse_document_range_rfc();
     test_parse_document_range_single_line();
