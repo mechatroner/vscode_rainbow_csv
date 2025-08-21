@@ -318,8 +318,13 @@ function calc_max_column_widths(records) {
 }
 
 
-// FIXME add unit tests.
 function generate_markdown_lines(records) {
+    for (let row = 0; row < records.length; row++) {
+        for (let col = 0; col < records[row].length; col++) {
+            // Escape pipe char.
+            records[row][col] = records[row][col].replaceAll('|', '\\|');
+        }
+    }
     let max_column_widths = calc_max_column_widths(records);
     let markdown_table_cells = [];
     for (let row = 0; row < records.length; row++) {

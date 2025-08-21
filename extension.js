@@ -2582,7 +2582,6 @@ async function excel_copy() {
 
 
 async function markdown_copy() {
-    // FIXME add a unit test with markdown copy alignment with `|` chars?
     let log_wrapper = new StackContextLogWrapper('markdown_copy');
     log_wrapper.log_doc_event('starting markdown_copy');
     let active_editor = get_active_editor();
@@ -2615,8 +2614,6 @@ async function markdown_copy() {
                 show_single_line_error('Unable to copy fragment with multiline fields');
                 return;
             }
-            // Escape pipe char.
-            field_segments[0] = field_segments[0].replaceAll('|', '\\|');
             fields.push(field_segments[0]);
         }
         records.push(fields);
@@ -2637,7 +2634,6 @@ async function markdown_copy() {
     // Use and adhoc alignment algorithm, because the one that we use for CSV alignment can't create an aligned header separator withouth a hack.
     // Another reason is that double_width and numeric alignment features are excessive and could even potentially confuse some markdown parsers.
     log_wrapper.log_doc_event('aligning columns');
-    // FIXME make sure it actually work by doing an adhoc live test.
     let markdown_lines = ll_rainbow_utils().generate_markdown_lines(records);
     let aligned_doc_text = markdown_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);

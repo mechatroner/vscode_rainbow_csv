@@ -399,6 +399,28 @@ function test_generate_markdown_lines() {
         '| a2 | b  |'
     ];
     assert.deepEqual(expected_markdown_lines, markdown_lines);
+
+    // Entries with pipe chars.
+    records = [['a', 'b1'], ['a2', 'b'], ['fo|o', 'bar']];
+    markdown_lines = rainbow_utils.generate_markdown_lines(records);
+    expected_markdown_lines = [
+        '| a     | b1  |',
+        '| ----- | --- |',
+        '| a2    | b   |',
+        '| fo\\|o | bar |'
+    ];
+    assert.deepEqual(expected_markdown_lines, markdown_lines);
+
+    // Entries with empty fields.
+    records = [['a', 'b1'], ['', ''], ['a2', 'b']];
+    markdown_lines = rainbow_utils.generate_markdown_lines(records);
+    expected_markdown_lines = [
+        '| a  | b1 |',
+        '| -- | -- |',
+        '|    |    |',
+        '| a2 | b  |'
+    ];
+    assert.deepEqual(expected_markdown_lines, markdown_lines);
 }
 
 
