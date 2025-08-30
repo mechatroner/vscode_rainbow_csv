@@ -466,9 +466,9 @@ async function test_markdown_copy(test_folder_uri) {
     let export_text = await vscode.env.clipboard.readText();
     let export_lines = export_text.split('\n');
     assert.equal(export_lines.length, 226 + /*header separator*/1);
-    assert.equal(export_lines[0], "|Country                          | Region               | Population | Area square miles | GDP per capita |");
-    assert.equal(export_lines[1], "|---------------------------------|----------------------|------------|-------------------|----------------|");
-    assert.equal(export_lines[3], "|Albania                          | EASTERN EUROPE       |    3581655 |             28748 |           4500 |");
+    assert.equal(export_lines[0], "| Country                          | Region               | Population | Area square miles | GDP per capita |");
+    assert.equal(export_lines[1], "| -------------------------------- | -------------------- | ---------- | ----------------- | -------------- |");
+    assert.equal(export_lines[3], "| Albania                          | EASTERN EUROPE       | 3581655    | 28748             | 4500           |");
     log_message('Finished Markdown Copy Test');
 }
 
