@@ -18,7 +18,6 @@ const number_regex = /^([0-9]+)(\.[0-9]+)?$/;
 const QUOTED_RFC_POLICY = 'quoted_rfc';
 const QUOTED_POLICY = 'quoted';
 const max_preview_field_length = 250;
-const alignment_extra_readability_whitespace_length = 1;
 
 
 class AssertionError extends Error {}
@@ -173,10 +172,10 @@ class ColumnStat {
         }
     }
 
-    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line) {
+    evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, post_delim_readability_gap_length) {
         // Align field, use Math.max() to avoid negative delta_length which can happen theorethically due to async doc edit.
         let visual_field_length = this.has_wide_chars ? wcwidth(field) : field.length;
-        let readability_gap = is_first_in_line ? 0 : alignment_extra_readability_whitespace_length;
+        let readability_gap = is_first_in_line ? 0 : post_delim_readability_gap_length;
         if (!this.is_numeric()) {
             let delta_length = Math.max(this.max_total_length - visual_field_length, 0);
             let trailing_length = is_last_in_line ? 0 : delta_length;
@@ -224,7 +223,7 @@ function get_trimmed_rfc_record_fields_from_record(record) {
 }
 
 
-function calculate_column_offsets(column_stats, delim_length) {
+function calculate_column_offsets(column_stats, delim_length, post_delim_readability_gap_length=1) {
     let result = [];
     if (!column_stats.length) {
         return result;
@@ -233,7 +232,7 @@ function calculate_column_offsets(column_stats, delim_length) {
     for (let i = 1; i < column_stats.length; i++) {
         let previous_length = column_stats[i - 1].get_adjusted_total_length();
         let previous_offset = result[i - 1];
-        result.push(previous_offset + previous_length + delim_length + alignment_extra_readability_whitespace_length);
+        result.push(previous_offset + previous_length + delim_length + post_delim_readability_gap_length);
     }
     assert(result.length == column_stats.length);
     return result;
@@ -286,8 +285,8 @@ function reconcile_whole_doc_and_local_column_stats(whole_doc_column_stats, loca
 }
 
 
-function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
+function evaluate_rfc_align_field(field, is_first_record, column_stat, column_offset, is_field_segment, is_first_in_line, is_last_in_line, post_delim_readability_gap_length=1) {
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, post_delim_readability_gap_length);
     if (is_field_segment) {
         num_before += column_offset;
     }
@@ -384,13 +383,20 @@ class RecordCommentMerger {
 function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
     // NOTE: `table_ranges` can contain non-consecutive fragments of the document e.g. header and view range below.
     assert(alignment_char.length == 1);
-    let column_offsets = calculate_column_offsets(all_columns_stats, delim_length);
+    let post_delim_readability_gap_length = 0; // There is a limit on total number of inlay hints spans which is 1500, so we avoid creating too many hints.
+    let column_offsets = calculate_column_offsets(all_columns_stats, delim_length, post_delim_readability_gap_length);
     let inlay_hints = [];
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205
     // We set higher limit below because it is the bottom lines that would be non-aligned due to the max inlay hint limit reached. Actually we might not need the bottom limit at all.
     // Plus the more typical scroll direction is from top to bottom.
-    let hint_display_start_line = visible_range.start.line - 10;
-    let hint_display_end_line = visible_range.end.line + 50;
+    let leading_aligned_margin = 30;
+    let trailing_aligned_margin = 30;
+    let vscode_max_num_inline_hints = 1500;
+    if ((leading_aligned_margin + visible_range.end.line - visible_range.start.line + trailing_aligned_margin) * all_columns_stats.length > vscode_max_num_inline_hints) {
+        leading_aligned_margin = 5;
+    }
+    let hint_display_start_line = visible_range.start.line - leading_aligned_margin;
+    let hint_display_end_line = visible_range.end.line + trailing_aligned_margin;
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
             continue;
@@ -414,7 +420,7 @@ function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, 
                 let is_field_segment = i > 0;
                 let is_last_in_line = is_last_field || i + 1 < field_segments.length;
                 let is_first_in_line = (fnum == 0) || is_field_segment;
-                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_assumed_header_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line);
+                let [num_before, num_after] = evaluate_rfc_align_field(field_segments[i], is_assumed_header_record, all_columns_stats[fnum], column_offsets[fnum], is_field_segment, is_first_in_line, is_last_in_line, post_delim_readability_gap_length);
                 if (num_before > 0) {
                     let hint_label = '';
                     if (!enable_vertical_grid || is_field_segment) {

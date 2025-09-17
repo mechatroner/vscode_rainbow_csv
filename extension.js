@@ -2531,7 +2531,7 @@ function are_actual_comments(comments) {
 }
 
 
-// FIXME use the selection-based sampling as in markdown copy.
+// TODO use the selection-based sampling as in markdown copy.
 async function do_excel_copy(log_wrapper) {
     let active_editor = get_active_editor();
     if (!active_editor)
