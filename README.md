@@ -10,6 +10,7 @@
 * Automatic CSV consistency checks (CSVLint).
 * Optional alternating row background colors for improved readability.
 * Multi-cursor column edit.
+* Copy in Excel and Markdown format for export.
 * Works in browser ([vscode.dev](https://vscode.dev/)).
 
 ![screenshot](https://i.imgur.com/ryjBI1R.png)
