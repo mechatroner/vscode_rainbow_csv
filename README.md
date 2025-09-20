@@ -172,7 +172,6 @@ These extensions can work well together with Rainbow CSV and provide additional 
 #### Rainbow CSV and similar plugins in other editors:
 
 * Rainbow CSV extension in [Vim](https://github.com/mechatroner/rainbow_csv)
-* rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
 * rainbow_csv plugin in [Sublime Text](https://packagecontrol.io/packages/rainbow_csv)
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
 * rainbow_csv_4_nedit in [NEdit](https://github.com/DmitTrix/rainbow_csv_4_nedit)
