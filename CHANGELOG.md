@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.22.0
+* Reduce number of cosmetic whitespaces in virtual alignment as a workaround for max number of inlay hints limit, see [#205](https://github.com/mechatroner/vscode_rainbow_csv/issues/205).
+
 ## 3.21.0
 * Add `Copy for Markdown export` command.
 * Fix sticky header alignment in virtual alignment mode.
