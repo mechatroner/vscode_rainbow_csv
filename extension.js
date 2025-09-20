@@ -2487,7 +2487,8 @@ class InlayHintProvider {
             whole_doc_alignment_stats.set(document.fileName, all_columns_stats);
         }
         let alignment_char = extension_context.virtual_alignment_char == 'middot' ? '\u00b7' : ' ';
-        let visible_range_hints = ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, header_lnum, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid);
+        let post_delim_readability_gap_length = 0; // There is a limit on total number of inlay hints spans which is 1500, so we avoid creating too many hints.
+        let visible_range_hints = ll_rainbow_utils().generate_inlay_hints(vscode, visible_range, header_lnum, row_infos, all_columns_stats, delim.length, alignment_char, extension_context.virtual_alignment_vertical_grid, post_delim_readability_gap_length);
         return visible_range_hints;
     }
 }

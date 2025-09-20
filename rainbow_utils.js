@@ -380,10 +380,9 @@ class RecordCommentMerger {
 }
 
 
-function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid) {
+function generate_inlay_hints(vscode, visible_range, header_lnum, table_ranges, all_columns_stats, delim_length, alignment_char, enable_vertical_grid, post_delim_readability_gap_length) {
     // NOTE: `table_ranges` can contain non-consecutive fragments of the document e.g. header and view range below.
     assert(alignment_char.length == 1);
-    let post_delim_readability_gap_length = 0; // There is a limit on total number of inlay hints spans which is 1500, so we avoid creating too many hints.
     let column_offsets = calculate_column_offsets(all_columns_stats, delim_length, post_delim_readability_gap_length);
     let inlay_hints = [];
     // Setting hint display margin too high could prevent lower hint labels from diplaying. There is a non-configurable VSCode limit apparently, see also https://github.com/mechatroner/vscode_rainbow_csv/issues/205

@@ -45,6 +45,10 @@ npm install
 ```
 
 
+### Running non-integration unit tests (without VSCode)
+Run `node ./test/suite/run_unit_tests.js` - OK to do in WSL.
+
+
 ### Running unit tests for the extension OUTSIDE VSCode:
 #### For standard VSCode:
 1. **IMPORTANT** Make sure you have no open VSCode instances running, all VSCode windows are closed (otherwise will might get some weird caching/webworker errors or other issues)!

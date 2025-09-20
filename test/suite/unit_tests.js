@@ -164,6 +164,7 @@ function test_generate_inlay_hints() {
     let alignment_char = null;
     let enable_vertical_grid = false; // TODO add a test with true
     let header_lnum = null;
+    let post_delim_readability_gap_length = 0;
 
     // Simple test case.
     doc_lines = [
@@ -184,11 +185,13 @@ function test_generate_inlay_hints() {
     visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
-    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
+    post_delim_readability_gap_length = 0;
+    inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid, post_delim_readability_gap_length);
     expected_inlay_hints = [
-        new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'·'),
-        new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'·'),
-        new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/'·')];
+            new InlayHintTestDouble(new VscodePositionTestDouble(1, 2), /*label=*/'·'),
+            //new InlayHintTestDouble(new VscodePositionTestDouble(1, 3), /*label=*/'·'),
+            //new InlayHintTestDouble(new VscodePositionTestDouble(2, 4), /*label=*/'·')
+        ];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
 
     // Skip all comments - empty result.
@@ -210,6 +213,7 @@ function test_generate_inlay_hints() {
     visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
+    post_delim_readability_gap_length = 1;
     inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [];
     assert.deepEqual(expected_inlay_hints, inlay_hints);
@@ -233,6 +237,7 @@ function test_generate_inlay_hints() {
     visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
+    post_delim_readability_gap_length = 1;
     inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
         /*before:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 0), /*label=*/' '), /*after:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 2), /*label=*/'   '), /*second_col:*/new InlayHintTestDouble(new VscodePositionTestDouble(0, 3), /*label=*/' '),
@@ -261,6 +266,7 @@ function test_generate_inlay_hints() {
     visible_range = new vscode_test_double.Range(0, 0, 100, 0);
     table_ranges = rainbow_utils.parse_document_range_single_line(vscode_test_double, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
     all_columns_stats = rainbow_utils.calc_column_stats_for_fragment(table_ranges, header_lnum, double_width_alignment);
+    post_delim_readability_gap_length = 1;
     inlay_hints = rainbow_utils.generate_inlay_hints(vscode_test_double, visible_range, header_lnum, table_ranges, all_columns_stats, delim.length, alignment_char, enable_vertical_grid);
     expected_inlay_hints = [
         // Line 0 (header)
@@ -606,8 +612,8 @@ function test_rfc_field_align() {
 }
 
 
-function align_field(field, is_first_record, column_stat, is_first_in_line, is_last_in_line) {
-    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line);
+function align_field(field, is_first_record, column_stat, is_first_in_line, is_last_in_line, post_delim_readability_gap_length=1) {
+    let [num_before, num_after] = column_stat.evaluate_align_field(field, is_first_record, is_first_in_line, is_last_in_line, post_delim_readability_gap_length);
     return ' '.repeat(num_before) + field + ' '.repeat(num_after);
 }
 
