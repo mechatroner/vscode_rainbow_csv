@@ -121,6 +121,13 @@ But it is also possible to override this selection directly in the query by addi
 Example: `select top 5 NR, * with (header)`
 
 
+### Pipe syntax for query chaining
+You can chain consecutive queries via pipe `|` syntax. Example:
+```
+SELECT a2 AS region, count(*) AS cnt GROUP BY a2 | SELECT * ORDER BY a.cnt DESC
+```
+
+
 ### User Defined Functions (UDF)
 
 RBQL supports User Defined Functions  
@@ -184,7 +191,7 @@ The diagram below gives an overview of the main RBQL components and data flow:
 * Supports EXCEPT statement
 * Provides a fully-functional client-side browser demo application
 * Almost nonexistent entry barrier both for SQL users and JS/Python users
-* Integration with popular text editors (VSCode, Vim, Sublime Text, Atom)
+* Integration with popular text editors (VSCode, Vim, Sublime Text)
 * Small, maintainable, dependency-free, eco-friendly and hackable code base: RBQL engine fits into a single file with less than 2000 LOC
 
 ### Disadvantages of RBQL compared to traditional SQL engines
@@ -197,7 +204,7 @@ The diagram below gives an overview of the main RBQL components and data flow:
 ### References
 
 * [RBQL: Official Site](https://rbql.org/)
-* RBQL is integrated with Rainbow CSV extensions in [Vim](https://github.com/mechatroner/rainbow_csv), [VSCode](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv), [Sublime Text](https://packagecontrol.io/packages/rainbow_csv) and [Atom](https://atom.io/packages/rainbow-csv) editors.
+* RBQL is integrated with Rainbow CSV extensions in [Vim](https://github.com/mechatroner/rainbow_csv), [VSCode](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv), [Sublime Text](https://packagecontrol.io/packages/rainbow_csv) editors.
 * [Demo Google Colab notebook](https://colab.research.google.com/drive/1_cFPtnQUxILP0RE2_DBlqIfXaEzT-oZ6?usp=sharing)
 * [RBQL in npm](https://www.npmjs.com/package/rbql): `$ npm install -g rbql`
 * [RBQL in PyPI](https://pypi.org/project/rbql/): `$ pip install rbql` - the module also provides `%rbql` magic command for IPython/Jupyter.
