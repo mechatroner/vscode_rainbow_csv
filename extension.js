@@ -1550,8 +1550,8 @@ async function whitespace_shrink_table() {
     await vscode.window.withProgress(progress_options, async (progress) => {
         await report_progress(progress, 'Preparing');
         let [shrinked_doc_text, first_failed_line] = ll_rainbow_utils().shrink_columns(active_doc, delim, policy, comment_prefix);
-        if (first_failed_line) {
-            show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line}`);
+        if (first_failed_line !== null) {
+            show_single_line_error(`Unable to shrink: Inconsistent double quotes at line ${first_failed_line + 1}`);
             return;
         }
         whitespace_aligned_files.delete(active_doc.fileName);
@@ -1606,7 +1606,7 @@ async function content_modifying_align_table() {
         await report_progress(progress, 'Calculating column statistics');
         let [column_stats, first_failed_line, records, comments] = ll_rainbow_utils().calc_column_stats(active_doc, delim, policy, comment_prefix, extension_context.double_width_alignment);
         if (first_failed_line) {
-            show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line}`);
+            show_single_line_error(`Unable to align: Inconsistent double quotes at line ${first_failed_line + 1}`);
             return;
         }
         await report_progress(progress, 'Preparing final alignment');

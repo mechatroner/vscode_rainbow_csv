@@ -242,8 +242,7 @@ function calculate_column_offsets(column_stats, delim_length, post_delim_readabi
 function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_double_width_alignment) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
-        // FIXME fix or explain why 0 to 1-based line conversion was done below.
-        return [null, first_defective_line + 1, null, null];
+        return [null, first_defective_line, null, null];
     }
     let all_columns_stats = [];
     let is_first_record = true;
@@ -495,8 +494,7 @@ function align_columns(records, comments, column_stats, delim) {
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
-        // FIXME fix or explain why 0 to 1-based line conversion was done below.
-        return [null, first_defective_line + 1];
+        return [null, first_defective_line];
     }
     let result_lines = [];
     let has_edit = false;
