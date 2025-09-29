@@ -2292,7 +2292,7 @@ function provide_tracked_column_decorations(active_editor, range) {
     }
 
     let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
-    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
+    let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range)[0];
     for (let row_info of row_infos) {
         if (row_info.comment_range !== null) {
             continue;
@@ -2393,7 +2393,7 @@ class RainbowTokenProvider {
         }
 
         let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, range, 50);
-        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/true, policy, comment_prefix, parsing_range)[0];
         // Create a new builder to clear the previous tokens.
         const builder = new vscode.SemanticTokensBuilder(tokens_legend);
         for (let row_info of row_infos) {
@@ -2471,12 +2471,12 @@ class InlayHintProvider {
             return [];
         }
         let parsing_range = ll_rainbow_utils().extend_range_by_margin(vscode, document, visible_range, 50);
-        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, parsing_range);
+        let row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, parsing_range)[0];
         let header_lnum = get_header(document, delim, policy, comment_prefix)[0];
         // It is possible for `header_lnum` to be null if the header is virtual.
         if (header_lnum !== null && header_lnum < parsing_range.start.line) { // We don't check if header is after the range because it is a very weird corner case which doesn't matter for the purpose of virtual alignment anyway and requires additional testing.
             let header_range = new vscode.Range(header_lnum, 0, header_lnum, 1);
-            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range);
+            let header_row_infos = ll_rainbow_utils().parse_document_range(vscode, document, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, header_range)[0];
             row_infos = header_row_infos.concat(row_infos);
         }
 
@@ -2534,7 +2534,7 @@ function are_actual_comments(comments) {
 }
 
 
-// TODO use the selection-based sampling as in markdown copy.
+// FIXME use the selection-based sampling as in markdown copy.
 async function do_excel_copy(log_wrapper) {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -2548,22 +2548,38 @@ async function do_excel_copy(log_wrapper) {
     let [delim, policy, comment_prefix] = get_dialect(active_doc);
     if (policy === null)
         return null;
-    log_wrapper.log_doc_event('sampling lines', active_doc);
-    let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false);
-    if (first_defective_line !== null) {
-        // TODO Consider not stopping on warning.
-        show_single_line_error(`Unable to copy - found formatting error at line ${first_defective_line}.`);
-        return;
+    let selection_start_line = 0;
+    let selection_end_line = active_doc.lineCount;
+    let selection = active_editor.selection;
+    if (selection && !selection.isEmpty) {
+        selection_start_line = selection.start.line;
+        selection_end_line = selection.end.line;
     }
-    if (are_actual_comments(comments)) {
-        vscode.window.showWarningMessage('Found CSV comments - They will not be copied.');
+    let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
+    log_wrapper.log_doc_event('sampling lines', active_doc);
+    let [row_infos, first_defective_line] = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    if (first_defective_line !== null) {
+        show_single_line_error(`Unable to copy - found formatting error at line ${first_defective_line + 1}.`);
+        return;
     }
     log_wrapper.log_doc_event('converting to tsv', active_doc);
     let tsv_lines = [];
-    for (let r = 0; r < records.length; r++) {
-        // TODO Consider checking there is no tabs in the source fields.
-        let cur_record = records[r];
-        tsv_lines.push(cur_record.join('\t'));
+    for (let row_info of row_infos) {
+        let fields = [];
+        for (let field_segments of row_info.record_fields) {
+            if (field_segments.length != 1) {
+                show_single_line_error('Unable to copy fragment with multiline fields');
+                return;
+            }
+            let field_for_copy = field_segments[0];
+            if (field_for_copy.includes('\t')) {
+                // FIXME test.
+                show_single_line_error('Unable to copy fragment containing tabs inside some of the fields because it will interfere with the resulting table structure');
+                return;
+            }
+            fields.push(field_for_copy);
+        }
+        tsv_lines.push(fields.join('\t'));
     }
     let tsv_content = tsv_lines.join('\n');
     log_wrapper.log_doc_event('writing to the clipboard', active_doc);
@@ -2606,7 +2622,12 @@ async function markdown_copy() {
     }
     let conversion_range = new vscode.Range(selection_start_line, 0, selection_end_line, /*ignored_column=*/0);
     log_wrapper.log_doc_event('parsing');
-    let row_infos = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    let [row_infos, first_defective_line] = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, conversion_range);
+    if (first_defective_line !== null) {
+        // TODO Consider not stopping on warning.
+        show_single_line_error(`Unable to copy - found formatting error at line ${first_defective_line + 1}.`);
+        return;
+    }
     // Here row_infos also includes the fields themselves so all good so far.
     let records = [];
     let num_columns = null;

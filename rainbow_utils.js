@@ -242,6 +242,7 @@ function calculate_column_offsets(column_stats, delim_length, post_delim_readabi
 function calc_column_stats(active_doc, delim, policy, comment_prefix, enable_double_width_alignment) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
+        // FIXME fix or explain why 0 to 1-based line conversion was done below.
         return [null, first_defective_line + 1, null, null];
     }
     let all_columns_stats = [];
@@ -494,6 +495,7 @@ function align_columns(records, comments, column_stats, delim) {
 function shrink_columns(active_doc, delim, policy, comment_prefix) {
     let [records, _num_records_parsed, _fields_info, first_defective_line, _first_trailing_space_line, comments] = fast_load_utils.parse_document_records(active_doc, delim, policy, comment_prefix, /*stop_on_warning=*/true, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/true);
     if (first_defective_line !== null) {
+        // FIXME fix or explain why 0 to 1-based line conversion was done below.
         return [null, first_defective_line + 1];
     }
     let result_lines = [];
@@ -625,7 +627,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
         let [_num_records_parsed, _comments] = [null, null];
         [this.records, _num_records_parsed, this.fields_info, this.first_defective_line, this._first_trailing_space_line, _comments] = fast_load_utils.parse_document_records(document, delim, policy, comment_prefix, fail_on_warning, /*max_records_to_parse=*/-1, /*collect_records=*/true, /*preserve_quotes_and_whitespaces=*/false, /*detect_trailing_spaces=*/false, /*min_num_fields_for_autodetection=*/-1, trim_whitespaces);
         if (fail_on_warning && this.first_defective_line !== null) {
-            throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line}`);
+            throw new RbqlIOHandlingError(`Inconsistent double quote escaping in ${this.table_name} table at record ${this.records.length}, line ${this.first_defective_line + 1}`);
         }
         this.first_record = this.records.length ? this.records[0] : [];
         this.next_record_index = 0;
@@ -670,7 +672,7 @@ class VSCodeRecordIterator extends rbql.RBQLInputIterator {
     get_warnings() {
         let result = [];
         if (this.first_defective_line !== null)
-            result.push(`Inconsistent double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line}`);
+            result.push(`Inconsistent double quote escaping in ${this.table_name} table. E.g. at line ${this.first_defective_line + 1}`);
         if (this.fields_info.size > 1)
             result.push(make_inconsistent_num_fields_warning(this.table_name, this.fields_info));
         return result;
@@ -944,6 +946,7 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
     let begin_line = Math.max(0, range.start.line);
     let end_line = Math.min(doc.lineCount, range.end.line + 1);
     let table_ranges = [];
+    let first_defective_line = null;
     let line_aggregator = new csv_utils.MultilineRecordAggregator(comment_prefix);
     // The first or the second line in range with an odd number of double quotes is a start line, after finding it we can use the standard parsing algorithm.
     for (let lnum = begin_line; lnum < end_line; lnum++) {
@@ -970,7 +973,12 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
             let combined_line = line_aggregator.get_full_line(newline_marker);
             line_aggregator.reset();
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
-            if (!warning) {
+            if (warning) {
+                if (first_defective_line === null) {
+                    // FIXME add unit tests for this.
+                    first_defective_line = lnum;
+                }
+            } else {
                 let row_info = make_multiline_row_info(vscode, delim.length, include_delim_length_in_ranges, newline_marker, fields, start_line, /*expected_end_line_for_control=*/lnum);
                 if (row_info !== null) {
                     // If row_info is null it means that `expected_end_line_for_control` doesn't match and something went very wrong with the newline_marker join workaround.
@@ -979,7 +987,7 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
             }
         }
     }
-    return table_ranges;
+    return [table_ranges, first_defective_line];
 }
 
 
@@ -987,6 +995,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
     let table_ranges = [];
     let begin_line = Math.max(0, range.start.line);
     let end_line = Math.min(doc.lineCount, range.end.line + 1);
+    let first_defective_line = null;
     for (let lnum = begin_line; lnum < end_line; lnum++) {
         let record_ranges = [];
         let record_fields = [];
@@ -1000,7 +1009,10 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
         }
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
         if (warning) {
-            // Just skip the faulty line. It is OK to do for all existing use cases of this function.
+            // FIXME add unit tests for this.
+            if (first_defective_line === null) {
+                first_defective_line = lnum;
+            }
             continue;
         }
         let cpos = 0;
@@ -1022,7 +1034,7 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
         }
         table_ranges.push(new RowInfo(record_ranges, record_fields, /*comment_range=*/null));
     }
-    return table_ranges;
+    return [table_ranges, first_defective_line];
 }
 
 
@@ -1059,7 +1071,7 @@ function get_field_by_line_position(fields, delim_length, query_pos) {
 function get_cursor_position_info_rfc(vscode, document, delim, comment_prefix, position) {
     let range = new vscode.Range(position.line, 0, position.line, 0);
     range = extend_range_by_margin(vscode, document, range, 20);
-    let table_ranges = parse_document_range_rfc(vscode, document, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range);
+    let table_ranges = parse_document_range_rfc(vscode, document, delim, /*include_delim_length_in_ranges=*/true, comment_prefix, range)[0];
     let last_found_position_info = null; // Use last found instead of first found because cursor position at the border can belong to two ranges simultaneously.
     for (let row_info of table_ranges) {
         if (row_info.comment_range !== null) {
@@ -1216,7 +1228,7 @@ function show_lint_status_bar_button(vscode, extension_context, file_path, langu
 
     } else if (Number.isInteger(lint_report.first_defective_line)) {
 
-        lint_report_msg = `Error. Line ${lint_report.first_defective_line} has formatting error: double quote chars are not consistent`;
+        lint_report_msg = `Error. Line ${lint_report.first_defective_line + 1} has formatting error: double quote chars are not consistent`;
         extension_context.lint_status_bar_button.color = COLOR_ERROR;
         extension_context.lint_status_bar_button.text = '$(error) CSVLint';
 
