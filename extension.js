@@ -2534,7 +2534,6 @@ function are_actual_comments(comments) {
 }
 
 
-// FIXME use the selection-based sampling as in markdown copy.
 async function do_excel_copy(log_wrapper) {
     let active_editor = get_active_editor();
     if (!active_editor)
@@ -2573,7 +2572,6 @@ async function do_excel_copy(log_wrapper) {
             }
             let field_for_copy = field_segments[0];
             if (field_for_copy.includes('\t')) {
-                // FIXME test.
                 show_single_line_error('Unable to copy fragment containing tabs inside some of the fields because it will interfere with the resulting table structure');
                 return;
             }
