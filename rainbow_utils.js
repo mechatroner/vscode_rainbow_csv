@@ -973,7 +973,6 @@ function parse_document_range_rfc(vscode, doc, delim, include_delim_length_in_ra
             let [fields, warning] = csv_utils.smart_split(combined_line, delim, QUOTED_POLICY, /*preserve_quotes_and_whitespaces=*/true);
             if (warning) {
                 if (first_defective_line === null) {
-                    // FIXME add unit tests for this.
                     first_defective_line = lnum;
                 }
             } else {
@@ -1007,7 +1006,6 @@ function parse_document_range_single_line(vscode, doc, delim, include_delim_leng
         }
         let [fields, warning] = csv_utils.smart_split(line_text, delim, policy, /*preserve_quotes_and_whitespaces=*/true);
         if (warning) {
-            // FIXME add unit tests for this.
             if (first_defective_line === null) {
                 first_defective_line = lnum;
             }
