@@ -2,8 +2,9 @@
 
 ## 3.23.0
 * Support RBQL pipe `|` query chaining operator.
+* Remove python2 (`python` command) from RBQL.
 * Improve Excel Export command - use the current selection range if specified.
-* Minor bug fixes and improvements
+* Minor bug fixes and improvements.
 
 ## 3.22.0
 * Reduce number of cosmetic whitespaces in virtual alignment as a workaround for max number of inlay hints limit, see [#205](https://github.com/mechatroner/vscode_rainbow_csv/issues/205).

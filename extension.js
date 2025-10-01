@@ -1139,13 +1139,13 @@ function get_dst_table_dir(input_table_path) {
 }
 
 
-async function run_command_and_parse_output(cmd, args) {
+async function run_python3_and_parse_output(cmd, args) {
     let execution_result = null;
     try {
         execution_result = await command_async_wrapper(cmd, args);
     } catch (error) {
         let error_details = error ? error.name + ': ' + error.message : '';
-        let error_msg = 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_details;
+        let error_msg = 'Something went wrong.\nMake sure you have python3 installed and added to the PATH variable in your OS.\nOr you can use RBQL with JavaScript instead - it should work out of the box\nDetails:\n' + error_details;
         return {error_type: 'Integration', error_msg: error_msg, invocation_error: 1};
     }
     let json_report = execution_result.stdout;
@@ -1161,21 +1161,6 @@ async function run_command_and_parse_output(cmd, args) {
 }
 
 
-async function run_first_working_interpreter_command_and_parse_output(interpreters_list, args, log_wrapper) {
-    // The main use case of this function is to try 'python3' first and then fall back to 'python' if 'python3' is unavailable for some reason.
-    let execution_result = null;
-    for (let interpreter_cmd of interpreters_list) {
-        log_wrapper.log_simple_event(`Attempting interpreter '${interpreter_cmd}' ...`);
-        execution_result = await run_command_and_parse_output(interpreter_cmd, args);
-        if (!execution_result || !execution_result.hasOwnProperty('invocation_error') || !execution_result.invocation_error) {
-            return execution_result;
-        }
-        log_wrapper.log_simple_event(`Interpreter '${interpreter_cmd}' invocation failed.`);
-    }
-    return execution_result;
-}
-
-
 async function send_report_to_webview(webview, error_type, error_msg) {
     let report_msg = {'msg_type': 'rbql_report'};
     if (error_type)
@@ -1187,12 +1172,11 @@ async function send_report_to_webview(webview, error_type, error_msg) {
 }
 
 
-async function run_rbql_query(webview, input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers) {
+async function run_rbql_query(webview, input_path, csv_encoding, backend_language, rbql_query, output_dialect, with_headers, integration_test_options=null) {
     // TODO refactor this function.
     let log_wrapper = new StackContextLogWrapper('run-rbql-query');
     log_wrapper.log_simple_event('start');
     last_rbql_queries.set(file_path_to_query_key(input_path), rbql_query);
-    let interpreters_preference_list = ['python3', 'python'];
     const test_marker = 'test ';
 
     let [input_delim, input_policy, comment_prefix] = [rbql_context.delim, rbql_context.policy, rbql_context.comment_prefix];
@@ -1206,12 +1190,12 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
 
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
     let strip_spaces_from_fields = get_from_config('rbql_strip_spaces', true);
+    let python_cmd = integration_test_options && integration_test_options.hasOwnProperty('python_cmd') ? integration_test_options['python_cmd'] : 'python3'
 
     if (rbql_query.startsWith(test_marker)) {
         log_wrapper.log_simple_event('test mode');
-        // interpreters_preference_list = ['nopython', 'python3', 'python']; // interpreters_preference_list can be adjusted for testing
         let args = [absolute_path_map['rbql mock/rbql_mock.py'], rbql_query];
-        let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
+        let execution_result = await run_python3_and_parse_output(python_cmd, args);
         console.log(JSON.stringify(execution_result));
         if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
             await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
@@ -1278,7 +1262,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
             args.push('--with_headers');
         if (strip_spaces_from_fields)
             args.push('--strip_spaces');
-        let execution_result = await run_first_working_interpreter_command_and_parse_output(interpreters_preference_list, args, log_wrapper);
+        let execution_result = await run_python3_and_parse_output(python_cmd, args);
         if (execution_result.hasOwnProperty('error_type') || execution_result.hasOwnProperty('error_msg')) {
             log_wrapper.log_simple_event('finished with error');
             await send_report_to_webview(webview, execution_result.error_type, execution_result.error_msg);
@@ -1793,7 +1777,7 @@ async function handle_rbql_client_message(webview, message, integration_test_opt
         let output_dialect = message['output_dialect'];
         let with_headers = message['with_headers'];
         await update_query_history(rbql_query);
-        await run_rbql_query(webview, rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, with_headers);
+        await run_rbql_query(webview, rbql_context.input_document_path, encoding, backend_language, rbql_query, output_dialect, with_headers, integration_test_options);
     }
 
     if (message_type == 'edit_udf') {

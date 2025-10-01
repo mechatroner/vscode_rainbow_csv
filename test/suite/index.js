@@ -89,6 +89,7 @@ async function test_comment_prefix_js(test_folder_uri) {
     assert.equal(expected_num_lines, num_lines_after_query);
 }
 
+
 async function test_comment_prefix_python_rbql(test_folder_uri) {
     let [uri, active_doc, editor, lint_report] = [null, null, null, null];
     uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries_with_comments.csv');
@@ -140,7 +141,19 @@ async function test_rbql_node(test_folder_uri) {
     log_message(`Length after js query: ${length_after_query}`);
     assert.equal(268, length_after_query);
 
+    // Test python3 command not being available (via substitution)
+    test_task = {rbql_backend: "python", rbql_query: "select a1, 'foo'", python_cmd: 'badpythoncommand'};
+    await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
+    await sleep(poor_rbql_async_design_workaround_timeout);
+    state_report = await vscode.commands.executeCommand('rainbow-csv.InternalTest', {check_last_rbql_report: true});
+    assert.equal('Integration', state_report.error_type);
+    assert(state_report.error_msg.includes('Make sure you have python3 installed'));
+
     // Test RBQL query error reporting.
+    uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'university_ranking.csv');
+    active_doc = await vscode.workspace.openTextDocument(uri);
+    editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
     test_task = {rbql_backend: "python", rbql_query: "select nonexistent_function(a1)"};
     await vscode.commands.executeCommand('rainbow-csv.RBQL', test_task);
     await sleep(poor_rbql_async_design_workaround_timeout);
