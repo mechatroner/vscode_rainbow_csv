@@ -1190,7 +1190,7 @@ async function run_rbql_query(webview, input_path, csv_encoding, backend_languag
 
     let output_path = is_web_ext ? null : path.join(get_dst_table_dir(input_path), get_dst_table_name(input_path, output_delim));
     let strip_spaces_from_fields = get_from_config('rbql_strip_spaces', true);
-    let python_cmd = integration_test_options && integration_test_options.hasOwnProperty('python_cmd') ? integration_test_options['python_cmd'] : 'python3'
+    let python_cmd = integration_test_options && integration_test_options.hasOwnProperty('python_cmd') ? integration_test_options['python_cmd'] : 'python3';
 
     if (rbql_query.startsWith(test_marker)) {
         log_wrapper.log_simple_event('test mode');
@@ -2503,18 +2503,6 @@ function generate_tracked_field_decoration_types() {
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack2')}));
     result.push(vscode.window.createTextEditorDecorationType({borderStyle: 'solid', borderWidth: '1px', borderColor: new vscode.ThemeColor('rainbowtrack3')}));
     return result;
-}
-
-
-function are_actual_comments(comments) {
-    if (comments.length == 0) {
-        return false;
-    }
-    if (comments.length == 1 && comments[0].comment_text == "") {
-        // There is a "hack" to add last empty line to the comments array and this is a hacky workaround.
-        return false;
-    }
-    return true;
 }
 
 
