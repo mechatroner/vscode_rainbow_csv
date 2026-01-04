@@ -664,33 +664,34 @@ class FileSystemCSVRegistry extends rbql.RBQLTableRegistry {
         this.encoding = encoding;
         this.has_header = has_header;
         this.comment_prefix = comment_prefix;
-        this.stream = null;
-        this.record_iterator = null;
-
         this.options = options;
-        this.bulk_input_path = null;
-        this.table_path = null;
+        this.active_join_files = [];
     }
 
     get_iterator_by_table_id(table_id) {
-        this.table_path = find_table_path(this.input_file_dir, table_id);
-        if (this.table_path === null) {
+        let stream = null;
+        let table_path = find_table_path(this.input_file_dir, table_id);
+        if (table_path === null) {
             throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
         }
+        let bulk_input_path = null;
         if (this.options && this.options['bulk_read']) {
-            this.bulk_input_path = this.table_path;
+            bulk_input_path = table_path;
         } else {
-            this.stream = fs.createReadStream(this.table_path);
+            stream = fs.createReadStream(table_path);
         }
         let trim_whitespaces = this.options && this.options['trim_whitespaces'] ? true : false;
         let comment_regex = this.options && this.options.hasOwnProperty('comment_regex') ? this.options['comment_regex'] : null;
-        this.record_iterator = new CSVRecordIterator(this.stream, this.bulk_input_path, this.encoding, this.delim, this.policy, this.has_header, this.comment_prefix, table_id, 'b', trim_whitespaces, comment_regex);
-        return this.record_iterator;
+        let record_iterator = new CSVRecordIterator(stream, bulk_input_path, this.encoding, this.delim, this.policy, this.has_header, this.comment_prefix, table_id, 'b', trim_whitespaces, comment_regex);
+        this.active_join_files.push({'table_path': table_path, 'input_stream': stream, 'record_iterator': record_iterator});
+        return record_iterator;
     };
 
     get_warnings(output_warnings) {
-        if (this.record_iterator && this.has_header) {
-            output_warnings.push(`The first record in JOIN file ${path.basename(this.table_path)} was also treated as header (and skipped)`);
+        if (this.has_header) {
+            for (let active_join_file of this.active_join_files) {
+                output_warnings.push(`The first record in JOIN file ${path.basename(active_join_file.table_path)} was also treated as header (and skipped)`);
+            }
         }
     }
 }
