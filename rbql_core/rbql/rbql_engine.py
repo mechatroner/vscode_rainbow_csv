@@ -1752,6 +1752,7 @@ class ListTableRegistry(RBQLTableRegistry):
         return None
 
 
+# FIXME modify to support multipe join tables - accept ListTableRegistry. You can use multiple join tables per query via chain operator.
 def query_table(query_text, input_table, output_table, output_warnings, join_table=None, input_column_names=None, join_column_names=None, output_column_names=None, normalize_column_names=True, user_init_code=''):
     if not normalize_column_names and input_column_names is not None and join_column_names is not None:
         ensure_no_ambiguous_variables(query_text, input_column_names, join_column_names)

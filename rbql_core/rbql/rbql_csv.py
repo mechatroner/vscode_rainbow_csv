@@ -3,11 +3,11 @@ import os
 import io
 import re
 from errno import EPIPE
+from collections import namedtuple
 
 from . import rbql_engine
 from . import csv_utils
 
-# FIXME add-hoc tests in cli + unit tests
 
 default_csv_encoding = 'utf-8'
 ansi_reset_color_code = '\u001b[0m'
@@ -153,7 +153,7 @@ class CSVWriter(rbql_engine.RBQLOutputWriter):
         self.broken_pipe = False
         self.close_stream_on_finish = close_stream_on_finish
         self.polymorphic_preprocess = None
-        self.polymorphic_join = self.join_by_delim 
+        self.polymorphic_join = self.join_by_delim
         self.check_separators_after_join = False
         self.colors = None
         if policy == 'simple' or policy == 'whitespace':
@@ -259,9 +259,17 @@ class CSVWriter(rbql_engine.RBQLOutputWriter):
         for i in range(len(fields)):
             if isinstance(fields[i], str):
                 continue
+            elif isinstance(fields[i], (int, float, bool)):
+                fields[i] = str(fields[i])
             elif fields[i] is None:
                 fields[i] = ''
                 self.none_in_output = True
+            # TODO consider using json, something like this:
+            #else:
+            #    try:
+            #        fields[i] = json.dumps(fields[i])
+            #    except TypeError:
+            #        fields[i] = str(fields[i])
             elif isinstance(fields[i], list):
                 self.normalize_fields(fields[i])
                 fields[i] = self.sub_array_delim.join(fields[i])
@@ -348,7 +356,7 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
         if modifier in ['noheader', 'noheaders']:
             self.has_header = False
             self.first_record_should_be_emitted = True
-        
+
 
     def get_variables_map(self, query_text):
         variable_map = dict()
@@ -414,7 +422,7 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
         except UnicodeDecodeError:
             raise rbql_engine.RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead')
 
-    
+
     def get_row_rfc(self):
         first_row = self.get_row_simple()
         if first_row is None:
@@ -501,6 +509,7 @@ class CSVRecordIterator(rbql_engine.RBQLInputIterator):
             result.append(make_inconsistent_num_fields_warning(self.table_name, self.fields_info))
         return result
 
+ActiveJoinFile = namedtuple('ActiveJoinFile', ['table_path', 'input_stream', 'record_iterator'])
 
 class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
     def __init__(self, input_file_dir, delim, policy, encoding, has_header, comment_prefix, strip_whitespaces, comment_regex):
@@ -508,30 +517,32 @@ class FileSystemCSVRegistry(rbql_engine.RBQLTableRegistry):
         self.delim = delim
         self.policy = policy
         self.encoding = encoding
-        self.record_iterator = None
-        self.input_stream = None
         self.has_header = has_header
         self.comment_prefix = comment_prefix
         self.strip_whitespaces = strip_whitespaces
-        self.table_path = None
         self.comment_regex = comment_regex
 
+        self.active_join_files = []
+
+
     def get_iterator_by_table_id(self, table_id, single_char_alias):
-        self.table_path = find_table_path(self.input_file_dir, table_id)
-        if self.table_path is None:
+        table_path = find_table_path(self.input_file_dir, table_id)
+        if table_path is None:
             raise rbql_engine.RbqlIOHandlingError('Unable to find join table "{}"'.format(table_id))
-        self.input_stream = open(self.table_path, 'rb')
-        self.record_iterator = CSVRecordIterator(self.input_stream, self.encoding, self.delim, self.policy, self.has_header, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix=single_char_alias, strip_whitespaces=self.strip_whitespaces, comment_regex=self.comment_regex)
-        return self.record_iterator
+        input_stream = open(table_path, 'rb')
+        record_iterator = CSVRecordIterator(input_stream, self.encoding, self.delim, self.policy, self.has_header, comment_prefix=self.comment_prefix, table_name=table_id, variable_prefix=single_char_alias, strip_whitespaces=self.strip_whitespaces, comment_regex=self.comment_regex)
+        self.active_join_files.append(ActiveJoinFile(table_path, input_stream, record_iterator))
+        return record_iterator
 
     def finish(self):
-        if self.input_stream is not None:
-            self.input_stream.close()
+        for active_join_file in self.active_join_files:
+            active_join_file.input_stream.close()
 
     def get_warnings(self):
         result = []
-        if self.record_iterator is not None and self.has_header:
-            result.append('The first record in JOIN file {} was also treated as header (and skipped)'.format(os.path.basename(self.table_path))) # UT JSON CSV
+        if self.has_header:
+            for active_join_file in self.active_join_files:
+                result.append('The first record in JOIN file {} was also treated as header (and skipped)'.format(os.path.basename(active_join_file.table_path))) # UT JSON CSV
         return result
 
 

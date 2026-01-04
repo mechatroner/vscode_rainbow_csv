@@ -7,6 +7,7 @@ import argparse
 from . import csv_utils
 from . import rbql_csv
 from . import rbql_sqlite
+from . import rbql_json
 from . import rbql_engine
 from . import _version
 
@@ -337,7 +338,7 @@ def start_preview_mode_csv(args):
 
 
 csv_tool_description = '''
-Run RBQL queries against CSV files, sqlite databases
+Run RBQL queries against CSV files, JSON files and sqlite databases
 
 rbql supports two modes: non-interactive (with "--query" option) and interactive (without "--query" option)
 
@@ -348,8 +349,11 @@ Non-interactive mode supports reading input tables from stdin and writing output
   $ rbql --query "select a1, a2 order by a1" --delim , < input.csv
 
 By default rbql works with CSV input files.
-To learn how to use rbql to query an sqlite database, run this command:
 
+For json mode run this command:
+  $ rbql json --help
+
+For sqlite mode run this command:
   $ rbql sqlite --help
 
 '''
@@ -416,6 +420,54 @@ def csv_main():
             sys.exit(1)
 
 
+def run_with_python_json(args):
+    if args.debug_mode:
+        rbql_json.set_debug_mode()    
+    query = args.query
+    input_path = args.input
+    output_path = args.output
+    user_init_code = rbql_csv.read_user_init_code(args.init_source_file) if args.init_source_file is not None else ''
+    warnings = []
+    error_type, error_msg = None, None
+    if query is None:
+        show_error('generic', 'Interactive mode is not supported for JSON input', is_interactive=False)
+        return False
+    try:
+        rbql_json.query_json(query, input_path, output_path, warnings, user_init_code)
+    except Exception as e:
+        if args.debug_mode:
+            raise
+        error_type, error_msg = rbql_engine.exception_to_error_info(e)
+
+    if error_type is None:
+        success = True
+        for warning in warnings:
+            show_warning(warning, is_interactive=False)
+    else:
+        success = False
+        show_error(error_type, error_msg, is_interactive=False)
+
+    return success
+
+
+json_tool_description = '''
+Run RBQL queries against JSON files
+Currently only JSON Lines format is supported (https://jsonlines.org/)
+'''
+
+def json_main():
+    parser = argparse.ArgumentParser(prog='rbql sqlite', formatter_class=argparse.RawDescriptionHelpFormatter, description=json_tool_description)
+    parser.add_argument('--input', metavar='FILE', help='read csv table from FILE instead of stdin. Required in interactive mode')
+    parser.add_argument('--query', help='query string in rbql. Run in interactive mode if empty')
+    parser.add_argument('--output', metavar='FILE', help='write output table to FILE instead of stdout')
+    parser.add_argument('--init-source-file', metavar='FILE', help=argparse.SUPPRESS) # Path to init source file to use instead of ~/.rbql_init_source.py
+    parser.add_argument('--debug-mode', action='store_true', help=argparse.SUPPRESS) # Run in debug mode
+    args = parser.parse_args()
+
+    if not run_with_python_json(args):
+        sys.exit(1)
+
+    
 sqlite_tool_description = '''
 Run RBQL queries against sqlite databases
 Although sqlite database can serve as an input data source, the query engine which will be used is RBQL (not sqlite).
@@ -489,11 +541,14 @@ def main():
         if sys.argv[1] == 'sqlite':
             del sys.argv[1]
             sqlite_main()
+        elif sys.argv[1] == 'json':
+            del sys.argv[1]
+            json_main()
         elif sys.argv[1] == 'csv':
             del sys.argv[1]
             csv_main()
         else:
-            # TODO Consider showing "uknown mode" error if the first argument doesn't start with '--'
+            # TODO Consider showing "unknown mode" error if the first argument doesn't start with '--'
             csv_main()
     else:
         csv_main()
