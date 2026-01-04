@@ -1126,6 +1126,7 @@ function file_path_to_query_key(file_path) {
     return (file_path && file_path.indexOf(scratch_buf_marker) != -1) ? scratch_buf_marker : file_path;
 }
 
+
 function get_dst_table_dir(input_table_path) {
     let rbql_output_dir = get_from_config('rbql_output_dir', 'TMP');
     if (rbql_output_dir == 'TMP') {
@@ -2638,6 +2639,99 @@ async function markdown_copy() {
 }
 
 
+function is_line_in_record_ranges(row_info, line_num) {
+    if (!row_info.record_ranges) {
+        return false;
+    }
+    for (let field_ranges of row_info.record_ranges) {
+        for (let field_range of field_ranges) {
+            if (field_range.start.line <= line_num && field_range.end.line >= line_num) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
+async function go_to_column() {
+    // FIXME add an integration test for this command.
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+
+    const active_doc = editor.document;
+    if (!is_rainbow_dialect_doc(active_doc)) {
+        show_single_line_error('Go to column is only available for CSV files');
+        return;
+    }
+
+    let [delim, policy, comment_prefix] = get_dialect(active_doc);
+    if (policy === null) {
+        show_single_line_error('Unable to determine dialect for this file');
+        return;
+    }
+
+    const column_number_str = await vscode.window.showInputBox({
+        prompt: 'Enter column number (1-based)',
+        validateInput: text => {
+            const num = parseInt(text);
+            return (isNaN(num) || num <= 0) ? 'Please enter a positive number' : null;
+        }
+    });
+
+    if (!column_number_str) {
+        return;
+    } 
+
+    const target_column = parseInt(column_number_str) - 1; // Convert to 0-based index
+    const current_position = editor.selection.active;
+
+    // Parse the document range around the current cursor position to handle multiline fields
+    let range = new vscode.Range(current_position.line, 0, current_position.line, 0);
+    range = ll_rainbow_utils().extend_range_by_margin(vscode, active_doc, range, 50);
+    let [row_infos, _first_defective_line] = ll_rainbow_utils().parse_document_range(vscode, active_doc, delim, /*include_delim_length_in_ranges=*/false, policy, comment_prefix, range);
+
+    // Find the row that contains our current cursor position
+    let target_row_info = null;
+    for (let row_info of row_infos) {
+        if (row_info.comment_range !== null) {
+            if (row_info.comment_range.contains(current_position)) {
+                show_single_line_error('Cannot go to column: cursor is on a comment line');
+                return;
+            }
+        } else if (is_line_in_record_ranges(row_info, current_position.line)) {
+            target_row_info = row_info;
+            break;
+        }
+    }
+
+    if (!target_row_info) {
+        show_single_line_error('Unable to parse the current record');
+        return;
+    }
+
+    const num_columns = target_row_info.record_ranges.length;
+    if (target_column >= num_columns) {
+        show_single_line_error(`Column ${target_column + 1} does not exist. This record has ${num_columns} column(s).`);
+        return;
+    }
+
+    // Get the start position of the target column (first range of the field)
+    const target_field_ranges = target_row_info.record_ranges[target_column];
+    if (!target_field_ranges || target_field_ranges.length === 0) {
+        show_single_line_error('Unable to locate the target column');
+        return;
+    }
+
+    const target_position = target_field_ranges[0].start;
+    const new_selection = new vscode.Selection(target_position, target_position);
+    editor.selection = new_selection;
+    editor.revealRange(new vscode.Range(target_position, target_position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+
+
 async function activate(context) {
     // TODO consider storing `context` itself in a global variable.
     global_state = context.globalState;
@@ -2680,6 +2774,7 @@ async function activate(context) {
     var excel_copy_cmd = vscode.commands.registerCommand('rainbow-csv.ExcelCopy', async function() { await excel_copy(); });
     var markdown_copy_cmd = vscode.commands.registerCommand('rainbow-csv.MarkdownCopy', async function() { await markdown_copy(); });
     var internal_test_cmd = vscode.commands.registerCommand('rainbow-csv.InternalTest', run_internal_test_cmd);
+    var go_to_column_cmd = vscode.commands.registerCommand('rainbow-csv.GoToColumn', go_to_column);
 
     // INFO: vscode.workspace and vscode.window lifetime are likely guaranteed to cover the extension lifetime (period between activate() and deactivate()) but I haven't found a confirmation yet.
     var doc_open_event = vscode.workspace.onDidOpenTextDocument(handle_doc_open);
@@ -2733,6 +2828,7 @@ async function activate(context) {
     context.subscriptions.push(excel_copy_cmd);
     context.subscriptions.push(markdown_copy_cmd);
     context.subscriptions.push(internal_test_cmd);
+    context.subscriptions.push(go_to_column_cmd);
 
     context.subscriptions.push(doc_open_event);
     context.subscriptions.push(doc_close_event);

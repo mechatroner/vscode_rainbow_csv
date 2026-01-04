@@ -227,6 +227,11 @@
             "rainbow_csv.submenu": [
                 {
                     "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
+                    "command": "rainbow-csv.GoToColumn",
+                    "group": "common@7"
+                },
+                {
+                    "when": "editorTextFocus && editorLangId =~ /dynamic csv|^[ct]sv/",
                     "command": "rainbow-csv.SetHeaderLine",
                     "group": "common@7"
                 },
@@ -498,6 +503,11 @@
             {
                 "command": "rainbow-csv.SampleTail",
                 "title": "Preview big CSV: tail"
+            },
+            {
+                "command": "rainbow-csv.GoToColumn",
+                "category": "Rainbow CSV",
+                "title": "Go to column"
             }
         ],
         "semanticTokenScopes": [
