@@ -416,6 +416,55 @@ async function test_align_shrink_lint(test_folder_uri) {
 }
 
 
+async function test_go_to_column(test_folder_uri) {
+    // Test GoToColumn command with a standard CSV file
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'countries.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(1000);
+
+    // Move cursor to line 5 (Bangladesh), column 0
+    await SetCursorToTheTopAtStartWorkaround();
+    for (let i = 0; i < 4; i++) {
+        await vscode.commands.executeCommand("cursorDown");
+    }
+    await sleep(500);
+
+    // Test navigation to column 3 (Population column, 1-based index)
+    let initial_position = editor.selection.active;
+    log_message(`Initial cursor position: line ${initial_position.line}, char ${initial_position.character}`);
+    
+    await vscode.commands.executeCommand('rainbow-csv.GoToColumn', {target_column: 3});
+    await sleep(500);
+    
+    let position_after_goto = editor.selection.active;
+    log_message(`Position after GoToColumn(3): line ${position_after_goto.line}, char ${position_after_goto.character}`);
+    
+    // Verify cursor moved to the start of column 3 (Population)
+    // Column 3 starts after "Country,Region," which is at different positions depending on the row
+    assert.equal(position_after_goto.line, initial_position.line); // Should stay on the same line
+    assert(position_after_goto.character > 0); // Should have moved from start of line
+    
+    // Test navigation to column 1 (first column)
+    await vscode.commands.executeCommand('rainbow-csv.GoToColumn', {target_column: 1});
+    await sleep(500);
+    
+    let position_after_col1 = editor.selection.active;
+    log_message(`Position after GoToColumn(1): line ${position_after_col1.line}, char ${position_after_col1.character}`);
+    assert.equal(position_after_col1.character, 0); // First column starts at position 0
+    
+    // Test navigation to column 5 (last column - GDP per capita)
+    await vscode.commands.executeCommand('rainbow-csv.GoToColumn', {target_column: 5});
+    await sleep(500);
+    
+    let position_after_col5 = editor.selection.active;
+    log_message(`Position after GoToColumn(5): line ${position_after_col5.line}, char ${position_after_col5.character}`);
+    assert(position_after_col5.character > position_after_goto.character); // Column 5 should be after column 3
+    
+    log_message('test_go_to_column passed');
+}
+
+
 async function test_column_edit(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -1052,6 +1101,8 @@ async function run() {
 
         await test_autodetection(test_folder_uri);
         await test_manual_enable_disable(test_folder_uri);
+
+        await test_go_to_column(test_folder_uri);
 
         await test_markdown_copy(test_folder_uri);
         await test_excel_copy(test_folder_uri);

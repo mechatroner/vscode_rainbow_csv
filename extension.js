@@ -2654,8 +2654,7 @@ function is_line_in_record_ranges(row_info, line_num) {
 }
 
 
-async function go_to_column() {
-    // FIXME add an integration test for this command.
+async function go_to_column(integration_test_options=null) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return;
@@ -2673,13 +2672,18 @@ async function go_to_column() {
         return;
     }
 
-    const column_number_str = await vscode.window.showInputBox({
-        prompt: 'Enter column number (1-based)',
-        validateInput: text => {
-            const num = parseInt(text);
-            return (isNaN(num) || num <= 0) ? 'Please enter a positive number' : null;
-        }
-    });
+    let column_number_str = null;
+    if (integration_test_options && integration_test_options.target_column !== undefined) {
+        column_number_str = String(integration_test_options.target_column);
+    } else {
+        column_number_str = await vscode.window.showInputBox({
+            prompt: 'Enter column number (1-based)',
+            validateInput: text => {
+                const num = parseInt(text);
+                return (isNaN(num) || num <= 0) ? 'Please enter a positive number' : null;
+            }
+        });
+    }
 
     if (!column_number_str) {
         return;
