@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.24.0
+* Add "Go To Column" command suggested in [#216](https://github.com/mechatroner/vscode_rainbow_csv/issues/216).
+
 ## 3.23.0
 * Support RBQL pipe `|` query chaining operator.
 * Remove python2 (`python` command) from RBQL.
