@@ -8,19 +8,6 @@ RBQL is distributed with CLI apps, text editor plugins, IPython/Jupyter magic co
 
 [Official Site](https://rbql.org/)
 
-#### Supported formats
-
-Matrix of data formats that RBQL supports out of the box. R=Read, W=Write  
-
-|Data Format            | Python   | JS      |
-|-----------------------|----------|---------|
-|CSV, TSV, etc          | **RW**   | **RW**  |
-|Native 2D arrays/lists | **RW**   | **RW**  |
-|Pandas dataframe       | **RW**   |         |
-|Sqlite databases       | **R**    |         |
-
-If you use RBQL as a library it is possible to support additional formats with some customizations.  
-
 ### Main Features
 
 * Use Python or JavaScript expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
@@ -30,13 +17,28 @@ If you use RBQL as a library it is possible to support additional formats with s
 * Supports all main SQL keywords
 * Supports aggregate functions and GROUP BY queries
 * Supports user-defined functions (UDF)
-* Provides some new useful query modes which traditional SQL engines do not have
+* Supports query chaining pipe `|` operator
+* Provides other useful query features which traditional SQL engines do not have
 * Lightweight, dependency-free, works out of the box
 
 #### Limitations:
 
 * RBQL doesn't support nested queries, but they can be emulated with consecutive queries
-* Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables
+* To join more than 2 tables chaining pipe `|` operator has to be used.
+
+#### Supported formats
+
+Matrix of data formats that RBQL supports out of the box.
+
+|Data Format      | Python      | JS         |
+|-----------------|-------------|------------|
+|CSV, TSV, etc    | Read/Write  | Read/Write |
+|Native 2D arrays | Read/Write  | Read/Write |
+|JSON lines       | Read/Write  |            |
+|Pandas dataframe | Read/Write  |            |
+|Sqlite databases | Read Only   |            |
+
+Note: If you use RBQL as a library it is possible to support additional formats with some customizations.  
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 
@@ -78,11 +80,9 @@ RBQL for CSV files provides the following variables which you can use in your qu
 
 
 ### UPDATE statement
-
 _UPDATE_ query produces a new table where original values are replaced according to the UPDATE expression, so it can also be considered a special type of SELECT query.
 
 ### Aggregate functions and queries
-
 RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:  
 _COUNT_, _ARRAY_AGG_, _MIN_, _MAX_, _ANY_VALUE_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_  
 
@@ -91,29 +91,34 @@ E.g. `MAX(float(a1) / 1000)` - valid; `MAX(a1) / 1000` - invalid.
 There is a workaround for the limitation above for _ARRAY_AGG_ function which supports an optional parameter - a callback function that can do something with the aggregated array. Example:  
 `SELECT a2, ARRAY_AGG(a1, lambda v: sorted(v)[:5]) GROUP BY a2` - Python; `SELECT a2, ARRAY_AGG(a1, v => v.sort().slice(0, 5)) GROUP BY a2` - JS
 
+### Pipe syntax for query chaining
+You can chain consecutive queries via pipe `|` syntax. Example:
+```
+SELECT a2 AS region, count(*) AS cnt GROUP BY a2 | SELECT * ORDER BY a.cnt DESC
+```
 
 ### JOIN statements
-
 Join table B can be referenced either by its file path or by its name - an arbitrary string which the user should provide before executing the JOIN query.  
 RBQL supports _STRICT LEFT JOIN_ which is like _LEFT JOIN_, but generates an error if any key in the left table "A" doesn't have exactly one matching key in the right table "B".  
 Table B path can be either relative to the working dir, relative to the main table or absolute.  
 Limitation: _JOIN_ statements can't contain Python/JS expressions and must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON a... == b... [AND a... == b... [AND ... ]]_
 
-### SELECT EXCEPT statement
+To join more than 2 table in one query use chaining pipe `|` operator. Example:
+```
+`SELECT a.country, a.population, b.capital JOIN capitals.csv ON a.country == b.country | SELECT a.*, b.museum JOIN museums.csv on a.capital == b.city`
+```
 
+### SELECT EXCEPT statement
 SELECT EXCEPT can be used to select everything except specific columns. E.g. to select everything but columns 2 and 4, run: `SELECT * EXCEPT a2, a4`  
 Traditional SQL engines do not support this query mode.
-
 
 ### UNNEST() operator
 UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.  
 Example: `SELECT a1, UNNEST(a2.split(';'))`  
 
-
 ### LIKE() function
 RBQL does not support LIKE operator, instead it provides "like()" function which can be used like this:
 `SELECT * where like(a1, 'foo%bar')`
-
 
 ### WITH (header) and WITH (noheader) statements
 You can set whether the input (and join) CSV file has a header or not using the environment configuration parameters which could be `--with_headers` CLI flag or GUI checkbox or something else.
@@ -121,15 +126,7 @@ But it is also possible to override this selection directly in the query by addi
 Example: `select top 5 NR, * with (header)`
 
 
-### Pipe syntax for query chaining
-You can chain consecutive queries via pipe `|` syntax. Example:
-```
-SELECT a2 AS region, count(*) AS cnt GROUP BY a2 | SELECT * ORDER BY a.cnt DESC
-```
-
-
 ### User Defined Functions (UDF)
-
 RBQL supports User Defined Functions  
 You can define custom functions and/or import libraries in two special files:  
 * `~/.rbql_init_source.py` - for Python
@@ -197,7 +194,7 @@ The diagram below gives an overview of the main RBQL components and data flow:
 ### Disadvantages of RBQL compared to traditional SQL engines
 * Not suitable for transactional workload
 * RBQL doesn't support nested queries, but they can be emulated with consecutive queries
-* Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables
+* Number of tables in a JOIN subquery is always 2 (input table and join table), use query chaining operator to join 3 or more tables
 * Does not support HAVING statement
 
 
