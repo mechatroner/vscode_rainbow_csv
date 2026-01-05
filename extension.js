@@ -560,6 +560,12 @@ async function configure_inlay_hints_alignment(language_id, log_wrapper) {
         // Note that there is User and Workspace-level configs options in the File->Preferences->Settings UI - this is important when you are trying to debug the limits.
         // Adjusting these settings on the workspace level doesn't quite work because VSCode doesn't always have an active workspace, e.g. you can click [Close Workspace] from the main [File] menu to reproduce the problem. So we adjust the settings on global level instead which should always work.
         let update_global_settings = true;
+        if (config.get('inlayHints.enabled') != 'on') {
+            // Some users have inlay hints disabled alltogether, see https://github.com/mechatroner/vscode_rainbow_csv/issues/242.
+            // So we re-enable inlay hints for the current language only since it was explicitly requested via the UI interaction.
+            await config.update('inlayHints.enabled', 'on', /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
+            log_wrapper.log_doc_event(`Updated inlayHints.enabled = 'on' for "${language_id}"`);
+        }
         if (config.get('inlayHints.maximumLength') != 0) {
             // Worklog: The first time I tried this the solution was half-working - we wouldn't see the inlay-hiding "three dots", but the alignment was still broken in a weird way. But the problem disappeared on "restart".
             await config.update('inlayHints.maximumLength', 0, /*configurationTarget=*/update_global_settings, /*overrideInLanguage=*/true);
