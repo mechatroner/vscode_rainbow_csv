@@ -2,6 +2,9 @@
 
 ## 3.24.0
 * Add "Go To Column" command suggested in [#216](https://github.com/mechatroner/vscode_rainbow_csv/issues/216).
+* Improve config autoadjustment for virtual align [#242](https://github.com/mechatroner/vscode_rainbow_csv/issues/242).
+* Fix autodetection for small .csv files.
+* Update RBQL 
 
 ## 3.23.0
 * Support RBQL pipe `|` query chaining operator.
