@@ -1,5 +1,8 @@
 # Rainbow CSV for Visual Studio Code Change Log
 
+## 3.24.1
+* Fix config autoadjustment for virtual align [#242](https://github.com/mechatroner/vscode_rainbow_csv/issues/242).
+
 ## 3.24.0
 * Add "Go To Column" command suggested in [#216](https://github.com/mechatroner/vscode_rainbow_csv/issues/216).
 * Improve config autoadjustment for virtual align [#242](https://github.com/mechatroner/vscode_rainbow_csv/issues/242).
