@@ -8,3 +8,4 @@ jsconfig.json
 .eslintrc.json
 .eslintrc_browser.json
 package-lock.json
+.github/**
