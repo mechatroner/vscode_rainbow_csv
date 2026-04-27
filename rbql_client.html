@@ -17,6 +17,11 @@ html * {
 body {
     background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 th { 
@@ -68,6 +73,43 @@ table th:first-child, table td:first-child {
 
 #rbql_console {
     margin-top: 20px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 10px;
+}
+
+#table_group {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#query_settings_details {
+    margin-top: 10px;
+    flex: 0 0 auto;
+}
+#query_settings_details > summary {
+    cursor: pointer;
+    font-size: 18px !important;
+    font-weight: bold;
+    margin-bottom: 6px;
+    user-select: none;
+    list-style: none;
+}
+#query_settings_details > summary::-webkit-details-marker {
+    display: none;
+}
+#query_settings_details > summary::before {
+    content: "\25B6";
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.15s ease;
+}
+#query_settings_details[open] > summary::before {
+    transform: rotate(90deg);
 }
 
 .checkbox_input {
@@ -319,9 +361,11 @@ table th:first-child, table td:first-child {
 
 #table_window {
     max-width: 95%;
-    max-height: 350px;
-    overflow: scroll;
-    width:fit-content;
+    flex: 1 1 auto;
+    min-height: 150px;
+    max-height: none;
+    overflow: auto;
+    width: fit-content;
     /*border: 2px solid black;*/
 }
 
@@ -411,43 +455,45 @@ table th:first-child, table td:first-child {
         --><button id="rbql_run_btn" title="Run query and open result set in a new tab">Run</button><!--
         --><button id="help_btn" title="Help">?</button>
     </div>
-    <h3 style="margin-bottom: 6px; margin-top: 10px;">&#9881; Query settings</h3>
-    <div style="margin-left: 30px;">
-        <div id="with_headers_section">
-            <label style="word-wrap:break-word" title="Indicate that the input (and join) table has header in the first line"><input class="checkbox_input" id="with_headers" type="checkbox"/>Input table has header</label>
-        </div>
-        <div>
-            <div>
-              <span class="select_info">Output format</span>
+    <details id="query_settings_details">
+        <summary title="Click to expand/collapse query settings">&#9881; Query settings</summary>
+        <div style="margin-left: 30px;">
+            <div id="with_headers_section">
+                <label style="word-wrap:break-word" title="Indicate that the input (and join) table has header in the first line"><input class="checkbox_input" id="with_headers" type="checkbox"/>Input table has header</label>
             </div>
-            <select class="select_input" id="select_output_format" title="Output table format">
-              <option class="select_input" value="input">Same as input (Default)</option>
-              <option class="select_input" value="csv">CSV</option>
-              <option class="select_input" value="tsv">TSV</option>
-            </select>
-        </div>
-        <div>
             <div>
-              <span class="select_info">Encoding</span>
+                <div>
+                  <span class="select_info">Output format</span>
+                </div>
+                <select class="select_input" id="select_output_format" title="Output table format">
+                  <option class="select_input" value="input">Same as input (Default)</option>
+                  <option class="select_input" value="csv">CSV</option>
+                  <option class="select_input" value="tsv">TSV</option>
+                </select>
             </div>
-            <select class="select_input" id="select_encoding" title="Input and output encoding">
-              <option class="select_input" value="utf-8">UTF-8</option>
-              <option class="select_input" value="latin-1">Binary/Latin-1</option>
-            </select>
-        </div>
-        <div>
             <div>
-              <span class="select_info">Backend language for RBQL</span>
+                <div>
+                  <span class="select_info">Encoding</span>
+                </div>
+                <select class="select_input" id="select_encoding" title="Input and output encoding">
+                  <option class="select_input" value="utf-8">UTF-8</option>
+                  <option class="select_input" value="latin-1">Binary/Latin-1</option>
+                </select>
             </div>
-            <select class="select_input" id="select_backend_language">
-              <option class="select_input" value="js">JavaScript</option>
-              <option class="select_input" value="pyhon">Python (Requires python installed)</option>
-            </select>
+            <div>
+                <div>
+                  <span class="select_info">Backend language for RBQL</span>
+                </div>
+                <select class="select_input" id="select_backend_language">
+                  <option class="select_input" value="js">JavaScript</option>
+                  <option class="select_input" value="pyhon">Python (Requires python installed)</option>
+                </select>
+            </div>
+            <div>
+                <button id="udf_button" title="Edit UDF (User Defined Functions) - will open a new tab with UDF file">Edit UDF...</button>
+            </div>
         </div>
-        <div>
-            <button id="udf_button" title="Edit UDF (User Defined Functions) - will open a new tab with UDF file">Edit UDF...</button>
-        </div>
-    </div>
+    </details>
 </div>
 
 
