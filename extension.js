@@ -2545,16 +2545,7 @@ async function do_excel_copy(log_wrapper) {
     for (let row_info of row_infos) {
         let fields = [];
         for (let field_segments of row_info.record_fields) {
-            if (field_segments.length != 1) {
-                show_single_line_error('Unable to copy fragment with multiline fields');
-                return;
-            }
-            let field_for_copy = field_segments[0];
-            if (field_for_copy.includes('\t')) {
-                show_single_line_error('Unable to copy fragment containing tabs inside some of the fields because it will interfere with the resulting table structure');
-                return;
-            }
-            fields.push(field_for_copy);
+            fields.push(csv_utils.rfc_quote_field(csv_utils.unquote_field(field_segments.join('\n')), '\t'));
         }
         tsv_lines.push(fields.join('\t'));
     }

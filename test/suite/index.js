@@ -553,6 +553,38 @@ async function test_excel_copy(test_folder_uri) {
 }
 
 
+async function test_excel_copy_multiline(test_folder_uri) {
+    let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'excel_copy_multiline.csv');
+    let active_doc = await vscode.workspace.openTextDocument(uri);
+    let editor = await vscode.window.showTextDocument(active_doc);
+    await sleep(2000);
+    if (active_doc.languageId != 'dynamic csv') {
+        let dialect_test_task = {'integration_test': true};
+        await vscode.commands.executeCommand('rainbow-csv.RainbowSeparator', dialect_test_task);
+        await sleep(4000);
+    }
+    assert.equal(active_doc.languageId, 'dynamic csv');
+    log_message('Testing Excel Copy with multiline fields');
+    await vscode.commands.executeCommand('rainbow-csv.ExcelCopy');
+    await sleep(500);
+    let export_text = await vscode.env.clipboard.readText();
+    assert.equal(export_text, [
+        'name\tnote\tstatus',
+        'alpha\t"line 1\nline 2"\tok',
+        'bravo\t"contains\ttab"\tok',
+        'charlie\t"say ""hello"""\tok',
+        'delta\tplain\tok',
+        'echo\tplain\tok',
+        'foxtrot\tplain\tok',
+        'golf\tplain\tok',
+        'hotel\tplain\tok',
+        'india\tplain\tok',
+        'juliet\tplain\tok',
+    ].join('\n'));
+    log_message('Finished Excel Copy Multiline Test');
+}
+
+
 async function test_dynamic_csv(test_folder_uri) {
     let uri = vscode.Uri.joinPath(test_folder_uri, 'csv_files', 'movies_multichar_separator.txt');
     let active_doc = await vscode.workspace.openTextDocument(uri);
@@ -1107,6 +1139,7 @@ async function run() {
 
         await test_markdown_copy(test_folder_uri);
         await test_excel_copy(test_folder_uri);
+        await test_excel_copy_multiline(test_folder_uri);
 
         await test_huge_file(test_folder_uri);
 
