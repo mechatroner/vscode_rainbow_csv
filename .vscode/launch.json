@@ -1,19 +1,18 @@
 // A launch configuration that launches the extension inside a new window
 // See https://stackoverflow.com/questions/73240956/open-workspace-when-testing-vs-code-extension for the first "workspace" arg explanation in the "Extension Tests" config.
 {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "configurations": [
         {
             "name": "Extension",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": ["--extensionDevelopmentPath=${workspaceRoot}" ],
-            "stopOnEntry": false
+            "args": ["--extensionDevelopmentPath=${workspaceRoot}" ]
         },
         {
           "name": "Run Web Extension in VS Code",
-          "type": "pwa-extensionHost",
+          "type": "extensionHost",
           "debugWebWorkerHost": true,
           "request": "launch",
           "args": [
@@ -28,8 +27,7 @@
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": [ "${workspaceRoot}/test/test.code-workspace", "--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test/suite/index", "--new-window" ],
-            "stopOnEntry": false
+            "args": [ "${workspaceRoot}/test/test.code-workspace", "--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test/suite/index", "--new-window" ]
         }
     ]
 }
